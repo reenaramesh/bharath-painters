@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Bharath Painters",
+  "short_name": "Bharath Painters",
+  "description": "Manage painting customers, area calculations, quotations, jobs and projects.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#f4f6fa",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }],
+  "shortcuts": [
+    { "name": "Dashboard", "short_name": "Dashboard", "url": "/dashboard", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "New quotation", "short_name": "Quotation", "url": "/quotations/new", "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}

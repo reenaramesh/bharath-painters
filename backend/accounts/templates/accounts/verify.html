@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Bharath Painters - Verification</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        .container {
+            max-width: 430px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 25px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .verified {
+            color: #16803c;
+            font-size: 22px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .profile {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 10px auto;
+            border: 3px solid #16803c;
+        }
+
+        .name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .profession {
+            color: #666;
+            margin: 8px 0 20px;
+        }
+
+        .details {
+            text-align: left;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .label {
+            color: #777;
+        }
+
+        .value {
+            font-weight: bold;
+        }
+
+        .button {
+            display: block;
+            width: 100%;
+            padding: 13px;
+            margin-top: 15px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            background: #f1f1f1;
+            color: #222;
+        }
+
+        .warning {
+            color: #b42318;
+            font-weight: bold;
+            font-size: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <div class="logo">
+            BHARATH PAINTERS
+        </div>
+
+        {% if verified %}
+
+            <div class="verified">
+                ✓ VERIFIED PROFESSIONAL
+            </div>
+
+            {% if profile_photo %}
+                <img
+                    src="{{ profile_photo }}"
+                    class="profile"
+                    alt="Profile"
+                >
+            {% endif %}
+
+            <div class="name">
+                {{ name }}
+            </div>
+
+            <div class="profession">
+                {{ profession }}
+            </div>
+
+            <div class="details">
+
+                <div class="row">
+                    <span class="label">
+                        Bharath ID
+                    </span>
+
+                    <span class="value">
+                        {{ bharath_id }}
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Status
+                    </span>
+
+                    <span class="value">
+                        Verified
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Verified At
+                    </span>
+
+                    <span class="value">
+                        {{ verified_at }}
+                    </span>
+                </div>
+
+                <div class="row">
+                    <span class="label">
+                        Badge
+                    </span>
+
+                    <span class="value">
+                        Active
+                    </span>
+                </div>
+
+                {% for label, value in professional_details %}
+                <div class="row">
+                    <span class="label">{{ label }}</span>
+                    <span class="value">{{ value }}</span>
+                </div>
+                {% endfor %}
+
+            </div>
+
+            <a href="#" class="button">
+                ⭐ View Reviews
+            </a>
+
+            <a href="#" class="button">
+                🚨 Report / Raise Ticket
+            </a>
+
+        {% else %}
+
+            <div class="warning">
+                ✕ NOT VERIFIED
+            </div>
+
+            <p>
+                This Bharath ID could not be verified.
+            </p>
+
+            <p>
+                Bharath ID: {{ bharath_id }}
+            </p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+</body>
+</html>

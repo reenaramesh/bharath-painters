@@ -1,0 +1,63 @@
+import { useCallback, useEffect, useState } from "react";
+import { CircleHelp, Plus, Search, X } from "lucide-react";
+import api from "../api/client";
+import useAuth from "../context/useAuth";
+
+const statuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
+const categories = ["SERVICE", "QUOTATION", "BILLING", "QUALITY", "SCHEDULE", "OTHER"];
+const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const empty = { customer: "", category: "SERVICE", priority: "MEDIUM", subject: "", description: "" };
+const input = "mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-slate-900";
+
+export default function SupportTickets() {
+  const { user } = useAuth();
+  const isCustomer = user?.role === "CUSTOMER";
+  const isAdmin = user?.role === "ADMIN";
+  const [tickets, setTickets] = useState([]); const [contractors, setContractors] = useState([]);
+  const [search, setSearch] = useState(""); const [status, setStatus] = useState("");
+  const [form, setForm] = useState(empty); const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null); const [response, setResponse] = useState("");
+  const [activity, setActivity] = useState([]);
+  const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const calls = [api.get("/quotations/support-tickets/", { params: { search: search || undefined, status: status || undefined } })];
+      if (isCustomer) calls.push(api.get("/quotations/service-requests/options/"));
+      const [ticketsResponse, optionsResponse] = await Promise.all(calls);
+      setTickets(ticketsResponse.data); if (optionsResponse) setContractors(optionsResponse.data); setError(""); window.dispatchEvent(new Event("portal-counts-changed"));
+    } catch { setError("Support tickets could not be loaded."); }
+  }, [isCustomer, search, status]);
+  useEffect(() => { const timer = setTimeout(load, 250); return () => clearTimeout(timer); }, [load]);
+
+  async function create(event) {
+    event.preventDefault(); setSaving(true);
+    try { const { data } = await api.post("/quotations/support-tickets/", form); setTickets((items) => [data, ...items]); setForm(empty); setShowForm(false); setError(""); }
+    catch (requestError) { setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Ticket could not be raised."); }
+    finally { setSaving(false); }
+  }
+  async function update(event) {
+    event.preventDefault(); setSaving(true);
+    try { const { data } = await api.patch(`/quotations/support-tickets/${editing.id}/`, { status: editing.status }); setTickets((items) => items.map((item) => item.id === data.id ? data : item)); await openTicket(data); setError(""); }
+    catch { setError("Ticket response could not be saved."); } finally { setSaving(false); }
+  }
+  async function openTicket(ticket) { try { const { data } = await api.get(`/quotations/support-tickets/${ticket.id}/`); setEditing(data); setActivity(data.activities || []); setResponse(""); } catch { setError("Ticket activity could not be loaded."); } }
+  async function sendReply(event) { event.preventDefault(); if (!response.trim()) return; setSaving(true); try { await api.post(`/quotations/support-tickets/${editing.id}/`, { message: response }); await openTicket(editing); await load(); } catch { setError("Ticket reply could not be sent."); } finally { setSaving(false); } }
+
+  return <div className="space-y-6">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-amber-600">Help and support</p><h1 className="mt-1 text-3xl font-bold">Support Desk</h1><p className="mt-2 text-slate-500">{isAdmin ? "View and manage tickets from customers, contractors, and paint applicators." : "Raise an account, billing, service, work, or platform issue and track the admin response."}</p></div>{!isAdmin && <button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Raise ticket</button>}</header>
+    {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    <section className="overflow-hidden rounded-2xl border bg-white">
+      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row"><label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ticket, customer, mobile or email" className="w-full bg-transparent text-sm outline-none" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm"><option value="">All statuses</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select></div>
+      {tickets.length ? <TicketList tickets={tickets} isAdmin respond={openTicket} /> : <div className="p-14 text-center text-slate-400"><CircleHelp className="mx-auto h-10 w-10" /><p className="mt-3 text-sm">No support tickets found.</p></div>}
+    </section>
+    {showForm && <Modal close={() => setShowForm(false)} title="Raise support ticket"><form onSubmit={create} className="space-y-4">{isCustomer && <Select label="Related contractor" required value={form.customer} onChange={(event) => setForm({ ...form, customer: event.target.value })}><option value="">Select contractor</option>{contractors.map((item) => <option key={item.customer} value={item.customer}>{item.contractor_name}</option>)}</Select>}<div className="grid gap-4 sm:grid-cols-2"><Select label="Category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{categories.map((item) => <option key={item}>{item}</option>)}</Select><Select label="Priority" value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>{priorities.map((item) => <option key={item}>{item}</option>)}</Select></div><Field label="Subject"><input required value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} className={input} /></Field><Field label="Describe the issue"><textarea required rows="5" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className={input} /></Field><button disabled={saving} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white">Submit to admin support</button></form></Modal>}
+    {editing && <Modal wide close={() => setEditing(null)} title={editing.ticket_number}><div className="space-y-4"><div className="rounded-xl bg-slate-50 p-4"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{editing.subject}</h3><Badge>{editing.status?.replaceAll("_", " ")}</Badge></div><p className="mt-2 text-sm text-slate-600">{editing.description}</p><p className="mt-2 text-xs text-slate-400">{editing.requester_name} · {editing.requester_role}</p></div>{isAdmin && <form onSubmit={update} className="flex items-end gap-2"><Select label="Ticket status" value={editing.status} onChange={(event) => setEditing({ ...editing, status: event.target.value })}>{statuses.map((item) => <option key={item}>{item}</option>)}</Select><button disabled={saving} className="mb-0.5 rounded-lg border px-3 py-2.5 text-xs font-semibold">Update</button></form>}<section><h3 className="text-sm font-bold">Ticket activity</h3><div className="mt-3 max-h-72 space-y-3 overflow-y-auto rounded-xl bg-slate-50 p-3">{activity.map((item, index) => <div key={item.id || index} className={`flex ${item.is_mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${item.type === "CREATED" ? "border bg-white" : item.is_mine ? "bg-slate-950 text-white" : "border bg-white"}`}><p>{item.message}</p><p className={`mt-1 text-[10px] ${item.is_mine ? "text-slate-400" : "text-slate-400"}`}>{item.actor} · {new Date(item.created_at).toLocaleString()}</p></div></div>)}</div></section><form onSubmit={sendReply} className="flex gap-2"><textarea rows="2" value={response} onChange={(event) => setResponse(event.target.value)} placeholder="Write a reply..." className={`${input} mt-0 flex-1`} /><button disabled={saving || !response.trim()} className="self-end rounded-lg bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white">Send</button></form></div></Modal>}
+  </div>;
+}
+
+function TicketList({ tickets, isAdmin, respond }) { return <><div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2.5">Ticket</th><th className="px-3 py-2.5">Requester</th><th className="px-3 py-2.5">Issue</th><th className="px-3 py-2.5">Contact</th><th className="px-3 py-2.5">Status</th>{isAdmin && <th className="px-3 py-2.5 text-right">Action</th>}</tr></thead><tbody className="divide-y">{tickets.map((ticket) => <tr key={ticket.id} className="align-top hover:bg-slate-50/70"><td className="whitespace-nowrap px-3 py-3"><strong>{ticket.ticket_number}</strong><p className="mt-1 text-slate-400">{ticket.category}</p></td><td className="px-3 py-3"><strong>{ticket.requester_name}</strong><p className="mt-1 text-slate-400">{ticket.requester_role?.replaceAll("_", " ")}</p></td><td className="max-w-xs px-3 py-3"><strong className="block truncate text-sm">{ticket.subject}</strong><p className="mt-1 line-clamp-2 text-slate-500">{ticket.description}</p>{ticket.contractor_response && <p className="mt-1 truncate text-emerald-700">Reply: {ticket.contractor_response}</p>}</td><td className="px-3 py-3"><p>{ticket.customer_mobile || "—"}</p><p className="mt-1 max-w-[180px] truncate text-slate-500">{ticket.customer_email || "—"}</p></td><td className="px-3 py-3"><Badge>{ticket.status.replaceAll("_", " ")}</Badge><p className="mt-2 text-[10px] font-semibold text-slate-400">{ticket.priority}</p></td>{isAdmin && <td className="px-3 py-3 text-right"><button onClick={() => respond(ticket)} className="rounded-lg border px-2.5 py-1.5 text-xs font-semibold hover:bg-white">Respond</button></td>}</tr>)}</tbody></table></div><div className="divide-y md:hidden">{tickets.map((ticket) => <article key={ticket.id} className="p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[10px] font-semibold text-slate-400">{ticket.ticket_number} · {ticket.category}</p><h2 className="mt-1 truncate text-sm font-bold">{ticket.subject}</h2></div><Badge>{ticket.status.replaceAll("_", " ")}</Badge></div><p className="mt-2 text-xs font-semibold">{ticket.requester_name} <span className="font-normal text-slate-400">({ticket.requester_role?.replaceAll("_", " ")})</span></p><p className="mt-1 line-clamp-2 text-xs text-slate-600">{ticket.description}</p><div className="mt-2 flex items-center justify-between gap-2"><span className="truncate text-[11px] text-slate-500">{ticket.customer_mobile || ticket.customer_email || ticket.priority}</span>{isAdmin && <button onClick={() => respond(ticket)} className="shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold">Respond</button>}</div></article>)}</div></>; }
+function Badge({ children }) { return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{children}</span>; }
+function Field({ label, children }) { return <label className="block text-sm font-semibold text-slate-700">{label}{children}</label>; }
+function Select({ label, children, ...props }) { return <Field label={label}><select {...props} className={input}>{children}</select></Field>; }
+function Modal({ title, close, children, wide = false }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-3 sm:p-4"><div className={`max-h-[92vh] w-full overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6 ${wide ? "max-w-2xl" : "max-w-lg"}`}><div className="mb-5 flex justify-between"><h2 className="text-xl font-bold">{title}</h2><button type="button" onClick={close} className="rounded-lg p-2"><X className="h-5 w-5" /></button></div>{children}</div></div>; }

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bharath Painters">
+  <defs><linearGradient id="brand" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
+  <rect width="512" height="512" rx="116" fill="url(#brand)"/>
+  <path d="M128 139h210c26 0 47 21 47 47v34h-38v-28c0-8-7-15-15-15H128v-38Z" fill="#fff"/>
+  <rect x="105" y="123" width="244" height="74" rx="26" fill="#fff"/>
+  <path d="M347 205h38v49c0 23-18 41-41 41h-69v-38h63c5 0 9-4 9-9v-43Z" fill="#fff"/>
+  <rect x="250" y="273" width="48" height="125" rx="22" fill="#fff"/>
+  <circle cx="274" cy="419" r="24" fill="#fbbf24"/>
+</svg>

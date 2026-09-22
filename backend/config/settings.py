@@ -85,7 +85,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://bharath-painters-chi.vercel.app",
 ]
 
-s
 
 
 REST_FRAMEWORK = {

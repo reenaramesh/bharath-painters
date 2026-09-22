@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,13 +25,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-sl*&%__q9@l(&kk(x23h_4y70s^yyy(ytfy+wbsmfkry$y-#tf",
-)
+# DEBUG defaults to True below, so an unset key is tolerated only when the
+# developer has not explicitly opted out of debug mode.  Any production-style
+# run (DJANGO_DEBUG=false) without a key fails fast instead of silently using
+# a hardcoded insecure value.
+def _env_bool(name, default):
+    """Parse a boolean environment variable ('true'/'false')."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() == "true"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
+
+DEBUG = _env_bool("DJANGO_DEBUG", True)
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is not 'true'."
+        )
+    SECRET_KEY = "django-insecure-sl*&%__q9@l(&kk(x23h_4y70s^yyy(ytfy+wbsmfkry$y-#tf"
 
 
 # Application definition
@@ -42,6 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+   'corsheaders',
     'accounts',
     'jobs',
     'quotations',
@@ -51,18 +68,15 @@ INSTALLED_APPS = [
 
 ]
 
-# ALLOWED_HOSTS = [
-#     value.strip()
-#     for value in os.environ.get(
-#         "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,192.168.1.5"
-#     ).split(",")
-#     if value.strip()
-# ]
-
-
+# Hosts come from the DJANGO_ALLOWED_HOSTS environment variable as a
+# comma-separated list, defaulting to local development hosts.  The Render
+# hostname is appended automatically when running on Render.
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
+    value.strip()
+    for value in os.environ.get(
+        "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1"
+    ).split(",")
+    if value.strip()
 ]
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
@@ -80,12 +94,21 @@ if RENDER_EXTERNAL_HOSTNAME:
         f"https://{RENDER_EXTERNAL_HOSTNAME}"
     )
 
+CSRF_TRUSTED_ORIGINS.extend(
+    value.strip()
+    for value in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if value.strip()
+)
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://bharath-painters-chi.vercel.app",
 ]
 
-
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "https://bharath-painters-chi.vercel.app",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -100,9 +123,22 @@ REST_FRAMEWORK = {
     },
 }
 
+def _env_int(name, default):
+    """Parse an integer environment variable, failing with a clear message."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"{name} must be an integer, got {raw!r}."
+        )
+
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get("JWT_ACCESS_MINUTES", "30"))),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get("JWT_REFRESH_DAYS", "7"))),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=_env_int("JWT_ACCESS_MINUTES", 30)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=_env_int("JWT_REFRESH_DAYS", 7)),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": False,
 }
@@ -112,6 +148,9 @@ AUTH_USER_MODEL = "accounts.BharathUser"
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+
+    'corsheaders.middleware.CorsMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -145,12 +184,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+    )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -201,7 +239,7 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-}   
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -223,11 +261,11 @@ EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_PORT = _env_int("EMAIL_PORT", 587)
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
-EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "15"))
+EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
+EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 15)
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL", "Bharath Painters <no-reply@bharathpainters.in>"
 )
@@ -246,19 +284,14 @@ CACHES = {
     "default": {
         "BACKEND": CACHE_BACKEND,
         "LOCATION": CACHE_LOCATION,
-        "TIMEOUT": int(os.environ.get("DJANGO_CACHE_TIMEOUT", "300")),
+        "TIMEOUT": _env_int("DJANGO_CACHE_TIMEOUT", 300),
     }
 }
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", str(not DEBUG)).lower() == "true"
-SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", str(not DEBUG)).lower() == "true"
-CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", str(not DEBUG)).lower() == "true"
-SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_HSTS_SECONDS = _env_int("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0")
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
-CSRF_TRUSTED_ORIGINS = [
-    value.strip()
-    for value in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
-    if value.strip()
-]

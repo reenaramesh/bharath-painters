@@ -163,7 +163,7 @@ export default function QuotationBuilder() {
     const selected = customers.find((item) => String(item.id) === String(customerId));
     if (!selected) return;
     setForm((current) => ({ ...current, customer: selected.id, property: property?.id || "" }));
-    setCustomerSearch(`${selected.name} · ${selected.mobile}`);
+    setCustomerSearch(selected.name);
   }, [customers, properties, form.customer, searchParams]);
   useEffect(() => {
     setItems([]);
@@ -724,6 +724,11 @@ export default function QuotationBuilder() {
     setShowPreview(true);
   }
   async function submit(pdfPreviewOnly = false) {
+    if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
+      setError("Complete the highlighted service lines before saving the draft.");
+      setStep(3);
+      return;
+    }
     const message = canContinue();
     if (message) {
       setError(message);
@@ -882,6 +887,20 @@ export default function QuotationBuilder() {
       else setSaving(false);
     }
   }
+  async function createRoomFromService(roomName) {
+    const name = String(roomName || "").trim();
+    if (!name) throw new Error("Enter a room name.");
+    const duplicate = savedRooms.find((room) => String(room.name || "").trim().toLowerCase() === name.toLowerCase());
+    if (duplicate) return duplicate;
+    const { data } = await api.post(
+      `/quotations/properties/${form.property}/rooms/`,
+      { name, measurement_record: selectedMeasurementId || undefined },
+      { params: selectedMeasurementId ? { measurement: selectedMeasurementId } : undefined },
+    );
+    setSavedRooms((current) => [...current, data]);
+    setSelectedRoomIds((current) => current.includes(data.id) ? current : [...current, data.id]);
+    return data;
+  }
   const input =
     "mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-slate-900";
   const toggleMeasurementField = (fieldId) => {
@@ -971,8 +990,8 @@ export default function QuotationBuilder() {
                 <Search className="h-4 w-4 text-slate-400" />
                 <input value={customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
               </span>
-              {!customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(`${item.name} · ${item.mobile}`); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">{item.name} · {item.mobile}</button>)}</span></span>}
-              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-sm">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(`${item.name} · ${item.mobile}`); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100"><b>{item.name}</b><span className="ml-2 text-slate-500">{item.mobile}{item.city ? ` · ${item.city}` : ""}</span></button>)}</span>}
+              {!customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">{item.name}</button>)}</span></span>}
+              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100"><b>{item.name}</b></button>)}</span>}
               {form.customer && <span className="mt-2 block text-xs font-semibold text-emerald-700">Customer selected. Choose the property to continue.</span>}
               {customerSearch && !form.customer && customerSearchResults.length === 0 && <span className="mt-2 block text-xs font-normal text-red-600">No matching customers found.</span>}
             </label>
@@ -1265,6 +1284,7 @@ export default function QuotationBuilder() {
                 exteriorMode={exteriorMode}
                 updateItem={updateItem}
                 updateProductType={updateProductType}
+                saveRoom={createRoomFromService}
                 close={() => setMobileItemIndex(null)}
                 remove={() => {
                   const item = items[mobileItemIndex];
@@ -1369,7 +1389,7 @@ export default function QuotationBuilder() {
           </div>
         )}
       </section>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-3">
         {step < 4 ? (
           <button
             onClick={next}
@@ -1378,7 +1398,10 @@ export default function QuotationBuilder() {
             Continue
             <ArrowRight className="h-4 w-4" />
           </button>
-        ) : (
+        ) : (<>
+          <button type="button" onClick={() => submit(false)} disabled={saving} className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 disabled:opacity-60">
+            <Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}
+          </button>
           <button
             onClick={openQuotationPreview}
             disabled={saving}
@@ -1387,7 +1410,7 @@ export default function QuotationBuilder() {
             <Eye className="h-4 w-4" />
             Preview quotation
           </button>
-        )}
+        </>)}
       </div>
       {showPreview && (
         <QuotationPreviewDialog
@@ -1580,7 +1603,7 @@ function QuotationPreviewDialog({
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
           <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold">Back to edit</button>
           <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Creating..." : "Create quotation"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
         </footer>
       </section>
     </div>
@@ -1673,7 +1696,11 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
     </label>
   );
 }
-function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, close, remove }) {
+function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, saveRoom, close, remove }) {
+  const [addingRoom, setAddingRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("");
+  const [roomSaving, setRoomSaving] = useState(false);
+  const [roomError, setRoomError] = useState("");
   const selectedItemRoom = savedRooms.find((room) =>
     String(room.id) === String(item.room_id || item.property_room_id),
   ) || (item.field_id && item.room_index !== "" && item.room_index !== null && item.room_index !== undefined
@@ -1710,27 +1737,29 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
                 : <SearchableSelect value={roomOptions.find((room) => item.property_room_id ? String(room.propertyRoomId) === String(item.property_room_id) : !room.propertyRoomId && room.name === item.room_name)?.key || ""} options={roomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))} onChange={(value) => { const room = roomOptions.find((option) => option.key === value); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || ""); }} placeholder="Search room / area" invalid={!item.property_room_id && !String(item.room_name || "").trim()} className={requiredControl(!item.property_room_id && !String(item.room_name || "").trim())} />}
             </label>
           </div>
+          {!item.field_id && <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50 p-3">
+            {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-violet-800"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} placeholder="Enter room name" className={control + " mt-0 flex-1"} /><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{roomSaving ? "Saving..." : "Save room"}</button></div>}
+            {roomError && <p className="mt-2 text-xs font-semibold text-red-600">{roomError}</p>}
+          </div>}
+          <SearchableProductType
+            key={item.service_category || "all-products"}
+            value={item.paint_type}
+            options={masters.paintTypes.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category))}
+            onChange={(value) => updateProductType(index, value)}
+            controlClass={control}
+          />
           <SearchableDescription value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
           {String(item.description || "").trim() && (descriptionSaved
             ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Product Description selected</p>
             : <label className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm font-semibold text-violet-900"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Product Description for future quotations</label>)}
+          <SearchableProductType label="Brand" placeholder="Search brand (optional)" emptyText="No matching brands" value={item.paint_brand} options={masters.brands} onChange={(value) => updateItem(index, "paint_brand", value)} controlClass={control} />
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-semibold">MOU
-              <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={requiredControl(!item.unit)}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
-            </label>
             <label className="block text-sm font-semibold">Quantity
               <input type="number" min="0.01" step="0.01" value={item.quantity} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={requiredControl(Number(item.quantity || 0) <= 0)} />
             </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SearchableProductType label="Brand" placeholder="Search brand (optional)" emptyText="No matching brands" value={item.paint_brand} options={masters.brands} onChange={(value) => updateItem(index, "paint_brand", value)} controlClass={control} />
-            <SearchableProductType
-              key={item.service_category || "all-products"}
-              value={item.paint_type}
-              options={masters.paintTypes.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category))}
-              onChange={(value) => updateProductType(index, value)}
-              controlClass={control}
-            />
+            <label className="block text-sm font-semibold">MOU
+              <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={requiredControl(!item.unit)}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
+            </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {!item.field_id && paintingApplicable ? <label className="block text-sm font-semibold">No. of coats
@@ -1740,7 +1769,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
               <input type="number" min="0" step="0.01" value={item.rate} aria-invalid={item.rate === "" || item.rate === null || item.rate === undefined} onChange={(event) => updateItem(index, "rate", event.target.value)} className={requiredControl(item.rate === "" || item.rate === null || item.rate === undefined)} />
             </label>
           </div>
-          <div className="flex items-center justify-between rounded-2xl bg-slate-950 p-4 text-white"><span className="text-sm text-slate-300">Line amount</span><b className="text-xl text-emerald-300">{money(amount)}</b></div>
+          <div className="rounded-2xl bg-slate-950 p-4 text-center text-white"><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
         </div>
         <footer className="sticky bottom-0 z-20 grid grid-cols-[auto_1fr] gap-3 border-t bg-white p-4">
           <button type="button" onClick={remove} className="inline-flex items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600"><Trash2 className="h-5 w-5" /></button>

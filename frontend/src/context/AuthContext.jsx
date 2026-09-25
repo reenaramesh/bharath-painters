@@ -27,6 +27,11 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const googleLogin = useCallback(async (credential) => {
+    const { data } = await api.post("/accounts/google-login/", { credential });
+    return acceptSession(data);
+  }, [acceptSession]);
+
   function logout() {
     localStorage.removeItem("bharath_access");
     localStorage.removeItem("bharath_refresh");
@@ -51,6 +56,6 @@ export function AuthProvider({ children }) {
     if (localStorage.getItem("bharath_access")) refreshUser().catch(() => {});
   }, [refreshUser]);
 
-  const value = useMemo(() => ({ user, login, acceptSession, logout, refreshUser }), [user, acceptSession, refreshUser]);
+  const value = useMemo(() => ({ user, login, googleLogin, acceptSession, logout, refreshUser }), [user, googleLogin, acceptSession, refreshUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

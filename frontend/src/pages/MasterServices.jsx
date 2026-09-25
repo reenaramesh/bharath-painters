@@ -17,13 +17,13 @@ import api from "../api/client";
 import useAuth from "../context/useAuth";
 
 const groups = [
-  { key: "rooms", label: "Rooms / Areas", singular: "Room / Area", endpoint: "areas", icon: BedDouble, help: "Room and work-area names used in properties and quotations." },
-  { key: "surfaces", label: "Measurement Surface Types", singular: "Surface Type", endpoint: "measurement-surface-types", icon: Ruler, help: "Wall, ceiling, floor, gate, grill, texture and custom surfaces used in the Area Calculator." },
-  { key: "categories", label: "Types of Service", singular: "Type of Service", endpoint: "service-categories", icon: Layers3, help: "Painting, plumbing, carpentry, electrical and other service groups." },
-  { key: "products", label: "Product Types", singular: "Product Type", endpoint: "paint-types", icon: Boxes, help: "Products available under each selected Type of Service." },
-  { key: "descriptions", label: "Product Descriptions", singular: "Product Description", endpoint: "work-descriptions", icon: FileText, help: "Standard work descriptions shown in quotation service lines." },
-  { key: "brands", label: "Brands", singular: "Brand", endpoint: "brands", icon: Tags, help: "Product brands available while preparing quotations." },
-  { key: "units", label: "Measurement Units", singular: "MOU", endpoint: "units", icon: Ruler, help: "Nos, sq ft, litres, items and other quantity units." },
+  { key: "rooms", label: "Rooms / Areas", singular: "Room / Area", endpoint: "areas", icon: BedDouble },
+  { key: "surfaces", label: "Measurement Surface Types", singular: "Surface Type", endpoint: "measurement-surface-types", icon: Ruler },
+  { key: "categories", label: "Types of Service", singular: "Type of Service", endpoint: "service-categories", icon: Layers3 },
+  { key: "products", label: "Product Types", singular: "Product Type", endpoint: "paint-types", icon: Boxes },
+  { key: "descriptions", label: "Product Descriptions", singular: "Product Description", endpoint: "work-descriptions", icon: FileText },
+  { key: "brands", label: "Brands", singular: "Brand", endpoint: "brands", icon: Tags },
+  { key: "units", label: "Measurement Units", singular: "MOU", endpoint: "units", icon: Ruler },
 ];
 const empty = { name: "", service_category: "", key_features: "", default_price: "" };
 
@@ -169,7 +169,6 @@ export default function MasterServices() {
       <header>
         <p className="text-sm font-semibold text-amber-600">Quotation configuration</p>
         <h1 className="mt-1 text-3xl font-bold">Master Data</h1>
-        <p className="mt-2 text-slate-500">{user?.role === "ADMIN" ? "Create default dropdown values available to every contractor." : "Manage your dropdown values and use defaults provided by Bharath Painters."}</p>
       </header>
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
@@ -179,28 +178,26 @@ export default function MasterServices() {
         <select value={active.key} onChange={(event) => setActive(groups.find((group) => group.key === event.target.value) || groups[0])} className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 font-bold text-slate-950 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
           {groups.map((group) => <option key={group.key} value={group.key}>{group.label}</option>)}
         </select>
-        <span className="mt-2 block text-sm leading-5 text-slate-500">{active.help}</span>
       </label>
 
-      <nav className="hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-3" aria-label="Master data sections">
+      <nav className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Master data sections">
         {groups.map((group) => {
           const Icon = group.icon;
           const selected = active.key === group.key;
           return (
-            <button key={group.key} type="button" onClick={() => setActive(group)} className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-lg" : "border-slate-200 bg-white hover:border-violet-300 hover:shadow-sm"}`}>
+            <button key={group.key} type="button" onClick={() => setActive(group)} className={`hidden min-h-[74px] items-start gap-3 rounded-2xl border p-4 text-left transition sm:flex ${selected ? "border-slate-950 bg-slate-950 text-white shadow-lg" : "border-slate-200 bg-white hover:border-violet-300 hover:shadow-sm"}`}>
               <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${selected ? "bg-white/15 text-amber-300" : "bg-violet-50 text-violet-700"}`}><Icon className="h-5 w-5" /></span>
-              <span className="min-w-0"><b className="block">{group.label}</b><small className={`mt-1 block leading-4 ${selected ? "text-slate-300" : "text-slate-500"}`}>{group.help}</small></span>
+              <span className="min-w-0"><b className="block">{group.label}</b></span>
             </button>
           );
         })}
+        {user?.role === "CONTRACTOR" && <QuotationDefaults />}
       </nav>
-
-      {user?.role === "CONTRACTOR" && <QuotationDefaults />}
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="flex items-center gap-3 border-b bg-slate-50 p-4 sm:p-5">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white"><ActiveIcon className="h-5 w-5" /></span>
-          <div><h2 className="text-lg font-bold">{editing ? `Edit ${active.singular}` : `Add ${active.singular}`}</h2><p className="text-sm text-slate-500">{user?.role === "ADMIN" ? `This becomes a default ${active.singular.toLowerCase()} for all contractors.` : active.help}</p></div>
+          <div><h2 className="text-lg font-bold">{editing ? `Edit ${active.singular}` : `Add ${active.singular}`}</h2></div>
         </header>
         <form onSubmit={submit} className={`grid gap-4 p-4 sm:p-5 ${usesServiceCategory ? "md:grid-cols-[1fr_1fr_auto]" : "md:grid-cols-[1fr_auto]"}`}>
           <Field label={`${active.singular} name`}><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={placeholder(active.key)} /></Field>
@@ -212,7 +209,7 @@ export default function MasterServices() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="flex flex-col gap-4 border-b p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><div className="flex items-center gap-2"><h2 className="text-lg font-bold">Saved {active.label}</h2><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{filteredItems.length} entries</span></div><p className="mt-1 text-sm text-slate-500">Search, review and maintain quotation dropdown values.</p></div>
+          <div className="flex items-center gap-2"><h2 className="text-lg font-bold">Saved {active.label}</h2><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{filteredItems.length} entries</span></div>
           <div className={`grid gap-2 ${usesServiceCategory ? "sm:grid-cols-[280px_220px]" : "sm:w-80"}`}>
             <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
             {usesServiceCategory && <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-xl border bg-white px-3 py-2.5 text-sm"><option value="ALL">All service types</option>{categories.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select>}
@@ -315,6 +312,7 @@ function QuotationDefaults() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     api.get("/accounts/contractor-profile/")
@@ -341,27 +339,34 @@ function QuotationDefaults() {
   }
 
   return (
-    <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-between p-4 marker:hidden sm:p-5">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 className="font-bold">Default quotation details</h2></div>
-        <span className="text-sm font-bold text-indigo-700 group-open:hidden">Open</span>
-        <span className="hidden text-sm font-bold text-slate-500 group-open:inline">Close</span>
-      </summary>
-      <form onSubmit={save} className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2 sm:p-5">
-        {loading ? <p className="sm:col-span-2">Loading...</p> : <>
-          <Field label="Prepared by"><input name="quotation_prepared_by" value={values.quotation_prepared_by} onChange={update} /></Field>
-          <Field label="Inspected by"><input name="quotation_inspected_by" value={values.quotation_inspected_by} onChange={update} /></Field>
-          <Field label="Work duration"><input name="quotation_work_duration" value={values.quotation_work_duration} onChange={update} placeholder="For example, 15-18 days" /></Field>
-          <Field label="Payment terms"><textarea rows="3" name="quotation_payment_terms" value={values.quotation_payment_terms} onChange={update} /></Field>
-          <Field label="Product details"><textarea rows="3" name="quotation_product_details" value={values.quotation_product_details} onChange={update} /></Field>
-          <Field label="Work procedures and safety"><textarea rows="4" name="quotation_work_procedures" value={values.quotation_work_procedures} onChange={update} /></Field>
-          <div className="sm:col-span-2"><Field label="Terms and conditions"><textarea rows="5" name="quotation_terms_conditions" value={values.quotation_terms_conditions} onChange={update} /></Field></div>
-          {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
-          {message && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
-          <button disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50 sm:col-span-2"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save quotation defaults"}</button>
-        </>}
-      </form>
-    </details>
+    <>
+      <button type="button" onClick={() => { setOpen(true); setMessage(""); setError(""); }} className="flex min-h-[74px] items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-violet-300 hover:shadow-sm">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span>
+        <span className="min-w-0 font-bold text-slate-950">Terms and Conditions</span>
+      </button>
+      {open && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="quotation-terms-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+        <form onSubmit={save} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-3xl sm:rounded-3xl">
+          <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-5 sm:px-6">
+            <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 id="quotation-terms-title" className="text-xl font-bold">Terms and Conditions</h2></div>
+            <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border" aria-label="Close"><X className="h-5 w-5" /></button>
+          </header>
+          <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+            {loading ? <p className="sm:col-span-2">Loading...</p> : <>
+              <Field label="Prepared by"><input name="quotation_prepared_by" value={values.quotation_prepared_by} onChange={update} /></Field>
+              <Field label="Inspected by"><input name="quotation_inspected_by" value={values.quotation_inspected_by} onChange={update} /></Field>
+              <Field label="Work duration"><input name="quotation_work_duration" value={values.quotation_work_duration} onChange={update} placeholder="For example, 15-18 days" /></Field>
+              <Field label="Payment terms"><textarea rows="3" name="quotation_payment_terms" value={values.quotation_payment_terms} onChange={update} /></Field>
+              <Field label="Product details"><textarea rows="3" name="quotation_product_details" value={values.quotation_product_details} onChange={update} /></Field>
+              <Field label="Work procedures and safety"><textarea rows="4" name="quotation_work_procedures" value={values.quotation_work_procedures} onChange={update} /></Field>
+              <div className="sm:col-span-2"><Field label="Terms and conditions"><textarea rows="5" name="quotation_terms_conditions" value={values.quotation_terms_conditions} onChange={update} /></Field></div>
+              {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+              {message && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
+            </>}
+          </div>
+          {!loading && <footer className="sticky bottom-0 border-t bg-white p-4 sm:px-6"><button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save Terms and Conditions"}</button></footer>}
+        </form>
+      </div>}
+    </>
   );
 }
 

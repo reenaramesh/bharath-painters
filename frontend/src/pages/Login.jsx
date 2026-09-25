@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Palette } from "lucide-react";
 import useAuth from "../context/useAuth";
 
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobile, setMobile] = useState("");
@@ -12,6 +12,54 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const googleButtonRef = useRef(null);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    if (!googleClientId || user) return undefined;
+    let active = true;
+    function renderGoogleButton() {
+      if (!active || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async ({ credential }) => {
+          setError("");
+          setLoading(true);
+          try {
+            const signedInUser = await googleLogin(credential);
+            navigate(location.state?.from?.pathname || (signedInUser.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard"), { replace: true });
+          } catch (requestError) {
+            setError(requestError.response?.data?.error || "Google Sign-In could not be completed.");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        width: Math.min(400, googleButtonRef.current.clientWidth || 400),
+      });
+    }
+    const existing = document.querySelector('script[data-bharath-google-identity="true"]');
+    if (existing) {
+      if (window.google?.accounts?.id) renderGoogleButton();
+      else existing.addEventListener("load", renderGoogleButton, { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.dataset.bharathGoogleIdentity = "true";
+      script.addEventListener("load", renderGoogleButton, { once: true });
+      document.head.appendChild(script);
+    }
+    return () => { active = false; };
+  }, [googleClientId, googleLogin, location.state, navigate, user]);
 
   if (user) return <Navigate to={user.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard"} replace />;
 
@@ -57,7 +105,12 @@ export default function Login() {
           {location.state?.customerRegistered && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Customer account created. Sign in to open your messages.</p>}
           {location.state?.passwordReset && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Password reset successful. Sign in with your new password.</p>}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          {googleClientId && <div className="mt-8">
+            <div ref={googleButtonRef} className="flex min-h-11 w-full justify-center" />
+            <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>or use mobile</span><span className="h-px flex-1 bg-slate-200" /></div>
+          </div>}
+
+          <form onSubmit={handleSubmit} className={`${googleClientId ? "" : "mt-8"} space-y-5`}>
             <label className="block text-sm font-semibold text-slate-700">
               Mobile number
               <input required autoComplete="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Enter mobile number" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />

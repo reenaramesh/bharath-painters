@@ -255,6 +255,10 @@ BHARATH_PUBLIC_BACKEND_URL = os.environ.get(
     "BHARATH_PUBLIC_BACKEND_URL", "http://localhost:8000"
 ).rstrip("/")
 
+# Google Identity Services: only the public web Client ID is needed to verify
+# ID tokens. Never expose the OAuth Client Secret to the React frontend.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+
 # Development prints mail to the backend console. Production can switch to
 # SMTP entirely through environment variables without a code change.
 EMAIL_BACKEND = os.environ.get(

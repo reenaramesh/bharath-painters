@@ -934,7 +934,86 @@ class VerifyBharathIDView(APIView):
                 "badge_issued_at": user.badge_issued_at,
             },
             status=status.HTTP_200_OK
-        )        
+        )
+
+
+class GoogleLoginView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+    @transaction.atomic
+    def post(self, request):
+        credential = str(request.data.get("credential") or "").strip()
+        client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "") or "").strip()
+        if not client_id:
+            return Response({"error": "Google Sign-In is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if not credential:
+            return Response({"error": "Google credential is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from google.auth.transport import requests as google_requests
+            from google.oauth2 import id_token
+
+            claims = id_token.verify_oauth2_token(
+                credential,
+                google_requests.Request(),
+                client_id,
+            )
+        except ImportError:
+            return Response({"error": "Google Sign-In is temporarily unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
+            return Response({"error": "Google Sign-In could not be verified."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        subject = str(claims.get("sub") or "").strip()
+        email = str(claims.get("email") or "").strip().lower()
+        if not subject or not email or claims.get("email_verified") is not True:
+            return Response({"error": "Use a verified Google email address."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = BharathUser.objects.select_for_update().filter(google_subject=subject).first()
+        if not user:
+            matches = list(BharathUser.objects.select_for_update().filter(email__iexact=email)[:2])
+            if not matches:
+                return Response(
+                    {"error": "No Bharath Painters account uses this Google email. Register with your mobile number first, using the same email address."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if len(matches) != 1:
+                return Response(
+                    {"error": "This email is linked to multiple accounts. Sign in with your mobile number and contact support."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            user = matches[0]
+            if user.google_subject and user.google_subject != subject:
+                return Response({"error": "This account is already linked to another Google account."}, status=status.HTTP_409_CONFLICT)
+            user.google_subject = subject
+            user.google_email = email
+            user.google_linked_at = timezone.now()
+            user.save(update_fields=("google_subject", "google_email", "google_linked_at", "updated_at"))
+
+        if not user.is_active:
+            return Response({"error": "Your account is inactive."}, status=status.HTTP_403_FORBIDDEN)
+        if user.role in (BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER):
+            activate_business_identity(user, request.build_absolute_uri("/").rstrip("/"))
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "message": "Google login successful.",
+            "user": {
+                "id": user.id,
+                "mobile": user.mobile,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "is_verified": user.is_verified,
+                "verification_status": user.verification_status,
+                "bharath_id": user.bharath_id,
+                "preferred_language": user.preferred_language,
+                "display_name": _user_display_name(user),
+            },
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        })
 
 class VerifyBharathIDPageView(APIView):
 

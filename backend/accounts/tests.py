@@ -1,5 +1,6 @@
 from datetime import timedelta
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.urls import reverse
 from django.test import override_settings
@@ -84,6 +85,33 @@ class AuthenticationApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="test-client.apps.googleusercontent.com")
+    @patch("google.oauth2.id_token.verify_oauth2_token")
+    def test_google_login_links_one_existing_email_and_returns_jwt(self, verify_token):
+        verify_token.return_value = {
+            "sub": "google-user-123",
+            "email": "contractor@example.com",
+            "email_verified": True,
+        }
+        response = self.client.post(reverse("google-login"), {"credential": "signed-google-token"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["id"], self.user.id)
+        self.assertIn("access", response.data)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.google_subject, "google-user-123")
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="test-client.apps.googleusercontent.com")
+    @patch("google.oauth2.id_token.verify_oauth2_token")
+    def test_google_login_does_not_create_unknown_account(self, verify_token):
+        verify_token.return_value = {
+            "sub": "unknown-google-user",
+            "email": "unknown@example.com",
+            "email_verified": True,
+        }
+        response = self.client.post(reverse("google-login"), {"credential": "signed-google-token"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(BharathUser.objects.filter(google_subject="unknown-google-user").exists())
 
     def test_recovery_lookup_accepts_equivalent_ten_digit_mobile_format(self):
         self.user.mobile = "09000000001"

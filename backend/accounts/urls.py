@@ -13,6 +13,7 @@ from .views import (
     RecoveryEmailRequestView,
     RecoveryEmailVerifyView,
     LoginView,
+    GoogleLoginView,
     CurrentUserView,
     ProfileCardView,
     ContractorProfileView,
@@ -41,6 +42,7 @@ urlpatterns = [
         LoginView.as_view(),
         name="login"
     ),
+    path("google-login/", GoogleLoginView.as_view(), name="google-login"),
     path("register/customer/", CustomerRegistrationView.as_view(), name="register-customer"),
     path("forgot-password/lookup/", ForgotPasswordLookupView.as_view(), name="forgot-password-lookup"),
     path("forgot-password/request/", ForgotPasswordRequestView.as_view(), name="forgot-password-request"),

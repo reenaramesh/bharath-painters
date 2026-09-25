@@ -156,6 +156,12 @@ class BharathUser(AbstractUser):
         related_name="recovery_emails_added",
     )
 
+    # Stable Google identity binding. Email is retained as an audit/display
+    # value, but future sign-ins use the immutable Google subject identifier.
+    google_subject = models.CharField(max_length=255, unique=True, blank=True, null=True)
+    google_email = models.EmailField(blank=True)
+    google_linked_at = models.DateTimeField(blank=True, null=True)
+
     last_activity_at = models.DateTimeField(blank=True, null=True)
 
     last_activity_at = models.DateTimeField(blank=True, null=True)

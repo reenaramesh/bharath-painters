@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Palette } from "lucide-react";
 import api from "../api/client";
+import RegistrationConsent from "../components/RegistrationConsent";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -29,12 +30,17 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
   const update = (event) =>
     setForm((value) => ({ ...value, [event.target.name]: event.target.value }));
   const input =
     "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
   async function submit(event) {
     event.preventDefault();
+    if (!consent.accepted) {
+      setError("Read and accept the Terms of Use and Privacy Notice before registering.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -60,6 +66,10 @@ export default function Register() {
       );
       if (form.company_logo)
         contractor.append("company_logo", form.company_logo);
+      contractor.append("policy_version", consent.policyVersion);
+      contractor.append("document_scrolled", String(consent.scrolled));
+      contractor.append("terms_accepted", "true");
+      contractor.append("privacy_notice_acknowledged", "true");
       const painter = {
         mobile: form.mobile,
         email: form.email,
@@ -71,6 +81,10 @@ export default function Register() {
         daily_wage: form.daily_wage || null,
         weekly_wage: form.weekly_wage || null,
         preferred_locations: form.preferred_locations,
+        policy_version: consent.policyVersion,
+        document_scrolled: consent.scrolled,
+        terms_accepted: true,
+        privacy_notice_acknowledged: true,
       };
       await api.post(
         `/accounts/register/${role.toLowerCase()}/`,
@@ -321,8 +335,9 @@ export default function Register() {
                 </label>
               </>
             )}
+            <RegistrationConsent role={role} onConsentChange={setConsent} />
             <button
-              disabled={saving}
+              disabled={saving || !consent.accepted}
               className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-60"
             >
               {saving ? "Creating account..." : "Register"}

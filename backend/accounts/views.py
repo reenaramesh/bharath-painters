@@ -17,7 +17,8 @@ from django.utils import timezone
 from datetime import timedelta
 import secrets
 
-from .models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP
+from .models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP, UserLegalConsent
+from .legal import POLICY_VERSION, document_hashes, registration_legal_payload
 from .utils import activate_business_identity, bharath_profile_url, generate_bharath_qr
 from django.shortcuts import render
 
@@ -37,6 +38,58 @@ OTP_RESEND_SECONDS = 60
 OTP_MAX_ATTEMPTS = 5
 OTP_MAX_PER_HOUR = 5
 PASSWORD_RESET_SIGNING_SALT = "bharath-painters-password-reset"
+
+
+def _truthy(value):
+    return value is True or str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _registration_consent_error(request):
+    if str(request.data.get("policy_version") or "") != POLICY_VERSION:
+        return {"policy_version": "Please review the current Terms and Privacy Notice."}
+    if not _truthy(request.data.get("document_scrolled")):
+        return {"document_scrolled": "Scroll through the complete Terms and Privacy Notice before registering."}
+    if not _truthy(request.data.get("terms_accepted")):
+        return {"terms_accepted": "You must accept the Terms of Use to register."}
+    if not _truthy(request.data.get("privacy_notice_acknowledged")):
+        return {"privacy_notice_acknowledged": "You must acknowledge the Privacy and Data Protection Notice."}
+    return None
+
+
+def _record_registration_consent(user, request, role):
+    terms_hash, privacy_hash = document_hashes(role)
+    forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
+    ip_address = (forwarded or str(request.META.get("REMOTE_ADDR") or "").strip())[:45]
+    UserLegalConsent.objects.update_or_create(
+        user=user,
+        policy_version=POLICY_VERSION,
+        defaults={
+            "role_at_acceptance": role,
+            "terms_hash": terms_hash,
+            "privacy_hash": privacy_hash,
+            "terms_accepted": True,
+            "privacy_notice_acknowledged": True,
+            "document_scrolled": True,
+            "acceptance_method": "REGISTRATION_CHECKBOX",
+            "ip_address": ip_address,
+            "user_agent": str(request.META.get("HTTP_USER_AGENT") or "")[:1000],
+        },
+    )
+
+
+class RegistrationLegalDocumentView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        role = str(request.query_params.get("role") or "").upper()
+        if role not in {
+            BharathUser.Roles.CUSTOMER,
+            BharathUser.Roles.CONTRACTOR,
+            BharathUser.Roles.PAINTER,
+        }:
+            return Response({"role": "Choose CUSTOMER, CONTRACTOR or PAINTER."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(registration_legal_payload(role))
 
 
 def _normalise_mobile(value):
@@ -151,6 +204,10 @@ class PainterRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
 
+        consent_error = _registration_consent_error(request)
+        if consent_error:
+            return Response(consent_error, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = PainterRegistrationSerializer(
             data=request.data
         )
@@ -159,6 +216,7 @@ class PainterRegistrationView(APIView):
 
             user = serializer.save()
             activate_business_identity(user, request.build_absolute_uri("/").rstrip("/"))
+            _record_registration_consent(user, request, BharathUser.Roles.PAINTER)
 
             return Response(
                 {
@@ -182,6 +240,10 @@ class ContractorRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
 
+        consent_error = _registration_consent_error(request)
+        if consent_error:
+            return Response(consent_error, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = ContractorRegistrationSerializer(
             data=request.data
         )
@@ -190,6 +252,7 @@ class ContractorRegistrationView(APIView):
 
             user = serializer.save()
             activate_business_identity(user, request.build_absolute_uri("/").rstrip("/"))
+            _record_registration_consent(user, request, BharathUser.Roles.CONTRACTOR)
 
             return Response(
                 {
@@ -212,6 +275,10 @@ class CustomerRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
         from quotations.models import ChatConversation, Customer, ContractorCustomerConnection, normalize_indian_mobile
+
+        consent_error = _registration_consent_error(request)
+        if consent_error:
+            return Response(consent_error, status=status.HTTP_400_BAD_REQUEST)
 
         mobile = str(request.data.get("mobile") or "").strip()
         name = str(request.data.get("name") or "").strip()
@@ -261,6 +328,7 @@ class CustomerRegistrationView(APIView):
         user.save()
         generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
         user.save(update_fields=("bharath_qr",))
+        _record_registration_consent(user, request, BharathUser.Roles.CUSTOMER)
 
         for customer in customer_records:
             customer.portal_user = user

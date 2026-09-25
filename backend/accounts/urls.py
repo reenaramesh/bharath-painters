@@ -18,10 +18,12 @@ from .views import (
     ContractorProfileView,
     ContractorDirectoryView,
     PainterDirectoryView,
+    RegistrationLegalDocumentView,
     VerifyBharathIDView, VerifyBharathIDPageView,
 )
 
 urlpatterns = [
+    path("legal/registration/", RegistrationLegalDocumentView.as_view(), name="registration-legal-document"),
     path(
         "register/painter/",
         PainterRegistrationView.as_view(),

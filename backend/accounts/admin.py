@@ -5,9 +5,22 @@ from .models import (
     BharathUser,
     PainterProfile,
     ContractorProfile,
+    UserLegalConsent,
 )
 
 from .utils import generate_bharath_qr
+
+
+@admin.register(UserLegalConsent)
+class UserLegalConsentAdmin(admin.ModelAdmin):
+    list_display = ("user", "role_at_acceptance", "policy_version", "accepted_at", "ip_address")
+    list_filter = ("role_at_acceptance", "policy_version", "accepted_at")
+    search_fields = ("user__mobile", "user__email", "policy_version", "ip_address")
+    readonly_fields = (
+        "user", "policy_version", "role_at_acceptance", "terms_hash", "privacy_hash",
+        "terms_accepted", "privacy_notice_acknowledged", "document_scrolled",
+        "acceptance_method", "ip_address", "user_agent", "accepted_at",
+    )
 
 
 @admin.register(BharathUser)

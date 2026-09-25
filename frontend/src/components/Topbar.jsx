@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   Bell,
   ChevronDown,
   Home,
@@ -14,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import { languages, useLanguage } from "../i18n/LanguageContext";
+import { resolveBackTarget } from "../utils/navigation";
 
 export default function Topbar({ openMenu, toggleSidebar }) {
   const { user, logout, refreshUser } = useAuth();
@@ -106,6 +108,16 @@ export default function Topbar({ openMenu, toggleSidebar }) {
     .split("/")
     .filter(Boolean)
     .map((part) => part.replaceAll("-", " "));
+  const dashboardPath = user?.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard";
+  const isDashboardHome = ["/dashboard", "/customer-dashboard", "/applicator"].includes(location.pathname);
+  const goBack = () => {
+    const { target } = resolveBackTarget({
+      location,
+      fallback: dashboardPath,
+      explicitReturn: location.state?.returnTo || location.state?.customerPath,
+    });
+    navigate(target);
+  };
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-3 shadow-sm shadow-slate-200/70 backdrop-blur-xl sm:h-[72px] sm:px-4 md:px-7">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
@@ -118,9 +130,20 @@ export default function Topbar({ openMenu, toggleSidebar }) {
         >
           <Menu className="w-5 h-5" />
         </button>
+        {!isDashboardHome && (
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="Go back"
+            title="Back"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => navigate(user?.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard")}
+          onClick={() => navigate(dashboardPath)}
           aria-label="Home"
           title="Home"
           className="hidden rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:block"

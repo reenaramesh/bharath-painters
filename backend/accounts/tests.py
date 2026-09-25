@@ -7,7 +7,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP
+from .models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP, UserLegalConsent
+from .legal import POLICY_VERSION
 
 
 class AuthenticationApiTests(APITestCase):
@@ -383,21 +384,44 @@ class AutomaticBusinessVerificationTests(APITestCase):
             "mobile": "9888777701", "email": "new-contractor@example.com",
             "password": "strong-password", "company_name": "Instant Paint Co",
             "owner_name": "Owner",
+            "policy_version": POLICY_VERSION, "document_scrolled": True,
+            "terms_accepted": True, "privacy_notice_acknowledged": True,
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         user = BharathUser.objects.get(pk=response.data["user_id"])
         self.assert_identity_ready(user, "BP-C-")
         self.assertEqual(response.data["verification_status"], "VERIFIED")
         self.assertEqual(response.data["bharath_id"], user.bharath_id)
+        self.assertTrue(UserLegalConsent.objects.filter(user=user, policy_version=POLICY_VERSION).exists())
 
     def test_applicator_registration_issues_verified_badge_and_qr(self):
         response = self.client.post(reverse("register-painter"), {
             "mobile": "9888777702", "email": "new-applicator@example.com",
             "password": "strong-password", "first_name": "Rama",
             "experience_years": 4, "skills": "Interior painting",
+            "policy_version": POLICY_VERSION, "document_scrolled": True,
+            "terms_accepted": True, "privacy_notice_acknowledged": True,
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         user = BharathUser.objects.get(pk=response.data["user_id"])
         self.assert_identity_ready(user, "BP-P-")
         self.assertEqual(response.data["verification_status"], "VERIFIED")
         self.assertEqual(response.data["bharath_id"], user.bharath_id)
+        self.assertTrue(UserLegalConsent.objects.filter(user=user, policy_version=POLICY_VERSION).exists())
+
+    def test_registration_is_rejected_without_current_consent(self):
+        response = self.client.post(reverse("register-contractor"), {
+            "mobile": "9888777703", "email": "no-consent@example.com",
+            "password": "strong-password", "company_name": "No Consent Co",
+            "owner_name": "Owner",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("policy_version", response.data)
+        self.assertFalse(BharathUser.objects.filter(mobile="9888777703").exists())
+
+    def test_registration_legal_document_is_role_specific(self):
+        response = self.client.get(reverse("registration-legal-document"), {"role": "PAINTER"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["policy_version"], POLICY_VERSION)
+        combined = " ".join(section["title"] for section in response.data["terms_sections"])
+        self.assertIn("Paint Applicator responsibilities", combined)

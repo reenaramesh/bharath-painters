@@ -4366,12 +4366,16 @@ class InvoiceListCreateView(APIView):
         # Lock the quotation so repeated clicks cannot create two invoices for it.
         quotation = Quotation.objects.select_for_update().select_related("customer", "property").prefetch_related("items__room", "items__service_category", "items__paint_type", "items__paint_brand", "items__unit").filter(pk=request.data.get("quotation"), contractor=request.user).first()
         if not quotation: return Response({"quotation": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
-        invoice = ensure_invoice_for_quotation(quotation, request.user)
+        invoice = ensure_invoice_for_quotation(
+            quotation,
+            request.user,
+            request.data.get("hsn_codes") or [],
+        )
         created = getattr(invoice, "created_flag", False)
         return Response(invoice_payload(invoice), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
-def ensure_invoice_for_quotation(quotation, contractor):
+def ensure_invoice_for_quotation(quotation, contractor, hsn_codes=None):
     """Return the invoice for a quotation, creating it from the quotation when missing."""
     schedule = getattr(quotation, "work_schedule", None)
     if not schedule or schedule.status != "COMPLETED":
@@ -4387,6 +4391,7 @@ def ensure_invoice_for_quotation(quotation, contractor):
         existing.created_flag = False
         return existing
     rows=[]
+    hsn_codes = hsn_codes if isinstance(hsn_codes, list) else []
     for index, item in enumerate(current_scope(quotation), 1):
         rows.append({
             "serial": index,
@@ -4399,6 +4404,7 @@ def ensure_invoice_for_quotation(quotation, contractor):
             "quantity": str(item["quantity"]),
             "rate": str(item["rate"]),
             "amount": str(item["amount"]),
+            "hsn_sac": str(hsn_codes[index - 1] if index - 1 < len(hsn_codes) else "").strip()[:50],
             "scope_origin": item["origin"],
             "work_change_number": item.get("change_number", ""),
         })

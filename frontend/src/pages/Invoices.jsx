@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
+import { Download, Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
@@ -11,19 +11,23 @@ const money = (v) =>
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const last7Days = () => { const today = new Date(); const start = new Date(today); start.setDate(today.getDate() - 6); return { from: dateKey(start), to: dateKey(today) }; };
 const blankLine = {
+  category: "",
   service: "",
   room: "",
+  line_type: "SERVICE_MATERIAL",
+  coats: 1,
   product_type: "",
   description: "",
   brand: "",
+  hsn_sac: "",
   unit: "",
   quantity: 1,
-  rate: 0,
+  rate: "",
 };
 const newLumpSumInvoice = () => ({
   customer: "", property: "", tax_mode: "NON_GST", invoice_date: dateKey(new Date()), due_date: "",
   gst_percentage: 0, discount: 0, notes: "", terms_conditions: "",
-  items: [{ ...blankLine, service: "Lump sum service", unit: "Job", quantity: 1, rate: "" }],
+  items: [],
 });
 const blankAdjustment = { surface: "WALL", action: "ADD", name: "", height: "", length: "", width: "", quantity: 1, rate: "" };
 const adjustmentArea = (row) => {
@@ -49,6 +53,9 @@ export default function Invoices() {
   const [creating, setCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState(newLumpSumInvoice);
   const [createSaving, setCreateSaving] = useState(false);
+  const [createLineEditor, setCreateLineEditor] = useState(null);
+  const [invoiceRooms, setInvoiceRooms] = useState([]);
+  const [invoiceMasters, setInvoiceMasters] = useState({ categories: [], services: [], products: [], descriptions: [], brands: [], units: [] });
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState("details");
   useEffect(() => { setTab("details"); }, [editing?.id]);
@@ -73,6 +80,26 @@ export default function Invoices() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    Promise.all([
+      api.get("/quotations/service-categories/"),
+      api.get("/quotations/service-types/"),
+      api.get("/quotations/paint-types/"),
+      api.get("/quotations/work-descriptions/"),
+      api.get("/quotations/brands/"),
+      api.get("/quotations/units/"),
+    ]).then((responses) => {
+      const list = (response) => Array.isArray(response.data) ? response.data : response.data.results || [];
+      const [categories, services, products, descriptions, brands, units] = responses.map(list);
+      setInvoiceMasters({ categories, services, products, descriptions, brands, units });
+    }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!createDraft.property) { setInvoiceRooms([]); return; }
+    api.get(`/quotations/properties/${createDraft.property}/rooms/`)
+      .then(({ data }) => setInvoiceRooms(Array.isArray(data) ? data : data.results || []))
+      .catch(() => setInvoiceRooms([]));
+  }, [createDraft.property]);
   const visible = useMemo(
     () => items.filter((x) => {
       const invoiceDate = String(x.invoice_date || "");
@@ -104,18 +131,35 @@ export default function Invoices() {
     }
   }
   async function createInvoice(event) {
-    event.preventDefault(); setCreateSaving(true); setError("");
+    event.preventDefault();
+    if (!createDraft.items.length) { setError("Add at least one invoice service."); return; }
+    setCreateSaving(true); setError("");
     try {
       const payload = { ...createDraft, base_items: createDraft.items, gst_percentage: createDraft.tax_mode === "GST" ? createDraft.gst_percentage || 18 : 0 };
       const { data } = await api.post("/quotations/invoices/", payload);
       setItems((current) => [data, ...current]); setCreating(false); setCreateDraft(newLumpSumInvoice());
       setEditing({ ...data, base_items: data.base_items || data.items || [], measurement_adjustments: [] });
+      try {
+        const response = await api.get(`/quotations/invoices/${data.id}/pdf/`, { responseType: "blob" });
+        previewPdf(response.data, `${data.invoice_number}.pdf`);
+      } catch {
+        setError("Invoice was created, but its PDF preview could not be opened.");
+      }
     } catch (requestError) {
       setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Lump-sum invoice could not be created.");
     } finally { setCreateSaving(false); }
   }
-  function createLine(index, key, value) {
-    setCreateDraft((current) => ({ ...current, items: current.items.map((row, position) => position === index ? { ...row, [key]: value } : row) }));
+  function openCreateLine(index = null) {
+    setCreateLineEditor({ index, draft: index === null ? { ...blankLine } : { ...createDraft.items[index] } });
+  }
+  function saveCreateLine(row) {
+    setCreateDraft((current) => ({
+      ...current,
+      items: createLineEditor.index === null
+        ? [...current.items, row]
+        : current.items.map((item, index) => index === createLineEditor.index ? row : item),
+    }));
+    setCreateLineEditor(null);
   }
   async function download() {
     try {
@@ -339,13 +383,14 @@ export default function Invoices() {
                 <Field label="Property (optional)"><select value={createDraft.property} onChange={(e) => setCreateDraft({ ...createDraft, property: e.target.value })}><option value="">No property</option>{properties.filter((property) => String(property.customer) === String(createDraft.customer)).map((property) => <option key={property.id} value={property.id}>{property.name || property.property_type}</option>)}</select></Field>
                 <Field label="Invoice date"><input required type="date" value={createDraft.invoice_date} onChange={(e) => setCreateDraft({ ...createDraft, invoice_date: e.target.value })} /></Field><Field label="Due date"><input type="date" value={createDraft.due_date} onChange={(e) => setCreateDraft({ ...createDraft, due_date: e.target.value })} /></Field>
               </div>
-              <section className="overflow-hidden rounded-2xl border"><div className="flex items-center justify-between border-b bg-slate-50 p-4"><div><h3 className="font-bold">Invoice services</h3><p className="text-xs text-slate-500">Enter the agreed lump-sum service lines.</p></div><button type="button" onClick={() => setCreateDraft((current) => ({ ...current, items: [...current.items, { ...blankLine, unit: 'Job', quantity: 1 }] }))} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add service</button></div>
-                <div className="divide-y">{createDraft.items.map((row, index) => <div key={index} className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.5fr_100px_100px_120px_44px] lg:items-end"><Field label="Service"><input required value={row.service || ''} onChange={(e) => createLine(index, 'service', e.target.value)} placeholder="Painting service" /></Field><Field label="Description"><input required value={row.description || ''} onChange={(e) => createLine(index, 'description', e.target.value)} placeholder="Work description" /></Field><Field label="MOU"><input required value={row.unit || ''} onChange={(e) => createLine(index, 'unit', e.target.value)} placeholder="Job" /></Field><Field label="Qty"><input required type="number" min="0.01" step="0.01" value={row.quantity} onChange={(e) => createLine(index, 'quantity', e.target.value)} /></Field><Field label="Rate"><input required type="number" min="0" step="0.01" value={row.rate} onChange={(e) => createLine(index, 'rate', e.target.value)} /></Field><button type="button" disabled={createDraft.items.length === 1} onClick={() => setCreateDraft((current) => ({ ...current, items: current.items.filter((_, position) => position !== index) }))} className="rounded-xl p-3 text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></div>)}</div>
+              <section className="overflow-hidden rounded-2xl border"><div className="flex items-center justify-between gap-3 border-b bg-slate-50 p-4"><h3 className="font-bold">Invoice services</h3><button type="button" onClick={() => openCreateLine()} className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add service</button></div>
+                <div className="space-y-3 p-4">{createDraft.items.map((row, index) => <div key={index} className="rounded-2xl border bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-amber-600">Service {index + 1}{row.category ? ` / ${row.category}` : ''}</p><h4 className="mt-1 truncate font-bold text-slate-950">{row.service}</h4><p className="mt-1 text-sm text-slate-500">{[row.room, row.product_type, row.brand].filter(Boolean).join(' / ') || row.description}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => openCreateLine(index)} className="rounded-xl border p-2.5 text-slate-700"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => setCreateDraft((current) => ({ ...current, items: current.items.filter((_, position) => position !== index) }))} className="rounded-xl border border-red-200 p-2.5 text-red-600"><Trash2 className="h-4 w-4" /></button></div></div><div className="mt-3 grid grid-cols-4 gap-2 rounded-xl bg-slate-50 p-3 text-sm"><span><small className="block text-slate-500">HSN/SAC</small><b>{row.hsn_sac || "-"}</b></span><span><small className="block text-slate-500">MOU</small><b>{row.unit}</b></span><span><small className="block text-slate-500">Quantity</small><b>{row.quantity}</b></span><span className="text-right"><small className="block text-slate-500">Amount</small><b>{money(Number(row.quantity || 0) * Number(row.rate || 0))}</b></span></div></div>)}{!createDraft.items.length && <button type="button" onClick={() => openCreateLine()} className="w-full rounded-2xl border-2 border-dashed border-slate-200 px-4 py-8 text-sm font-semibold text-slate-500 hover:border-slate-400 hover:text-slate-800">+ Add the first invoice service</button>}</div>
               </section>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Field label="Discount"><input type="number" min="0" step="0.01" value={createDraft.discount} onChange={(e) => setCreateDraft({ ...createDraft, discount: e.target.value })} /></Field>{createDraft.tax_mode === 'GST' && <Field label="GST %"><input required type="number" min="0" step="0.01" value={createDraft.gst_percentage} onChange={(e) => setCreateDraft({ ...createDraft, gst_percentage: e.target.value })} /></Field>}<Field label="Notes"><textarea rows="2" value={createDraft.notes} onChange={(e) => setCreateDraft({ ...createDraft, notes: e.target.value })} /></Field><Field label="Terms"><textarea rows="2" value={createDraft.terms_conditions} onChange={(e) => setCreateDraft({ ...createDraft, terms_conditions: e.target.value })} /></Field></div>
             </div>
             <div className="flex items-center justify-between gap-4 bg-slate-950 p-4 text-white"><div><p className="text-xs text-slate-300">Estimated total</p><b className="text-xl">{money(calculateCreateTotal(createDraft))}</b></div><button disabled={createSaving} className="rounded-xl bg-white px-5 py-3 font-bold text-slate-950 disabled:opacity-50">{createSaving ? 'Creating...' : `Create ${createDraft.tax_mode === 'GST' ? 'GST' : 'non-GST'} invoice`}</button></div>
           </form>
+          {createLineEditor && <InvoiceServiceDialog editor={createLineEditor} setEditor={setCreateLineEditor} masters={invoiceMasters} rooms={invoiceRooms} onSave={saveCreateLine} onClose={() => setCreateLineEditor(null)} />}
         </div>
       )}
       {editing && (
@@ -509,6 +554,7 @@ export default function Invoices() {
                       "Product type",
                       "Description",
                       "Brand",
+                      "HSN/SAC",
                       "MOU",
                       "Qty",
                       "Rate",
@@ -530,6 +576,7 @@ export default function Invoices() {
                         "product_type",
                         "description",
                         "brand",
+                        "hsn_sac",
                         "unit",
                       ].map((k) => (
                         <td key={k} className="p-2">
@@ -660,7 +707,7 @@ export default function Invoices() {
               <span className="text-emerald-400">Paid {money(editing.amount_paid)}</span>
               <span className="text-amber-300">Balance {money(editing.balance_due)}</span>
               <b>Grand total {money(previewTotals.grandTotal)}</b>
-              <button type="button" onClick={download} className="flex items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 font-semibold"><Download className="h-4 w-4" />Download PDF</button>
+              <button type="button" onClick={download} className="flex items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 font-semibold"><Eye className="h-4 w-4" />View PDF</button>
               {editing.status !== "CANCELLED" && Number(editing.amount_paid) > 0 && <button type="button" onClick={() => downloadReceipt(editing)} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold"><ReceiptText className="h-4 w-4" />Receipt</button>}
               {!editing.can_edit && !["PAID", "CANCELLED"].includes(editing.status) && <button type="button" onClick={cancelInvoice} className="rounded-lg border border-red-300 px-4 py-2.5 font-semibold text-red-200">Cancel invoice</button>}
               {editing.can_edit && <button
@@ -685,6 +732,45 @@ function Field({ label, children }) {
       </span>
     </label>
   );
+}
+
+function InvoiceServiceDialog({ editor, setEditor, masters, rooms, onSave, onClose }) {
+  const row = editor.draft;
+  const set = (key, value) => setEditor((current) => ({ ...current, draft: { ...current.draft, [key]: value } }));
+  const category = masters.categories.find((item) => String(item.name).toLowerCase() === String(row.category).toLowerCase());
+  const categoryId = Number(category?.id || 0);
+  const services = masters.services.filter((item) => !categoryId || Number(item.category_master) === categoryId || String(item.category || '').toLowerCase() === String(row.category).toLowerCase());
+  const products = masters.products.filter((item) => !categoryId || !item.service_category || Number(item.service_category) === categoryId);
+  const descriptions = masters.descriptions.filter((item) => !categoryId || !item.service_category || Number(item.service_category) === categoryId);
+  const paintingApplicable = String(row.category || '').toLowerCase().includes('paint');
+  const valid = row.category.trim() && row.room.trim() && row.service.trim() && row.description.trim() && row.unit.trim() && Number(row.quantity) > 0 && row.rate !== '' && Number(row.rate) >= 0;
+  const submit = () => { if (valid) onSave({ ...row, coats: paintingApplicable ? Number(row.coats || 1) : null, amount: Number(row.quantity) * Number(row.rate) }); };
+  return <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-6">
+    <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
+      <div className="flex items-start justify-between border-b p-5"><div><p className="text-xs font-bold uppercase tracking-wide text-amber-600">Lump-sum invoice</p><h3 className="text-xl font-extrabold">{editor.index === null ? 'Add service' : 'Edit service'}</h3></div><button type="button" onClick={onClose} className="rounded-xl border p-2"><X className="h-5 w-5" /></button></div>
+      <div className="grid flex-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+        <InvoiceSuggest label="Type of service" value={row.category} set={(value) => set('category', value)} options={masters.categories} placeholder="Search type of service" />
+        <InvoiceSuggest label="Room / Area" value={row.room} set={(value) => set('room', value)} options={rooms} placeholder="Search or enter room" />
+        <Field label="Service type"><select value={row.line_type} onChange={(event) => set('line_type', event.target.value)}><option value="SERVICE_MATERIAL">Service + Material</option><option value="SERVICE">Service only</option><option value="MATERIAL">Material only</option><option value="REPAIR">Repair</option></select></Field>
+        <InvoiceSuggest label="Service" value={row.service} set={(value) => set('service', value)} options={services} placeholder="Search or enter service" />
+        <InvoiceSuggest label="Product type" value={row.product_type} set={(value) => set('product_type', value)} options={products} placeholder="Search or enter product type" required={false} />
+        <InvoiceSuggest label="Product description" value={row.description} set={(value) => set('description', value)} options={descriptions} placeholder="Search or enter description" />
+        <InvoiceSuggest label="Brand" value={row.brand} set={(value) => set('brand', value)} options={masters.brands} placeholder="Search or enter brand" required={false} />
+        <Field label="HSN/SAC"><input value={row.hsn_sac || ''} onChange={(event) => set('hsn_sac', event.target.value)} placeholder="Enter HSN or SAC code" /></Field>
+        <InvoiceSuggest label="MOU" value={row.unit} set={(value) => set('unit', value)} options={masters.units} placeholder="Sq ft, Job, Nos..." />
+        <Field label="No. of coats">{paintingApplicable ? <select value={row.coats || 1} onChange={(event) => set('coats', event.target.value)}>{[1, 2, 3, 4, 5, 6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select> : <div className="bg-slate-100 text-slate-500">Not applicable</div>}</Field>
+        <Field label="Quantity"><input required type="number" min="0.01" step="0.01" value={row.quantity} onChange={(event) => set('quantity', event.target.value)} /></Field>
+        <Field label="Rate"><input required type="number" min="0" step="0.01" value={row.rate} onChange={(event) => set('rate', event.target.value)} /></Field>
+        <div className="rounded-2xl bg-slate-950 p-4 text-white sm:col-span-2"><span className="text-sm text-slate-300">Total amount</span><b className="float-right text-lg">{money(Number(row.quantity || 0) * Number(row.rate || 0))}</b></div>
+      </div>
+      <div className="border-t p-4"><button type="button" onClick={submit} disabled={!valid} className="w-full rounded-xl bg-slate-950 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{editor.index === null ? 'Add service' : 'Save service'}</button></div>
+    </div>
+  </div>;
+}
+
+function InvoiceSuggest({ label, value, set, options, placeholder, required = true }) {
+  const id = `invoice-${label.replace(/\W/g, '').toLowerCase()}`;
+  return <label className="text-sm font-semibold">{label}<span className="mt-1.5 block"><input required={required} list={id} value={value || ''} onChange={(event) => set(event.target.value)} placeholder={placeholder} className="w-full rounded-xl border p-2.5 font-normal" /><datalist id={id}>{options.map((item) => <option key={item.id ?? item.name} value={item.name} />)}</datalist></span></label>;
 }
 
 function InvoiceAmount({ label, value, paid, due }) {

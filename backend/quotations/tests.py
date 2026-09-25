@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from accounts.models import BharathUser, ContractorProfile
+from accounts.legal import POLICY_VERSION
 from .models import Area, ChatConversation, ChatMessage, Customer, CustomerFollowUp, MeasurementOpening, MeasurementSurface, PaintBrand, PaintType, PortalNotification, Property, PropertyMeasurement, PropertyRoom, Quotation, QuotationItem, QuotationRoom, ServiceCategory, ServiceRequest, ServiceType, SupportTicket, Unit, WorkChange
 from .serializers import QuotationItemSerializer, QuotationSerializer
 from .work_changes import current_scope, work_change_summary
@@ -487,7 +488,7 @@ class CustomerApiTests(APITestCase):
         )
         registration = self.client.post(
             reverse("register-customer"),
-            {"name": "Chat customer", "mobile": "9888877777", "email": "chat.customer@example.com", "password": "customer-pass"},
+            {"name": "Chat customer", "mobile": "9888877777", "email": "chat.customer@example.com", "password": "customer-pass", "policy_version": POLICY_VERSION, "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True},
             format="json",
         )
         self.assertEqual(registration.status_code, status.HTTP_201_CREATED)
@@ -527,7 +528,7 @@ class CustomerApiTests(APITestCase):
         service = ServiceType.objects.create(name="Interior painting", created_by=self.contractor)
         registration = self.client.post(
             reverse("register-customer"),
-            {"name": customer.name, "mobile": customer.mobile, "password": "customer-pass"},
+            {"name": customer.name, "mobile": customer.mobile, "password": "customer-pass", "policy_version": POLICY_VERSION, "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True},
             format="json",
         )
         self.assertEqual(registration.status_code, status.HTTP_201_CREATED)

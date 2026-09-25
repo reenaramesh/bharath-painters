@@ -40,6 +40,7 @@ export default function QuotationDetail() {
   const [showShare, setShowShare] = useState(false);
   const [customerLogin, setCustomerLogin] = useState(null);
   const [mobileItem, setMobileItem] = useState(null);
+  const [invoiceSetup, setInvoiceSetup] = useState(null);
   useEffect(() => {
     api
       .get(`/quotations/${id}/`)
@@ -120,8 +121,21 @@ export default function QuotationDetail() {
     try {
       const { data } = await api.post("/quotations/invoices/", {
         quotation: Number(id),
+        hsn_codes: invoiceSetup || [],
       });
+      setInvoiceSetup(null);
+      let pdfResponse = null;
+      try {
+        pdfResponse = await api.get(`/quotations/invoices/${data.id}/pdf/`, {
+          responseType: "blob",
+        });
+      } catch {
+        setError("Invoice was created, but its PDF preview could not be opened.");
+      }
       navigate(`/invoices?invoice=${data.id}`);
+      if (pdfResponse) {
+        window.setTimeout(() => previewPdf(pdfResponse.data, `${data.invoice_number}.pdf`), 0);
+      }
     } catch (requestError) {
       const details = requestError.response?.data;
       const message =
@@ -210,7 +224,7 @@ export default function QuotationDetail() {
           )}
           {quotation.status === "COMPLETED" && (
             <button
-              onClick={convertToInvoice}
+              onClick={() => setInvoiceSetup(quotation.items.map(() => ""))}
               disabled={converting}
               className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-900 disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
             >
@@ -501,8 +515,40 @@ export default function QuotationDetail() {
           onClose={() => setShowShare(false)}
         />
       )}
+      {invoiceSetup && (
+        <InvoiceSetupDialog
+          quotation={quotation}
+          hsnCodes={invoiceSetup}
+          setHsnCodes={setInvoiceSetup}
+          converting={converting}
+          onClose={() => setInvoiceSetup(null)}
+          onCreate={convertToInvoice}
+        />
+      )}
     </div>
   );
+}
+
+function InvoiceSetupDialog({ quotation, hsnCodes, setHsnCodes, converting, onClose, onCreate }) {
+  const update = (index, value) => setHsnCodes((current) => current.map((code, position) => position === index ? value : code));
+  return <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-6">
+    <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
+      <header className="flex items-start justify-between border-b p-5">
+        <div><p className="text-xs font-bold uppercase tracking-wide text-amber-600">Final invoice</p><h2 className="text-xl font-extrabold">Confirm HSN/SAC codes</h2></div>
+        <button type="button" onClick={onClose} className="rounded-xl border p-2"><X className="h-5 w-5" /></button>
+      </header>
+      <div className="flex-1 space-y-3 overflow-y-auto p-5">
+        {quotation.items.map((item, index) => {
+          const room = quotation.rooms.find((entry) => Number(entry.id) === Number(item.room));
+          return <label key={item.id || index} className="block rounded-2xl border p-4">
+            <span className="flex items-start justify-between gap-3"><span><small className="block font-bold uppercase tracking-wide text-amber-600">Item {index + 1}</small><b className="mt-1 block">{item.service_category_name || item.service_type_name || "Service"}</b><small className="text-slate-500">{room?.name || "General"} / {item.description}</small></span><b className="shrink-0">{money(item.amount)}</b></span>
+            <span className="mt-3 block text-sm font-semibold">HSN/SAC code (optional)<input value={hsnCodes[index] || ""} onChange={(event) => update(index, event.target.value)} placeholder="Enter HSN or SAC code" className="mt-1.5 w-full rounded-xl border px-3 py-3 font-normal" /></span>
+          </label>;
+        })}
+      </div>
+      <footer className="grid grid-cols-2 gap-3 border-t p-4"><button type="button" onClick={onClose} className="rounded-xl border py-3 font-bold">Cancel</button><button type="button" onClick={onCreate} disabled={converting} className="rounded-xl bg-slate-950 py-3 font-bold text-white disabled:opacity-50">{converting ? "Creating..." : "Create & Preview"}</button></footer>
+    </div>
+  </div>;
 }
 
 function QuotationShare({ quotation, customer, customerLogin, onClose }) {

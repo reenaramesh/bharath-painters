@@ -172,9 +172,17 @@ def _header(context, title, metadata, s, center_title=False):
     meta_rows = [[Paragraph(_text(label).upper(), s["label"]), Paragraph(_text(value), s["right"])] for label, value in metadata if value]
     meta = Table(meta_rows, colWidths=[29*mm, 49*mm], style=TableStyle([("LINEBELOW", (0, 0), (-1, -2), .35, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("PADDING", (0, 0), (-1, -1), 3)]))
     if center_title:
-        header_details = Table([[brand, meta]], colWidths=[100*mm, 80*mm])
+        wide_company = Table([[line] for line in company_block], colWidths=[106*mm])
+        wide_company.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
+        compact_meta = Table(meta_rows, colWidths=[28*mm, 42*mm], style=TableStyle([("LINEBELOW", (0, 0), (-1, -2), .35, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("PADDING", (0, 0), (-1, -1), 3)]))
+        title_row = Table(
+            [[context["logo"] or "", Paragraph(title, s["title_center"]), ""]],
+            colWidths=[36*mm, 108*mm, 36*mm],
+        )
+        title_row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (0, 0), "LEFT"), ("ALIGN", (1, 0), (1, 0), "CENTER"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+        header_details = Table([[wide_company, compact_meta]], colWidths=[108*mm, 72*mm])
         header_details.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
-        top = Table([[Paragraph(title, s["title_center"])], [header_details]], colWidths=[180*mm])
+        top = Table([[title_row], [header_details]], colWidths=[180*mm])
         top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 1), (-1, 1), 1.7, BLUE), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (0, 0), 4), ("BOTTOMPADDING", (0, 1), (0, 1), 6)]))
         return top
     title_meta = Table([[Paragraph(title, s["title"])], [meta]], colWidths=[80*mm])
@@ -337,7 +345,8 @@ def build_quotation_pdf(quotation):
     quote_detail_bold = ParagraphStyle("bp-quotation-detail-bold", parent=s["bold"], fontSize=10.8, leading=11.2, textColor=INK)
     story = [_header(context, "QUOTATION", [("Quotation No.", quotation.quotation_number), ("Date", quotation.quotation_date), ("Valid Until", quotation.valid_until)], s, center_title=True), Spacer(1, 2.5*mm), _cards(_info_card("Customer", customer_details, s, background=False, border=False, first_style=quote_detail_bold, detail_style=quote_detail, title_style=quote_heading, padding=9), _info_card("Property details", property_details, s, background=False, border=False, first_style=quote_detail_bold, detail_style=quote_detail, title_style=quote_heading, padding=9))]
     story += [Spacer(1, 2.5*mm), Paragraph("QUOTATION", s["section"])]
-    rows = [["Sl.", "Type of service", "Room / Area", "Product type / Brand", "Product description", "Qty", "Coats", "Rate", "Amount"]]
+    rows = [["Sl.", "Type of service", "Room / Area", "Product type / Brand", "Product description", "Qty", "Rate", "Amount"]]
+    numeric_cell = ParagraphStyle("bp-quotation-number", parent=s["body"], fontSize=7.2, leading=9, alignment=TA_RIGHT)
     for serial, item in enumerate(quotation.items.select_related("room", "service_type", "paint_type", "paint_brand", "unit").all(), 1):
         category = item.service_category_name_snapshot or item.custom_service_category or (item.service_category.name if item.service_category else "")
         service = item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else "")
@@ -348,9 +357,11 @@ def build_quotation_pdf(quotation):
         service_value = _joined([category, service], " / ")
         product_brand = _joined([product, brand], " / ")
         quantity_value = f"{quantity(item.quantity)} {_text(unit)}".strip()
-        coats = str(item.coats) if item.coats not in (None, "") else "-"
-        rows.append([str(serial), Paragraph(_text(service_value), s["body"]), Paragraph(_text(room), s["body"]), Paragraph(_text(product_brand), s["body"]), Paragraph(_text(item.description), s["body"]), quantity_value, coats, money(item.rate), money(item.amount)])
-    story.append(_data_table(rows, [8*mm, 23*mm, 18*mm, 30*mm, 38*mm, 16*mm, 10*mm, 18*mm, 19*mm], numeric_from=5, font_size=6.8, emphasis_columns=[5, 6, 7, 8]))
+        coats = str(item.coats) if item.coats not in (None, "") else ""
+        coat_label = f"{coats} coat{'s' if coats != '1' else ''}" if coats else ""
+        description = _joined([item.description, coat_label], " - ")
+        rows.append([str(serial), Paragraph(_text(service_value), s["body"]), Paragraph(_text(room), s["body"]), Paragraph(_text(product_brand), s["body"]), Paragraph(_text(description), s["body"]), Paragraph(_text(quantity_value), numeric_cell), Paragraph(_text(money(item.rate)), numeric_cell), Paragraph(_text(money(item.amount)), numeric_cell)])
+    story.append(_data_table(rows, [8*mm, 22*mm, 18*mm, 30*mm, 42*mm, 22*mm, 18*mm, 20*mm], numeric_from=5, font_size=6.8, emphasis_columns=[5, 6, 7]))
     totals = [["Subtotal", money(quotation.subtotal)]]
     if quotation.discount: totals.append(["Discount", f"- {money(quotation.discount)}"])
     if quotation.gst_amount: totals.append([f"GST ({quantity(quotation.gst_percentage)}%)", money(quotation.gst_amount)])
@@ -395,18 +406,21 @@ def build_invoice_pdf(invoice):
     property_type = property_obj.get_property_type_display() if property_obj else "Direct invoice"
     property_label = invoice.property_name or (property_obj.name if property_obj else "") or property_type
     story = [
-        _header(context, "TAX INVOICE" if tax_invoice else "INVOICE", [("Invoice No.", invoice.invoice_number), ("Invoice Date", invoice.invoice_date), ("Source", source_number), ("Project Ref.", property_label)], s),
+        _header(context, "TAX INVOICE" if tax_invoice else "INVOICE", [("Invoice No.", invoice.invoice_number), ("Invoice Date", invoice.invoice_date), ("Source", source_number), ("Project Ref.", property_label)], s, center_title=True),
         Spacer(1, 4*mm),
         _cards(_info_card("Bill to", [invoice.customer_name, invoice.customer_mobile, property_address], s), _info_card("Property details", [property_label, property_type, property_address], s)),
         Spacer(1, 5*mm), Paragraph("INVOICE ITEMS", s["section"]),
     ]
-    rows = [["Description", "Product / Brand", "HSN/SAC", "Qty / Area", "Rate", "Amount"]]
-    for row in invoice.items or []:
-        description = _joined([row.get("service"), row.get("room"), row.get("description")], " - ")
+    rows = [["Sl.", "Description", "Product / Brand", "HSN/SAC", "Qty / Area", "Rate", "Amount"]]
+    for serial, row in enumerate(invoice.items or [], 1):
+        coats = row.get("coats")
+        coat_label = f"{coats} coat{'s' if str(coats) != '1' else ''}" if coats not in (None, "", "-") else ""
+        service = _joined([row.get("category"), row.get("service")], " / ")
+        description = _joined([service, row.get("room"), row.get("description"), coat_label], " - ")
         product = _joined([row.get("product_type"), row.get("brand")], " / ")
         qty = f"{quantity(row.get('quantity'))} {row.get('unit') or ''}".strip()
-        rows.append([Paragraph(_text(description), s["body"]), Paragraph(_text(product), s["body"]), _text(row.get("hsn_sac")), qty, money(row.get("rate")), money(row.get("amount"))])
-    story.append(_data_table(rows, [61*mm, 39*mm, 18*mm, 22*mm, 19*mm, 21*mm], numeric_from=3))
+        rows.append([str(serial), Paragraph(_text(description), s["body"]), Paragraph(_text(product), s["body"]), _text(row.get("hsn_sac")), qty, money(row.get("rate")), money(row.get("amount"))])
+    story.append(_data_table(rows, [8*mm, 53*mm, 34*mm, 18*mm, 22*mm, 20*mm, 25*mm], numeric_from=4))
     taxable = invoice.subtotal - invoice.discount
     totals = [["Subtotal", money(invoice.subtotal)]]
     if invoice.discount: totals.append(["Discount", f"- {money(invoice.discount)}"])

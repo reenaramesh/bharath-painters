@@ -189,6 +189,37 @@ class PasswordResetOTP(models.Model):
         ordering = ("-created_at",)
 
 
+class UserLegalConsent(models.Model):
+    user = models.ForeignKey(
+        BharathUser,
+        on_delete=models.CASCADE,
+        related_name="legal_consents",
+    )
+    policy_version = models.CharField(max_length=30)
+    role_at_acceptance = models.CharField(max_length=20, choices=BharathUser.Roles.choices)
+    terms_hash = models.CharField(max_length=64)
+    privacy_hash = models.CharField(max_length=64)
+    terms_accepted = models.BooleanField(default=False)
+    privacy_notice_acknowledged = models.BooleanField(default=False)
+    document_scrolled = models.BooleanField(default=False)
+    acceptance_method = models.CharField(max_length=40, default="REGISTRATION_CHECKBOX")
+    ip_address = models.CharField(max_length=45, blank=True)
+    user_agent = models.TextField(blank=True)
+    accepted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-accepted_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "policy_version"),
+                name="unique_user_legal_policy_acceptance",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} accepted {self.policy_version}"
+
+
 class PainterProfile(models.Model):
 
     class Availability(models.TextChoices):

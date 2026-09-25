@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpDown,
   ContactRound,
+  Copy,
   Download,
   FilePlus2,
   KeyRound,
@@ -18,6 +19,8 @@ import api from "../api/client";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
 import { CUSTOMER_STATUSES } from "../constants/customers";
 import MobilePageBack from "../components/MobilePageBack";
+import useAuth from "../context/useAuth";
+import { buildCustomerWelcomeMessage, whatsappNumber } from "../utils/welcomeMessages";
 
 const statusColors = {
   NEW: "bg-blue-50 text-blue-700",
@@ -37,11 +40,13 @@ const label = (value) =>
     .replace(/^./, (letter) => letter.toUpperCase());
 
 export default function Customers() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [contractorServices, setContractorServices] = useState([]);
   const [connectionView, setConnectionView] = useState("CONNECTED");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -61,10 +66,11 @@ export default function Customers() {
     setLoading(true);
     setError("");
     try {
-      const [customerResponse, propertyResponse, connectionResponse] = await Promise.all([
+      const [customerResponse, propertyResponse, connectionResponse, serviceResponse] = await Promise.all([
         api.get("/quotations/customers/"),
         api.get("/quotations/properties/"),
         api.get("/quotations/contractor/customer-connections/"),
+        api.get("/quotations/service-categories/").catch(() => ({ data: [] })),
       ]);
       const customerData = customerResponse.data;
       const propertyData = propertyResponse.data;
@@ -75,6 +81,7 @@ export default function Customers() {
         Array.isArray(propertyData) ? propertyData : propertyData.results || [],
       );
       setConnections(connectionResponse.data.results || []);
+      setContractorServices(serviceResponse.data.results || serviceResponse.data || []);
     } catch {
       setError("Customers could not be loaded. Please try again.");
     } finally {
@@ -753,13 +760,16 @@ export default function Customers() {
         onNewCustomer={createCustomer}
         onConnected={loadCustomers}
       />}
-      {onboarding?.temporary_password && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
+      {onboarding && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
         <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
           <h2 className="text-xl font-extrabold">Customer created</h2>
-          <p className="mt-2 text-sm text-slate-500">Share these one-time login details securely with the customer.</p>
-          <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm"><p><span className="text-slate-500">Customer ID</span><b className="block text-lg">{onboarding.bharath_id}</b></p><p><span className="text-slate-500">Mobile</span><b className="block text-lg">{onboarding.mobile}</b></p><p><span className="text-slate-500">Temporary password</span><b className="block text-lg">{onboarding.temporary_password}</b></p></div>
-          <button type="button" onClick={() => navigator.clipboard.writeText(`Customer ID: ${onboarding.bharath_id}\nMobile: ${onboarding.mobile}\nTemporary password: ${onboarding.temporary_password}`)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-3 font-bold text-white"><KeyRound className="h-4 w-4" />Copy login details</button>
-          <p className="mt-2 text-center text-xs text-slate-500">Share the temporary password with the customer through a secure channel.</p>
+          <p className="mt-2 text-sm text-slate-500">Send the welcome message so the customer can register free and continue securely.</p>
+          <div className="mt-5 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">{buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices })}</div>
+          {onboarding.temporary_password && <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800"><KeyRound className="h-4 w-4 shrink-0" />The temporary password is included. Ask the customer to change it after signing in.</div>}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => navigator.clipboard.writeText(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))} className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Copy className="h-4 w-4" />Copy</button>
+            <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />WhatsApp</a>
+          </div>
           <button onClick={() => setOnboarding(null)} className="mt-3 w-full rounded-xl border px-4 py-3 font-bold">Done</button>
         </section>
       </div>}

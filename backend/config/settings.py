@@ -270,6 +270,9 @@ EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 15)
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL", "Bharath Painters <no-reply@bharathpainters.in>"
 )
+LEGAL_OPERATOR_NAME = os.environ.get("LEGAL_OPERATOR_NAME", "Bharath Painters")
+LEGAL_OPERATOR_ADDRESS = os.environ.get("LEGAL_OPERATOR_ADDRESS", "India")
+LEGAL_CONTACT_EMAIL = os.environ.get("LEGAL_CONTACT_EMAIL", "support@bharathpainters.in")
 
 # OTP and API throttles must use a cache shared by every backend worker in
 # production. LocMem remains the zero-configuration local-development default.

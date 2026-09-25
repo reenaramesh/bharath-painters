@@ -1005,16 +1005,11 @@ export default function QuotationBuilder() {
         {step === 1 && (
           <div>
             <h2 className="font-bold">Choose how to prepare this quotation</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Use a saved Area Calculation when available, or create service lines directly using quantity and rate.
-            </p>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <button type="button" onClick={()=>setUseMeasurements(true)} className={`rounded-2xl border p-5 text-left transition ${useMeasurements?"border-slate-950 bg-slate-950 text-white shadow-lg":"bg-white hover:border-slate-400"}`}><span className={`grid h-11 w-11 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-violet-50 text-violet-700"}`}><Ruler className="h-6 w-6" /></span><p className="mt-4 text-lg font-bold">Square Foot Quotation</p><p className={`mt-2 text-sm ${useMeasurements?"text-slate-300":"text-slate-500"}`}>Use an existing Area Calculation and price selected wall or ceiling square feet.</p></button>
-              <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`rounded-2xl border p-5 text-left transition ${!useMeasurements?"border-amber-500 bg-amber-50 shadow-lg":"bg-white hover:border-amber-300"}`}><span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-800"><IndianRupee className="h-6 w-6" /></span><p className="mt-4 text-lg font-bold">Lump Sum Quotation</p><p className="mt-2 text-sm text-slate-500">Create room-wise service lines using quantity, unit, brand and rate without an Area Calculation.</p></button>
+              <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-slate-950 bg-slate-950 text-white shadow-lg":"bg-white hover:border-slate-400"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-violet-50 text-violet-700"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
+              <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-amber-500 bg-amber-50 shadow-lg":"bg-white hover:border-amber-300"}`}><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-800"><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
-            {useMeasurements&&<label className="mt-6 block text-sm font-medium">Area Calculation *<select value={selectedMeasurementId} onChange={(event)=>setSelectedMeasurementId(event.target.value)} className={input}><option value="">Select Area Calculation</option>{measurementRecords.map((record)=><option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">Any saved Area Calculation can be used. Only its selected rooms and surfaces will be included in this quotation.</span></label>}
-            {useMeasurements&&exteriorMode&&<div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5"><h3 className="font-bold text-emerald-900">Exterior Area Calculation selected</h3><p className="mt-1 text-sm text-emerald-800">Saved exterior dimensions will be combined into surface totals for each room or area.</p></div>}
-            {!useMeasurements&&<div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Lump Sum Quotation selected.</b> You will add room-wise service lines in the next step. An Area Calculation is not required.</div>}
+            {useMeasurements&&<label className="mt-6 block text-sm font-medium">Area Calculation *<select value={selectedMeasurementId} onChange={(event)=>setSelectedMeasurementId(event.target.value)} className={input}><option value="">Select Area Calculation</option>{measurementRecords.map((record)=><option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}</select></label>}
           </div>
         )}
         {step === 2 && (
@@ -1022,16 +1017,7 @@ export default function QuotationBuilder() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-bold">Select Area Calculation fields &amp; coats</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Select only the dimensions required for this quotation. Going
-                  back later will not clear prices already entered.
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {exteriorMode ? "Choose full-property wall and ceiling totals, or switch to room/area-wise totals." : "Interior Area Calculations are combined into one net-wall field and one ceiling field for the full house."}
-                </p>
-                <p className="mt-1 text-xs font-medium text-amber-700">
-                  Door and window areas are already deducted from the net wall area. Add them separately in the pricing step only when they require painting.
-                </p>
+                <p className="mt-1 text-xs text-slate-500">Select required areas. Doors and windows are already deducted from net walls.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1087,9 +1073,6 @@ export default function QuotationBuilder() {
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <h2 className="font-bold">Services &amp; rates</h2>
-                <p className="text-sm text-slate-500">
-                  Select a line card to enter its service, room, description, unit, quantity, brand and rate in a clear popup.
-                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => addOpeningMeasurement("DOOR")} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold">
@@ -1380,7 +1363,7 @@ export default function QuotationBuilder() {
                 </div>
               </div>
               <p className="mt-4 text-xs text-slate-400">
-                Final amounts are recalculated by the server.
+                Review the total before previewing.
               </p>
             </div>
           </div>

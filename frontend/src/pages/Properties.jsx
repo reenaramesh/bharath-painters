@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { ArrowUpDown, Building2, Calculator, ChevronDown, Eye, Plus, Search } from "lucide-react";
+import { ArrowUpDown, Building2, ChevronDown, Eye, Plus, Search } from "lucide-react";
 import api from "../api/client";
+import MobilePageBack from "../components/MobilePageBack";
 import PropertyForm from "../components/PropertyForm";
 
 export default function Properties() {
@@ -118,6 +119,7 @@ export default function Properties() {
 
   return (
     <div className="space-y-6">
+      <MobilePageBack />
       {calculatorMode ? (
         <header className="flex justify-end">
           <button onClick={() => setShowForm(true)} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
@@ -140,11 +142,7 @@ export default function Properties() {
             <h1 className="mt-1 text-3xl font-bold">
               {selectedCustomer ? `${selectedCustomer.name}'s properties` : "Properties"}
             </h1>
-            <p className="mt-2 text-slate-500">
-              {selectedCustomer
-                ? "View all properties associated with this customer."
-                : "View every owner, project, address and property size."}
-            </p>
+            {selectedCustomer && <p className="mt-2 text-slate-500">View all properties associated with this customer.</p>}
           </div>
           <button
             onClick={() => setShowForm(true)}
@@ -177,11 +175,7 @@ export default function Properties() {
           <p className="p-12 text-center text-slate-500">Loading properties...</p>
         ) : calculatorMode && filtered.length ? (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-bold text-slate-950">Properties ready for calculation</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Select a property to create or continue its paintable-area calculation.</p>
-              </div>
+            <div className="flex justify-end border-b border-slate-200 bg-white px-5 py-3">
               <span className="w-fit rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{calculatorRows.length} properties</span>
             </div>
             <div className="divide-y divide-slate-200 md:hidden">
@@ -198,7 +192,7 @@ export default function Properties() {
                   {expanded && <div className="space-y-3 border-t bg-slate-50/70 px-4 py-4 text-sm">
                     <div><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Location</p><p className="mt-1 text-slate-700">{address || "Not provided"}</p></div>
                     <div className="grid grid-cols-2 gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Type</p><p className="mt-1 font-semibold">{property.property_type || "Property"}</p></div><div><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Calculation</p><p className="mt-1 font-semibold">{property.has_measurements ? "Available" : "Not started"}</p></div></div>
-                    <div className="grid grid-cols-2 gap-2 pt-1"><Link to={`/properties/${property.id}`} state={propertyListState} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border bg-white font-bold"><Eye className="h-4 w-4" />View</Link><Link to={`/properties/${property.id}/measurements`} state={propertyListState} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 font-bold text-white"><Calculator className="h-4 w-4" />Open</Link></div>
+                    <Link to={`/properties/${property.id}`} state={propertyListState} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 font-bold text-white"><Eye className="h-4 w-4" />View</Link>
                   </div>}
                 </article>;
               })}
@@ -229,7 +223,7 @@ export default function Properties() {
                         <td className="px-4 py-4"><p className="line-clamp-2 leading-5 text-slate-600">{address || "Address not provided"}</p></td>
                         <td className="px-4 py-4"><span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700">{property.property_type || "Property"}</span><p className={`mt-2 text-xs font-bold ${property.measurement_type === "EXTERIOR" ? "text-sky-700" : "text-violet-700"}`}>{property.measurement_type === "EXTERIOR" ? "Exterior" : "Interior"} · {property.linear_unit_label || property.measurement_unit || "FEET"}</p></td>
                         <td className="px-4 py-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold ${property.has_measurements ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><span className={`h-1.5 w-1.5 rounded-full ${property.has_measurements ? "bg-emerald-500" : "bg-amber-500"}`} />{property.has_measurements ? "Available" : "Not started"}</span></td>
-                        <td className="px-4 py-4"><div className="flex justify-end gap-2"><Link to={`/properties/${property.id}`} state={propertyListState} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-slate-950"><Eye className="h-4 w-4" />View</Link><Link to={`/properties/${property.id}/measurements`} state={propertyListState} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700"><Calculator className="h-4 w-4" />Open</Link></div></td>
+                        <td className="px-4 py-4"><div className="flex justify-end"><Link to={`/properties/${property.id}`} state={propertyListState} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"><Eye className="h-4 w-4" />View</Link></div></td>
                       </tr>
                     );
                   })}

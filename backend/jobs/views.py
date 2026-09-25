@@ -1589,10 +1589,11 @@ class PainterSeekingDetailView(APIView):
 
 
 def applicator_booking_data(item):
+    contractor_profile = getattr(item.contractor, "contractor_profile", None)
     return {
         "id": item.id,
         "contractor": item.contractor_id,
-        "contractor_name": item.contractor.get_full_name() or item.contractor.mobile,
+        "contractor_name": contractor_profile.company_name if contractor_profile and contractor_profile.company_name else item.contractor.get_full_name() or item.contractor.mobile,
         "contractor_mobile": item.contractor.mobile,
         "applicator": item.applicator_id,
         "applicator_name": item.applicator.get_full_name() or item.applicator.mobile,
@@ -1618,7 +1619,16 @@ class ApplicatorBookingListCreateView(APIView):
     def get(self, request):
         if is_inhouse_applicator(request.user):
             return Response({"detail": "In-house employees do not use marketplace booking requests."}, status=status.HTTP_403_FORBIDDEN)
-        queryset = ApplicatorBooking.objects.select_related("contractor", "applicator", "seeking_post")
+        today = timezone.localdate()
+        ApplicatorBooking.objects.filter(
+            status=ApplicatorBooking.Status.PENDING,
+            start_date__lt=today,
+        ).update(status=ApplicatorBooking.Status.CLOSED, updated_at=timezone.now())
+        ApplicatorBooking.objects.filter(
+            status=ApplicatorBooking.Status.CONFIRMED,
+            end_date__lt=today,
+        ).update(status=ApplicatorBooking.Status.CLOSED, updated_at=timezone.now())
+        queryset = ApplicatorBooking.objects.select_related("contractor", "contractor__contractor_profile", "applicator", "seeking_post")
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             queryset = queryset.filter(contractor=request.user)
             notification_count = queryset.filter(contractor_seen_response=False, status__in=(ApplicatorBooking.Status.CONFIRMED, ApplicatorBooking.Status.REJECTED)).count()
@@ -1697,10 +1707,19 @@ class ApplicatorBookingSearchView(APIView):
         users = BharathUser.objects.filter(
             role=BharathUser.Roles.PAINTER, is_active=True, is_verified=True,
             verification_status=BharathUser.VerificationStatus.VERIFIED,
-        ).filter(models.Q(mobile__icontains=term) | models.Q(bharath_id__icontains=term)).select_related("painter_profile")[:20]
+        ).filter(
+            models.Q(mobile__icontains=term)
+            | models.Q(bharath_id__icontains=term)
+            | models.Q(first_name__icontains=term)
+            | models.Q(last_name__icontains=term)
+            | models.Q(painter_profile__skills__icontains=term)
+            | models.Q(painter_profile__preferred_locations__icontains=term)
+        ).select_related("painter_profile").distinct()[:20]
         return Response([{
             "id": user.id, "name": user.get_full_name() or user.mobile, "mobile": user.mobile,
-            "bharath_id": user.bharath_id, "skills": user.painter_profile.skills if hasattr(user, "painter_profile") else "",
+            "bharath_id": user.bharath_id,
+            "skills": user.painter_profile.skills if hasattr(user, "painter_profile") else "",
+            "preferred_locations": user.painter_profile.preferred_locations if hasattr(user, "painter_profile") else "",
         } for user in users])
 
 
@@ -1713,6 +1732,21 @@ class ApplicatorBookingActionView(APIView):
         item = ApplicatorBooking.objects.select_related("contractor", "applicator", "seeking_post").filter(pk=pk).first()
         if not item:
             return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+        today = timezone.localdate()
+        expired = (
+            item.status == ApplicatorBooking.Status.PENDING
+            and item.start_date < today
+        ) or (
+            item.status == ApplicatorBooking.Status.CONFIRMED
+            and item.end_date < today
+        )
+        if expired:
+            item.status = ApplicatorBooking.Status.CLOSED
+            item.save(update_fields=("status", "updated_at"))
+            return Response(
+                {"detail": "These booking dates have passed. The booking is closed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         action = str(request.data.get("action") or "").upper()
         if request.user == item.applicator and action in {"ACCEPT", "REJECT"}:
             if item.status != ApplicatorBooking.Status.PENDING:

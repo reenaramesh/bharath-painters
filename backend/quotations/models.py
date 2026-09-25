@@ -315,11 +315,7 @@ class Customer(models.Model):
         self.normalized_mobile = normalize_indian_mobile(self.mobile)
         if not self.normalized_mobile:
             raise ValueError("Enter a valid Indian mobile number.")
-        needs_id = not self.bharath_id
         super().save(*args, **kwargs)
-        if needs_id:
-            self.bharath_id = f"BP-C-{self.pk:06d}"
-            type(self).objects.filter(pk=self.pk).update(bharath_id=self.bharath_id)
 
 
 class ContractorCustomerConnection(models.Model):
@@ -1286,6 +1282,7 @@ class Quotation(models.Model):
                 "mobile": self.contractor.mobile,
                 "email": self.contractor.email,
                 "company_logo": logo_name,
+                "company_logo_shape": profile.company_logo_shape if profile else "RECTANGLE",
                 "office_address": profile.office_address if profile else "",
                 "service_areas": profile.service_areas if profile else "",
                 "gst_number": profile.gst_number if profile else "",
@@ -2228,8 +2225,15 @@ class Invoice(models.Model):
         CHEQUE = "CHEQUE", "Cheque"
         OTHER = "OTHER", "Other"
 
+    class TaxMode(models.TextChoices):
+        GST = "GST", "With GST"
+        NON_GST = "NON_GST", "Without GST"
+
     contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="project_invoices")
-    quotation = models.OneToOneField(Quotation, on_delete=models.PROTECT, related_name="invoice")
+    quotation = models.OneToOneField(Quotation, on_delete=models.PROTECT, related_name="invoice", null=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="invoices", null=True, blank=True)
+    site_property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name="invoices", null=True, blank=True)
+    tax_mode = models.CharField(max_length=10, choices=TaxMode.choices, default=TaxMode.NON_GST)
     invoice_number = models.CharField(max_length=40, unique=True)
     invoice_date = models.DateField(default=timezone.localdate)
     due_date = models.DateField(null=True, blank=True)
@@ -2267,6 +2271,21 @@ class Invoice(models.Model):
 
     def __str__(self):
         return self.invoice_number
+
+
+class InvoiceNumberSequence(models.Model):
+    tax_mode = models.CharField(max_length=10, choices=Invoice.TaxMode.choices)
+    financial_year = models.CharField(max_length=9)
+    last_number = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("tax_mode", "financial_year"), name="unique_invoice_sequence_by_tax_fy"),
+        ]
+
+    def __str__(self):
+        return f"{self.tax_mode} {self.financial_year}: {self.last_number}"
 
 
 class InvoicePayment(models.Model):

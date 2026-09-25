@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Palette } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Palette } from "lucide-react";
 import useAuth from "../context/useAuth";
 
 export default function Login() {
@@ -9,6 +9,7 @@ export default function Login() {
   const location = useLocation();
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -63,7 +64,12 @@ export default function Login() {
             </label>
             <label className="block text-sm font-semibold text-slate-700">
               Password
-              <input required type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
+              <span className="relative mt-2 block">
+                <input required type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-4 pr-12 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
+                <button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 grid w-11 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300">
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </span>
             </label>
             <div className="text-right"><Link to="/forgot-password" className="text-sm font-semibold text-slate-700 hover:text-slate-950">Forgot password?</Link></div>
             {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}

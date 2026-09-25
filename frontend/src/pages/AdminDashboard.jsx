@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
+import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 import {
   ErrorState,
   LoadingState,
@@ -283,6 +284,7 @@ export default function AdminDashboard() {
           </>
         }
       />
+      <MobileDashboardShortcuts />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}

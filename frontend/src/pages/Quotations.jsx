@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUpDown, Calculator, Search } from "lucide-react";
 import api from "../api/client";
+import MobilePageBack from "../components/MobilePageBack";
 
 const colors = { DRAFT: "bg-slate-100 text-slate-700", SENT: "bg-blue-50 text-blue-700", VIEWED: "bg-cyan-50 text-cyan-700", ACCEPTED: "bg-emerald-50 text-emerald-700", SCHEDULED: "bg-indigo-50 text-indigo-700", IN_PROGRESS: "bg-violet-50 text-violet-700", COMPLETED: "bg-emerald-100 text-emerald-800", REJECTED: "bg-red-50 text-red-700", EXPIRED: "bg-amber-50 text-amber-700", CANCELLED: "bg-slate-100 text-slate-600" };
 const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(value || 0));
@@ -62,7 +63,8 @@ export default function Quotations() {
   const chooseSummary = (value) => { setStatus(value); chooseDatePreset("ALL"); };
 
   return <div className="space-y-6">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-amber-600">Estimates and pricing</p><h1 className="mt-1 text-3xl font-bold">Quotations</h1><p className="mt-2 text-slate-500">Prepare and track customer quotations.</p></div><Link to="/quotations/new" className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"><Calculator className="h-4 w-4" />Create a New Quotation</Link></div>
+    <MobilePageBack />
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-amber-600">Estimates and pricing</p><h1 className="mt-1 text-3xl font-bold">Quotations</h1></div><Link to="/quotations/new" className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"><Calculator className="h-4 w-4" />Create a New Quotation</Link></div>
     {error && <div className="rounded-xl bg-red-50 p-4 text-red-700">{error}</div>}
     <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{summaryCards.map((card) => <button key={card.value} type="button" onClick={() => chooseSummary(card.value)} className={`flex min-h-24 flex-col justify-between rounded-2xl border p-4 text-left transition ${status === card.value ? "border-slate-950 bg-slate-950 text-white shadow-lg" : "bg-white hover:border-slate-400 hover:shadow-sm"}`}><span className={`text-xs font-bold uppercase tracking-wide ${status === card.value ? "text-slate-300" : "text-slate-500"}`}>{card.label}</span><strong className="text-2xl tabular-nums">{card.count}</strong></button>)}</section>
     <section className="overflow-hidden rounded-2xl border bg-white">

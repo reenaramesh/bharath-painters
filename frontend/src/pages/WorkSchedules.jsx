@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
 import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
 import useAuth from "../context/useAuth";
+import MobilePageBack from "../components/MobilePageBack";
 
 const filters = [
   "ALL",
@@ -395,6 +396,7 @@ export default function WorkSchedules() {
 
   return (
     <div className="space-y-6">
+      <MobilePageBack />
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-600">
@@ -406,15 +408,26 @@ export default function WorkSchedules() {
             and work progress.
           </p>
         </div>
-        {schedulable.length > 0 && (
-          <button
-            onClick={() => setShowForm((value) => !value)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" />
-            {showForm ? "Close form" : "Schedule quotation"}
-          </button>
-        )}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {user.role === "CONTRACTOR" && (
+            <Link
+              to="/work-reschedules"
+              className="flex items-center justify-center gap-2 rounded-xl border bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Reschedule work
+            </Link>
+          )}
+          {schedulable.length > 0 && (
+            <button
+              onClick={() => setShowForm((value) => !value)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" />
+              {showForm ? "Close form" : "Schedule quotation"}
+            </button>
+          )}
+        </div>
       </header>
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>

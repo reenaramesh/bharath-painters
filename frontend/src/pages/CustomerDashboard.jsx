@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import CustomerAds from "../components/CustomerAds";
+import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 
 export default function CustomerDashboard() {
   const [data, setData] = useState(null);
@@ -50,6 +51,7 @@ export default function CustomerDashboard() {
           </p>
         </div>
       </header>
+      <MobileDashboardShortcuts />
       <CustomerAds />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>

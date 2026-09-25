@@ -6,10 +6,58 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import BharathUser
-from .models import Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter
+from .models import ApplicatorBooking, Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter
 from quotations.models import ChatConversation, Customer, Property, Quotation
 
 from .views import distance_km, geo_values
+
+
+class ApplicatorBookingLifecycleTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        verified = {
+            "is_verified": True,
+            "verification_status": BharathUser.VerificationStatus.VERIFIED,
+        }
+        self.contractor = BharathUser.objects.create_user(
+            mobile="9777000001",
+            role=BharathUser.Roles.CONTRACTOR,
+            **verified,
+        )
+        self.painter = BharathUser.objects.create_user(
+            mobile="9777000002",
+            role=BharathUser.Roles.PAINTER,
+            **verified,
+        )
+
+    def test_passed_booking_dates_are_moved_to_closed(self):
+        today = timezone.localdate()
+        pending = ApplicatorBooking.objects.create(
+            contractor=self.contractor,
+            applicator=self.painter,
+            work_type="Interior painting",
+            pincode="560001",
+            start_date=today - timedelta(days=2),
+            end_date=today + timedelta(days=1),
+        )
+        confirmed = ApplicatorBooking.objects.create(
+            contractor=self.contractor,
+            applicator=self.painter,
+            work_type="Exterior painting",
+            pincode="560001",
+            start_date=today - timedelta(days=3),
+            end_date=today - timedelta(days=1),
+            status=ApplicatorBooking.Status.CONFIRMED,
+        )
+
+        self.client.force_authenticate(self.contractor)
+        response = self.client.get(reverse("applicator-booking-list"))
+
+        self.assertEqual(response.status_code, 200)
+        pending.refresh_from_db()
+        confirmed.refresh_from_db()
+        self.assertEqual(pending.status, ApplicatorBooking.Status.CLOSED)
+        self.assertEqual(confirmed.status, ApplicatorBooking.Status.CLOSED)
 
 
 class WorkScheduleProgressTests(TestCase):

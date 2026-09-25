@@ -76,7 +76,6 @@ export default function IndiaLocationPicker({ value, onChange, required = false,
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-bold text-slate-950">{title}{required ? " *" : ""}</p>
-          <p className="mt-1 text-xs text-slate-500">Search any Indian city, locality or PIN code, or use this phone's location.</p>
         </div>
         <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
           {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}

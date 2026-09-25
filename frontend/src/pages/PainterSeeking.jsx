@@ -199,11 +199,11 @@ export default function PainterSeeking() {
               ? "My job-seeking posts"
               : "Paint Applicators seeking work"}
           </h1>
-          <p className="mt-2 text-slate-500">
-            {isPainter
-              ? "Select your work, skills, PIN-code locations and available dates."
-              : "Find available verified Paint Applicators by work, skill, PIN code, dates and wage."}
-          </p>
+          {isPainter && (
+            <p className="mt-2 text-slate-500">
+              Select your work, skills, PIN-code locations and available dates.
+            </p>
+          )}
         </div>
         {isPainter && (
           <button

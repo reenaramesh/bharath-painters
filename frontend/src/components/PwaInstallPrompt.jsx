@@ -14,8 +14,19 @@ export default function PwaInstallPrompt() {
   const isIos = useMemo(() => /iphone|ipad|ipod/i.test(window.navigator.userAgent) && !window.MSStream, []);
 
   useEffect(() => {
-    const onBeforeInstall = (event) => { event.preventDefault(); setInstallEvent(event); };
-    const onInstalled = () => { setInstalled(true); setInstallEvent(null); localStorage.removeItem(DISMISSED_KEY); };
+    const onBeforeInstall = (event) => {
+      event.preventDefault();
+      window.__bpPwaInstallPrompt = event;
+      setInstallEvent(event);
+      window.dispatchEvent(new Event("bp-pwa-install-ready"));
+    };
+    const onInstalled = () => {
+      delete window.__bpPwaInstallPrompt;
+      setInstalled(true);
+      setInstallEvent(null);
+      localStorage.removeItem(DISMISSED_KEY);
+      window.dispatchEvent(new Event("bp-pwa-installed"));
+    };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
@@ -31,7 +42,10 @@ export default function PwaInstallPrompt() {
     if (!installEvent) return;
     await installEvent.prompt();
     const choice = await installEvent.userChoice;
-    if (choice.outcome === "accepted") setInstallEvent(null);
+    if (choice.outcome === "accepted") {
+      delete window.__bpPwaInstallPrompt;
+      setInstallEvent(null);
+    }
   };
 
   return (

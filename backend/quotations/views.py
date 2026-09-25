@@ -8,6 +8,7 @@ from datetime import timedelta
 import csv
 import io
 import secrets
+import re
 from openpyxl import Workbook, load_workbook
 from .pdf_utils import build_quotation_pdf, build_measurement_pdf, build_invoice_pdf, build_invoice_receipt_pdf
 from .revision_utils import clone_quotation_revision, previous_revision, quotation_revision_changes
@@ -35,7 +36,7 @@ from .models import (
     CustomerWorkHistory, ChatConversation, ChatMessage, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, MeasurementAccessRequest,
     WorkPhoto,
     Property, ApartmentCommunity,
-    Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
+    Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoiceNumberSequence, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
 )
 
 
@@ -244,6 +245,52 @@ def find_user_by_normalized_mobile(normalized_mobile, role=None):
 
 def find_customer_portal_user(normalized_mobile):
     return find_user_by_normalized_mobile(normalized_mobile, BharathUser.Roles.CUSTOMER)
+
+
+def next_available_customer_id(customer):
+    """Return a customer ID unused by both CRM records and login accounts."""
+    sequence = customer.pk
+    while True:
+        candidate = f"BP-C-{sequence:06d}"
+        customer_uses_id = Customer.objects.exclude(pk=customer.pk).filter(
+            bharath_id=candidate,
+        ).exists()
+        user_uses_id = BharathUser.objects.filter(bharath_id=candidate).exclude(
+            pk=customer.portal_user_id,
+        ).exists()
+        if not customer_uses_id and not user_uses_id:
+            return candidate
+        sequence += 1
+
+
+def activate_customer_account(customer):
+    """Provision the permanent customer ID and portal login only when requested."""
+    if not customer.bharath_id:
+        customer.bharath_id = next_available_customer_id(customer)
+        customer.save(update_fields=("bharath_id", "updated_at"))
+    if customer.portal_user_id:
+        return customer.portal_user, None
+    temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
+    portal_user = find_customer_portal_user(customer.normalized_mobile)
+    if portal_user:
+        temporary_password = None
+        changed = []
+        if not portal_user.bharath_id:
+            portal_user.bharath_id = customer.bharath_id
+            changed.append("bharath_id")
+        if changed:
+            portal_user.save(update_fields=changed)
+    else:
+        portal_user = BharathUser.objects.create_user(
+            mobile=customer.mobile, email=customer.email or None,
+            password=temporary_password, first_name=customer.name,
+            role=BharathUser.Roles.CUSTOMER, is_active=True, is_verified=False,
+            verification_status=BharathUser.VerificationStatus.PENDING,
+            bharath_id=customer.bharath_id,
+        )
+    customer.portal_user = portal_user
+    customer.save(update_fields=("portal_user", "updated_at"))
+    return portal_user, temporary_password
 
 
 def contractor_property_scope(user, prefix=""):
@@ -980,27 +1027,6 @@ class CustomerListCreateView(
                 customer=existing, contractor=request.user,
             ).first()
             return Response(safe_customer_lookup(existing, connection), status=status.HTTP_409_CONFLICT)
-        temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
-        portal_user = find_customer_portal_user(normalized)
-        if portal_user:
-            temporary_password = None
-            if not portal_user.bharath_id:
-                portal_user.bharath_id = customer.bharath_id
-                portal_user.save(update_fields=("bharath_id",))
-        else:
-            portal_user = BharathUser.objects.create_user(
-                mobile=customer.mobile,
-                email=customer.email or None,
-                password=temporary_password,
-                first_name=customer.name,
-                role=BharathUser.Roles.CUSTOMER,
-                is_active=True,
-                is_verified=False,
-                verification_status=BharathUser.VerificationStatus.PENDING,
-                bharath_id=customer.bharath_id,
-            )
-        customer.portal_user = portal_user
-        customer.save(update_fields=("portal_user",))
         now = timezone.now()
         connection = ContractorCustomerConnection.objects.create(
             customer=customer, contractor=request.user,
@@ -1021,10 +1047,29 @@ class CustomerListCreateView(
         )
         record_connection_audit(request, connection, CustomerConnectionAudit.Actions.ACCEPTED)
         output = self.get_serializer(customer).data
-        if temporary_password:
-            output["temporary_password"] = temporary_password
         output["connection_status"] = connection.status
         return Response(output, status=status.HTTP_201_CREATED)
+
+
+class CustomerActivateAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        customer = Customer.objects.select_for_update().filter(
+            pk=pk,
+            contractor_connections__contractor=request.user,
+            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+        ).distinct().first()
+        if request.user.role != BharathUser.Roles.CONTRACTOR or not customer:
+            return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        _, temporary_password = activate_customer_account(customer)
+        payload = CustomerSerializer(customer, context={"request": request}).data
+        payload["account_created"] = True
+        payload["already_active"] = temporary_password is None
+        if temporary_password:
+            payload["temporary_password"] = temporary_password
+        return Response(payload)
 
 
 # ============================================================
@@ -1248,6 +1293,85 @@ def create_notification(recipient, event_type, title, message, link="", actor=No
         return PortalNotification.objects.create(recipient=recipient, actor=actor, event_type=event_type, title=title, message=message, link=link)
 
 
+CHAT_SAFETY_TERMS = {
+    "drug-related": (
+        "drug", "drugs", "narcotic", "narcotics", "cocaine", "heroin",
+        "meth", "methamphetamine", "marijuana", "ganja", "hashish",
+        "ecstasy", "mdma", "lsd", "opium",
+    ),
+    "sexual-assault": (
+        "sexual assault", "sex assault", "sexual abuse", "sexual harassment",
+        "rape", "raped", "raping", "molest", "molested", "molestation",
+        "forced sex",
+    ),
+}
+
+
+def blocked_chat_category(text):
+    normalized = " ".join(re.findall(r"[a-z0-9]+", str(text or "").lower()))
+    padded = f" {normalized} "
+    for category, terms in CHAT_SAFETY_TERMS.items():
+        if any(f" {term} " in padded for term in terms):
+            return category
+    return ""
+
+
+def notify_blocked_chat(request, conversation, category):
+    sender_identity = request.user.bharath_id or request.user.mobile or str(request.user.pk)
+    message = (
+        f"A {category} message was blocked in conversation #{conversation.pk}. "
+        f"Sender: {request.user.role} {sender_identity}. The prohibited text was not stored."
+    )
+    admins = BharathUser.objects.filter(is_active=True).filter(
+        models.Q(role=BharathUser.Roles.ADMIN) | models.Q(is_superuser=True)
+    ).distinct()
+    for admin in admins:
+        create_notification(admin, "CHAT_SAFETY", "Blocked chat safety alert", message, "/messages", request.user)
+
+
+def validate_chat_text(request, conversation, text):
+    value = str(text or "").strip()
+    if not value:
+        return None, Response({"text": "Message cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+    if len(value) > 4000:
+        return None, Response({"text": "Message is too long."}, status=status.HTTP_400_BAD_REQUEST)
+    category = blocked_chat_category(value)
+    if category:
+        notify_blocked_chat(request, conversation, category)
+        return None, Response(
+            {"text": "This message was blocked for safety. An administrator has been notified."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return value, None
+
+
+def chat_message_data(item, viewer):
+    return {
+        "id": item.id,
+        "sender": item.sender_id,
+        "sender_role": item.sender.role,
+        "text": item.text,
+        "created_at": item.created_at,
+        "read_at": item.read_at,
+        "is_mine": item.sender_id == viewer.id,
+    }
+
+
+def contractor_can_message_painter(contractor, painter):
+    from jobs.models import ApplicatorBooking, ContractorApplicatorTeam, JobApplication
+    return (
+        ContractorApplicatorTeam.objects.filter(
+            contractor=contractor, painter=painter, is_active=True,
+        ).exists()
+        or JobApplication.objects.filter(
+            job__contractor=contractor, painter=painter,
+        ).exists()
+        or ApplicatorBooking.objects.filter(
+            contractor=contractor, applicator=painter,
+        ).exists()
+    )
+
+
 def notification_data(item):
     return {"id": item.id, "event_type": item.event_type, "title": item.title, "message": item.message, "link": item.link, "is_read": bool(item.read_at), "created_at": item.created_at}
 
@@ -1325,18 +1449,20 @@ class ChatConversationListView(APIView):
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             from jobs.models import ContractorApplicatorTeam
-            connections = ContractorCustomerConnection.objects.filter(
-                contractor=request.user,
-                status=ContractorCustomerConnection.Status.CONNECTED,
-            ).select_related("customer")
-            for connection in connections:
-                ChatConversation.objects.get_or_create(
-                    customer=connection.customer, contractor=request.user,
-                    defaults={"connection": connection},
-                )
             painter_ids = ContractorApplicatorTeam.objects.filter(contractor=request.user, is_active=True).values_list("painter_id", flat=True)
             for painter_id in painter_ids:
                 ChatConversation.objects.get_or_create(contractor=request.user, painter_id=painter_id, customer=None)
+            requested_painter_id = request.query_params.get("painter_id")
+            requested_conversation_id = request.query_params.get("conversation")
+            if requested_painter_id:
+                painter = BharathUser.objects.filter(
+                    pk=requested_painter_id, role=BharathUser.Roles.PAINTER, is_active=True,
+                ).first()
+                if not painter or not contractor_can_message_painter(request.user, painter):
+                    return Response({"detail": "This Paint Applicator is not connected to your work."}, status=status.HTTP_403_FORBIDDEN)
+                ChatConversation.objects.get_or_create(
+                    contractor=request.user, painter=painter, customer=None,
+                )
             conversations = ChatConversation.objects.filter(contractor=request.user)
             search = str(request.query_params.get("search") or "").strip()
             if search:
@@ -1350,6 +1476,15 @@ class ChatConversationListView(APIView):
                     | models.Q(painter__mobile__icontains=search)
                     | models.Q(painter__bharath_id__icontains=search)
                 )
+            else:
+                if requested_painter_id:
+                    conversations = conversations.filter(painter_id=requested_painter_id)
+                elif requested_conversation_id:
+                    conversations = conversations.filter(
+                        models.Q(messages__isnull=False) | models.Q(pk=requested_conversation_id)
+                    ).distinct()
+                else:
+                    conversations = conversations.filter(messages__isnull=False).distinct()
         elif request.user.role == BharathUser.Roles.CUSTOMER:
             conversations = ChatConversation.objects.filter(customer__portal_user=request.user)
         elif request.user.role == BharathUser.Roles.PAINTER:
@@ -1367,7 +1502,44 @@ class ChatConversationListView(APIView):
         conversations = conversations.select_related("customer", "contractor", "contractor__contractor_profile", "painter").annotate(
             recent_message_at=models.Max("messages__created_at")
         ).order_by(models.F("recent_message_at").desc(nulls_last=True), "-updated_at")
-        return Response([conversation_data(item, request.user) for item in conversations])
+        return Response([conversation_data(item, request.user) for item in conversations[:20]])
+
+    def post(self, request):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        painter_id = request.data.get("painter")
+        if painter_id:
+            painter = BharathUser.objects.filter(
+                pk=painter_id, role=BharathUser.Roles.PAINTER, is_active=True,
+            ).first()
+            if not painter or not contractor_can_message_painter(request.user, painter):
+                return Response({"painter": "This Paint Applicator is not connected to your work."}, status=status.HTTP_400_BAD_REQUEST)
+            conversation, _ = ChatConversation.objects.get_or_create(
+                contractor=request.user, painter=painter, customer=None,
+            )
+            conversation = ChatConversation.objects.select_related(
+                "customer", "contractor", "contractor__contractor_profile", "painter"
+            ).get(pk=conversation.pk)
+            return Response(conversation_data(conversation, request.user))
+        connection = ContractorCustomerConnection.objects.select_related("customer").filter(
+            contractor=request.user,
+            customer_id=request.data.get("customer"),
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).first()
+        if not connection:
+            return Response({"customer": "Select a connected customer."}, status=status.HTTP_400_BAD_REQUEST)
+        conversation, _ = ChatConversation.objects.get_or_create(
+            customer=connection.customer,
+            contractor=request.user,
+            defaults={"connection": connection},
+        )
+        if conversation.connection_id != connection.id:
+            conversation.connection = connection
+            conversation.save(update_fields=("connection", "updated_at"))
+        conversation = ChatConversation.objects.select_related(
+            "customer", "contractor", "contractor__contractor_profile", "painter"
+        ).get(pk=conversation.pk)
+        return Response(conversation_data(conversation, request.user))
 
 
 class ChatMessageListCreateView(APIView):
@@ -1390,26 +1562,16 @@ class ChatMessageListCreateView(APIView):
         if not conversation:
             return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
         conversation.messages.exclude(sender=request.user).filter(read_at__isnull=True).update(read_at=timezone.now())
-        return Response([{
-            "id": item.id,
-            "sender": item.sender_id,
-            "sender_role": item.sender.role,
-            "text": item.text,
-            "created_at": item.created_at,
-            "read_at": item.read_at,
-            "is_mine": item.sender_id == request.user.id,
-        } for item in conversation.messages.select_related("sender")])
+        return Response([chat_message_data(item, request.user) for item in conversation.messages.select_related("sender")])
 
     def post(self, request, pk):
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
         conversation = self.get_conversation(request, pk)
         if not conversation:
             return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
-        text = str(request.data.get("text") or "").strip()
-        if not text:
-            return Response({"text": "Message cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
-        if len(text) > 4000:
-            return Response({"text": "Message is too long."}, status=status.HTTP_400_BAD_REQUEST)
+        text, error = validate_chat_text(request, conversation, request.data.get("text"))
+        if error:
+            return error
         message = ChatMessage.objects.create(conversation=conversation, sender=request.user, text=text)
         conversation.save(update_fields=("updated_at",))
         recipient = None
@@ -1420,7 +1582,37 @@ class ChatMessageListCreateView(APIView):
         else:
             recipient = conversation.painter
         create_notification(recipient, "MESSAGE", "New message", f"{request.user.get_full_name() or request.user.mobile}: {text[:120]}", "/messages", request.user)
-        return Response({"id": message.id, "text": message.text, "created_at": message.created_at, "is_mine": True}, status=status.HTTP_201_CREATED)
+        return Response(chat_message_data(message, request.user), status=status.HTTP_201_CREATED)
+
+
+class ChatMessageDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_message(self, request, pk):
+        return ChatMessage.objects.select_related("sender", "conversation").filter(
+            pk=pk, sender=request.user,
+        ).first()
+
+    def patch(self, request, pk):
+        message = self.get_message(request, pk)
+        if not message:
+            return Response({"detail": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+        text, error = validate_chat_text(request, message.conversation, request.data.get("text"))
+        if error:
+            return error
+        message.text = text
+        message.save(update_fields=("text",))
+        message.conversation.save(update_fields=("updated_at",))
+        return Response(chat_message_data(message, request.user))
+
+    def delete(self, request, pk):
+        message = self.get_message(request, pk)
+        if not message:
+            return Response({"detail": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+        conversation = message.conversation
+        message.delete()
+        conversation.save(update_fields=("updated_at",))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def service_request_data(item):
@@ -2458,8 +2650,9 @@ class ContractorCrmDashboardView(APIView):
         recent_customers = customers.order_by("-updated_at")[:6]
         recent_quotations = quotations.order_by("-updated_at")[:6]
 
+        profile = request.user.contractor_profile if hasattr(request.user, "contractor_profile") else None
         return Response({
-            "contractor_name": request.user.get_full_name() or request.user.mobile,
+            "contractor_name": profile.company_name if profile and profile.company_name else request.user.get_full_name() or request.user.mobile,
             "counts": {
                 "customers": customers.count(),
                 "active_leads": connected_customer_records.exclude(customer_status__in=(Customer.Status.WON, Customer.Status.LOST, Customer.Status.CANCELLED)).count(),
@@ -2910,6 +3103,7 @@ class CustomerQuotationListView(APIView):
                 "contractor_mobile": contractor_snapshot.get("mobile", item.contractor.mobile),
                 "contractor_bharath_id": contractor_snapshot.get("bharath_id", item.contractor.bharath_id),
                 "contractor_logo": request.build_absolute_uri(profile.company_logo.url) if profile and profile.company_logo else None,
+                "contractor_logo_shape": contractor_snapshot.get("company_logo_shape") or (profile.company_logo_shape if profile else "RECTANGLE"),
                 "schedule_start_date": schedule.proposed_start_date if schedule else None,
                 "schedule_end_date": schedule.proposed_end_date if schedule else None,
                 "schedule_status": schedule.get_status_display() if schedule else "Not scheduled",
@@ -3140,8 +3334,9 @@ class QuotationSubmitView(APIView):
                 {"detail": "Only a draft quotation can be submitted. Previous versions are preserved."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        temporary_password = None
         if not quotation.customer.portal_user_id:
-            return Response({"customer": "This customer has not created a portal account yet."}, status=status.HTTP_400_BAD_REQUEST)
+            _, temporary_password = activate_customer_account(quotation.customer)
         is_revision = bool(quotation.customer_response_note or quotation.customer_responded_at)
         quotation.status = Quotation.Status.SENT
         quotation.sent_at = timezone.now()
@@ -3149,7 +3344,10 @@ class QuotationSubmitView(APIView):
         notification_title = "Revised quotation received" if is_revision else "New quotation received"
         notification_message = f"{quotation.quotation_number} has been revised by your contractor" if is_revision else f"{quotation.quotation_number} from your contractor"
         create_notification(quotation.customer.portal_user, "QUOTATION", notification_title, notification_message, f"/customer-quotations/{quotation.id}", request.user)
-        return Response({"id": quotation.id, "status": quotation.status, "is_revision": is_revision, "customer_mobile": quotation.customer.mobile, "customer_email": quotation.customer.email})
+        response_data = {"id": quotation.id, "status": quotation.status, "is_revision": is_revision, "customer_mobile": quotation.customer.mobile, "customer_email": quotation.customer.email, "customer_id": quotation.customer.bharath_id}
+        if temporary_password:
+            response_data["temporary_password"] = temporary_password
+        return Response(response_data)
 
 
 # ============================================================
@@ -3323,17 +3521,6 @@ class CustomerBulkImportView(APIView):
                 status=status_value if status_value in valid_statuses else "NEW", source=source_value if source_value in valid_sources else "OTHER",
                 requirement=str(row.get("requirement") or "").strip(), notes=str(row.get("notes") or "").strip(),
             )
-            temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
-            portal_user = BharathUser.objects.create_user(
-                mobile=customer.mobile, email=customer.email or None,
-                password=temporary_password, first_name=customer.name,
-                role=BharathUser.Roles.CUSTOMER, is_active=True,
-                is_verified=False,
-                verification_status=BharathUser.VerificationStatus.PENDING,
-                bharath_id=customer.bharath_id,
-            )
-            customer.portal_user = portal_user
-            customer.save(update_fields=("portal_user",))
             now = timezone.now()
             connection = ContractorCustomerConnection.objects.create(
                 customer=customer, contractor=request.user, requested_by=request.user,
@@ -3350,7 +3537,6 @@ class CustomerBulkImportView(APIView):
             ChatConversation.objects.create(customer=customer, contractor=request.user, connection=connection)
             existing.add(key)
             serialized = CustomerSerializer(customer, context={"request": request}).data
-            serialized["temporary_password"] = temporary_password
             created.append(serialized)
         return Response({"created": len(created), "skipped": skipped, "errors": errors, "customers": created}, status=status.HTTP_201_CREATED)
 
@@ -4016,7 +4202,9 @@ class RoomMeasurementSaveView(APIView):
 
 
 def invoice_payload(invoice):
-    return {"id": invoice.id, "quotation": invoice.quotation_id, "quotation_number": invoice.quotation_number_snapshot or invoice.quotation.quotation_number,
+    return {"id": invoice.id, "quotation": invoice.quotation_id, "quotation_number": invoice.quotation_number_snapshot or (invoice.quotation.quotation_number if invoice.quotation_id else "Lump sum"),
+            "invoice_source": "QUOTATION" if invoice.quotation_id else "LUMP_SUM", "tax_mode": invoice.tax_mode,
+            "customer": invoice.customer_id, "property": invoice.site_property_id,
             "invoice_number": invoice.invoice_number, "invoice_date": invoice.invoice_date, "due_date": invoice.due_date,
             "status": invoice.status, "customer_name": invoice.customer_name, "customer_mobile": invoice.customer_mobile,
             "billing_address": invoice.billing_address, "property_name": invoice.property_name,
@@ -4032,6 +4220,29 @@ def invoice_payload(invoice):
             "can_edit": timezone.localdate(invoice.created_at) == timezone.localdate() and invoice.status not in {Invoice.Status.PAID, Invoice.Status.CANCELLED},
             "balance_due": invoice.balance_due, "notes": invoice.notes, "terms_conditions": invoice.terms_conditions,
             "created_at": invoice.created_at, "updated_at": invoice.updated_at}
+
+
+def invoice_financial_year(value=None):
+    value = value or timezone.localdate()
+    start = value.year if value.month >= 4 else value.year - 1
+    return f"{start}-{str(start + 1)[-2:]}"
+
+
+def next_invoice_number(tax_mode, invoice_date=None):
+    financial_year = invoice_financial_year(invoice_date)
+    sequence, _ = InvoiceNumberSequence.objects.select_for_update().get_or_create(
+        tax_mode=tax_mode, financial_year=financial_year, defaults={"last_number": 0},
+    )
+    sequence.last_number += 1
+    sequence.save(update_fields=("last_number", "updated_at"))
+    prefix = "GST-INV" if tax_mode == Invoice.TaxMode.GST else "INV"
+    return f"{prefix}-{financial_year}-{sequence.last_number:05d}"
+
+
+def contractor_invoice_scope(user):
+    return Invoice.objects.filter(contractor=user).filter(
+        models.Q(quotation__work_schedule__status="COMPLETED") | models.Q(quotation__isnull=True)
+    )
 
 
 def recalculate_invoice(invoice, supplied_items=None, supplied_adjustments=None):
@@ -4108,10 +4319,50 @@ def recalculate_invoice(invoice, supplied_items=None, supplied_adjustments=None)
 class InvoiceListCreateView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        invoices = Invoice.objects.filter(contractor=request.user, quotation__work_schedule__status="COMPLETED").select_related("quotation")
+        invoices = contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property")
         return Response([invoice_payload(item) for item in invoices])
     @transaction.atomic
     def post(self, request):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        if not request.data.get("quotation"):
+            customer = Customer.objects.filter(
+                pk=request.data.get("customer"),
+                contractor_connections__contractor=request.user,
+                contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+            ).distinct().first()
+            if not customer:
+                return Response({"customer": "Select a connected customer."}, status=status.HTTP_400_BAD_REQUEST)
+            if not customer.portal_user_id or not customer.bharath_id:
+                return Response({"customer": "Create the Customer ID & Login before raising an invoice."}, status=status.HTTP_400_BAD_REQUEST)
+            property_obj = None
+            if request.data.get("property"):
+                property_obj = Property.objects.filter(pk=request.data.get("property"), customer=customer).filter(contractor_property_scope(request.user)).first()
+                if not property_obj:
+                    return Response({"property": "The selected property does not belong to this customer."}, status=status.HTTP_400_BAD_REQUEST)
+            tax_mode = request.data.get("tax_mode")
+            if tax_mode not in Invoice.TaxMode.values:
+                return Response({"tax_mode": "Choose With GST or Without GST."}, status=status.HTTP_400_BAD_REQUEST)
+            supplied_items = request.data.get("items") or request.data.get("base_items") or []
+            if not supplied_items:
+                return Response({"items": "Add at least one invoice line."}, status=status.HTTP_400_BAD_REQUEST)
+            invoice_date = parse_date(str(request.data.get("invoice_date") or "")) or timezone.localdate()
+            address = request.data.get("billing_address") or ", ".join(filter(None, [customer.address, customer.city, customer.pincode]))
+            invoice = Invoice.objects.create(
+                contractor=request.user, customer=customer, site_property=property_obj,
+                quotation=None, invoice_number=next_invoice_number(tax_mode, invoice_date),
+                invoice_date=invoice_date, due_date=parse_date(str(request.data.get("due_date") or "")),
+                tax_mode=tax_mode, customer_name=customer.name, customer_mobile=customer.mobile,
+                billing_address=address, property_name=(property_obj.name or property_obj.property_type) if property_obj else request.data.get("property_name", ""),
+                quotation_number_snapshot="Lump sum", base_items=supplied_items, items=supplied_items,
+                discount=Decimal(str(request.data.get("discount") or 0)),
+                gst_percentage=Decimal(str(request.data.get("gst_percentage") or (18 if tax_mode == Invoice.TaxMode.GST else 0))) if tax_mode == Invoice.TaxMode.GST else Decimal("0"),
+                notes=request.data.get("notes", ""), terms_conditions=request.data.get("terms_conditions", ""),
+                status=Invoice.Status.ISSUED,
+            )
+            recalculate_invoice(invoice, supplied_items, [])
+            invoice.save()
+            return Response(invoice_payload(invoice), status=status.HTTP_201_CREATED)
         # Lock the quotation so repeated clicks cannot create two invoices for it.
         quotation = Quotation.objects.select_for_update().select_related("customer", "property").prefetch_related("items__room", "items__service_category", "items__paint_type", "items__paint_brand", "items__unit").filter(pk=request.data.get("quotation"), contractor=request.user).first()
         if not quotation: return Response({"quotation": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -4165,6 +4416,9 @@ def ensure_invoice_for_quotation(quotation, contractor):
             "property_name": property_snapshot.get("name") or quotation.property.name or quotation.property.property_type,
             "contractor_snapshot": quotation.contractor_snapshot,
             "quotation_number_snapshot": quotation.quotation_number,
+            "customer": quotation.customer,
+            "site_property": quotation.property,
+            "tax_mode": Invoice.TaxMode.GST if quotation.gst_percentage > 0 else Invoice.TaxMode.NON_GST,
             "base_items": rows,
             "items": rows,
             "discount": quotation.discount,
@@ -4177,7 +4431,7 @@ def ensure_invoice_for_quotation(quotation, contractor):
     if not created:
         invoice.created_flag = False
         return invoice
-    invoice.invoice_number=f"INV-{timezone.localdate():%Y%m%d}-{invoice.id:04d}"; recalculate_invoice(invoice,rows); invoice.save()
+    invoice.invoice_number = next_invoice_number(invoice.tax_mode, invoice.invoice_date); recalculate_invoice(invoice,rows); invoice.save()
     if schedule.payment_status == "CONFIRMED" and schedule.advance_amount:
         record_advance_payment(invoice, schedule, contractor)
     record_project_receipts(invoice, quotation)
@@ -4229,14 +4483,14 @@ class CustomerInvoiceListView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        invoices = Invoice.objects.filter(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED").select_related("quotation")
+        invoices = Invoice.objects.filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).select_related("quotation", "customer", "site_property").distinct()
         return Response([invoice_payload(item) for item in invoices])
 
 
 class InvoiceDetailView(APIView):
     permission_classes = [IsAuthenticated]
     def get_object(self, request, pk):
-        return Invoice.objects.select_related("quotation").filter(pk=pk, contractor=request.user, quotation__work_schedule__status="COMPLETED").first()
+        return contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property").filter(pk=pk).first()
     def get(self, request, pk):
         item=self.get_object(request,pk)
         return Response(invoice_payload(item)) if item else Response({"detail":"Invoice not found."},status=status.HTTP_404_NOT_FOUND)
@@ -4272,7 +4526,7 @@ class InvoiceDetailView(APIView):
 class InvoicePdfView(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request,pk):
-        item=Invoice.objects.select_related("quotation","contractor__contractor_profile").filter(pk=pk,contractor=request.user,quotation__work_schedule__status="COMPLETED").first()
+        item=contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).first()
         if not item:return Response({"detail":"Invoice not found."},status=status.HTTP_404_NOT_FOUND)
         response=HttpResponse(build_invoice_pdf(item),content_type="application/pdf");response["Content-Disposition"]=f'attachment; filename="{item.invoice_number}.pdf"';return response
 
@@ -4280,10 +4534,11 @@ class InvoicePdfView(APIView):
 class InvoiceReceiptPdfView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, pk):
-        item = Invoice.objects.select_related("quotation", "quotation__customer", "contractor__contractor_profile").filter(pk=pk, quotation__work_schedule__status="COMPLETED").first()
+        item = Invoice.objects.select_related("quotation", "quotation__customer", "customer", "contractor__contractor_profile").filter(pk=pk).filter(models.Q(quotation__work_schedule__status="COMPLETED") | models.Q(quotation__isnull=True)).first()
         allowed = item and (
             item.contractor_id == request.user.id
-            or item.quotation.customer.portal_user_id == request.user.id
+            or (item.quotation_id and item.quotation.customer.portal_user_id == request.user.id)
+            or (item.customer_id and item.customer.portal_user_id == request.user.id)
         )
         if not allowed or item.status == Invoice.Status.CANCELLED or item.amount_paid <= 0:
             return Response({"detail": "Payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -4306,7 +4561,7 @@ class InvoicePaymentListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        invoice = Invoice.objects.filter(pk=pk, contractor=request.user, quotation__work_schedule__status="COMPLETED").first()
+        invoice = contractor_invoice_scope(request.user).filter(pk=pk).first()
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         if invoice.status == Invoice.Status.CANCELLED:
@@ -4337,7 +4592,7 @@ class InvoicePaymentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk, payment_pk):
-        invoice = Invoice.objects.filter(pk=pk, contractor=request.user, quotation__work_schedule__status="COMPLETED").first()
+        invoice = contractor_invoice_scope(request.user).filter(pk=pk).first()
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         payment = invoice.payments.filter(pk=payment_pk).first()
@@ -4352,7 +4607,7 @@ class CustomerInvoicePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        item = Invoice.objects.select_related("quotation", "contractor__contractor_profile").filter(pk=pk, quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED").first()
+        item = Invoice.objects.select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).first()
         if not item:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         response = HttpResponse(build_invoice_pdf(item), content_type="application/pdf")
@@ -4364,7 +4619,7 @@ class CustomerInvoiceReceiptPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        item = Invoice.objects.select_related("quotation", "contractor__contractor_profile").filter(pk=pk, quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED").first()
+        item = Invoice.objects.select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).first()
         if not item or item.status == Invoice.Status.CANCELLED or item.amount_paid <= 0:
             return Response({"detail": "Payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
         if not item.receipt_number:

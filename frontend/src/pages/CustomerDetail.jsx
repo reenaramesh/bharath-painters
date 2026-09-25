@@ -48,6 +48,11 @@ export default function CustomerDetail() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    const openFollowUp = () => setShowFollowUp(true);
+    window.addEventListener("bp-open-customer-followup", openFollowUp);
+    return () => window.removeEventListener("bp-open-customer-followup", openFollowUp);
+  }, []);
 
   async function updateCustomer(values) {
     setSaving(true);

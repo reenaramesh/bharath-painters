@@ -14,6 +14,7 @@
     "axios": "^1.19.0",
     "india-pincode": "^2.5.9",
     "lucide-react": "^1.31.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",

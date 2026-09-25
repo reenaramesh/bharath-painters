@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   Building2,
-  Calculator,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
@@ -13,14 +12,13 @@ import {
   Paintbrush,
   Phone,
   PlayCircle,
-  Plus,
   RefreshCw,
-  UserPlus,
   Users,
 } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import AdminDashboard from "./AdminDashboard";
+import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 
 const money = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -78,9 +76,8 @@ export default function Dashboard() {
       </p>
     ) : data ? (
       <div className="space-y-4">
-        <SubscriptionCard billing={billing} />
-        <ApplicatorActiveCount value={data.counts.active_contractors} />
         <ApplicatorDashboard data={data} onRefresh={load} />
+        <SubscriptionCard billing={billing} />
       </div>
     ) : (
       <div className="rounded-2xl bg-red-50 p-6 text-red-700">
@@ -116,58 +113,15 @@ export default function Dashboard() {
   const pipeline = data.pipeline.filter((item) => item.count > 0);
   return (
     <div className="space-y-7">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Contractor CRM</p>
-          <h1 className="mt-1 text-3xl font-bold">
-            Welcome, {data.contractor_name}
-          </h1>
-          <p className="mt-2 text-slate-500">
-            Customers, sales, follow-ups, and service activity in one place.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={load}
-            className="rounded-xl border bg-white p-3"
-            title="Refresh"
-          >
-            <RefreshCw className="h-5 w-5" />
-          </button>
-          <Link
-            to="/customers?action=add"
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
-          >
-            <UserPlus className="h-4 w-4" />
-            Add Customer
-          </Link>
-          <Link
-            to="/properties?action=add"
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
-          >
-            <Building2 className="h-4 w-4" />
-            Add Property
-          </Link>
-          <Link
-            to="/properties?calculator=1"
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
-          >
-            <Calculator className="h-4 w-4" />
-            Area Calculator
-          </Link>
-          <Link
-            to="/quotations/new"
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" />
-            New quotation
-          </Link>
-        </div>
+      <header>
+        <h1 className="text-3xl font-bold">
+          Welcome, {data.contractor_name}
+        </h1>
       </header>
+      <MobileDashboardShortcuts />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
-      <SubscriptionCard billing={billing} />
       <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-5">
         <Metric
           icon={Users}
@@ -206,9 +160,9 @@ export default function Dashboard() {
           to="/applicator-team"
         />
       </div>
-      <Link to="/find-painter" className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 transition hover:bg-amber-100 sm:flex-row sm:items-center">
+      <Link to="/applicator-bookings" className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 transition hover:bg-amber-100 sm:flex-row sm:items-center">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-950 text-white"><Paintbrush className="h-6 w-6" /></span>
-        <div className="flex-1"><h2 className="text-lg font-bold">Find Painter</h2><p className="mt-1 text-sm text-slate-600">Search verified painters by skill, location, name or Bharath ID and add them to your team.</p></div>
+        <div className="flex-1"><h2 className="text-lg font-bold">Book Applicator</h2><p className="mt-1 text-sm text-slate-600">Find verified painters by skill, location, name or Bharath ID and send a booking request.</p></div>
         <ArrowRight className="h-5 w-5" />
       </Link>
       <div className="grid gap-6 xl:grid-cols-3">
@@ -385,6 +339,7 @@ export default function Dashboard() {
           )}
         </div>
       </section>
+      <SubscriptionCard billing={billing} />
     </div>
   );
 }
@@ -491,26 +446,26 @@ function SubscriptionCard({ billing }) {
   return (
     <Link
       to="/my-packages"
-      className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 transition hover:shadow-sm sm:flex-row sm:items-center"
+      className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 transition hover:shadow-sm"
     >
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-white text-emerald-700">
-        <CheckCircle2 className="h-6 w-6" />
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-emerald-700">
+        <CheckCircle2 className="h-4 w-4" />
       </span>
-      <div className="flex-1">
-        <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
           Current subscription
         </p>
-        <h2 className="mt-1 text-xl font-bold">
+        <h2 className="truncate text-sm font-bold">
           {plan?.name || "No active package"}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-0.5 truncate text-xs text-slate-500">
           {subscription
             ? `Active from ${formatDate(subscription.start_date)} · Valid until ${end ? formatDate(end) : "No expiry"}`
             : "Default package access"}
         </p>
       </div>
       {subscription && (
-        <div className="sm:text-right">
+        <div className="hidden sm:block sm:text-right">
           <p className="text-xs text-slate-500">Subscription valid till</p>
           <p className="mt-1 font-bold">
             {end ? formatDate(end) : "No expiry"}
@@ -522,7 +477,7 @@ function SubscriptionCard({ billing }) {
           )}
         </div>
       )}
-      <ArrowRight className="h-5 w-5 text-emerald-700" />
+      <ArrowRight className="h-4 w-4 shrink-0 text-emerald-700" />
     </Link>
   );
 }
@@ -557,13 +512,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
     <div className="space-y-4 sm:space-y-7">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Paint Applicator portal
-          </p>
-          <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Welcome, {data.name}</h1>
-          <p className="mt-1 text-sm text-slate-500 sm:mt-2 sm:text-base">
-            Track your current workload and completed painting projects.
-          </p>
+          <h1 className="text-2xl font-bold sm:text-3xl">Welcome, {data.name}</h1>
         </div>
         <button
           onClick={onRefresh}
@@ -573,6 +522,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           <RefreshCw className="h-5 w-5" />
         </button>
       </header>
+      <MobileDashboardShortcuts />
       <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
         <ApplicatorMetric
           icon={ClipboardList}
@@ -599,6 +549,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           color="bg-amber-50 text-amber-700"
         />
       </div>
+      <ApplicatorActiveCount value={c.active_contractors} />
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="overflow-hidden rounded-2xl border bg-white xl:col-span-2">
           <header className="flex items-center justify-between border-b p-4 sm:p-5">

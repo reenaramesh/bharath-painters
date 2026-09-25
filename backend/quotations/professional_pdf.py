@@ -14,6 +14,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import CondPageBreak, Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from PIL import Image as PILImage, ImageDraw, ImageOps
 
 from .product_details import consolidated_product_details
 
@@ -103,7 +104,25 @@ def _logo(profile, snapshot):
         stored = snapshot.get("company_logo")
         path = Path(settings.MEDIA_ROOT) / stored if stored else Path(profile.company_logo.path)
         if path.exists():
-            return Image(str(path), width=25*mm, height=18*mm, kind="proportional")
+            shape = snapshot.get("company_logo_shape")
+            if not shape:
+                shape = "RECTANGLE" if snapshot else getattr(profile, "company_logo_shape", "RECTANGLE")
+            if shape == "ROUND":
+                source = PILImage.open(path).convert("RGBA")
+                fitted = ImageOps.fit(
+                    source,
+                    (600, 600),
+                    method=PILImage.Resampling.LANCZOS,
+                )
+                mask = PILImage.new("L", (600, 600), 0)
+                ImageDraw.Draw(mask).ellipse((0, 0, 599, 599), fill=255)
+                circular = PILImage.new("RGBA", (600, 600), (255, 255, 255, 0))
+                circular.paste(fitted, (0, 0), mask)
+                stream = BytesIO()
+                circular.save(stream, format="PNG")
+                stream.seek(0)
+                return Image(stream, width=18*mm, height=18*mm, mask="auto")
+            return Image(str(path), width=29*mm, height=18*mm, kind="proportional")
     except (AttributeError, OSError, ValueError, TypeError):
         pass
     return None
@@ -115,6 +134,9 @@ def _contractor_context(user, snapshot=None):
     return {
         "profile": profile,
         "logo": _logo(profile, snapshot) if profile else None,
+        "logo_shape": snapshot.get("company_logo_shape") or (
+            "RECTANGLE" if snapshot else getattr(profile, "company_logo_shape", "RECTANGLE")
+        ),
         "company": get("company_name", getattr(profile, "company_name", "") or user.get_full_name() or "Contractor"),
         "tagline": get("tagline", getattr(profile, "tagline", "")),
         "address": get("office_address", getattr(profile, "office_address", "")),
@@ -145,7 +167,8 @@ def _header(context, title, metadata, s, center_title=False):
     company_table.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
     brand = company_table
     if context["logo"]:
-        brand = Table([[context["logo"], company_table]], colWidths=[27*mm, 72*mm], style=TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4)]))
+        logo_width = 22*mm if context["logo_shape"] == "ROUND" else 32*mm
+        brand = Table([[context["logo"], company_table]], colWidths=[logo_width, (100*mm)-logo_width], style=TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (0, 0), (0, 0), "LEFT"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4)]))
     meta_rows = [[Paragraph(_text(label).upper(), s["label"]), Paragraph(_text(value), s["right"])] for label, value in metadata if value]
     meta = Table(meta_rows, colWidths=[29*mm, 49*mm], style=TableStyle([("LINEBELOW", (0, 0), (-1, -2), .35, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("PADDING", (0, 0), (-1, -1), 3)]))
     if center_title:
@@ -363,13 +386,18 @@ def build_invoice_pdf(invoice):
     buffer, s = BytesIO(), _styles()
     context = _contractor_context(invoice.contractor, invoice.contractor_snapshot or {})
     doc, quotation = _doc(buffer, invoice.invoice_number), invoice.quotation
-    property_obj = quotation.property
-    property_address = _joined([invoice.billing_address, property_obj.city, property_obj.pincode])
-    tax_invoice = bool(invoice.gst_amount or context["gst"])
+    property_obj = quotation.property if quotation else invoice.site_property
+    property_address = invoice.billing_address or _joined([
+        getattr(property_obj, "address", ""), getattr(property_obj, "city", ""), getattr(property_obj, "pincode", "")
+    ])
+    tax_invoice = invoice.tax_mode == "GST"
+    source_number = invoice.quotation_number_snapshot or (quotation.quotation_number if quotation else "Lump sum")
+    property_type = property_obj.get_property_type_display() if property_obj else "Direct invoice"
+    property_label = invoice.property_name or (property_obj.name if property_obj else "") or property_type
     story = [
-        _header(context, "TAX INVOICE" if tax_invoice else "INVOICE", [("Invoice No.", invoice.invoice_number), ("Invoice Date", invoice.invoice_date), ("Quotation No.", invoice.quotation_number_snapshot or quotation.quotation_number), ("Project Ref.", invoice.property_name)], s),
+        _header(context, "TAX INVOICE" if tax_invoice else "INVOICE", [("Invoice No.", invoice.invoice_number), ("Invoice Date", invoice.invoice_date), ("Source", source_number), ("Project Ref.", property_label)], s),
         Spacer(1, 4*mm),
-        _cards(_info_card("Bill to", [invoice.customer_name, invoice.customer_mobile, property_address], s), _info_card("Property details", [invoice.property_name, property_obj.get_property_type_display(), property_obj.name], s)),
+        _cards(_info_card("Bill to", [invoice.customer_name, invoice.customer_mobile, property_address], s), _info_card("Property details", [property_label, property_type, property_address], s)),
         Spacer(1, 5*mm), Paragraph("INVOICE ITEMS", s["section"]),
     ]
     rows = [["Description", "Product / Brand", "HSN/SAC", "Qty / Area", "Rate", "Amount"]]

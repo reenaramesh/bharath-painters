@@ -541,7 +541,21 @@ function SurfaceTab({ groups, addSurface, editSurface, deleteSurface, surfaceTyp
     </div>
     {selected && <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3 sm:p-4">
       <div className="flex items-center justify-between"><div><h3 className="font-extrabold">{selected} measurements</h3><p className="text-xs text-slate-500">Enter as many lines as required, then save once.</p></div><button type="button" onClick={addRow} className="rounded-lg border bg-white px-3 py-2 text-sm font-bold text-[#0056d2]"><Plus className="mr-1 inline h-4 w-4" />Add line</button></div>
-      <div className="mt-3 space-y-3">{rows.map((row, index) => <div key={index} className="rounded-xl border bg-white p-3"><div className="grid grid-cols-[1fr_auto] gap-2"><input value={row.name} onChange={(event) => updateRow(index, "name", event.target.value)} placeholder="Name" className={inputClass} /><button type="button" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="mt-1.5 rounded-lg border border-red-200 px-3 text-red-600"><Trash2 className="h-4 w-4" /></button></div><div className="mt-2 grid grid-cols-3 gap-2"><label className="text-xs font-bold">Length ({unit})<input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} className={inputClass} /></label><label className="text-xs font-bold">Width / Height ({unit})<input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} className={inputClass} /></label><label className="text-xs font-bold">Qty<input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} className={inputClass} /></label></div></div>)}</div>
+      <div className="mt-3 space-y-3">
+        {rows.map((row, index) => (
+          <div key={index} className="rounded-xl border bg-white p-3">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input value={row.name} onChange={(event) => updateRow(index, "name", event.target.value)} placeholder="Name" aria-label="Surface name" className={inputClass} />
+              <button type="button" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="mt-1.5 h-12 rounded-lg border border-red-200 px-3 text-red-600" aria-label={`Delete ${row.name || "surface"}`}><Trash2 className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} placeholder={`Length (${unit})`} aria-label={`Length in ${unit}`} className={`${inputClass} !mt-0 min-w-0`} />
+              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} placeholder={`Width / Height (${unit})`} aria-label={`Width or height in ${unit}`} className={`${inputClass} !mt-0 min-w-0`} />
+              <input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} placeholder="Qty" aria-label="Quantity" className={`${inputClass} !mt-0 min-w-0`} />
+            </div>
+          </div>
+        ))}
+      </div>
       {!known && <label className="mt-3 flex items-center gap-2 rounded-lg bg-white p-3 text-sm font-semibold"><input type="checkbox" checked={saveForFuture} onChange={(event) => setSaveForFuture(event.target.checked)} />Save "{selected}" for future calculations</label>}
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white p-3"><div><small className="block text-slate-500">{selected} total</small><b className="text-xl text-[#064a9b]">{areaText(total)}</b></div><button type="button" disabled={saving || !rows.length} onClick={submit} className="min-h-12 rounded-lg bg-[#0056d2] px-5 font-bold text-white disabled:opacity-40">{saving ? "Saving..." : `Save ${selected}`}</button></div>
     </div>}
@@ -648,9 +662,6 @@ function AreaDialog({ draft, setDraft, editing, save, close, saving, roomTypes }
       <button type="button" onClick={() => setDraft((current) => ({ ...current, name: "", isCustom: true }))} className={`mb-0.5 min-h-12 rounded-lg border px-4 text-sm font-bold transition ${draft.isCustom ? "border-[#0056d2] bg-blue-50 text-[#0056d2]" : "border-slate-300 bg-white text-slate-800 hover:border-[#0056d2]"}`}><Plus className="mr-1 inline h-4 w-4" />New Room</button>
     </div>
     {draft.isCustom && <><label className="block text-sm font-bold">Room / Area Name *<input required value={draft.name} onChange={(event) => update("name", event.target.value)} placeholder="Example: Terrace, Reception" className={inputClass} /></label><label className="flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm font-semibold"><input type="checkbox" checked={draft.saveForFuture} onChange={(event) => update("saveForFuture", event.target.checked)} />Save this room type for future use</label></>}
-    <label className="block text-sm font-bold">Floor <span className="font-normal text-slate-400">(Optional)</span><input value={draft.section} onChange={(event) => update("section", event.target.value)} placeholder="Example: Ground floor" className={inputClass} /></label>
-    <label className="block text-sm font-bold">Description <span className="font-normal text-slate-400">(Optional)</span><textarea value={draft.description} onChange={(event) => update("description", event.target.value)} placeholder="Open terrace, north side..." rows="3" className={`${inputClass} h-auto py-3`} /></label>
-    <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">Add walls, ceilings, floors, tiles, wood work and any custom surface inside this area.</div>
     <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#0056d2] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : editing ? "Save and Continue" : "Next"}</button>
   </form></DialogShell>;
 }

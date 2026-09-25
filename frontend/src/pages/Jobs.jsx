@@ -18,6 +18,7 @@ import useAuth from "../context/useAuth";
 import { useLanguage } from "../i18n/LanguageContext";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
+import MobilePageBack from "../components/MobilePageBack";
 
 const empty = {
   title: "",
@@ -230,10 +231,16 @@ export default function Jobs() {
 
   async function openConversation(params) {
     try {
-      const { data } = await api.get("/quotations/chat/conversations/", { params });
-      const conversation = params.painter_id
-        ? data.find((item) => item.painter_id === Number(params.painter_id))
-        : data.find((item) => item.contractor_id === Number(params.contractor_id));
+      let conversation;
+      if (params.painter_id) {
+        const { data } = await api.post("/quotations/chat/conversations/", {
+          painter: params.painter_id,
+        });
+        conversation = data;
+      } else {
+        const { data } = await api.get("/quotations/chat/conversations/", { params });
+        conversation = data.find((item) => item.contractor_id === Number(params.contractor_id));
+      }
       if (!conversation) throw new Error("Conversation was not created.");
       navigate(`/messages?conversation=${conversation.id}`);
     } catch (err) {
@@ -243,6 +250,7 @@ export default function Jobs() {
 
   return (
     <div className="space-y-6">
+      <MobilePageBack />
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-600">
@@ -583,10 +591,6 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
             <h2 className="text-xl font-bold">
               {t("Post requirement")}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              This post will immediately appear in the Paint Applicator job
-              portal.
-            </p>
           </div>
           <button type="button" onClick={onClose}>
             <X />
@@ -655,7 +659,6 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
           </Field>
           <div className="sm:col-span-2">
             <p className="text-sm font-semibold">Required skills</p>
-            <p className="mt-1 text-xs text-slate-500">Tap all skills needed for this job. No typing required.</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {skillOptions.map((skill) => <button type="button" key={skill} onClick={() => toggleSkill(skill)} className={`rounded-xl border px-3 py-2.5 text-left text-sm font-semibold ${selectedSkills.has(skill) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white text-slate-600"}`}>{selectedSkills.has(skill) ? "✓ " : ""}{skill}</button>)}
             </div>

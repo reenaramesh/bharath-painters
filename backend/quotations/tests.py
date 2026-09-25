@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from accounts.models import BharathUser, ContractorProfile
-from .models import Area, ChatConversation, Customer, CustomerFollowUp, MeasurementOpening, MeasurementSurface, PaintBrand, PaintType, Property, PropertyMeasurement, PropertyRoom, Quotation, QuotationItem, QuotationRoom, ServiceCategory, ServiceRequest, ServiceType, SupportTicket, Unit, WorkChange
+from .models import Area, ChatConversation, ChatMessage, Customer, CustomerFollowUp, MeasurementOpening, MeasurementSurface, PaintBrand, PaintType, PortalNotification, Property, PropertyMeasurement, PropertyRoom, Quotation, QuotationItem, QuotationRoom, ServiceCategory, ServiceRequest, ServiceType, SupportTicket, Unit, WorkChange
 from .serializers import QuotationItemSerializer, QuotationSerializer
 from .work_changes import current_scope, work_change_summary
 
@@ -168,6 +168,114 @@ class CustomerApiTests(APITestCase):
         listing = self.client.get(reverse("customer-list-create"))
         self.assertEqual(len(listing.data), 1)
         self.assertEqual(listing.data[0]["name"], "My customer")
+
+    def test_messages_hide_unused_customers_and_open_selected_contact(self):
+        created = self.client.post(
+            reverse("customer-list-create"),
+            {"name": "Saved contact", "mobile": "9333333333"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        customer_id = created.data["id"]
+
+        recent = self.client.get(reverse("chat-conversations"))
+        self.assertEqual(recent.status_code, status.HTTP_200_OK)
+        self.assertEqual(recent.data, [])
+
+        opened = self.client.post(
+            reverse("chat-conversations"), {"customer": customer_id}, format="json"
+        )
+        self.assertEqual(opened.status_code, status.HTTP_200_OK, opened.data)
+        self.assertEqual(opened.data["customer_id"], customer_id)
+
+        sent = self.client.post(
+            reverse("chat-messages", kwargs={"pk": opened.data["id"]}),
+            {"text": "Hello from the saved contact picker."},
+            format="json",
+        )
+        self.assertEqual(sent.status_code, status.HTTP_201_CREATED, sent.data)
+        recent = self.client.get(reverse("chat-conversations"))
+        self.assertEqual(len(recent.data), 1)
+        self.assertEqual(recent.data[0]["customer_id"], customer_id)
+
+        message_id = sent.data["id"]
+        updated = self.client.patch(
+            reverse("chat-message-detail", kwargs={"pk": message_id}),
+            {"text": "Updated customer message."},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK, updated.data)
+        self.assertEqual(updated.data["text"], "Updated customer message.")
+
+        self.client.force_authenticate(self.other_contractor)
+        forbidden_delete = self.client.delete(reverse("chat-message-detail", kwargs={"pk": message_id}))
+        self.assertEqual(forbidden_delete.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(self.contractor)
+        removed = self.client.delete(reverse("chat-message-detail", kwargs={"pk": message_id}))
+        self.assertEqual(removed.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ChatMessage.objects.filter(pk=message_id).exists())
+
+    def test_unsafe_chat_is_blocked_and_admin_is_notified(self):
+        admin = BharathUser.objects.create_user(
+            mobile="9000000099", password="test-password", role=BharathUser.Roles.ADMIN,
+        )
+        created = self.client.post(
+            reverse("customer-list-create"),
+            {"name": "Safety contact", "mobile": "9333333399"},
+            format="json",
+        )
+        opened = self.client.post(
+            reverse("chat-conversations"), {"customer": created.data["id"]}, format="json"
+        )
+        before_count = ChatMessage.objects.count()
+        blocked = self.client.post(
+            reverse("chat-messages", kwargs={"pk": opened.data["id"]}),
+            {"text": "This message discusses cocaine."},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ChatMessage.objects.count(), before_count)
+        alert = PortalNotification.objects.get(recipient=admin, event_type="CHAT_SAFETY")
+        self.assertNotIn("cocaine", alert.message.lower())
+
+    def test_contractor_can_open_and_message_a_job_applicant(self):
+        from jobs.models import Job, JobApplication
+
+        painter = BharathUser.objects.create_user(
+            mobile="9444444499", password="test-password",
+            first_name="Test", last_name="Painter", role=BharathUser.Roles.PAINTER,
+        )
+        job = Job.objects.create(
+            contractor=self.contractor, title="Interior painting",
+            service_type="Interior Painting", location="Test site", city="Bengaluru",
+            job_type=Job.JobType.DAILY, start_date=date.today(),
+        )
+        JobApplication.objects.create(job=job, painter=painter)
+
+        opened = self.client.post(
+            reverse("chat-conversations"), {"painter": painter.id}, format="json",
+        )
+        self.assertEqual(opened.status_code, status.HTTP_200_OK, opened.data)
+        self.assertEqual(opened.data["painter_id"], painter.id)
+
+        listing = self.client.get(
+            reverse("chat-conversations"), {"conversation": opened.data["id"]},
+        )
+        self.assertEqual(listing.status_code, status.HTTP_200_OK)
+        self.assertEqual(listing.data[0]["id"], opened.data["id"])
+
+        sent = self.client.post(
+            reverse("chat-messages", kwargs={"pk": opened.data["id"]}),
+            {"text": "Please confirm your availability."}, format="json",
+        )
+        self.assertEqual(sent.status_code, status.HTTP_201_CREATED, sent.data)
+
+        self.client.force_authenticate(self.other_contractor)
+        unauthorized = self.client.post(
+            reverse("chat-conversations"), {"painter": painter.id}, format="json",
+        )
+        self.assertEqual(unauthorized.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_new_customer_record_links_to_existing_customer_portal_by_mobile(self):
         portal_user = BharathUser.objects.create_user(

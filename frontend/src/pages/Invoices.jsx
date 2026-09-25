@@ -20,6 +20,11 @@ const blankLine = {
   quantity: 1,
   rate: 0,
 };
+const newLumpSumInvoice = () => ({
+  customer: "", property: "", tax_mode: "NON_GST", invoice_date: dateKey(new Date()), due_date: "",
+  gst_percentage: 0, discount: 0, notes: "", terms_conditions: "",
+  items: [{ ...blankLine, service: "Lump sum service", unit: "Job", quantity: 1, rate: "" }],
+});
 const blankAdjustment = { surface: "WALL", action: "ADD", name: "", height: "", length: "", width: "", quantity: 1, rate: "" };
 const adjustmentArea = (row) => {
   const first = Number(row.surface === "WALL" ? row.height : row.length) || 0;
@@ -30,6 +35,8 @@ const adjustmentAmount = (row) => adjustmentArea(row) * (Number(row.rate) || 0);
 export default function Invoices() {
   const initialDates = last7Days();
   const [items, setItems] = useState([]),
+    [customers, setCustomers] = useState([]),
+    [properties, setProperties] = useState([]),
     [search, setSearch] = useState(""),
     [datePreset, setDatePreset] = useState("LAST_7"),
     [dateFrom, setDateFrom] = useState(initialDates.from),
@@ -39,13 +46,20 @@ export default function Invoices() {
     [saving, setSaving] = useState(false),
     [paymentSaving, setPaymentSaving] = useState(false),
     [paymentDraft, setPaymentDraft] = useState({ received_date: dateKey(new Date()), amount: "", payment_mode: "", payment_reference: "", notes: "" });
+  const [creating, setCreating] = useState(false);
+  const [createDraft, setCreateDraft] = useState(newLumpSumInvoice);
+  const [createSaving, setCreateSaving] = useState(false);
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState("details");
   useEffect(() => { setTab("details"); }, [editing?.id]);
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/quotations/invoices/");
+      const [{ data }, customerResponse, propertyResponse] = await Promise.all([
+        api.get("/quotations/invoices/"), api.get("/quotations/customers/"), api.get("/quotations/properties/"),
+      ]);
       setItems(data);
+      setCustomers(Array.isArray(customerResponse.data) ? customerResponse.data : customerResponse.data.results || []);
+      setProperties(Array.isArray(propertyResponse.data) ? propertyResponse.data : propertyResponse.data.results || []);
       const wanted = params.get("invoice");
       if (wanted) {
         const found = data.find((x) => String(x.id) === wanted);
@@ -88,6 +102,20 @@ export default function Invoices() {
     } finally {
       setSaving(false);
     }
+  }
+  async function createInvoice(event) {
+    event.preventDefault(); setCreateSaving(true); setError("");
+    try {
+      const payload = { ...createDraft, base_items: createDraft.items, gst_percentage: createDraft.tax_mode === "GST" ? createDraft.gst_percentage || 18 : 0 };
+      const { data } = await api.post("/quotations/invoices/", payload);
+      setItems((current) => [data, ...current]); setCreating(false); setCreateDraft(newLumpSumInvoice());
+      setEditing({ ...data, base_items: data.base_items || data.items || [], measurement_adjustments: [] });
+    } catch (requestError) {
+      setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Lump-sum invoice could not be created.");
+    } finally { setCreateSaving(false); }
+  }
+  function createLine(index, key, value) {
+    setCreateDraft((current) => ({ ...current, items: current.items.map((row, position) => position === index ? { ...row, [key]: value } : row) }));
   }
   async function download() {
     try {
@@ -162,12 +190,9 @@ export default function Invoices() {
   const previewTotals = calculateInvoicePreview(editing);
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-amber-600">Customer billing</p>
-        <h1 className="mt-1 text-3xl font-bold">Invoices</h1>
-        <p className="mt-2 text-slate-500">
-          Convert estimates into independently editable customer invoices.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-sm font-semibold text-amber-600">Customer billing</p><h1 className="mt-1 text-3xl font-bold">Invoices</h1><p className="mt-2 text-slate-500">Create final quotation invoices or direct lump-sum invoices.</p></div>
+        <button type="button" onClick={() => { setCreateDraft(newLumpSumInvoice()); setCreating(true); setError(""); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />New lump-sum invoice</button>
       </header>
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -299,10 +324,30 @@ export default function Invoices() {
         </div>
         {!visible.length && (
           <p className="p-12 text-center text-slate-400">
-            No invoices found. Convert one from a quotation.
+            No invoices found. Convert a completed quotation or create a lump-sum invoice.
           </p>
         )}
       </section>
+      {creating && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 p-3 sm:p-6">
+          <form onSubmit={createInvoice} className="mx-auto flex max-h-[94vh] max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b p-5"><div><p className="text-sm font-bold text-amber-600">Direct billing</p><h2 className="text-2xl font-extrabold">New lump-sum invoice</h2><p className="mt-1 text-sm text-slate-500">No quotation is required.</p></div><button type="button" onClick={() => setCreating(false)} className="rounded-xl p-2 hover:bg-slate-100"><X /></button></div>
+            <div className="flex-1 space-y-6 overflow-y-auto p-5">
+              <section className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-2">{[['NON_GST','Without GST'],['GST','With GST']].map(([value, label]) => <button key={value} type="button" onClick={() => setCreateDraft((current) => ({ ...current, tax_mode: value, gst_percentage: value === 'GST' ? (current.gst_percentage || 18) : 0 }))} className={`rounded-xl px-4 py-3 text-sm font-bold ${createDraft.tax_mode === value ? 'bg-slate-950 text-white shadow' : 'text-slate-600'}`}>{label}</button>)}</section>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Customer"><select required value={createDraft.customer} onChange={(e) => setCreateDraft({ ...createDraft, customer: e.target.value, property: '' })}><option value="">Select customer</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} - {customer.bharath_id || 'Create ID first'}</option>)}</select></Field>
+                <Field label="Property (optional)"><select value={createDraft.property} onChange={(e) => setCreateDraft({ ...createDraft, property: e.target.value })}><option value="">No property</option>{properties.filter((property) => String(property.customer) === String(createDraft.customer)).map((property) => <option key={property.id} value={property.id}>{property.name || property.property_type}</option>)}</select></Field>
+                <Field label="Invoice date"><input required type="date" value={createDraft.invoice_date} onChange={(e) => setCreateDraft({ ...createDraft, invoice_date: e.target.value })} /></Field><Field label="Due date"><input type="date" value={createDraft.due_date} onChange={(e) => setCreateDraft({ ...createDraft, due_date: e.target.value })} /></Field>
+              </div>
+              <section className="overflow-hidden rounded-2xl border"><div className="flex items-center justify-between border-b bg-slate-50 p-4"><div><h3 className="font-bold">Invoice services</h3><p className="text-xs text-slate-500">Enter the agreed lump-sum service lines.</p></div><button type="button" onClick={() => setCreateDraft((current) => ({ ...current, items: [...current.items, { ...blankLine, unit: 'Job', quantity: 1 }] }))} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" />Add service</button></div>
+                <div className="divide-y">{createDraft.items.map((row, index) => <div key={index} className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.5fr_100px_100px_120px_44px] lg:items-end"><Field label="Service"><input required value={row.service || ''} onChange={(e) => createLine(index, 'service', e.target.value)} placeholder="Painting service" /></Field><Field label="Description"><input required value={row.description || ''} onChange={(e) => createLine(index, 'description', e.target.value)} placeholder="Work description" /></Field><Field label="MOU"><input required value={row.unit || ''} onChange={(e) => createLine(index, 'unit', e.target.value)} placeholder="Job" /></Field><Field label="Qty"><input required type="number" min="0.01" step="0.01" value={row.quantity} onChange={(e) => createLine(index, 'quantity', e.target.value)} /></Field><Field label="Rate"><input required type="number" min="0" step="0.01" value={row.rate} onChange={(e) => createLine(index, 'rate', e.target.value)} /></Field><button type="button" disabled={createDraft.items.length === 1} onClick={() => setCreateDraft((current) => ({ ...current, items: current.items.filter((_, position) => position !== index) }))} className="rounded-xl p-3 text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></div>)}</div>
+              </section>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Field label="Discount"><input type="number" min="0" step="0.01" value={createDraft.discount} onChange={(e) => setCreateDraft({ ...createDraft, discount: e.target.value })} /></Field>{createDraft.tax_mode === 'GST' && <Field label="GST %"><input required type="number" min="0" step="0.01" value={createDraft.gst_percentage} onChange={(e) => setCreateDraft({ ...createDraft, gst_percentage: e.target.value })} /></Field>}<Field label="Notes"><textarea rows="2" value={createDraft.notes} onChange={(e) => setCreateDraft({ ...createDraft, notes: e.target.value })} /></Field><Field label="Terms"><textarea rows="2" value={createDraft.terms_conditions} onChange={(e) => setCreateDraft({ ...createDraft, terms_conditions: e.target.value })} /></Field></div>
+            </div>
+            <div className="flex items-center justify-between gap-4 bg-slate-950 p-4 text-white"><div><p className="text-xs text-slate-300">Estimated total</p><b className="text-xl">{money(calculateCreateTotal(createDraft))}</b></div><button disabled={createSaving} className="rounded-xl bg-white px-5 py-3 font-bold text-slate-950 disabled:opacity-50">{createSaving ? 'Creating...' : `Create ${createDraft.tax_mode === 'GST' ? 'GST' : 'non-GST'} invoice`}</button></div>
+          </form>
+        </div>
+      )}
       {editing && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 p-3 sm:p-6">
           <form
@@ -692,6 +737,11 @@ function calculateInvoicePreview(invoice) {
   const taxable = Math.max(0, subtotal - (Number(invoice.discount) || 0));
   const gst = taxable * (Number(invoice.gst_percentage) || 0) / 100;
   return { subtotal, gst, grandTotal: taxable + gst, netMeasurementArea };
+}
+function calculateCreateTotal(invoice) {
+  const subtotal = (invoice.items || []).reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.rate) || 0), 0);
+  const taxable = Math.max(0, subtotal - (Number(invoice.discount) || 0));
+  return taxable + (invoice.tax_mode === "GST" ? taxable * (Number(invoice.gst_percentage) || 0) / 100 : 0);
 }
 function AdjustmentTotal({ label, rows, surface }) {
   const value = rows.filter((row) => row.surface === surface).reduce((sum, row) => sum + adjustmentArea(row) * (row.action === "REMOVE" ? -1 : 1), 0);

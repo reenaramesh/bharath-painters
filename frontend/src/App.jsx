@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import VerifiedContractorRoute from "./components/VerifiedContractorRoute";
 import PdfPreviewHost from "./components/PdfPreview";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
+import WhatsAppAppChooser from "./components/WhatsAppAppChooser";
 
 const page = (name) => lazy(() => import(`./pages/${name}.jsx`));
 const Login = page("Login");
@@ -50,7 +51,6 @@ const OpportunityDetail = page("OpportunityDetail");
 const NewOpportunity = page("NewOpportunity");
 const SiteVisits = page("SiteVisits");
 const PainterSeeking = page("PainterSeeking");
-const FindPainter = page("FindPainter");
 const PainterAssignments = page("PainterAssignments");
 const Jobs = page("Jobs");
 const JobActivity = page("JobActivity");
@@ -80,6 +80,7 @@ function App() {
     <BrowserRouter>
       <PdfPreviewHost />
       <PwaInstallPrompt />
+      <WhatsAppAppChooser />
       <Suspense
         fallback={
           <div className="bp-page-state min-h-screen">
@@ -154,7 +155,7 @@ function App() {
             <Route path="/opportunities/:id" element={<OpportunityDetail />} />
             <Route path="/site-visits" element={<SiteVisits />} />
             <Route path="/painter-seeking" element={<PainterSeeking />} />
-            <Route path="/find-painter" element={<FindPainter />} />
+            <Route path="/find-painter" element={<Navigate to="/applicator-bookings" replace />} />
             <Route
               path="/painter-assignments"
               element={<PainterAssignments />}

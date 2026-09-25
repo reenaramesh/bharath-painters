@@ -32,7 +32,7 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true">
       <div className="h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5">
-          <div><h2 className="text-xl font-bold text-slate-900">{editing ? "Edit customer" : "Add customer"}</h2><p className="text-sm text-slate-500">Customer contact details</p></div>
+          <div><h2 className="text-xl font-bold text-slate-900">{editing ? "Edit customer" : "Add customer"}</h2><p className="text-sm text-slate-500">{editing ? "Customer contact and billing details" : "Only name and mobile are required now. Add other details later."}</p></div>
           <button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={submit} className="space-y-6 p-6">
@@ -40,12 +40,14 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-medium text-slate-700">Full name *<input required name="name" value={form.name} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">Mobile *<input required inputMode="tel" name="mobile" value={form.mobile} onChange={update} placeholder="10-digit Indian mobile number" className={inputClass} /></label>
+            {editing && <>
             <label className="text-sm font-medium text-slate-700">Email<input type="email" name="email" value={form.email} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">GSTIN (optional)<input name="gst_number" value={form.gst_number} onChange={update} maxLength="30" placeholder="Customer GST number" className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">WhatsApp<input name="whatsapp" value={form.whatsapp} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">City<input name="city" value={form.city} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">Pincode<input name="pincode" value={form.pincode} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700 sm:col-span-2">Address<textarea name="address" value={form.address} onChange={update} rows="2" className={inputClass} /></label>
+            </>}
           </div>
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-5"><button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 font-semibold text-slate-700">Cancel</button><button disabled={saving} className="rounded-xl bg-slate-950 px-5 py-2.5 font-semibold text-white disabled:opacity-60">{saving ? "Saving..." : editing ? "Save changes" : "Add customer"}</button></div>
         </form>

@@ -5,6 +5,7 @@ import {
   ContactRound,
   Download,
   FilePlus2,
+  KeyRound,
   MessageCircle,
   Phone,
   Plus,
@@ -14,9 +15,9 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
-import CustomerForm from "../components/CustomerForm";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
 import { CUSTOMER_STATUSES } from "../constants/customers";
+import MobilePageBack from "../components/MobilePageBack";
 
 const statusColors = {
   NEW: "bg-blue-50 text-blue-700",
@@ -49,12 +50,9 @@ export default function Customers() {
   const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [formError, setFormError] = useState("");
   const [showConnectionFlow, setShowConnectionFlow] = useState(false);
-  const [newCustomerMobile, setNewCustomerMobile] = useState("");
   const [onboarding, setOnboarding] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [activatingCustomerId, setActivatingCustomerId] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -81,6 +79,21 @@ export default function Customers() {
       setError("Customers could not be loaded. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function activateCustomer(customer, event) {
+    event?.stopPropagation();
+    setActivatingCustomerId(customer.id);
+    setError("");
+    try {
+      const { data } = await api.post(`/quotations/customers/${customer.id}/activate-account/`);
+      setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, ...data } : item));
+      if (data.temporary_password) setOnboarding(data);
+    } catch (requestError) {
+      setError(formatError(requestError.response?.data) || "Customer ID and login could not be created.");
+    } finally {
+      setActivatingCustomerId(null);
     }
   }
 
@@ -166,21 +179,10 @@ export default function Customers() {
   const cellPadding = "px-5 py-4";
 
   async function createCustomer(values) {
-    setSaving(true);
-    setFormError("");
-    try {
-      const { data } = await api.post("/quotations/customers/", values);
-      setCustomers((current) => [data, ...current]);
-      setShowForm(false);
-      setFormError("");
-      setNewCustomerMobile("");
-      setOnboarding(data);
-    } catch (requestError) {
-      const message = formatError(requestError.response?.data) || "Customer could not be created.";
-      setFormError(message);
-    } finally {
-      setSaving(false);
-    }
+    const { data } = await api.post("/quotations/customers/", values);
+    setCustomers((current) => [data, ...current]);
+    setOnboarding(data);
+    return data;
   }
 
   async function importFile(event) {
@@ -262,41 +264,42 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
+      <MobilePageBack />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Customer management
-          </p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">Customers</h1>
-          <p className="mt-2 text-slate-500">
-            Find customers quickly in an alphabetical contact directory.
-          </p>
+          <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={connectContacts}
             disabled={importing}
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-60"
+            aria-label="Add from phone contacts"
+            title="Add from phone contacts"
+            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60"
           >
-            <ContactRound className="h-4 w-4" />
-            Connect contacts
+            <ContactRound className="h-5 w-5" />
           </button>
           <button
+            type="button"
             onClick={() => {
               setShowImport(true);
               setImportResult(null);
             }}
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+            aria-label="Bulk upload customers"
+            title="Bulk upload customers"
+            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700"
           >
-            <Upload className="h-4 w-4" />
-            Bulk upload
+            <Upload className="h-5 w-5" />
           </button>
           <button
+            type="button"
             onClick={() => setShowConnectionFlow(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            aria-label="Add customer"
+            title="Add customer"
+            className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800"
           >
-            <Plus className="h-4 w-4" />
-            Add customer
+            <Plus className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -356,6 +359,8 @@ export default function Customers() {
           customers={filtered}
           propertiesByCustomer={propertiesByCustomer}
           navigate={navigate}
+          activateCustomer={activateCustomer}
+          activatingCustomerId={activatingCustomerId}
         />
         <div className="hidden">
         {loading ? (
@@ -447,6 +452,17 @@ export default function Customers() {
                         <FilePlus2 className="h-4 w-4" />
                         New quotation
                       </Link>
+                      {!customer.bharath_id && (
+                        <button
+                          type="button"
+                          disabled={activatingCustomerId === customer.id}
+                          onClick={(event) => activateCustomer(customer, event)}
+                          className="col-span-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-800 disabled:opacity-50"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                          {activatingCustomerId === customer.id ? "Creating login..." : "Create Customer ID & Login"}
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
@@ -589,14 +605,17 @@ export default function Customers() {
                         <td
                           className={`${cellPadding} border-b border-slate-200/80 text-center`}
                         >
-                          <Link
-                            to={`/quotations/new?customer=${customer.id}`}
-                            onClick={(event) => event.stopPropagation()}
-                            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-                          >
-                            <FilePlus2 className="h-4 w-4" />
-                            Quotation
-                          </Link>
+                          <div className="flex flex-col items-center gap-1.5">
+                            {!customer.bharath_id && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Creating..." : "Create ID"}</button>}
+                            <Link
+                              to={`/quotations/new?customer=${customer.id}`}
+                              onClick={(event) => event.stopPropagation()}
+                              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+                            >
+                              <FilePlus2 className="h-4 w-4" />
+                              Quotation
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -720,7 +739,7 @@ export default function Customers() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-60"
               >
                 <ContactRound className="h-4 w-4" />
-                Connect device contacts
+                Add from phone contacts
               </button>
               <p className="mt-2 text-center text-xs text-slate-400">
                 Contact picker support depends on the device and browser.
@@ -729,18 +748,9 @@ export default function Customers() {
           </div>
         </div>
       )}
-      {showForm && (
-        <CustomerForm
-          initialValue={{ mobile: newCustomerMobile }}
-          onSubmit={createCustomer}
-          onClose={() => { setShowForm(false); setFormError(""); }}
-          saving={saving}
-          error={formError}
-        />
-      )}
       {showConnectionFlow && <CustomerConnectionFlow
         onClose={() => setShowConnectionFlow(false)}
-        onNewCustomer={(mobile) => { setNewCustomerMobile(mobile); setFormError(""); setShowConnectionFlow(false); setShowForm(true); }}
+        onNewCustomer={createCustomer}
         onConnected={loadCustomers}
       />}
       {onboarding?.temporary_password && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
@@ -748,7 +758,8 @@ export default function Customers() {
           <h2 className="text-xl font-extrabold">Customer created</h2>
           <p className="mt-2 text-sm text-slate-500">Share these one-time login details securely with the customer.</p>
           <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm"><p><span className="text-slate-500">Customer ID</span><b className="block text-lg">{onboarding.bharath_id}</b></p><p><span className="text-slate-500">Mobile</span><b className="block text-lg">{onboarding.mobile}</b></p><p><span className="text-slate-500">Temporary password</span><b className="block text-lg">{onboarding.temporary_password}</b></p></div>
-          <a target="_blank" rel="noreferrer" href={`https://wa.me/${formatWhatsAppNumber(onboarding.whatsapp || onboarding.mobile)}?text=${encodeURIComponent(`Your Bharath Painters login\nCustomer ID: ${onboarding.bharath_id}\nMobile: ${onboarding.mobile}\nTemporary password: ${onboarding.temporary_password}`)}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />Share through WhatsApp</a>
+          <button type="button" onClick={() => navigator.clipboard.writeText(`Customer ID: ${onboarding.bharath_id}\nMobile: ${onboarding.mobile}\nTemporary password: ${onboarding.temporary_password}`)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-3 font-bold text-white"><KeyRound className="h-4 w-4" />Copy login details</button>
+          <p className="mt-2 text-center text-xs text-slate-500">Share the temporary password with the customer through a secure channel.</p>
           <button onClick={() => setOnboarding(null)} className="mt-3 w-full rounded-xl border px-4 py-3 font-bold">Done</button>
         </section>
       </div>}
@@ -808,7 +819,7 @@ function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
   );
 }
 
-function ContactDirectory({ loading, customers, propertiesByCustomer, navigate }) {
+function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, activateCustomer, activatingCustomerId }) {
   if (loading) return <div className="p-12 text-center text-slate-500">Loading customers...</div>;
   if (!customers.length) return <div className="p-14 text-center"><Users className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 font-semibold text-slate-900">No customers found</h2><p className="mt-1 text-sm text-slate-500">Add your first customer or change the current filters.</p></div>;
 
@@ -845,6 +856,7 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate }
               <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
               <p className="hidden text-sm font-semibold text-slate-700 md:block">{customer.mobile || "—"}</p>
               <div className="flex items-center justify-end gap-2">
+                {!customer.bharath_id && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title={activatingCustomerId === customer.id ? "Creating Customer ID & Login..." : "Create Customer ID & Login"} aria-label={`Create ID for ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
                 <a href={customer.mobile ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
                 <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`}><MessageCircle className="h-4 w-4" /></a>
               </div>

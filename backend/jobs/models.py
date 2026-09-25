@@ -333,6 +333,7 @@ class ApplicatorBooking(models.Model):
         REJECTED = "REJECTED", "Rejected"
         CANCELLED = "CANCELLED", "Cancelled"
         COMPLETED = "COMPLETED", "Completed"
+        CLOSED = "CLOSED", "Closed"
 
     contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="applicator_bookings_made")
     applicator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="applicator_booking_requests")

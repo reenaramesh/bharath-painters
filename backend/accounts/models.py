@@ -294,6 +294,9 @@ class PainterProfile(models.Model):
 
 
 class ContractorProfile(models.Model):
+    class LogoShape(models.TextChoices):
+        RECTANGLE = "RECTANGLE", "Rectangle"
+        ROUND = "ROUND", "Round"
 
     class MeasurementUnit(models.TextChoices):
         FEET = "FEET", "Feet"
@@ -317,6 +320,11 @@ class ContractorProfile(models.Model):
         upload_to="contractors/logos/",
         blank=True,
         null=True
+    )
+    company_logo_shape = models.CharField(
+        max_length=12,
+        choices=LogoShape.choices,
+        default=LogoShape.RECTANGLE,
     )
 
     years_in_business = models.PositiveIntegerField(

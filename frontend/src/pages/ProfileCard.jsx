@@ -64,12 +64,20 @@ export default function ProfileCard() {
       <section className="overflow-hidden rounded-3xl border bg-white shadow-sm">
         <div className="bg-gradient-to-r from-slate-950 to-violet-950 p-6 text-white sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/10">
+            <span className={`grid shrink-0 place-items-center overflow-hidden bg-white/10 ${
+              data.logo_shape === "RECTANGLE"
+                ? "h-20 w-36 rounded-2xl"
+                : "h-20 w-20 rounded-full"
+            }`}>
               {data.photo ? (
                 <img
                   src={data.photo}
                   alt="Profile"
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full ${
+                    data.logo_shape === "RECTANGLE"
+                      ? "object-contain p-1"
+                      : "object-cover"
+                  }`}
                 />
               ) : (
                 <QrCode className="h-9 w-9" />

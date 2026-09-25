@@ -60,6 +60,17 @@ def _find_user_by_mobile(mobile, queryset=None):
     return matches[0] if len(matches) == 1 else None
 
 
+def _user_display_name(user):
+    full_name = user.get_full_name().strip()
+    if user.role == BharathUser.Roles.CONTRACTOR:
+        profile = getattr(user, "contractor_profile", None)
+        return (profile.company_name.strip() if profile and profile.company_name else full_name) or user.mobile
+    if user.role == BharathUser.Roles.CUSTOMER:
+        customer = getattr(user, "customer_profiles", None)
+        return (customer.name.strip() if customer and customer.name else full_name) or user.mobile
+    return full_name or user.mobile
+
+
 def _masked_email(value):
     local, separator, domain = str(value or "").partition("@")
     if not separator:
@@ -231,13 +242,17 @@ class CustomerRegistrationView(APIView):
             return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
         if not user:
             user = BharathUser(mobile=mobile, role=BharathUser.Roles.CUSTOMER)
+        primary_customer = customer_records[0]
+        if not primary_customer.bharath_id:
+            primary_customer.bharath_id = f"BP-C-{primary_customer.pk:06d}"
+            primary_customer.save(update_fields=("bharath_id", "updated_at"))
         user.first_name = name
         user.email = email
         user.is_active = True
         user.is_verified = True
         user.verification_status = BharathUser.VerificationStatus.VERIFIED
         if not user.bharath_id:
-            user.bharath_id = customer_records[0].bharath_id
+            user.bharath_id = primary_customer.bharath_id
         if not user.verified_at:
             user.verified_at = timezone.now()
         if not user.badge_issued_at:
@@ -339,6 +354,7 @@ class LoginView(APIView):
                     "verification_status": user.verification_status,
                     "bharath_id": user.bharath_id,
                     "preferred_language": user.preferred_language,
+                    "display_name": _user_display_name(user),
                 },
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
@@ -598,6 +614,7 @@ class CurrentUserView(APIView):
                 "verification_status": user.verification_status,
                 "bharath_id": user.bharath_id,
                 "preferred_language": user.preferred_language,
+                "display_name": _user_display_name(user),
                 "profile_photo": (
                     request.build_absolute_uri(user.profile_photo.url)
                     if user.profile_photo else None
@@ -645,6 +662,7 @@ def _private_profile_card_data(user, request):
     photo = user.profile_photo.url if user.profile_photo else None
     title = user.get_full_name() or user.mobile
     subtitle = user.get_role_display()
+    logo_shape = "ROUND"
 
     def add(label, value):
         if value not in (None, ""):
@@ -656,6 +674,7 @@ def _private_profile_card_data(user, request):
             title = profile.company_name or title
             subtitle = f"Contractor · {profile.owner_name}" if profile.owner_name else "Contractor"
             photo = profile.company_logo.url if profile.company_logo else photo
+            logo_shape = profile.company_logo_shape
             add("Company name", profile.company_name)
             add("Owner / proprietor", profile.owner_name)
             add("Mobile", user.mobile)
@@ -682,7 +701,13 @@ def _private_profile_card_data(user, request):
 
     if photo:
         photo = request.build_absolute_uri(photo)
-    return {"title": title, "subtitle": subtitle, "photo": photo, "details": details}
+    return {
+        "title": title,
+        "subtitle": subtitle,
+        "photo": photo,
+        "logo_shape": logo_shape,
+        "details": details,
+    }
 
 
 class ProfileCardView(APIView):
@@ -751,6 +776,7 @@ class ContractorDirectoryView(APIView):
                     request.build_absolute_uri(profile.company_logo.url)
                     if profile.company_logo else None
                 ),
+                "company_logo_shape": profile.company_logo_shape,
             })
         return Response(data, status=status.HTTP_200_OK)
 
@@ -884,6 +910,7 @@ class VerifyBharathIDPageView(APIView):
             )
 
         profile_photo = None
+        logo_shape = "ROUND"
         display_name = user.get_full_name() or user.mobile
         profession = user.get_role_display()
         professional_details = []
@@ -902,6 +929,7 @@ class VerifyBharathIDPageView(APIView):
                 ]
                 if contractor.company_logo:
                     profile_photo = contractor.company_logo.url
+                logo_shape = contractor.company_logo_shape
         elif user.role == BharathUser.Roles.PAINTER:
             painter = getattr(user, "painter_profile", None)
             profession = "Paint Applicator"
@@ -923,6 +951,7 @@ class VerifyBharathIDPageView(APIView):
                 "profession": profession,
                 "professional_details": professional_details,
                 "profile_photo": profile_photo,
+                "logo_shape": logo_shape,
                 "verified_at": user.verified_at,
                 "badge_issued_at": user.badge_issued_at,
             }

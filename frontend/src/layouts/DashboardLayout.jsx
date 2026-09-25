@@ -5,6 +5,7 @@ import { useState } from "react";
 import GlobalTableSorting from "../components/GlobalTableSorting";
 import MobileTableDialogs from "../components/MobileTableDialogs";
 import CustomerConnectionPrompt from "../components/CustomerConnectionPrompt";
+import MobileBottomNav from "../components/MobileBottomNav";
 
 export default function DashboardLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -35,10 +36,11 @@ export default function DashboardLayout() {
           toggleSidebar={toggleSidebar}
         />
 
-        <main className="mx-auto max-w-[1640px] px-3 py-4 sm:px-4 md:p-6 xl:p-8">
+        <main className="mx-auto max-w-[1640px] px-3 pb-28 pt-4 sm:px-4 md:p-6 xl:p-8">
           <Outlet />
         </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

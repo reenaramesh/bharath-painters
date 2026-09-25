@@ -842,11 +842,27 @@ export default function QuotationBuilder() {
         items: cleanItems,
       };
       if (pdfPreviewOnly) {
-        const response = await api.post(
-          "/quotations/preview-pdf/",
-          payload,
-          { responseType: "blob" },
-        );
+        let response;
+        try {
+          response = await api.post(
+            "/quotations/preview-pdf/",
+            payload,
+            { responseType: "blob" },
+          );
+        } catch (previewError) {
+          const status = previewError.response?.status;
+          const transientFailure =
+            !previewError.response || [502, 503, 504].includes(status);
+          if (!transientFailure) throw previewError;
+
+          // Free hosting can need one request to wake the API. The failed
+          // request is safe to repeat because preview creation is rolled back.
+          response = await api.post(
+            "/quotations/preview-pdf/",
+            payload,
+            { responseType: "blob" },
+          );
+        }
         previewPdf(response.data, "quotation-preview.pdf");
       } else {
         const { data } = await api.post("/quotations/create/", payload);
@@ -854,8 +870,9 @@ export default function QuotationBuilder() {
       }
     } catch (requestError) {
       if (pdfPreviewOnly) setShowPreview(false);
+      const requestMessage = await formatRequestError(requestError);
       setError(
-        formatError(requestError.response?.data) ||
+        requestMessage ||
           (pdfPreviewOnly
             ? "Quotation PDF preview could not be generated."
             : "Quotation could not be created."),
@@ -1876,4 +1893,18 @@ function formatError(data) {
         `${key}: ${Array.isArray(value) ? value.join(" ") : typeof value === "object" ? JSON.stringify(value) : value}`,
     )
     .join(" ");
+}
+
+async function formatRequestError(error) {
+  const data = error?.response?.data;
+  if (data instanceof Blob) {
+    const text = await data.text();
+    if (!text || /^\s*</.test(text)) return "";
+    try {
+      return formatError(JSON.parse(text));
+    } catch {
+      return text;
+    }
+  }
+  return formatError(data);
 }

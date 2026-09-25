@@ -38,6 +38,7 @@ export default function QuotationDetail() {
   const [converting, setConverting] = useState(false);
   const convertingRef = useRef(false);
   const [showShare, setShowShare] = useState(false);
+  const [customerLogin, setCustomerLogin] = useState(null);
   const [mobileItem, setMobileItem] = useState(null);
   useEffect(() => {
     api
@@ -99,6 +100,7 @@ export default function QuotationDetail() {
     try {
       const { data } = await api.post(`/quotations/${id}/submit/`);
       setQuotation((current) => ({ ...current, status: data.status }));
+      setCustomerLogin(data.temporary_password ? { customer_id: data.customer_id, mobile: data.customer_mobile, temporary_password: data.temporary_password } : null);
       setShowShare(true);
     } catch (requestError) {
       setError(
@@ -271,7 +273,11 @@ export default function QuotationDetail() {
               <img
                 src={contractor.company_logo}
                 alt=""
-                className="h-14 w-14 rounded-xl object-cover"
+                className={`h-14 border bg-white ${
+                  contractor.company_logo_shape === "ROUND"
+                    ? "w-14 rounded-full object-cover"
+                    : "w-24 rounded-xl object-contain p-1"
+                }`}
               />
             ) : (
               <span className="grid h-14 w-14 place-items-center rounded-xl bg-slate-950 text-white">
@@ -491,6 +497,7 @@ export default function QuotationDetail() {
         <QuotationShare
           quotation={quotation}
           customer={customer}
+          customerLogin={customerLogin}
           onClose={() => setShowShare(false)}
         />
       )}
@@ -498,7 +505,7 @@ export default function QuotationDetail() {
   );
 }
 
-function QuotationShare({ quotation, customer, onClose }) {
+function QuotationShare({ quotation, customer, customerLogin, onClose }) {
   const url = `${window.location.origin}/customer-quotations/${quotation.id}`;
   const number = String(customer?.whatsapp || customer?.mobile || "").replace(
     /\D/g,
@@ -524,6 +531,7 @@ function QuotationShare({ quotation, customer, onClose }) {
         <div className="mt-4 break-all rounded-xl bg-slate-50 p-4 text-xs">
           {url}
         </div>
+        {customerLogin && <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-bold">Customer ID & login created</p><p className="mt-2">Customer ID: <b>{customerLogin.customer_id}</b></p><p>Mobile: <b>{customerLogin.mobile}</b></p><p>Temporary password: <b>{customerLogin.temporary_password}</b></p><button type="button" onClick={() => navigator.clipboard.writeText(`Customer ID: ${customerLogin.customer_id}\nMobile: ${customerLogin.mobile}\nTemporary password: ${customerLogin.temporary_password}`)} className="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold">Copy login details</button><p className="mt-2 text-xs text-indigo-700">Share the temporary password with the customer through a secure channel.</p></div>}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <a
             target="_blank"

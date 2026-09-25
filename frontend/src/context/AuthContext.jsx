@@ -40,13 +40,17 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("bharath-session-expired", sessionExpired);
   }, []);
 
-  async function refreshUser() {
+  const refreshUser = useCallback(async () => {
     const { data } = await api.get("/accounts/me/");
     localStorage.setItem("bharath_user", JSON.stringify(data));
     setUser(data);
     return data;
-  }
+  }, []);
 
-  const value = useMemo(() => ({ user, login, acceptSession, logout, refreshUser }), [user, acceptSession]);
+  useEffect(() => {
+    if (localStorage.getItem("bharath_access")) refreshUser().catch(() => {});
+  }, [refreshUser]);
+
+  const value = useMemo(() => ({ user, login, acceptSession, logout, refreshUser }), [user, acceptSession, refreshUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

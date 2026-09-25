@@ -156,7 +156,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         model = ContractorProfile
         fields = [
             "mobile", "email", "password", "company_name", "owner_name",
-            "company_logo", "office_address", "service_areas", "gst_number",
+            "company_logo", "company_logo_shape", "office_address", "service_areas", "gst_number",
             "pan_number", "years_in_business", "number_of_painters",
             "default_measurement_unit",
             "quotation_terms_conditions", "quotation_prepared_by",
@@ -164,6 +164,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             "quotation_payment_terms", "quotation_product_details",
             "quotation_work_procedures",
         ]
+        read_only_fields = ["company_name", "owner_name"]
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})

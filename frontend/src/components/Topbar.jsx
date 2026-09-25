@@ -1,6 +1,7 @@
 import {
   Bell,
   ChevronDown,
+  Home,
   LogOut,
   Menu,
   Search,
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 import useAuth from "../context/useAuth";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import { languages, useLanguage } from "../i18n/LanguageContext";
 
@@ -25,6 +26,7 @@ export default function Topbar({ openMenu, toggleSidebar }) {
   const [unread, setUnread] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const profileMenuRef = useRef(null);
   useEffect(() => {
     if (user?.preferred_language && user.preferred_language !== language) setLanguage(user.preferred_language);
   }, [language, setLanguage, user?.preferred_language]);
@@ -49,8 +51,18 @@ export default function Topbar({ openMenu, toggleSidebar }) {
   useEffect(() => {
     loadNotifications();
     const timer = window.setInterval(loadNotifications, 15000);
-    return () => window.clearInterval(timer);
+    const openNotifications = () => { setProfileOpen(false); setOpen(true); loadNotifications(); };
+    window.addEventListener("bp-open-notifications", openNotifications);
+    return () => { window.clearInterval(timer); window.removeEventListener("bp-open-notifications", openNotifications); };
   }, [loadNotifications]);
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const closeOutside = (event) => {
+      if (!profileMenuRef.current?.contains(event.target)) setProfileOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [profileOpen]);
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
@@ -83,7 +95,10 @@ export default function Topbar({ openMenu, toggleSidebar }) {
     await loadNotifications();
   }
   const name =
-    [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "User";
+    user?.display_name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    user?.mobile ||
+    "User";
   const page =
     location.pathname.split("/").filter(Boolean).pop()?.replaceAll("-", " ") ||
     "dashboard";
@@ -102,6 +117,15 @@ export default function Topbar({ openMenu, toggleSidebar }) {
           className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
         >
           <Menu className="w-5 h-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(user?.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard")}
+          aria-label="Home"
+          title="Home"
+          className="hidden rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:block"
+        >
+          <Home className="h-5 w-5" />
         </button>
 
         <p className="max-w-[170px] truncate text-sm font-semibold capitalize text-slate-800 md:hidden">
@@ -219,7 +243,7 @@ export default function Topbar({ openMenu, toggleSidebar }) {
           )}
         </div>
 
-        <div className="relative">
+        <div ref={profileMenuRef} className="relative">
           <button
             onClick={() => setProfileOpen((value) => !value)}
             aria-expanded={profileOpen}

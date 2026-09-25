@@ -8,6 +8,7 @@ import {
   Plus,
   Ruler,
   Search,
+  Save,
   Tags,
   Trash2,
   X,
@@ -194,6 +195,8 @@ export default function MasterServices() {
         })}
       </nav>
 
+      {user?.role === "CONTRACTOR" && <QuotationDefaults />}
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="flex items-center gap-3 border-b bg-slate-50 p-4 sm:p-5">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white"><ActiveIcon className="h-5 w-5" /></span>
@@ -293,6 +296,72 @@ export default function MasterServices() {
         </div>
       )}
     </div>
+  );
+}
+
+const quotationDefaultsBlank = {
+  quotation_prepared_by: "",
+  quotation_inspected_by: "",
+  quotation_work_duration: "",
+  quotation_payment_terms: "",
+  quotation_product_details: "",
+  quotation_work_procedures: "",
+  quotation_terms_conditions: "",
+};
+
+function QuotationDefaults() {
+  const [values, setValues] = useState(quotationDefaultsBlank);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.get("/accounts/contractor-profile/")
+      .then(({ data }) => setValues(Object.fromEntries(Object.keys(quotationDefaultsBlank).map((key) => [key, data[key] || ""]))))
+      .catch(() => setError("Default quotation details could not be loaded."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const update = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
+  async function save(event) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const { data } = await api.patch("/accounts/contractor-profile/", values);
+      setValues(Object.fromEntries(Object.keys(quotationDefaultsBlank).map((key) => [key, data[key] || ""])));
+      setMessage("Default quotation details saved.");
+    } catch (requestError) {
+      setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Default quotation details could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between p-4 marker:hidden sm:p-5">
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 className="font-bold">Default quotation details</h2></div>
+        <span className="text-sm font-bold text-indigo-700 group-open:hidden">Open</span>
+        <span className="hidden text-sm font-bold text-slate-500 group-open:inline">Close</span>
+      </summary>
+      <form onSubmit={save} className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2 sm:p-5">
+        {loading ? <p className="sm:col-span-2">Loading...</p> : <>
+          <Field label="Prepared by"><input name="quotation_prepared_by" value={values.quotation_prepared_by} onChange={update} /></Field>
+          <Field label="Inspected by"><input name="quotation_inspected_by" value={values.quotation_inspected_by} onChange={update} /></Field>
+          <Field label="Work duration"><input name="quotation_work_duration" value={values.quotation_work_duration} onChange={update} placeholder="For example, 15-18 days" /></Field>
+          <Field label="Payment terms"><textarea rows="3" name="quotation_payment_terms" value={values.quotation_payment_terms} onChange={update} /></Field>
+          <Field label="Product details"><textarea rows="3" name="quotation_product_details" value={values.quotation_product_details} onChange={update} /></Field>
+          <Field label="Work procedures and safety"><textarea rows="4" name="quotation_work_procedures" value={values.quotation_work_procedures} onChange={update} /></Field>
+          <div className="sm:col-span-2"><Field label="Terms and conditions"><textarea rows="5" name="quotation_terms_conditions" value={values.quotation_terms_conditions} onChange={update} /></Field></div>
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+          {message && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
+          <button disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50 sm:col-span-2"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save quotation defaults"}</button>
+        </>}
+      </form>
+    </details>
   );
 }
 

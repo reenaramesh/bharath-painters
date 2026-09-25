@@ -14,6 +14,7 @@ from .views import (
     UnitListCreateView,
     UnitDetailView,
     CustomerListCreateView,
+    CustomerActivateAccountView,
     CustomerBulkImportView,
     PropertyListCreateView,
     QuotationListCreateView,
@@ -23,6 +24,7 @@ from .views import (
     CustomerTaskCompleteView,
     ChatConversationListView,
     ChatMessageListCreateView,
+    ChatMessageDetailView,
     ServiceRequestListCreateView,
     ServiceRequestOptionsView,
     ServiceRequestDetailView,
@@ -141,6 +143,7 @@ urlpatterns = [
     path("tasks/<int:pk>/", CustomerTaskCompleteView.as_view(), name="customer-task-complete"),
     path("chat/conversations/", ChatConversationListView.as_view(), name="chat-conversations"),
     path("chat/conversations/<int:pk>/messages/", ChatMessageListCreateView.as_view(), name="chat-messages"),
+    path("chat/messages/<int:pk>/", ChatMessageDetailView.as_view(), name="chat-message-detail"),
     path("service-requests/", ServiceRequestListCreateView.as_view(), name="service-request-list"),
     path("service-requests/options/", ServiceRequestOptionsView.as_view(), name="service-request-options"),
     path("service-requests/<int:pk>/", ServiceRequestDetailView.as_view(), name="service-request-detail"),
@@ -221,6 +224,7 @@ urlpatterns = [
         CustomerListCreateView.as_view(),
         name="customer-list-create"
     ),
+    path("customers/<int:pk>/activate-account/", CustomerActivateAccountView.as_view(), name="customer-activate-account"),
 
     path(
         "properties/",

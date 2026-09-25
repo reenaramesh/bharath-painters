@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, ChevronDown, Pencil, Phone, Plus, Search, X } from "lucide-react";
 import api from "../api/client";
+import MobilePageBack from "../components/MobilePageBack";
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -138,6 +139,7 @@ export default function Tasks() {
 
   return (
     <div className="space-y-6">
+      <MobilePageBack />
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="text-sm font-semibold text-amber-600">Customer follow-ups</p>
           <h1 className="mt-1 text-3xl font-bold text-slate-900">Tasks</h1>

@@ -306,13 +306,13 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
         model = PropertyMeasurement
         fields = (
             "id", "property", "reference_no", "measured_on", "contractor",
-            "contractor_name", "contractor_id", "status", "status_display",
+            "contractor_name", "contractor_id", "status", "status_display", "submitted_at",
             "total_sqft", "room_count", "surface_count", "notes",
             "version", "created_by", "connection", "created_at", "updated_at",
         )
         read_only_fields = (
             "property", "reference_no", "contractor", "contractor_name",
-            "contractor_id", "total_sqft", "room_count", "surface_count",
+            "contractor_id", "total_sqft", "room_count", "surface_count", "submitted_at",
             "version", "created_by", "connection", "created_at", "updated_at",
         )
 
@@ -480,8 +480,8 @@ class QuotationRoomSerializer(serializers.ModelSerializer):
             # to the current contractor.
 
             if (
-                property_room.property.customer.contractor
-                != request.user
+                (property_room.property.contractor_id or property_room.property.customer.contractor_id)
+                != request.user.id
             ):
 
                 raise serializers.ValidationError(
@@ -1337,6 +1337,13 @@ class QuotationSerializer(serializers.ModelSerializer):
                     "property": "The property must belong to the selected customer."
                 })
 
+        for room_data in attrs.get("rooms", []):
+            room = room_data.get("property_room")
+            if room and (not property_obj or room.property_id != property_obj.id):
+                raise serializers.ValidationError({"rooms": "Select rooms from the quotation property."})
+            if room and measurement_record and room.measurement_record_id != measurement_record.id:
+                raise serializers.ValidationError({"rooms": "Select rooms from the selected Area Calculation."})
+
         if measurement_record:
             if not property_obj or measurement_record.property_id != property_obj.id:
                 raise serializers.ValidationError({
@@ -1894,6 +1901,7 @@ class QuotationSerializer(serializers.ModelSerializer):
     # CREATE
     # =====================================================
 
+    @transaction.atomic
     def create(
         self,
         validated_data

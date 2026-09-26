@@ -163,7 +163,8 @@ export default function PropertyDetail() {
               />
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}`} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Create Quotation</Link>
             <button
               type="button"
               onClick={() => setEditing(true)}

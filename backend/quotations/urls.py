@@ -63,6 +63,7 @@ from .views import (
     PropertyMeasurementPdfView,
     PropertyMeasurementListCreateView,
     PropertyMeasurementDetailView,
+    PropertyMeasurementSubmitView,
     PropertyRoomDetailView,
     QuotationRoomSyncView,
     MeasurementSurfaceListCreateView,
@@ -135,6 +136,7 @@ urlpatterns = [
     path("admin-dashboard/<str:entity>/<int:pk>/", AdminEntityDetailView.as_view(), name="admin-entity-detail"),
     path("properties/<int:pk>/measurements/pdf/", PropertyMeasurementPdfView.as_view(), name="property-measurement-pdf"),
     path("properties/<int:property_id>/measurement-records/", PropertyMeasurementListCreateView.as_view(), name="property-measurement-records"),
+    path("measurement-records/<int:pk>/submit/", PropertyMeasurementSubmitView.as_view(), name="property-measurement-submit"),
     path("measurement-records/<int:pk>/", PropertyMeasurementDetailView.as_view(), name="property-measurement-record-detail"),
 
     path("<int:pk>/pdf/", QuotationPdfView.as_view(), name="quotation-pdf"),

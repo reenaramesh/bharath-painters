@@ -1,8 +1,11 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Lead, LeadStageHistory, Quotation, ServiceRequest
+from .models import (
+    Lead, LeadStageHistory, Quotation, ServiceRequest,
+    PropertyMeasurement, PropertyRoom, MeasurementSurface, MeasurementOpening,
+)
 
 
 QUOTATION_TO_LEAD = {
@@ -52,3 +55,20 @@ def sync_linked_lead(sender, instance, **kwargs):
         ServiceRequest.objects.filter(pk=lead.service_request_id).update(
             status=request_status, contractor_seen_at=timezone.now(), customer_seen_at=None
         )
+
+
+@receiver(post_save, sender=PropertyRoom)
+@receiver(post_delete, sender=PropertyRoom)
+@receiver(post_save, sender=MeasurementSurface)
+@receiver(post_delete, sender=MeasurementSurface)
+@receiver(post_save, sender=MeasurementOpening)
+@receiver(post_delete, sender=MeasurementOpening)
+def unpublish_edited_measurement(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+    if sender is MeasurementOpening:
+        record_id = MeasurementSurface.objects.filter(pk=instance.surface_id).values_list("measurement_record_id", flat=True).first()
+    else:
+        record_id = instance.measurement_record_id
+    if record_id:
+        PropertyMeasurement.objects.filter(pk=record_id, submitted_at__isnull=False).update(submitted_at=None)

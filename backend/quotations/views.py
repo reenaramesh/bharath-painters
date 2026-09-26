@@ -2746,13 +2746,13 @@ class MeasurementAccessAvailabilityView(APIView):
             return Response({"detail": "This customer has no portal login. Link the registered customer account before requesting approval."}, status=status.HTTP_400_BAD_REQUEST)
         properties = Property.objects.filter(
             customer_id__in=customer_identity_ids(customer),
-            measurement_surfaces__isnull=False,
+            measurement_surfaces__measurement_record__submitted_at__isnull=False,
         ).exclude(contractor=request.user).distinct().order_by("-updated_at")
         return Response([{
             "id": item.id, "name": item.name or item.property_type,
             "property_type": item.property_type, "measurement_type": item.measurement_type,
-            "updated_at": item.updated_at, "rooms": item.rooms.count(),
-            "surfaces": item.measurement_surfaces.count(),
+            "updated_at": item.updated_at, "rooms": item.rooms.filter(measurement_record__submitted_at__isnull=False).count(),
+            "surfaces": item.measurement_surfaces.filter(measurement_record__submitted_at__isnull=False).count(),
         } for item in properties])
 
 
@@ -2790,7 +2790,7 @@ class MeasurementAccessListCreateView(APIView):
             ).first()
             source = Property.objects.filter(
                 pk=request.data.get("source_property"), customer__portal_user=request.user,
-                measurement_surfaces__isnull=False,
+                measurement_surfaces__measurement_record__submitted_at__isnull=False,
             ).select_related("customer").distinct().first()
             if not contractor or not source:
                 return Response({"detail": "Select a property with an Area Calculation and a verified registered contractor."}, status=status.HTTP_400_BAD_REQUEST)
@@ -2807,7 +2807,7 @@ class MeasurementAccessListCreateView(APIView):
             contractor_connections__contractor=request.user,
             contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
         ).distinct().first()
-        source = Property.objects.filter(pk=request.data.get("source_property"), measurement_surfaces__isnull=False).distinct().first()
+        source = Property.objects.filter(pk=request.data.get("source_property"), measurement_surfaces__measurement_record__submitted_at__isnull=False).distinct().first()
         if customer and not customer.portal_user_id:
             link_customer_portal(customer)
             customer.refresh_from_db(fields=("portal_user",))
@@ -2862,7 +2862,7 @@ class ApprovedMeasurementView(APIView):
             return Response({"detail": "Approved Area Calculation access was not found."}, status=status.HTTP_404_NOT_FOUND)
         property_obj = access.source_property
         records = property_obj.measurement_records.filter(
-            surfaces__isnull=False
+            submitted_at__isnull=False, surfaces__isnull=False
         ).distinct().select_related(
             "contractor", "contractor__contractor_profile"
         ).prefetch_related("surfaces__openings", "rooms").order_by("-measured_on", "-id")
@@ -2870,8 +2870,8 @@ class ApprovedMeasurementView(APIView):
         record = records.filter(id=record_id).first() if record_id else records.first()
         if record_id and not record:
             return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
-        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id")
-        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id")
+        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id") if record else PropertyRoom.objects.none()
+        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id") if record else MeasurementSurface.objects.none()
         return Response({
             "property": {"name": property_obj.name or property_obj.property_type, "property_type": property_obj.property_type, "measurement_type": property_obj.measurement_type},
             "rooms": [{"id": room.id, "name": room.name} for room in rooms],
@@ -2918,7 +2918,9 @@ class MeasurementAccessPrepareQuotationView(APIView):
             measurement_unit=source.measurement_unit, name=source.name, address=source.address,
             city=source.city, pincode=source.pincode, approximate_area=source.approximate_area,
         )
-        source_record = source.measurement_records.order_by("-measured_on", "-id").first()
+        source_record = source.measurement_records.filter(submitted_at__isnull=False).order_by("-measured_on", "-id").first()
+        if not source_record:
+            raise ValidationError({"measurement": "No submitted Area Calculation is available."})
         target_record = PropertyMeasurement.objects.create(
             property=target,
             contractor=request.user,
@@ -3228,7 +3230,7 @@ class CustomerPropertyListView(APIView):
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
         properties = Property.objects.filter(customer__portal_user=request.user).select_related(
             "customer", "contractor", "contractor__contractor_profile", "connection__contractor"
-        ).annotate(room_count=models.Count("rooms", distinct=True), surface_count=models.Count("measurement_surfaces", distinct=True)).order_by("-updated_at")
+        ).annotate(room_count=models.Count("rooms", filter=models.Q(rooms__measurement_record__submitted_at__isnull=False), distinct=True), surface_count=models.Count("measurement_surfaces", filter=models.Q(measurement_surfaces__measurement_record__submitted_at__isnull=False), distinct=True)).order_by("-updated_at")
         data = []
         for item in properties:
             contractor = item.contractor or (item.connection.contractor if item.connection_id else item.customer.contractor)
@@ -3239,7 +3241,7 @@ class CustomerPropertyListView(APIView):
                 "flat_number": item.flat_number, "block_name": item.block_name,
                 "address": item.address, "city": item.city, "pincode": item.pincode,
                 "approximate_area": item.approximate_area,
-                "contractor_name": profile.company_name if profile else contractor.get_full_name() or contractor.mobile,
+                "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else "Not assigned"),
                 "rooms": item.room_count, "surfaces": item.surface_count, "updated_at": item.updated_at,
             })
         return Response(data)
@@ -3257,7 +3259,7 @@ class CustomerPropertyDetailView(APIView):
         contractor = property_obj.contractor or (property_obj.connection.contractor if property_obj.connection_id else property_obj.customer.contractor)
         profile = contractor.contractor_profile if hasattr(contractor, "contractor_profile") else None
         records = property_obj.measurement_records.filter(
-            surfaces__isnull=False
+            submitted_at__isnull=False, surfaces__isnull=False
         ).distinct().select_related(
             "contractor", "contractor__contractor_profile"
         ).prefetch_related("surfaces__openings", "rooms").order_by("-measured_on", "-id")
@@ -3265,8 +3267,8 @@ class CustomerPropertyDetailView(APIView):
         record = records.filter(id=record_id).first() if record_id else records.first()
         if record_id and not record:
             return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
-        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id")
-        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id")
+        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id") if record else PropertyRoom.objects.none()
+        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id") if record else MeasurementSurface.objects.none()
         return Response({
             "property": {
                 "id": property_obj.id, "name": property_obj.name or property_obj.property_type,
@@ -3274,7 +3276,7 @@ class CustomerPropertyDetailView(APIView):
                 "flat_number": property_obj.flat_number, "block_name": property_obj.block_name,
                 "address": property_obj.address, "city": property_obj.city, "pincode": property_obj.pincode,
                 "approximate_area": property_obj.approximate_area,
-                "contractor_name": profile.company_name if profile else contractor.get_full_name() or contractor.mobile,
+                "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else "Not assigned"),
                 "updated_at": property_obj.updated_at,
                 "measurement_id": record.id if record else None,
                 "measurement_reference": record.reference_no if record else "",
@@ -3312,8 +3314,9 @@ class CustomerPropertyMeasurementPdfView(APIView):
         if not property_obj:
             return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
         record_id = request.query_params.get("measurement")
-        record = property_obj.measurement_records.filter(id=record_id).first() if record_id else property_obj.measurement_records.first()
-        if record_id and not record:
+        records = property_obj.measurement_records.filter(submitted_at__isnull=False, surfaces__isnull=False).distinct()
+        record = records.filter(id=record_id).first() if record_id else records.first()
+        if not record:
             return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
         pdf = build_measurement_pdf(property_obj, record)
         response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
@@ -3862,6 +3865,29 @@ class PropertyMeasurementListCreateView(generics.ListCreateAPIView):
         serializer.save(contractor=self.request.user, connection=connection)
 
 
+class PropertyMeasurementSubmitView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Only the contractor can submit an Area Calculation."}, status=status.HTTP_403_FORBIDDEN)
+        record = PropertyMeasurement.objects.select_for_update().filter(
+            contractor_property_scope(request.user, "property__"),
+            pk=pk, contractor=request.user,
+        ).first()
+        if not record:
+            return Response({"detail": "Area Calculation not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not record.surfaces.exists():
+            return Response({"detail": "Add at least one surface before submitting."}, status=status.HTTP_400_BAD_REQUEST)
+        if not record.submitted_at:
+            record.submitted_at = timezone.now()
+            if record.status != PropertyMeasurement.Status.LOCKED:
+                record.status = PropertyMeasurement.Status.COMPLETED
+            record.save(update_fields=("submitted_at", "status", "updated_at"))
+        return Response(PropertyMeasurementSerializer(record, context={"request": request}).data)
+
+
 class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PropertyMeasurementSerializer
@@ -3873,6 +3899,9 @@ class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
             models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
             | models.Q(connection__isnull=True)
         ).select_related("contractor", "contractor__contractor_profile").prefetch_related("surfaces__openings", "rooms")
+
+    def perform_update(self, serializer):
+        serializer.save(submitted_at=None)
 
     def perform_destroy(self, instance):
         if instance.status == PropertyMeasurement.Status.LOCKED:

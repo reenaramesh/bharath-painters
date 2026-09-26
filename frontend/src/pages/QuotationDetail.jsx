@@ -153,6 +153,7 @@ export default function QuotationDetail() {
   }
   return (
     <div className="space-y-6">
+      {location.state?.draftSaved && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Quotation draft saved. Use Submit to Customer when it is ready to share.</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton
           fallback={backPath}

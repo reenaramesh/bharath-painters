@@ -1026,6 +1026,7 @@ class PropertyMeasurement(models.Model):
     connection = models.ForeignKey(ContractorCustomerConnection, on_delete=models.PROTECT, related_name="measurements", null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="area_calculations_created", null=True, blank=True)
     version = models.PositiveIntegerField(default=1)
+    submitted_at = models.DateTimeField(null=True, blank=True)
     reference_no = models.CharField(max_length=40, unique=True, blank=True)
     measured_on = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)

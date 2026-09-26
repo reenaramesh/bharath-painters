@@ -100,7 +100,7 @@ export default function MeasurementCalculator() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const query = measurementId ? { measurement: measurementId } : isNew ? { new: 1 } : {};
+  const query = useMemo(() => measurementId ? { measurement: measurementId } : isNew ? { new: 1 } : {}, [measurementId, isNew]);
   const load = useCallback(async () => {
     try {
       const calls = [
@@ -118,11 +118,15 @@ export default function MeasurementCalculator() {
       setRoomTypes(areaTypeResult.data.results || areaTypeResult.data);
       setSurfaceTypes(surfaceTypeResult.data.results || surfaceTypeResult.data);
       setRecord(recordResult?.data || null);
+      const loadedSurfaces = surfaceResult.data.results || surfaceResult.data;
+      const loadedRooms = roomResult.data.results || roomResult.data;
+      const loadedRecordId = loadedSurfaces[0]?.measurement_record || loadedRooms[0]?.measurement_record;
+      if (!measurementId && loadedRecordId) setSearchParams({ measurement: String(loadedRecordId) }, { replace: true });
       setError("");
     } catch {
       setError("Area Calculation could not be loaded.");
     }
-  }, [id, measurementId, isNew]);
+  }, [id, measurementId, query, setSearchParams]);
 
   useEffect(() => { load(); }, [load]);
   const workArea = property?.measurement_type === "EXTERIOR" ? "EXTERIOR" : "INTERIOR";
@@ -164,6 +168,22 @@ export default function MeasurementCalculator() {
   const selectableRoomTypes = uniqueRoomTypes.filter((type) =>
     editing || !rooms.some((room) => room.name.trim().toLowerCase() === type.name.trim().toLowerCase())
   );
+
+  async function submitMeasurement() {
+    const recordId = record?.id || measurementId || surfaces[0]?.measurement_record || rooms[0]?.measurement_record;
+    if (!recordId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/quotations/measurement-records/${recordId}/submit/`);
+      setRecord(data);
+      if (!measurementId) setSearchParams({ measurement: String(recordId) }, { replace: true });
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Area Calculation could not be submitted.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function downloadPdf() {
     if (isNew && !measurementId) {
@@ -387,7 +407,7 @@ export default function MeasurementCalculator() {
           <AreaList property={property} record={record} areas={areas} summaries={areaSummaries}
             totals={totals} openArea={openAreaDialog} deleteArea={deleteArea}
             viewArea={setViewingArea}
-            downloadPdf={downloadPdf} measurementId={measurementId} isNew={isNew} />
+            downloadPdf={downloadPdf} submitMeasurement={submitMeasurement} submitting={saving} measurementId={measurementId} isNew={isNew} />
         ) : (
           <AreaDetail area={activeArea} groups={activeGroups} summary={activeSummary} tab={tab}
             setTab={setTab} back={() => setActiveAreaId("")}
@@ -412,7 +432,7 @@ export default function MeasurementCalculator() {
   );
 }
 
-function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, downloadPdf, measurementId, isNew }) {
+function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, downloadPdf, submitMeasurement, submitting, measurementId, isNew }) {
   const location = useLocation();
   const navigate = useNavigate();
   const waitingForFirstSave = isNew && !measurementId;
@@ -431,6 +451,10 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
             {waitingForFirstSave
               ? <button type="button" disabled title="Save the first room to create the Area Calculation" className="inline-flex min-h-10 cursor-not-allowed items-center gap-2 rounded-lg bg-[#f58220] px-3 text-sm font-bold text-white opacity-40"><FilePlus2 className="h-4 w-4" />New Quotation</button>
               : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#f58220] px-3 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />New Quotation</Link>}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-slate-600">{record?.submitted_at ? "Submitted to customer. Editing will make this calculation private until resubmitted." : "Private draft. Customers cannot see this calculation until you submit it."}</p>
+            <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{submitting ? "Submitting..." : record?.submitted_at ? "Submitted to Customer" : "Submit to Customer"}</button>
           </div>
           <p className="mt-1 font-semibold">{property.name || property.property_type}</p>
           <p className="text-sm text-slate-500">{property.property_type}{property.city ? ` " ${property.city}` : ""}</p>

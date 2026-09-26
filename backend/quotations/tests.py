@@ -714,6 +714,9 @@ class PropertyApiTests(APITestCase):
             property=property_obj, measurement_record=new_record, work_area="EXTERIOR",
             surface_type="WALL", name="New wall", length=20, breadth=10,
         )
+        for record in (old_record, new_record):
+            submitted = self.client.post(reverse("property-measurement-submit", kwargs={"pk": record.id}))
+            self.assertEqual(submitted.status_code, status.HTTP_200_OK, submitted.data)
         self.client.force_authenticate(portal_user)
         detail_url = reverse("customer-property-detail", kwargs={"pk": property_obj.id})
         detail = self.client.get(f"{detail_url}?measurement={old_record.id}")

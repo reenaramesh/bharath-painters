@@ -871,7 +871,7 @@ export default function QuotationBuilder() {
         previewPdf(response.data, "quotation-preview.pdf");
       } else {
         const { data } = await api.post("/quotations/create/", payload);
-        navigate(`/quotations/${data.id}`);
+        navigate(`/quotations/${data.id}`, { state: { draftSaved: true } });
       }
     } catch (requestError) {
       if (pdfPreviewOnly) setShowPreview(false);
@@ -1603,7 +1603,7 @@ function QuotationPreviewDialog({
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
           <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold">Back to edit</button>
           <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Creating..." : "Create Quotation"}</button>
         </footer>
       </section>
     </div>

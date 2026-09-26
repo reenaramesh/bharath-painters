@@ -31,7 +31,7 @@ from .models import (
     PaintBrand,
     PaintColor,
     Unit,
-    Customer, ContractorCustomerConnection, CustomerConnectionAudit, normalize_indian_mobile,
+    Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, normalize_indian_mobile,
     CustomerFollowUp,
     CustomerWorkHistory, ChatConversation, ChatMessage, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, MeasurementAccessRequest,
     WorkPhoto,
@@ -50,7 +50,7 @@ from .serializers import (
     PaintBrandSerializer,
     PaintColorSerializer,
     UnitSerializer,
-    CustomerSerializer,
+    CustomerSerializer, SAVED_CONTACT_FIELDS, saved_contact_representation,
     PropertySerializer,
     QuotationSerializer,
     CustomerFollowUpSerializer,
@@ -387,6 +387,9 @@ def connection_data(connection, viewer_role=""):
         data["customer"] = {"id": customer.id, "bharath_id": customer.bharath_id, "name": customer.name, "mobile": customer.mobile}
     else:
         data["customer"] = {"masked_customer_id": masked_customer_id(customer.bharath_id), "masked_mobile": masked_mobile(customer.mobile)}
+        contact = SavedCustomerContact.objects.filter(customer=customer, contractor=connection.contractor).first()
+        if contact:
+            data["customer"].update({"id": customer.id, "name": contact.details.get("name", ""), "mobile": contact.details.get("mobile", "")})
     if connection.status == ContractorCustomerConnection.Status.CONNECTED:
         data["counts"] = {
             "properties": connection.properties.count(),
@@ -453,7 +456,7 @@ class ContractorCustomerConnectionRequestView(APIView):
             connection.save()
             action = CustomerConnectionAudit.Actions.RESENT
         else:
-            connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=request.user, requested_by=request.user)
+            connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=request.user, requested_by=request.user, **saved_contact_connection_defaults(customer, request.user))
         record_connection_audit(request, connection, action)
         public = contractor_public_data(request.user)
         create_notification(
@@ -475,6 +478,66 @@ class ContractorCustomerConnectionListView(APIView):
         if requested_status in dict(ContractorCustomerConnection.Status.choices):
             queryset = queryset.filter(status=requested_status)
         return Response({"results": [connection_data(item, request.user.role) for item in queryset]})
+
+
+class CustomerContractorSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        normalized = normalize_indian_mobile(request.query_params.get("mobile"))
+        if not normalized:
+            return Response({"mobile": "Enter a valid Indian mobile number."}, status=status.HTTP_400_BAD_REQUEST)
+        contractor = find_user_by_normalized_mobile(normalized)
+        if not contractor:
+            return Response({"state": "NOT_FOUND", "mobile": normalized, "can_invite": True})
+        if contractor.role != BharathUser.Roles.CONTRACTOR or not contractor.is_active:
+            return Response({"state": "UNAVAILABLE", "mobile": normalized, "can_invite": False, "message": "This mobile number is not available as an active contractor account."})
+        connection = ContractorCustomerConnection.objects.filter(customer__portal_user=request.user, contractor=contractor).first()
+        return Response({
+            "state": "FOUND", "mobile": normalized, "contractor": contractor_public_data(contractor),
+            "connection_status": connection.status if connection else "NOT_CONNECTED",
+            "can_connect": not connection or connection.status not in (ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.BLOCKED),
+        })
+
+
+class CustomerContractorConnectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        customer = Customer.objects.select_for_update().filter(portal_user=request.user).first()
+        normalized = normalize_indian_mobile(request.data.get("mobile"))
+        if not normalized:
+            return Response({"mobile": "Enter a valid Indian mobile number."}, status=status.HTTP_400_BAD_REQUEST)
+        contractor = find_user_by_normalized_mobile(normalized)
+        if not customer or not contractor or contractor.role != BharathUser.Roles.CONTRACTOR or not contractor.is_active:
+            return Response({"detail": "Customer or contractor account not found."}, status=status.HTTP_404_NOT_FOUND)
+        connection, _ = ContractorCustomerConnection.objects.get_or_create(
+            customer=customer, contractor=contractor,
+            defaults={"requested_by": request.user, **saved_contact_connection_defaults(customer, contractor)},
+        )
+        if connection.status == ContractorCustomerConnection.Status.BLOCKED:
+            return Response({"detail": "This contractor is blocked on your account."}, status=status.HTTP_409_CONFLICT)
+        if connection.status != ContractorCustomerConnection.Status.CONNECTED:
+            now = timezone.now()
+            connection.status = ContractorCustomerConnection.Status.CONNECTED
+            connection.requested_by = request.user
+            connection.requested_at = now
+            connection.connected_at = now
+            connection.approved_at = now
+            connection.approval_method = ContractorCustomerConnection.ApprovalMethod.CUSTOMER_PORTAL
+            connection.rejected_at = None
+            connection.disconnected_at = None
+            connection.rejection_reason = ""
+            connection.save()
+            ChatConversation.objects.get_or_create(customer=customer, contractor=contractor, defaults={"connection": connection})
+            record_connection_audit(request, connection, CustomerConnectionAudit.Actions.ACCEPTED)
+            create_notification(contractor, "CONNECTION_ACCEPTED", "Customer connected with you", f"{customer.name} connected with your contractor account.", f"/customers/{customer.id}", request.user)
+        return Response(connection_data(connection, request.user.role))
 
 
 class CustomerConnectionRequestListView(APIView):
@@ -978,6 +1041,38 @@ def customer_identity_ids(customer):
             matching.append(candidate.id)
     return matching
 
+def saved_contact_connection_defaults(customer, contractor):
+    contact = SavedCustomerContact.objects.filter(customer=customer, contractor=contractor).first()
+    if not contact:
+        return {}
+    mapping = {"status": "customer_status", "source": "customer_source", "client_type": "customer_client_type", "requirement": "requirement", "notes": "internal_notes", "next_follow_up": "next_follow_up"}
+    return {target: contact.details[source] for source, target in mapping.items() if source in contact.details}
+
+
+@transaction.atomic
+def save_existing_customer_contact(request, customer, partial=False):
+    connection = ContractorCustomerConnection.objects.filter(customer=customer, contractor=request.user).first()
+    if connection and connection.status == ContractorCustomerConnection.Status.CONNECTED:
+        data = CustomerSerializer(customer, context={"request": request}).data
+        data["already_saved"] = True
+        return Response(data)
+    if "mobile" in request.data and normalize_indian_mobile(request.data["mobile"]) != customer.normalized_mobile:
+        raise ValidationError({"mobile": "Add a separate contact to save a different mobile number."})
+    serializer = CustomerSerializer(customer, data=request.data, partial=partial, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+    contact, created = SavedCustomerContact.objects.get_or_create(customer=customer, contractor=request.user)
+    values = {key: value for key, value in serializer.validated_data.items() if key in SAVED_CONTACT_FIELDS}
+    contact.details = {**contact.details, **values}
+    contact.save(update_fields=("details", "updated_at"))
+    if connection:
+        scoped_values = saved_contact_connection_defaults(customer, request.user)
+        for field, value in scoped_values.items():
+            setattr(connection, field, value)
+        if scoped_values:
+            connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
+    return Response(saved_contact_representation(contact, connection), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
 class CustomerListCreateView(
     generics.ListCreateAPIView
 ):
@@ -989,10 +1084,10 @@ class CustomerListCreateView(
     def get_queryset(self):
         if self.request.user.role != BharathUser.Roles.CONTRACTOR:
             return Customer.objects.none()
-        return Customer.objects.filter(
-            contractor_connections__contractor=self.request.user,
-            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-        ).distinct().order_by("-updated_at")
+        scope = models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED)
+        if self.request.query_params.get("include_saved") == "1":
+            scope |= models.Q(saved_contacts__contractor=self.request.user)
+        return Customer.objects.filter(scope).distinct().order_by("-updated_at")
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -1003,8 +1098,7 @@ class CustomerListCreateView(
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
         existing = Customer.objects.select_for_update().filter(normalized_mobile=normalized).first()
         if existing:
-            connection = ContractorCustomerConnection.objects.filter(customer=existing, contractor=request.user).first()
-            return Response(safe_customer_lookup(existing, connection), status=status.HTTP_409_CONFLICT)
+            return save_existing_customer_contact(request, existing)
         existing_account = find_user_by_normalized_mobile(normalized)
         if existing_account and existing_account.role != BharathUser.Roles.CUSTOMER:
             return Response(
@@ -1023,10 +1117,7 @@ class CustomerListCreateView(
             existing = Customer.objects.filter(normalized_mobile=normalized).first()
             if not existing:
                 raise
-            connection = ContractorCustomerConnection.objects.filter(
-                customer=existing, contractor=request.user,
-            ).first()
-            return Response(safe_customer_lookup(existing, connection), status=status.HTTP_409_CONFLICT)
+            return save_existing_customer_contact(request, existing)
         now = timezone.now()
         connection = ContractorCustomerConnection.objects.create(
             customer=customer, contractor=request.user,
@@ -3707,12 +3798,20 @@ class CustomerDetailView(
             models.Q(
                 contractor_connections__contractor=self.request.user,
                 contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-            ) | models.Q(
+            ) | models.Q(saved_contacts__contractor=self.request.user) | models.Q(
                 contractor=self.request.user,
                 contractor_connections__isnull=True,
             )
         ).distinct()
 
+
+
+    def update(self, request, *args, **kwargs):
+        customer = self.get_object()
+        connected = customer.contractor_connections.filter(contractor=request.user, status=ContractorCustomerConnection.Status.CONNECTED).exists()
+        if not connected and customer.saved_contacts.filter(contractor=request.user).exists():
+            return save_existing_customer_contact(request, customer, partial=kwargs.get("partial", False))
+        return super().update(request, *args, **kwargs)
 
 
 class CustomerWorkHistoryListCreateView(

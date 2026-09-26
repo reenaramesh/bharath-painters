@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Building2, Check, Unplug, X } from "lucide-react";
 import api from "../api/client";
+import ContractorConnectSearch from "../components/ContractorConnectSearch";
 
 const tabs = [
   ["PENDING", "Pending"],
@@ -41,8 +42,9 @@ export default function CustomerConnections() {
   }
 
   return <div className="space-y-6">
-    <header><p className="text-sm font-bold text-indigo-600">Customer privacy</p><h1 className="mt-1 text-3xl font-extrabold text-slate-950">Connection requests</h1><p className="mt-2 max-w-2xl text-slate-500">Choose which contractors may create and share records for your account. Each contractor sees only their own work.</p></header>
+    <header><p className="text-sm font-bold text-indigo-600">Customer privacy</p><h1 className="mt-1 text-3xl font-extrabold text-slate-950">Contractor connections</h1><p className="mt-2 max-w-2xl text-slate-500">Choose which contractors may create and share records for your account. Each contractor sees only their own work.</p></header>
     {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    <ContractorConnectSearch onConnected={async () => { await load(); setTab("CONNECTED"); }} />
     <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">{tabs.map(([value, label]) => <button key={value} onClick={() => setTab(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${tab === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{label}{value === "PENDING" && pendingCount > 0 ? ` (${pendingCount})` : ""}</button>)}</nav>
     <section className="grid gap-4 lg:grid-cols-2">
       {visible.map((item) => <ConnectionCard key={item.id} item={item} busy={busy} onView={() => setSelected(item)} onAct={act} />)}

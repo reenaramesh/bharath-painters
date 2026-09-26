@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
@@ -316,6 +317,18 @@ class Customer(models.Model):
         if not self.normalized_mobile:
             raise ValueError("Enter a valid Indian mobile number.")
         super().save(*args, **kwargs)
+
+
+class SavedCustomerContact(models.Model):
+    """Details entered by a contractor, independent of account connection consent."""
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="saved_contacts")
+    contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_customer_contacts")
+    details = models.JSONField(default=dict, encoder=DjangoJSONEncoder)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("customer", "contractor"), name="unique_saved_customer_contact")]
 
 
 class ContractorCustomerConnection(models.Model):

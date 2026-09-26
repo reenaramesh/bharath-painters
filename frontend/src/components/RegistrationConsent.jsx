@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FileText, LoaderCircle, ShieldCheck, X } from "lucide-react";
 import api from "../api/client";
 
-export default function RegistrationConsent({ role, onConsentChange }) {
+export default function RegistrationConsent({ role, onConsentChange, inline = false }) {
+  const documentEnd = useRef(null);
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,6 +34,25 @@ export default function RegistrationConsent({ role, onConsentChange }) {
     return () => { active = false; };
   }, [role, onConsentChange]);
 
+  useEffect(() => {
+    if (!inline || loading || !document || !documentEnd.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setReachedEnd(true);
+        observer.disconnect();
+      }
+    }, { threshold: 1 });
+    observer.observe(documentEnd.current);
+    return () => observer.disconnect();
+  }, [inline, loading, document]);
+
+  function changeInlineConsent(event) {
+    const value = event.target.checked && reachedEnd && !!document;
+    setChecked(value);
+    setAccepted(value);
+    onConsentChange({ accepted: value, policyVersion: document?.policy_version || "", scrolled: reachedEnd });
+  }
+
   function handleScroll(event) {
     const target = event.currentTarget;
     if (target.scrollHeight - target.scrollTop - target.clientHeight <= 24) {
@@ -50,6 +70,31 @@ export default function RegistrationConsent({ role, onConsentChange }) {
       scrolled: true,
     });
   }
+
+  if (inline) return <section className="space-y-4 sm:col-span-2" aria-labelledby="customer-registration-agreement">
+    <header className="border-t pt-6">
+      <h2 id="customer-registration-agreement" className="text-xl font-bold">Terms of Use & Privacy Notice</h2>
+      <p className="mt-2 text-sm text-slate-600">Read the information below, then tick the checkbox at the end to create your customer account.</p>
+      {document && <p className="mt-2 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p>}
+    </header>
+    {loading && <p role="status" className="flex items-center gap-2 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Loading Terms and Privacy Notice...</p>}
+    {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {!loading && document && <>
+      <p className="text-sm text-slate-500">{document.operator_name} / {document.operator_address}</p>
+      <LegalDocument title={document.terms_title} sections={document.terms_sections} icon={FileText} />
+      <LegalDocument title={document.privacy_title} sections={document.privacy_sections} icon={ShieldCheck} />
+      <section className="rounded-2xl border bg-slate-50 p-5">
+        <h3 className="font-bold">Official legal references</h3>
+        <div className="mt-3 space-y-2">{document.references.map(reference => <a key={reference.url} href={reference.url} target="_blank" rel="noreferrer" className="block text-sm font-semibold text-blue-700 underline">{reference.label}</a>)}</div>
+        <p className="mt-4 break-words text-sm text-slate-600">Questions or grievances: <a href={`mailto:${document.contact_email}`} className="font-bold">{document.contact_email}</a></p>
+      </section>
+      <div ref={documentEnd} className="h-1" aria-hidden="true" />
+      <label className={`flex items-start gap-3 rounded-xl border p-4 text-sm leading-6 ${accepted ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>
+        <input type="checkbox" required disabled={!reachedEnd} checked={checked} onChange={changeInlineConsent} className="mt-1 h-5 w-5 shrink-0" />
+        <span>I have read and accept the Terms of Use and acknowledge the Privacy and Data Protection Notice, including the role-specific responsibilities shown above.</span>
+      </label>
+    </>}
+  </section>;
 
   return <>
     <section className={`rounded-2xl border p-4 sm:col-span-2 ${accepted ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>

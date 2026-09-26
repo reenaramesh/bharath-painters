@@ -44,6 +44,7 @@ export default function Customers() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [customers, setCustomers] = useState([]);
+  const [savedContacts, setSavedContacts] = useState([]);
   const [properties, setProperties] = useState([]);
   const [connections, setConnections] = useState([]);
   const [contractorServices, setContractorServices] = useState([]);
@@ -67,16 +68,16 @@ export default function Customers() {
     setError("");
     try {
       const [customerResponse, propertyResponse, connectionResponse, serviceResponse] = await Promise.all([
-        api.get("/quotations/customers/"),
+        api.get("/quotations/customers/", { params: { include_saved: 1 } }),
         api.get("/quotations/properties/"),
         api.get("/quotations/contractor/customer-connections/"),
         api.get("/quotations/service-categories/").catch(() => ({ data: [] })),
       ]);
       const customerData = customerResponse.data;
       const propertyData = propertyResponse.data;
-      setCustomers(
-        Array.isArray(customerData) ? customerData : customerData.results || [],
-      );
+      const customerRows = Array.isArray(customerData) ? customerData : customerData.results || [];
+      setCustomers(customerRows.filter(item => !item.is_saved_contact));
+      setSavedContacts(customerRows.filter(item => item.is_saved_contact));
       setProperties(
         Array.isArray(propertyData) ? propertyData : propertyData.results || [],
       );
@@ -187,8 +188,12 @@ export default function Customers() {
 
   async function createCustomer(values) {
     const { data } = await api.post("/quotations/customers/", values);
-    setCustomers((current) => [data, ...current]);
-    setOnboarding(data);
+    if (data.is_saved_contact || data.already_saved) {
+      navigate(`/customers/${data.id}`);
+    } else {
+      setCustomers((current) => [data, ...current.filter(item => item.id !== data.id)]);
+      setOnboarding(data);
+    }
     return data;
   }
 
@@ -324,14 +329,15 @@ export default function Customers() {
       )}
 
       <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{value === "CONNECTED" ? "Connected customers" : value === "PENDING" ? "Pending requests" : "Rejected"} ({value === "CONNECTED" ? customers.length : connections.filter((item) => item.status === value).length})</button>)}
+        {["CONNECTED", "PENDING", "REJECTED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{value === "CONNECTED" ? "All customers" : value === "PENDING" ? "Pending requests" : "Rejected"} ({value === "CONNECTED" ? customers.length + savedContacts.length : connections.filter((item) => item.status === value).length})</button>)}
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
-        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{item.status}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p></article>)}
+        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{item.status}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
         {!connections.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
+      {connectionView === "CONNECTED" && savedContacts.length > 0 && <section className="space-y-3"><h2 className="font-bold">Saved contacts</h2><p className="text-sm text-slate-500">These details are saved. Open a profile to request a connection.</p><div className="grid gap-3 md:grid-cols-2">{savedContacts.filter(item => [item.name, item.mobile].some(value => String(value || "").toLowerCase().includes(search.toLowerCase()))).map(item => <Link key={item.id} to={`/customers/${item.id}`} className="rounded-2xl border bg-white p-5 hover:border-indigo-400"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.mobile}</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{item.connection_status === "NOT_CONNECTED" ? "Saved contact" : item.connection_status.replaceAll("_", " ")}</span></div><p className="mt-4 text-sm font-semibold text-indigo-700">Open customer profile</p></Link>)}</div></section>}
       <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white`}>
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5">
@@ -758,7 +764,6 @@ export default function Customers() {
       {showConnectionFlow && <CustomerConnectionFlow
         onClose={() => setShowConnectionFlow(false)}
         onNewCustomer={createCustomer}
-        onConnected={loadCustomers}
       />}
       {onboarding && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
         <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">

@@ -179,6 +179,19 @@ export default function CustomerDetail() {
     }
   }
 
+  async function requestConnection() {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await api.post("/quotations/contractor/customer-connections/request/", { mobile: customer.mobile });
+      await load();
+      setSuccess("Connection request sent. Your saved contact details remain available while approval is pending.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.response?.data?.detail || "Connection request could not be sent.");
+    } finally { setSaving(false); }
+  }
+
   if (loading)
     return (
       <div className="p-12 text-center text-slate-500">Loading customer...</div>
@@ -192,6 +205,17 @@ export default function CustomerDetail() {
         </button>
       </div>
     );
+  if (customer.is_saved_contact) return <div className="space-y-6">
+    <BackButton fallback="/customers" label="Back to customers" />
+    {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
+    <section className="rounded-2xl border bg-white p-6"><p className="text-sm font-bold text-indigo-600">Saved customer contact</p><h1 className="mt-2 text-3xl font-bold">{customer.name}</h1><p className="mt-2 text-slate-600">{customer.mobile}</p><p className="mt-4 text-sm text-slate-500">Your contact details are saved. A connection lets you create and share work with the customer's account after they approve.</p>
+      <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
+      <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
+    </section>
+    {editing && <CustomerForm initialValue={customer} onSubmit={updateCustomer} onClose={() => setEditing(false)} saving={saving} error={error} />}
+  </div>;
+
   const inputClass =
     "rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900";
   const followUps = [...(customer.follow_ups || [])]

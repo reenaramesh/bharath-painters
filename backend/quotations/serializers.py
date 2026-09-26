@@ -138,6 +138,26 @@ class UnitSerializer(serializers.ModelSerializer):
 # CUSTOMER
 # ---------------------------------------------------------
 
+SAVED_CONTACT_FIELDS = (
+    "name", "mobile", "email", "gst_number", "whatsapp", "address", "city", "pincode",
+    "status", "source", "client_type", "requirement", "notes", "next_follow_up", "alternate_mobile",
+)
+
+
+def saved_contact_representation(contact, connection=None):
+    data = {field: contact.details.get(field, "") for field in SAVED_CONTACT_FIELDS}
+    data.update({
+        "id": contact.customer_id, "is_saved_contact": True,
+        "connection_status": connection.status if connection else "NOT_CONNECTED",
+        "connection_id": connection.id if connection else None,
+        "created_at": contact.created_at, "updated_at": contact.updated_at,
+        "status": contact.details.get("status") or "NEW",
+        "source": contact.details.get("source") or "OTHER",
+        "properties": [], "quotations": [], "follow_ups": [], "work_history": [],
+    })
+    return data
+
+
 class ConnectionScopedCustomerMixin:
     scoped_customer_fields = {
         "status": "customer_status",
@@ -159,10 +179,19 @@ class ConnectionScopedCustomerMixin:
         ).first()
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
+        from .models import SavedCustomerContact
         connection = self.contractor_connection(instance)
+        request = self.context.get("request")
+        if not connection and request and request.user.role == BharathUser.Roles.CONTRACTOR:
+            contact = SavedCustomerContact.objects.filter(customer=instance, contractor=request.user).first()
+            if contact:
+                pending = ContractorCustomerConnection.objects.filter(customer=instance, contractor=request.user).first()
+                return saved_contact_representation(contact, pending)
+        representation = super().to_representation(instance)
         if not connection:
             return representation
+        representation["connection_status"] = connection.status
+        representation["is_saved_contact"] = False
         for public_name, connection_name in self.scoped_customer_fields.items():
             if public_name in representation:
                 representation[public_name] = getattr(connection, connection_name)

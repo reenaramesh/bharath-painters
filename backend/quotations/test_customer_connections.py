@@ -52,12 +52,15 @@ class GlobalCustomerConnectionTests(APITestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             Customer.objects.create(contractor=self.contractor_b, name="Duplicate", mobile="919742839992")
 
-    def test_existing_customer_creation_returns_safe_conflict(self):
+    def test_existing_customer_creation_saves_private_contact(self):
         self.authenticate(self.contractor_b)
         response = self.client.post(reverse("customer-list-create"), {"name": "Another", "mobile": "9742839992"}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertNotIn("name", response.data)
-        self.assertNotIn("email", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["name"], "Another")
+        self.assertEqual(response.data["email"], "")
+        self.assertTrue(response.data["is_saved_contact"])
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.name, "Ramesh Kumar")
 
     def test_connection_request_is_persistent_and_not_duplicated(self):
         self.authenticate(self.contractor_b)
@@ -217,7 +220,7 @@ class GlobalCustomerConnectionTests(APITestCase):
 class GlobalCustomerConcurrencyTests(TransactionTestCase):
     reset_sequences = True
 
-    def test_parallel_customer_creation_returns_one_customer_and_one_conflict(self):
+    def test_parallel_customer_creation_returns_one_customer_and_existing_contact(self):
         contractor = BharathUser.objects.create_user(
             mobile="9000000188", password="Pass123!", role="CONTRACTOR",
         )
@@ -243,5 +246,5 @@ class GlobalCustomerConcurrencyTests(TransactionTestCase):
         for thread in threads:
             thread.join()
 
-        self.assertEqual(sorted(results), [status.HTTP_201_CREATED, status.HTTP_409_CONFLICT])
+        self.assertEqual(sorted(results), [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertEqual(Customer.objects.filter(normalized_mobile="+919876543219").count(), 1)

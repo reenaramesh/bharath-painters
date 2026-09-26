@@ -36,7 +36,23 @@ export default function CustomerRegister() {
     }
   }
 
-  return <main className="grid min-h-screen place-items-center bg-slate-950 p-6"><div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-xl"><span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400"><MessageCircle /></span><h1 className="mt-5 text-3xl font-bold">Customer account</h1><p className="mt-2 text-sm text-slate-500">Create your account directly. No contractor registration is required.</p><form onSubmit={submit} className="mt-6 space-y-4"><Field label="Name" name="name" value={form.name} onChange={update} /><Field label="Mobile number" name="mobile" value={form.mobile} onChange={update} /><Field label="Email (optional)" name="email" type="email" required={false} value={form.email} onChange={update} /><Field label="Create password" name="password" type="password" minLength="8" value={form.password} onChange={update} /><RegistrationConsent role="CUSTOMER" onConsentChange={setConsent} />{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button disabled={saving || !consent.accepted} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white disabled:opacity-50">{saving ? "Creating account..." : "Create customer account"}</button></form><p className="mt-5 text-center text-sm text-slate-500">Already registered? <Link to="/login" className="font-semibold text-slate-950">Sign in</Link></p></div></main>;
+  return <main className="min-h-screen bg-slate-950 p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl sm:p-8">
+      <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400"><MessageCircle /></span>
+      <h1 className="mt-5 text-3xl font-bold">Customer account</h1>
+      <p className="mt-2 text-sm text-slate-500">Create your account directly. No contractor registration is required.</p>
+      <form onSubmit={submit} className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Field label="Name" name="name" value={form.name} onChange={update} />
+        <Field label="Mobile number" name="mobile" inputMode="tel" value={form.mobile} onChange={update} />
+        <Field label="Email (optional)" name="email" type="email" required={false} value={form.email} onChange={update} />
+        <Field label="Create password" name="password" type="password" minLength="8" value={form.password} onChange={update} />
+        <RegistrationConsent role="CUSTOMER" inline onConsentChange={setConsent} />
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+        <button disabled={saving || !consent.accepted} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:col-span-2">{saving ? "Creating account..." : "Create customer account"}</button>
+      </form>
+      <p className="mt-5 text-center text-sm text-slate-500">Already registered? <Link to="/login" className="font-semibold text-slate-950">Sign in</Link></p>
+    </div>
+  </main>;
 }
 
 function Field({ label, required = true, ...props }) {

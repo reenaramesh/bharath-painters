@@ -265,29 +265,60 @@ def next_available_customer_id(customer):
 
 def activate_customer_account(customer):
     """Provision the permanent customer ID and portal login only when requested."""
-    if not customer.bharath_id:
+    portal_user = customer.portal_user
+    if portal_user is None:
+        portal_user = find_user_by_normalized_mobile(customer.normalized_mobile)
+
+    if portal_user and portal_user.role != BharathUser.Roles.CUSTOMER:
+        raise ValidationError({"mobile": "This mobile number belongs to another account type. Contact support to resolve the account."})
+    if portal_user and not portal_user.is_active:
+        raise ValidationError({"account": "This customer account is disabled. Contact an administrator to restore access."})
+
+    # When a matching customer login already exists, its Bharath ID is canonical.
+    # Otherwise allocate one unique across both CRM records and login accounts.
+    if portal_user and portal_user.bharath_id:
+        if Customer.objects.exclude(pk=customer.pk).filter(bharath_id=portal_user.bharath_id).exists():
+            raise ValidationError({"bharath_id": "This account ID is linked to another customer record. Contact support."})
+        customer.bharath_id = portal_user.bharath_id
+    elif not customer.bharath_id:
         customer.bharath_id = next_available_customer_id(customer)
-        customer.save(update_fields=("bharath_id", "updated_at"))
-    if customer.portal_user_id:
-        return customer.portal_user, None
-    temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
-    portal_user = find_customer_portal_user(customer.normalized_mobile)
+    customer.save(update_fields=("bharath_id", "updated_at"))
+
     if portal_user:
         temporary_password = None
-        changed = []
         if not portal_user.bharath_id:
             portal_user.bharath_id = customer.bharath_id
-            changed.append("bharath_id")
-        if changed:
-            portal_user.save(update_fields=changed)
+            try:
+                with transaction.atomic():
+                    portal_user.save(update_fields=("bharath_id", "updated_at"))
+            except IntegrityError:
+                raise ValidationError({"bharath_id": "A customer ID conflict occurred. Please retry, or contact support."})
     else:
-        portal_user = BharathUser.objects.create_user(
-            mobile=customer.mobile, email=customer.email or None,
-            password=temporary_password, first_name=customer.name,
-            role=BharathUser.Roles.CUSTOMER, is_active=True, is_verified=False,
-            verification_status=BharathUser.VerificationStatus.PENDING,
-            bharath_id=customer.bharath_id,
-        )
+        temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
+        try:
+            # Keep a uniqueness conflict inside a savepoint so the outer API
+            # transaction remains usable and can return a helpful 409/400.
+            with transaction.atomic():
+                portal_user = BharathUser.objects.create_user(
+                    mobile=customer.mobile, email=customer.email or None,
+                    password=temporary_password, first_name=customer.name,
+                    role=BharathUser.Roles.CUSTOMER, is_active=True, is_verified=False,
+                    verification_status=BharathUser.VerificationStatus.PENDING,
+                    bharath_id=customer.bharath_id,
+                )
+        except IntegrityError:
+            existing = find_user_by_normalized_mobile(customer.normalized_mobile)
+            if existing and existing.role == BharathUser.Roles.CUSTOMER and existing.is_active:
+                portal_user = existing
+                temporary_password = None
+                if existing.bharath_id:
+                    customer.bharath_id = existing.bharath_id
+                    customer.save(update_fields=("bharath_id", "updated_at"))
+            elif existing:
+                raise ValidationError({"mobile": "This mobile number belongs to another or disabled account. Contact support."})
+            else:
+                raise ValidationError({"account": "The customer account could not be created because its ID conflicts with another record. Please retry."})
+
     customer.portal_user = portal_user
     customer.save(update_fields=("portal_user", "updated_at"))
     return portal_user, temporary_password
@@ -2643,12 +2674,18 @@ class AdminEntityDetailView(APIView):
             item = Customer.objects.filter(pk=pk).first()
             if not item: return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
             item.status = Customer.Status.CANCELLED; item.save(update_fields=("status", "updated_at"))
+            portal_user = item.portal_user
+            if portal_user and not Customer.objects.filter(portal_user=portal_user).exclude(status=Customer.Status.CANCELLED).exists():
+                portal_user.is_active = False
+                portal_user.is_verified = False
+                portal_user.verification_status = BharathUser.VerificationStatus.SUSPENDED
+                portal_user.save(update_fields=("is_active", "is_verified", "verification_status", "updated_at"))
         else:
             role = BharathUser.Roles.CONTRACTOR if entity == "contractors" else BharathUser.Roles.PAINTER if entity == "applicators" else None
             user = BharathUser.objects.filter(pk=pk, role=role).first() if role else None
             if not user: return Response({"detail": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
             user.is_active = False; user.is_verified = False; user.verification_status = BharathUser.VerificationStatus.SUSPENDED; user.save(update_fields=("is_active", "is_verified", "verification_status", "updated_at"))
-        return Response({"message": "Record deactivated."})
+        return Response({"message": "Account access deleted. Historical business records were preserved."})
 
 
 class CustomerPortalDashboardView(APIView):

@@ -196,10 +196,10 @@ export default function AdminDashboard() {
       setSaving(false);
     }
   }
-  async function deactivate(row) {
+  async function deleteAccess(row) {
     if (
       !confirm(
-        `Deactivate ${row.name || row.company}? Historical business data will be preserved.`,
+        `Delete access for ${row.name || row.company}?\n\nThe account will no longer be able to sign in. Quotations, invoices, projects, payments and audit history will be preserved.`,
       )
     )
       return;
@@ -355,7 +355,7 @@ export default function AdminDashboard() {
           setSort={setSort}
           editable={editable}
           onEdit={setEditing}
-          onDelete={deactivate}
+          onDelete={deleteAccess}
           saving={saving}
         />
         <div className="flex flex-col gap-3 border-t bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -578,10 +578,11 @@ function DataTable({
                     <button
                       disabled={saving}
                       onClick={() => onDelete(row)}
-                      className="rounded-lg border border-red-200 p-2 text-red-600"
-                      title="Deactivate"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 font-semibold text-red-600 hover:bg-red-50"
+                      title="Delete account access"
                     >
                       <Trash2 className="h-4 w-4" />
+                      Delete
                     </button>
                   </td>
                 )}

@@ -4012,7 +4012,10 @@ class PropertyMeasurementSubmitView(APIView):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Only the contractor can submit an Area Calculation."}, status=status.HTTP_403_FORBIDDEN)
         try:
-            record = PropertyMeasurement.objects.select_for_update().filter(
+            # This operation is idempotent. Avoid FOR UPDATE because the access
+            # scope joins an optional connection and PostgreSQL cannot lock the
+            # nullable side of that outer join. The UPDATE below serializes writes.
+            record = PropertyMeasurement.objects.filter(
                 contractor_property_scope(request.user, "property__"),
                 pk=pk, contractor=request.user,
             ).first()

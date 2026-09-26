@@ -1181,20 +1181,30 @@ class CustomerActivateAccountView(APIView):
 
     @transaction.atomic
     def post(self, request, pk):
-        customer = Customer.objects.select_for_update().filter(
-            pk=pk,
-            contractor_connections__contractor=request.user,
-            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-        ).distinct().first()
-        if request.user.role != BharathUser.Roles.CONTRACTOR or not customer:
-            return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-        _, temporary_password = activate_customer_account(customer)
-        payload = CustomerSerializer(customer, context={"request": request}).data
-        payload["account_created"] = True
-        payload["already_active"] = temporary_password is None
-        if temporary_password:
-            payload["temporary_password"] = temporary_password
-        return Response(payload)
+        try:
+            customer = Customer.objects.select_for_update().filter(pk=pk).first()
+            connected = customer and ContractorCustomerConnection.objects.filter(
+                customer=customer,
+                contractor=request.user,
+                status=ContractorCustomerConnection.Status.CONNECTED,
+            ).exists()
+            if request.user.role != BharathUser.Roles.CONTRACTOR or not connected:
+                return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+            _, temporary_password = activate_customer_account(customer)
+            payload = CustomerSerializer(customer, context={"request": request}).data
+            payload["account_created"] = True
+            payload["already_active"] = temporary_password is None
+            if temporary_password:
+                payload["temporary_password"] = temporary_password
+            return Response(payload)
+        except ValidationError:
+            raise
+        except Exception:
+            logger.exception(
+                "Customer ID creation failed (customer_id=%s, contractor_id=%s)",
+                pk, request.user.pk,
+            )
+            raise
 
 
 # ============================================================

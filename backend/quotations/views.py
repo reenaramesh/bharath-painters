@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime, parse_date
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
+import logging
 import csv
 import io
 import secrets
@@ -61,6 +62,8 @@ from .serializers import (
     MeasurementOpeningSerializer, ActivityLogSerializer, WorkChangeSerializer, WorkChangeItemSerializer,
 )
 from .work_changes import current_scope, work_change_summary
+
+logger = logging.getLogger(__name__)
 
 
 def work_change_queryset():
@@ -4008,20 +4011,27 @@ class PropertyMeasurementSubmitView(APIView):
     def post(self, request, pk):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Only the contractor can submit an Area Calculation."}, status=status.HTTP_403_FORBIDDEN)
-        record = PropertyMeasurement.objects.select_for_update().filter(
-            contractor_property_scope(request.user, "property__"),
-            pk=pk, contractor=request.user,
-        ).first()
-        if not record:
-            return Response({"detail": "Area Calculation not found."}, status=status.HTTP_404_NOT_FOUND)
-        if not record.surfaces.exists():
-            return Response({"detail": "Add at least one surface before submitting."}, status=status.HTTP_400_BAD_REQUEST)
-        if not record.submitted_at:
-            record.submitted_at = timezone.now()
-            if record.status != PropertyMeasurement.Status.LOCKED:
-                record.status = PropertyMeasurement.Status.COMPLETED
-            record.save(update_fields=("submitted_at", "status", "updated_at"))
-        return Response(PropertyMeasurementSerializer(record, context={"request": request}).data)
+        try:
+            record = PropertyMeasurement.objects.select_for_update().filter(
+                contractor_property_scope(request.user, "property__"),
+                pk=pk, contractor=request.user,
+            ).first()
+            if not record:
+                return Response({"detail": "Area Calculation not found."}, status=status.HTTP_404_NOT_FOUND)
+            if not record.surfaces.exists():
+                return Response({"detail": "Add at least one surface before submitting."}, status=status.HTTP_400_BAD_REQUEST)
+            if not record.submitted_at:
+                record.submitted_at = timezone.now()
+                if record.status != PropertyMeasurement.Status.LOCKED:
+                    record.status = PropertyMeasurement.Status.COMPLETED
+                record.save(update_fields=("submitted_at", "status", "updated_at"))
+            return Response(PropertyMeasurementSerializer(record, context={"request": request}).data)
+        except Exception:
+            logger.exception(
+                "Area Calculation submit failed (record_id=%s, user_id=%s)",
+                pk, request.user.pk,
+            )
+            raise
 
 
 class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):

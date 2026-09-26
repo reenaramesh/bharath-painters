@@ -453,3 +453,58 @@ class AutomaticBusinessVerificationTests(APITestCase):
         self.assertEqual(response.data["policy_version"], POLICY_VERSION)
         combined = " ".join(section["title"] for section in response.data["terms_sections"])
         self.assertIn("Paint Applicator responsibilities", combined)
+
+
+class CustomerSelfRegistrationTests(APITestCase):
+    def setUp(self):
+        media = TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        override = override_settings(MEDIA_ROOT=media.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.payload = {
+            "name": "Independent customer", "mobile": "9888877777",
+            "email": "customer@example.com", "password": "customer-pass",
+            "policy_version": POLICY_VERSION, "document_scrolled": True,
+            "terms_accepted": True, "privacy_notice_acknowledged": True,
+        }
+
+    def register(self):
+        return self.client.post(reverse("register-customer"), self.payload, format="json")
+
+    def test_customer_can_register_without_contractor_and_sign_in(self):
+        from quotations.models import Customer, ChatConversation
+        response = self.register()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        customer = Customer.objects.get(normalized_mobile="+919888877777")
+        self.assertIsNone(customer.contractor_id)
+        self.assertFalse(customer.contractor_connections.exists())
+        self.assertFalse(ChatConversation.objects.filter(customer=customer).exists())
+        self.assertEqual(customer.portal_user.role, BharathUser.Roles.CUSTOMER)
+        self.assertEqual(customer.portal_user.bharath_id, customer.bharath_id)
+        self.assertTrue(customer.bharath_id)
+        self.assertTrue(UserLegalConsent.objects.filter(user=customer.portal_user).exists())
+        login = self.client.post(reverse("login"), {
+            "mobile": self.payload["mobile"], "password": self.payload["password"],
+        }, format="json")
+        self.assertEqual(login.status_code, status.HTTP_200_OK, login.data)
+        self.assertEqual(login.data["user"]["role"], BharathUser.Roles.CUSTOMER)
+
+    def test_duplicate_registration_does_not_replace_password(self):
+        self.assertEqual(self.register().status_code, status.HTTP_201_CREATED)
+        self.payload.update(mobile="+919888877777", password="replacement-pass")
+        self.assertEqual(self.register().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(BharathUser.objects.count(), 1)
+        self.assertTrue(BharathUser.objects.get().check_password("customer-pass"))
+
+    def test_existing_other_role_is_rejected_without_creating_customer(self):
+        from quotations.models import Customer
+        BharathUser.objects.create_user(mobile="+919888877777", password="contractor-pass", role=BharathUser.Roles.CONTRACTOR)
+        self.assertEqual(self.register().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Customer.objects.exists())
+
+    def test_invalid_mobile_is_rejected_without_creating_customer(self):
+        from quotations.models import Customer
+        self.payload["mobile"] = "1234567890"
+        self.assertEqual(self.register().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Customer.objects.exists())

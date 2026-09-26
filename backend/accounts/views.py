@@ -293,14 +293,11 @@ class CustomerRegistrationView(APIView):
             return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
 
         normalized_mobile = normalize_indian_mobile(mobile)
+        if not normalized_mobile:
+            return Response({"mobile": "Enter a valid Indian mobile number."}, status=status.HTTP_400_BAD_REQUEST)
         customer_records = list(Customer.objects.select_related("portal_user").filter(normalized_mobile=normalized_mobile))
-        if not customer_records:
-            return Response(
-                {"mobile": "This mobile number is not registered by a contractor yet."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
-        user = BharathUser.objects.filter(mobile=mobile).first()
+        user = _find_user_by_mobile(mobile, BharathUser.objects.all())
         if not user:
             user = next((item.portal_user for item in customer_records if item.portal_user), None)
         if user and user.role != BharathUser.Roles.CUSTOMER:
@@ -309,6 +306,8 @@ class CustomerRegistrationView(APIView):
             return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
         if not user:
             user = BharathUser(mobile=mobile, role=BharathUser.Roles.CUSTOMER)
+        if not customer_records:
+            customer_records = [Customer.objects.create(name=name, mobile=mobile_key, email=email)]
         primary_customer = customer_records[0]
         if not primary_customer.bharath_id:
             primary_customer.bharath_id = f"BP-C-{primary_customer.pk:06d}"

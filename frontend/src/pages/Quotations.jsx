@@ -5,7 +5,7 @@ import api from "../api/client";
 import MobilePageBack from "../components/MobilePageBack";
 
 const colors = { DRAFT: "bg-slate-100 text-slate-700", SENT: "bg-blue-50 text-blue-700", VIEWED: "bg-cyan-50 text-cyan-700", ACCEPTED: "bg-emerald-50 text-emerald-700", SCHEDULED: "bg-indigo-50 text-indigo-700", IN_PROGRESS: "bg-violet-50 text-violet-700", COMPLETED: "bg-emerald-100 text-emerald-800", REJECTED: "bg-red-50 text-red-700", EXPIRED: "bg-amber-50 text-amber-700", CANCELLED: "bg-slate-100 text-slate-600" };
-const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(value || 0));
+const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const last7Days = () => { const today = new Date(); const start = new Date(today); start.setDate(today.getDate() - 6); return { from: dateKey(start), to: dateKey(today) }; };
 

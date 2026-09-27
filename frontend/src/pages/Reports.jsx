@@ -13,7 +13,7 @@ import api from "../api/client";
 import useAuth from "../context/useAuth";
 
 const money = (value) =>
-  `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const label = (value) =>
   String(value || "")
     .replaceAll("_", " ")

@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
@@ -309,6 +309,17 @@ class CustomerRegistrationView(APIView):
         if not customer_records:
             customer_records = [Customer.objects.create(name=name, mobile=mobile_key, email=email)]
         primary_customer = customer_records[0]
+        if not primary_customer.bharath_id:
+            sequence = primary_customer.pk
+            while True:
+                candidate = f'BP-C-{sequence:06d}'
+                customer_id_taken = Customer.objects.exclude(pk=primary_customer.pk).filter(bharath_id=candidate).exists()
+                user_id_taken = BharathUser.objects.filter(bharath_id=candidate).exclude(pk=getattr(user, 'pk', None)).exists()
+                if not customer_id_taken and not user_id_taken:
+                    primary_customer.bharath_id = candidate
+                    break
+                sequence += 1
+        primary_customer.save(update_fields=('bharath_id', 'updated_at'))
         if not primary_customer.bharath_id:
             primary_customer.bharath_id = f"BP-C-{primary_customer.pk:06d}"
             primary_customer.save(update_fields=("bharath_id", "updated_at"))

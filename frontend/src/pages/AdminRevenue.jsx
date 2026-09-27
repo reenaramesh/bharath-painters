@@ -27,7 +27,7 @@ const months = [
   "December",
 ];
 const money = (value) =>
-  `${String.fromCharCode(8377)}${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${String.fromCharCode(8377)}${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 export default function AdminRevenue() {
   const { user } = useAuth();

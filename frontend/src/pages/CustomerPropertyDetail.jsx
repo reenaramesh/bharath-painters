@@ -77,7 +77,6 @@ export default function CustomerPropertyDetail() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [selectedMeasurement, setSelectedMeasurement] = useState("");
-  const [loadingMeasurement, setLoadingMeasurement] = useState("");
   const [viewingRoom, setViewingRoom] = useState(null);
   const [error, setError] = useState("");
   const roomTableRef = useRef(null);
@@ -110,9 +109,7 @@ export default function CustomerPropertyDetail() {
   }, [load]);
 
   const viewMeasurement = async (recordId) => {
-    setLoadingMeasurement(String(recordId));
     const loaded = await load(recordId);
-    setLoadingMeasurement("");
     if (loaded)
       window.setTimeout(
         () =>
@@ -261,7 +258,7 @@ export default function CustomerPropertyDetail() {
                       Area
                     </p>
                     <p className="mt-1 text-sm font-bold">
-                      {record.total_sqft} sq ft
+                      {Math.round(Number(record.total_sqft || 0))} sq ft
                     </p>
                   </div>
                   <div className="rounded-xl bg-white/80 p-3">
@@ -340,7 +337,7 @@ export default function CustomerPropertyDetail() {
                   <td className="px-4 py-3">{record.measured_on}</td>
                   <td className="px-4 py-3">{record.contractor_name}</td>
                   <td className="px-4 py-3 font-semibold tabular-nums">
-                    {record.total_sqft} sq ft
+                    {Math.round(Number(record.total_sqft || 0))} sq ft
                   </td>
                   <td className="px-4 py-3">{record.room_count}</td>
                   <td className="px-4 py-3">
@@ -397,7 +394,7 @@ export default function CustomerPropertyDetail() {
                     All rooms wall total
                   </p>
                   <p className="mt-1 text-xl font-extrabold text-emerald-950">
-                    {allRoomTotals.netWalls.toFixed(2)} sq ft
+                    {allRoomTotals.netWalls.toFixed(0)} sq ft
                   </p>
                 </div>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
@@ -429,7 +426,7 @@ export default function CustomerPropertyDetail() {
                   All rooms ceiling total
                 </p>
                 <p className="mt-1 text-xl font-extrabold text-blue-950">
-                  {allRoomTotals.ceiling.toFixed(2)} sq ft
+                  {allRoomTotals.ceiling.toFixed(0)} sq ft
                 </p>
               </header>
               <div className="grid grid-cols-2 gap-px bg-blue-200 text-center">
@@ -461,8 +458,8 @@ export default function CustomerPropertyDetail() {
                     {sheet.room.name}
                   </h3>
                   <p className="mt-1 text-xs text-slate-500">
-                    Net walls {sheet.totals.netWalls.toFixed(2)} sq ft · Net
-                    ceiling {sheet.totals.ceiling.toFixed(2)} sq ft
+                    Net walls {sheet.totals.netWalls.toFixed(0)} sq ft · Net
+                    ceiling {sheet.totals.ceiling.toFixed(0)} sq ft
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold">
@@ -575,7 +572,7 @@ function RoomValue({ value, strong }) {
     <td
       className={`border border-slate-300 px-3 py-3 text-right tabular-nums ${strong ? "font-bold" : ""}`}
     >
-      {Number(value || 0).toFixed(2)}
+      {Number(value || 0).toFixed(0)}
     </td>
   );
 }
@@ -589,7 +586,7 @@ function TotalMini({ label, value, strong = false }) {
       <p
         className={`mt-1 text-xs tabular-nums text-slate-900 ${strong ? "font-extrabold" : "font-bold"}`}
       >
-        {Number(value || 0).toFixed(2)}
+        {Number(value || 0).toFixed(0)}
       </p>
     </div>
   );
@@ -736,7 +733,7 @@ function MeasurementDetailsModal({ sheet, close }) {
                       first={opening.height}
                       second={opening.width}
                       quantity={opening.quantity || 1}
-                      area={`${added ? "+" : "-"}${openingArea(opening).toFixed(2)}`}
+                      area={`${added ? "+" : "-"}${openingArea(opening).toFixed(0)}`}
                     />
                   );
                 })}
@@ -754,7 +751,7 @@ function MeasurementDetailsModal({ sheet, close }) {
                     Final wall + ceiling area
                   </td>
                   <td className="border border-slate-300 px-3 py-3 text-right">
-                    {totals.finalArea.toFixed(2)}
+                    {totals.finalArea.toFixed(0)}
                   </td>
                 </tr>
               </tfoot>

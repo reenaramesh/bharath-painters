@@ -32,7 +32,7 @@ const steps = [
   "Totals & notes",
 ];
 const money = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
     Number(value || 0),
   );
 const SURFACE_LABELS = {
@@ -115,7 +115,7 @@ export default function QuotationBuilder() {
   const [error, setError] = useState("");
   useEffect(() => {
     Promise.all([
-      api.get("/quotations/customers/"),
+      api.get("/quotations/customers/", { params: { include_pending: 1 } }),
       api.get("/quotations/properties/"),
       api.get("/quotations/service-categories/"),
       api.get("/quotations/service-types/"),
@@ -1070,7 +1070,7 @@ export default function QuotationBuilder() {
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-white px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-                  <p className="mt-0.5 font-extrabold tabular-nums text-slate-950">{Number(value).toFixed(2)} <span className="text-[10px] font-semibold text-slate-500">sq ft</span></p>
+                  <p className="mt-0.5 font-extrabold tabular-nums text-slate-950">{Number(value).toFixed(0)} <span className="text-[10px] font-semibold text-slate-500">sq ft</span></p>
                 </div>
               ))}
               <div className="col-span-2 rounded-lg bg-emerald-900 px-3 py-2 text-white sm:col-span-1">
@@ -1558,7 +1558,7 @@ function QuotationPreviewDialog({
                       <td className="px-3 py-3 font-semibold text-blue-950">{line.roomName}</td>
                       <td className="px-3 py-3">{line.productBrand}</td>
                       <td className="px-3 py-3">{line.description}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{line.quantity.toFixed(2)} {line.unit}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{line.quantity.toFixed(0)} {line.unit}</td>
                       <td className="px-3 py-3 text-center">{line.coats}</td>
                       <td className="px-3 py-3 text-right tabular-nums">{money(line.rate)}</td>
                       <td className="px-3 py-3 text-right font-bold tabular-nums">{money(line.amount)}</td>
@@ -1574,7 +1574,7 @@ function QuotationPreviewDialog({
                     <div className="min-w-0"><p className="text-[10px] font-bold uppercase text-blue-700">{line.category}</p><h4 className="truncate font-bold">{line.roomName}</h4><p className="truncate text-xs text-slate-500">{line.description}</p></div>
                     <b className="shrink-0 text-emerald-700">{money(line.amount)}</b>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><span><small className="block text-slate-400">Qty</small>{line.quantity.toFixed(2)} {line.unit}</span><span><small className="block text-slate-400">Coats</small>{line.coats}</span><span className="text-right"><small className="block text-slate-400">Rate</small>{money(line.rate)}</span></div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><span><small className="block text-slate-400">Qty</small>{line.quantity.toFixed(0)} {line.unit}</span><span><small className="block text-slate-400">Coats</small>{line.coats}</span><span className="text-right"><small className="block text-slate-400">Rate</small>{money(line.rate)}</span></div>
                   <p className="mt-2 text-xs text-slate-500">{line.productBrand}</p>
                 </article>
               ))}

@@ -66,7 +66,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             rows.append([
                 item.get_surface_type_display(), Paragraph(escape(item.name), small),
                 f"{item.length} x {item.breadth}", str(item.quantity), str(item.paintable_sides),
-                f"{item.gross_area:.2f}", f"{item.deduction_area:.2f}", f"{item.net_area:.2f}",
+                f"{item.gross_area:.0f}", f"{item.deduction_area:.0f}", f"{item.net_area:.0f}",
                 Paragraph(escape(item.finish or "-"), small),
             ])
         valid_deductions = []
@@ -79,10 +79,10 @@ def build_measurement_pdf(property_obj, measurement_record=None):
                 f"{opening.get_opening_type_display()} deduction",
                 Paragraph(escape(opening.name or opening.get_opening_type_display()), small),
                 f"{opening.height} x {opening.width}", str(opening.quantity), "1",
-                "-", f"-{opening.effective_deduction:.2f}", "Included in net wall",
+                "-", f"-{opening.effective_deduction:.0f}", "Included in net wall",
                 Paragraph(escape(f"Deducted from total walls ({wall.name})"), small),
             ])
-        rows.append(["TOTAL", "", "", "", "", "", "", f"{total:.2f}", ""])
+        rows.append(["TOTAL", "", "", "", "", "", "", f"{total:.0f}", ""])
         table = Table(rows, repeatRows=1, colWidths=[29*mm, 45*mm, 30*mm, 15*mm, 15*mm, 24*mm, 28*mm, 28*mm, 45*mm])
         table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), .45, RULE), ("BACKGROUND", (0,0), (-1,0), DARK), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("ROWBACKGROUNDS", (0,1), (-1,-2), [colors.white, colors.HexColor("#F8FAFC")]), ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#D1FAE5")), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"), ("ALIGN", (2,1), (7,-1), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("FONTSIZE", (0,0), (-1,-1), 7.2), ("LEADING", (0,0), (-1,-1), 9), ("PADDING", (0,0), (-1,-1), 4)]))
         story.append(table)
@@ -117,11 +117,11 @@ def build_measurement_pdf(property_obj, measurement_record=None):
         ceiling_values = [ceiling_gross, ceiling_deductions, ceiling_additions, net_ceiling]
         wall_totals = [current + value for current, value in zip(wall_totals, wall_values)]
         ceiling_totals = [current + value for current, value in zip(ceiling_totals, ceiling_values)]
-        wall_summary.append([Paragraph(escape(room.name), small)] + [f"{value:.2f}" for value in wall_values])
-        ceiling_summary.append([Paragraph(escape(room.name), small)] + [f"{value:.2f}" for value in ceiling_values])
+        wall_summary.append([Paragraph(escape(room.name), small)] + [f"{value:.0f}" for value in wall_values])
+        ceiling_summary.append([Paragraph(escape(room.name), small)] + [f"{value:.0f}" for value in ceiling_values])
         detail_sets.append((room, walls, ceilings, openings, net_walls))
-    wall_summary.append(["ALL ROOMS TOTAL"] + [f"{value:.2f}" for value in wall_totals])
-    ceiling_summary.append(["ALL ROOMS TOTAL"] + [f"{value:.2f}" for value in ceiling_totals])
+    wall_summary.append(["ALL ROOMS TOTAL"] + [f"{value:.0f}" for value in wall_totals])
+    ceiling_summary.append(["ALL ROOMS TOTAL"] + [f"{value:.0f}" for value in ceiling_totals])
     wall_table = Table(wall_summary, repeatRows=1, colWidths=[36*mm] + [25*mm]*6)
     wall_table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), .45, RULE), ("BACKGROUND", (0,0), (-1,0), DARK), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("ROWBACKGROUNDS", (0,1), (-1,-2), [colors.white, colors.HexColor("#F8FAFC")]), ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#D1FAE5")), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"), ("ALIGN", (1,1), (-1,-1), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("FONTSIZE", (0,0), (-1,-1), 7.2), ("LEADING", (0,0), (-1,-1), 9), ("PADDING", (0,0), (-1,-1), 4)]))
     ceiling_table = Table(ceiling_summary, repeatRows=1, colWidths=[50*mm] + [34*mm]*4)
@@ -136,19 +136,19 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     for room, walls, ceilings, openings, net_walls in detail_sets:
         room_content = [Paragraph(escape(room.name), detail_heading)]
         if walls:
-            wall_rows = [["Name", "Height", "Length", "Area (sq ft)"]] + [[Paragraph(escape(item.name), small), f"{item.breadth}", f"{item.length}", f"{item.gross_area:.2f}"] for item in walls]
+            wall_rows = [["Name", "Height", "Length", "Area (sq ft)"]] + [[Paragraph(escape(item.name), small), f"{item.breadth}", f"{item.length}", f"{item.gross_area:.0f}"] for item in walls]
             room_content += [Paragraph("Walls", section_heading), measurement_table(wall_rows, [62*mm, 38*mm, 38*mm, 48*mm])]
         if ceilings:
-            ceiling_rows = [["Name", "Length", "Width", "Area (sq ft)"]] + [[Paragraph(escape(item.name), small), f"{item.length}", f"{item.breadth}", f"{item.gross_area:.2f}"] for item in ceilings]
+            ceiling_rows = [["Name", "Length", "Width", "Area (sq ft)"]] + [[Paragraph(escape(item.name), small), f"{item.length}", f"{item.breadth}", f"{item.gross_area:.0f}"] for item in ceilings]
             room_content += [Paragraph("Ceilings", section_heading), measurement_table(ceiling_rows, [62*mm, 38*mm, 38*mm, 48*mm])]
         if openings:
             opening_rows = [["Type", "Name", "Height", "Width", "Qty", "Sides", "Deduct", "Area"]]
             for item in openings:
                 deducted = item.effect != "ADD" and item.deduction_mode != "IGNORE"
                 area = item.effective_deduction if deducted else item.area
-                opening_rows.append(["Other" if item.opening_type == "OTHER" else item.get_opening_type_display(), Paragraph(escape(item.name or "-"), small), f"{item.height}", f"{item.width}", str(item.quantity), str(getattr(item, "paintable_sides", 1)), "Yes" if deducted else "No", f"{area:.2f}"])
+                opening_rows.append(["Other" if item.opening_type == "OTHER" else item.get_opening_type_display(), Paragraph(escape(item.name or "-"), small), f"{item.height}", f"{item.width}", str(item.quantity), str(getattr(item, "paintable_sides", 1)), "Yes" if deducted else "No", f"{area:.0f}"])
             room_content += [Paragraph("Deductions and additions", section_heading), measurement_table(opening_rows, [22*mm, 35*mm, 22*mm, 22*mm, 16*mm, 16*mm, 23*mm, 30*mm], numeric_start=2)]
-        total_rows = [["Room totals", "Net walls", "Net ceiling"], ["", f"{net_walls:.2f}", f"{sum((item.net_area for item in ceilings), Decimal('0')):.2f}"]]
+        total_rows = [["Room totals", "Net walls", "Net ceiling"], ["", f"{net_walls:.0f}", f"{sum((item.net_area for item in ceilings), Decimal('0')):.0f}"]]
         totals_table = measurement_table(total_rows, [62*mm, 62*mm, 62*mm])
         totals_table.setStyle(TableStyle([("BACKGROUND", (0,1), (-1,1), colors.HexColor("#D1FAE5")), ("FONTNAME", (0,1), (-1,1), "Helvetica-Bold")]))
         room_content += [Spacer(1, 2*mm), totals_table]
@@ -252,16 +252,16 @@ def build_quotation_pdf(quotation):
         room_prefix = f"{room_name} - "
         if room_name != "-" and description.lower().startswith(room_prefix.lower()):
             description = description[len(room_prefix):]
-        rows.append([str(index),Paragraph(escape(category),small),Paragraph(escape(room_name),small),Paragraph(product_markup,small),Paragraph(escape(description),small),Paragraph(escape(brand),small),Paragraph(escape(unit),small),f"{item.quantity:.2f}",str(item.coats or 1),f"Rs. {item.rate:,.2f}",f"Rs. {item.amount:,.2f}"])
+        rows.append([str(index),Paragraph(escape(category),small),Paragraph(escape(room_name),small),Paragraph(product_markup,small),Paragraph(escape(description),small),Paragraph(escape(brand),small),Paragraph(escape(unit),small),f"{item.quantity:.0f}",str(item.coats or 1),f"Rs. {item.rate:,.0f}",f"Rs. {item.amount:,.0f}"])
     while len(rows)<5: rows.append([""]*11)
     service_table=Table(rows,repeatRows=1,colWidths=[6*mm,20*mm,18*mm,20*mm,41*mm,16*mm,10*mm,10*mm,8*mm,15*mm,16*mm],rowHeights=[9*mm]+[None]*(len(rows)-1))
     service_table.setStyle(TableStyle([("BOX",(0,0),(-1,-1),.7,RULE),("INNERGRID",(0,0),(-1,-1),.35,RULE),("BACKGROUND",(0,0),(-1,0),DARK),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("ALIGN",(0,0),(0,-1),"CENTER"),("ALIGN",(7,1),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F8FAFC")]),("FONTSIZE",(0,0),(-1,-1),6.2),("LEADING",(0,0),(-1,-1),8),("PADDING",(0,0),(-1,-1),3.5)]))
     story += [service_table,Spacer(1,2*mm)]
     painting_subtotal=sum((item.amount for item in quotation.items.all() if not item.is_additional_service),Decimal("0"))
     additional_subtotal=sum((item.amount for item in quotation.items.all() if item.is_additional_service),Decimal("0"))
-    totals=[["Painting Subtotal",f"Rs. {painting_subtotal:,.2f}"]]
-    if additional_subtotal: totals.append(["Additional Services",f"Rs. {additional_subtotal:,.2f}"])
-    totals += [["Discount",f"Rs. {quotation.discount:,.2f}"],[f"GST {quotation.gst_percentage}%",f"Rs. {quotation.gst_amount:,.2f}"],["Grand Total",f"Rs. {quotation.grand_total:,.2f}"]]
+    totals=[["Painting Subtotal",f"Rs. {painting_subtotal:,.0f}"]]
+    if additional_subtotal: totals.append(["Additional Services",f"Rs. {additional_subtotal:,.0f}"])
+    totals += [["Discount",f"Rs. {quotation.discount:,.0f}"],[f"GST {quotation.gst_percentage}%",f"Rs. {quotation.gst_amount:,.0f}"],["Grand Total",f"Rs. {quotation.grand_total:,.0f}"]]
     totals_table=Table(totals,colWidths=[35*mm,32*mm],hAlign="RIGHT")
     totals_table.setStyle(TableStyle([("BOX",(0,0),(-1,-1),.7,RULE),("INNERGRID",(0,0),(-1,-1),.35,RULE),("BACKGROUND",(0,0),(0,-2),LIGHT_GREY),("BACKGROUND",(0,-1),(-1,-1),BLUE),("TEXTCOLOR",(0,-1),(-1,-1),colors.white),("FONTNAME",(0,-1),(-1,-1),"Helvetica-Bold"),("ALIGN",(0,0),(-1,-1),"RIGHT"),("PADDING",(0,0),(-1,-1),5)]))
     words=Paragraph(f"<b>{_words(quotation.grand_total)} Rupees Only</b>",small)
@@ -306,14 +306,14 @@ def build_invoice_pdf(invoice):
     profile=getattr(invoice.contractor,"contractor_profile",None);contractor_data=invoice.contractor_snapshot or {};company=contractor_data.get("company_name") or (profile.company_name if profile else "Bharath Painters")
     banner=Table([[Paragraph("TAX INVOICE" if invoice.tax_mode == "GST" else "INVOICE",title)]],colWidths=[180*mm],style=TableStyle([("BACKGROUND",(0,0),(-1,-1),BLUE),("PADDING",(0,0),(-1,-1),7)]))
     source_number = invoice.quotation_number_snapshot or (invoice.quotation.quotation_number if invoice.quotation_id else "Lump sum")
-    meta=[["Invoice #",invoice.invoice_number,"Invoice date",str(invoice.invoice_date)],["Source",source_number,"Due date",str(invoice.due_date or "-")],["Status",invoice.get_status_display(),"Balance due",f"Rs. {invoice.balance_due:,.2f}"]]
+    meta=[["Invoice #",invoice.invoice_number,"Invoice date",str(invoice.invoice_date)],["Source",source_number,"Due date",str(invoice.due_date or "-")],["Status",invoice.get_status_display(),"Balance due",f"Rs. {invoice.balance_due:,.0f}"]]
     meta_table=Table(meta,colWidths=[24*mm,64*mm,24*mm,68*mm],style=TableStyle([("GRID",(0,0),(-1,-1),.5,colors.grey),("BACKGROUND",(0,0),(0,-1),LIGHT_GREY),("BACKGROUND",(2,0),(2,-1),LIGHT_GREY),("FONTNAME",(0,0),(0,-1),"Helvetica-Bold"),("FONTNAME",(2,0),(2,-1),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),7.5),("PADDING",(0,0),(-1,-1),4)]))
     office_address=contractor_data.get("office_address") or (profile.office_address if profile else "")
     bill=Table([[Paragraph(f"<b>FROM</b><br/>{escape(company)}<br/>{escape(office_address)}",small),Paragraph(f"<b>BILL TO</b><br/>{escape(invoice.customer_name)}<br/>{escape(invoice.customer_mobile)}<br/>{escape(invoice.billing_address)}<br/><b>Project:</b> {escape(invoice.property_name)}",small)]],colWidths=[90*mm,90*mm],style=TableStyle([("BOX",(0,0),(-1,-1),.6,colors.grey),("INNERGRID",(0,0),(-1,-1),.5,colors.grey),("VALIGN",(0,0),(-1,-1),"TOP"),("PADDING",(0,0),(-1,-1),6)]))
     rows=[["Sl.","Service","Room / Area","Product","Description","Brand","MOU","Qty","Rate","Amount"]]
-    for i,row in enumerate(invoice.items,1):rows.append([str(i),Paragraph(escape(str(row.get("service") or "-")),small),Paragraph(escape(str(row.get("room") or "-")),small),Paragraph(escape(str(row.get("product_type") or "-")),small),Paragraph(escape(str(row.get("description") or "-")),small),Paragraph(escape(str(row.get("brand") or "-")),small),str(row.get("unit") or "-"),str(row.get("quantity") or 0),f"Rs. {Decimal(str(row.get('rate') or 0)):,.2f}",f"Rs. {Decimal(str(row.get('amount') or 0)):,.2f}"])
+    for i,row in enumerate(invoice.items,1):rows.append([str(i),Paragraph(escape(str(row.get("service") or "-")),small),Paragraph(escape(str(row.get("room") or "-")),small),Paragraph(escape(str(row.get("product_type") or "-")),small),Paragraph(escape(str(row.get("description") or "-")),small),Paragraph(escape(str(row.get("brand") or "-")),small),str(row.get("unit") or "-"),str(row.get("quantity") or 0),f"Rs. {Decimal(str(row.get('rate') or 0)):,.0f}",f"Rs. {Decimal(str(row.get('amount') or 0)):,.0f}"])
     table=Table(rows,repeatRows=1,colWidths=[6*mm,21*mm,18*mm,20*mm,37*mm,16*mm,12*mm,12*mm,17*mm,21*mm],style=TableStyle([("GRID",(0,0),(-1,-1),.5,colors.grey),("BACKGROUND",(0,0),(-1,0),LIGHT_BLUE),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("ALIGN",(7,1),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("FONTSIZE",(0,0),(-1,-1),6),("PADDING",(0,0),(-1,-1),3)]))
-    totals=[["Subtotal",f"Rs. {invoice.subtotal:,.2f}"],["Discount",f"Rs. {invoice.discount:,.2f}"],[f"GST {invoice.gst_percentage}%",f"Rs. {invoice.gst_amount:,.2f}"],["Grand total",f"Rs. {invoice.grand_total:,.2f}"],["Amount paid",f"Rs. {invoice.amount_paid:,.2f}"],["Balance due",f"Rs. {invoice.balance_due:,.2f}"]]
+    totals=[["Subtotal",f"Rs. {invoice.subtotal:,.0f}"],["Discount",f"Rs. {invoice.discount:,.0f}"],[f"GST {invoice.gst_percentage}%",f"Rs. {invoice.gst_amount:,.0f}"],["Grand total",f"Rs. {invoice.grand_total:,.0f}"],["Amount paid",f"Rs. {invoice.amount_paid:,.0f}"],["Balance due",f"Rs. {invoice.balance_due:,.0f}"]]
     total_table=Table(totals,colWidths=[40*mm,35*mm],hAlign="RIGHT",style=TableStyle([("GRID",(0,0),(-1,-1),.6,colors.grey),("BACKGROUND",(0,0),(0,-1),LIGHT_GREY),("FONTNAME",(0,-1),(-1,-1),"Helvetica-Bold"),("ALIGN",(0,0),(-1,-1),"RIGHT"),("PADDING",(0,0),(-1,-1),5)]))
     story=[banner,Spacer(1,3*mm),Paragraph(f"<b>{escape(company)}</b>",styles["Heading2"]),meta_table,Spacer(1,3*mm),bill,Spacer(1,4*mm),table,Spacer(1,3*mm),total_table]
     if invoice.notes:story += [Spacer(1,3*mm),Paragraph(f"<b>Notes:</b> {escape(invoice.notes)}",small)]
@@ -335,15 +335,15 @@ def build_invoice_receipt_pdf(invoice):
         ["Receipt number", invoice.receipt_number or "-", "Received on", str(invoice.payment_received_at or invoice.updated_at)],
         ["Invoice number", invoice.invoice_number, "Payments", str(invoice.payments.count())],
         ["Customer", invoice.customer_name, "Payment history", "Listed below"],
-        ["Project", invoice.property_name or "-", "Amount received", f"Rs. {invoice.amount_paid:,.2f}"],
-        ["Invoice total", f"Rs. {invoice.grand_total:,.2f}", "Balance", f"Rs. {invoice.balance_due:,.2f}"],
+        ["Project", invoice.property_name or "-", "Amount received", f"Rs. {invoice.amount_paid:,.0f}"],
+        ["Invoice total", f"Rs. {invoice.grand_total:,.0f}", "Balance", f"Rs. {invoice.balance_due:,.0f}"],
     ]
     table = Table(details, colWidths=[31*mm, 52*mm, 31*mm, 52*mm], style=TableStyle([("GRID", (0,0), (-1,-1), .6, RULE), ("BACKGROUND", (0,0), (0,-1), LIGHT_GREY), ("BACKGROUND", (2,0), (2,-1), LIGHT_GREY), ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"), ("FONTNAME", (2,0), (2,-1), "Helvetica-Bold"), ("FONTSIZE", (0,0), (-1,-1), 8), ("PADDING", (0,0), (-1,-1), 7)]))
     payment_rows = [["Date", "Mode", "Reference", "Amount"]]
     for payment in invoice.payments.all():
-        payment_rows.append([str(payment.received_date), payment.get_payment_mode_display(), payment.payment_reference or "-", f"Rs. {payment.amount:,.2f}"])
+        payment_rows.append([str(payment.received_date), payment.get_payment_mode_display(), payment.payment_reference or "-", f"Rs. {payment.amount:,.0f}"])
     payment_table = Table(payment_rows, colWidths=[36*mm, 38*mm, 58*mm, 34*mm], style=TableStyle([("GRID", (0,0), (-1,-1), .5, RULE), ("BACKGROUND", (0,0), (-1,0), LIGHT_BLUE), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("ALIGN", (-1,1), (-1,-1), "RIGHT"), ("FONTSIZE", (0,0), (-1,-1), 8), ("PADDING", (0,0), (-1,-1), 6)]))
-    story = [banner, Spacer(1, 5*mm), Paragraph(f"<b>{escape(company)}</b>", styles["Heading2"]), Paragraph("Payment received in full." if invoice.balance_due <= 0 else f"Advance payment received. Balance due: Rs. {invoice.balance_due:,.2f}", small), Spacer(1, 5*mm), table, Spacer(1, 6*mm), Paragraph("<b>Payment history</b>", styles["Heading3"]), Spacer(1, 2*mm), payment_table]
+    story = [banner, Spacer(1, 5*mm), Paragraph(f"<b>{escape(company)}</b>", styles["Heading2"]), Paragraph("Payment received in full." if invoice.balance_due <= 0 else f"Advance payment received. Balance due: Rs. {invoice.balance_due:,.0f}", small), Spacer(1, 5*mm), table, Spacer(1, 6*mm), Paragraph("<b>Payment history</b>", styles["Heading3"]), Spacer(1, 2*mm), payment_table]
     doc.build(story, onFirstPage=_page, onLaterPages=_page)
     return buffer.getvalue()
 
@@ -368,8 +368,8 @@ def build_advance_receipt_pdf(schedule):
         ["Receipt number", schedule.advance_receipt_number or "-", "Received on", str(received_on)],
         ["Quotation", schedule.quotation.quotation_number, "Payment mode", schedule.payment_mode or "-"],
         ["Customer", customer_data.get("name", schedule.quotation.customer.name), "Reference", schedule.payment_reference or "-"],
-        ["Project", property_data.get("name") or property_obj.name or property_obj.property_type, "Advance received", f"Rs. {schedule.advance_amount:,.2f}"],
-        ["Address", Paragraph(escape(address or "-"), small), "Quotation total", f"Rs. {schedule.quotation.grand_total:,.2f}"],
+        ["Project", property_data.get("name") or property_obj.name or property_obj.property_type, "Advance received", f"Rs. {schedule.advance_amount:,.0f}"],
+        ["Address", Paragraph(escape(address or "-"), small), "Quotation total", f"Rs. {schedule.quotation.grand_total:,.0f}"],
     ]
     table = Table(details, colWidths=[31*mm, 52*mm, 31*mm, 52*mm], style=TableStyle([("GRID", (0,0), (-1,-1), .6, RULE), ("BACKGROUND", (0,0), (0,-1), LIGHT_GREY), ("BACKGROUND", (2,0), (2,-1), LIGHT_GREY), ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"), ("FONTNAME", (2,0), (2,-1), "Helvetica-Bold"), ("FONTSIZE", (0,0), (-1,-1), 8), ("VALIGN", (0,0), (-1,-1), "TOP"), ("PADDING", (0,0), (-1,-1), 7)]))
     note = "This receipt confirms advance payment against the quotation. It is not a tax invoice. The advance will be adjusted in the final invoice after project completion."
@@ -399,8 +399,8 @@ def build_project_receipt_pdf(receipt):
         ["Receipt number", receipt.receipt_number, "Received on", str(receipt.received_date)],
         ["Quotation", quotation.quotation_number, "Payment mode", receipt.get_payment_mode_display()],
         ["Customer", customer_data.get("name", quotation.customer.name), "Reference", receipt.payment_reference or "-"],
-        ["Project", property_data.get("name") or property_obj.name or property_obj.property_type, "Amount received", f"Rs. {receipt.amount:,.2f}"],
-        ["Address", Paragraph(escape(address or "-"), small), "Quotation total", f"Rs. {quotation.grand_total:,.2f}"],
+        ["Project", property_data.get("name") or property_obj.name or property_obj.property_type, "Amount received", f"Rs. {receipt.amount:,.0f}"],
+        ["Address", Paragraph(escape(address or "-"), small), "Quotation total", f"Rs. {quotation.grand_total:,.0f}"],
     ]
     table = Table(details, colWidths=[31*mm, 52*mm, 31*mm, 52*mm], style=TableStyle([("GRID", (0,0), (-1,-1), .6, RULE), ("BACKGROUND", (0,0), (0,-1), LIGHT_GREY), ("BACKGROUND", (2,0), (2,-1), LIGHT_GREY), ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"), ("FONTNAME", (2,0), (2,-1), "Helvetica-Bold"), ("FONTSIZE", (0,0), (-1,-1), 8), ("VALIGN", (0,0), (-1,-1), "TOP"), ("PADDING", (0,0), (-1,-1), 7)]))
     note = "Payment received against the quotation. This is a receipt, not a tax invoice. It will be adjusted in the final invoice after project completion."

@@ -1,3 +1,4 @@
+import useAuth from "../context/useAuth";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { Outlet } from "react-router-dom";
@@ -6,8 +7,11 @@ import GlobalTableSorting from "../components/GlobalTableSorting";
 import MobileTableDialogs from "../components/MobileTableDialogs";
 import CustomerConnectionPrompt from "../components/CustomerConnectionPrompt";
 import MobileBottomNav from "../components/MobileBottomNav";
+import "../pages/contractor-dashboard.css";
 
 export default function DashboardLayout() {
+  const { user } = useAuth();
+  const contractorWorkspace = user?.role === "CONTRACTOR";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("bp-sidebar-collapsed") === "1",
@@ -19,7 +23,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div className="minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb]">
+    <div className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${contractorWorkspace ? "contractor-shell" : ""}`}>
       <GlobalTableSorting />
       <MobileTableDialogs />
       <CustomerConnectionPrompt />

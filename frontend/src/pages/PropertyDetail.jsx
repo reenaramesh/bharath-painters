@@ -202,7 +202,7 @@ export default function PropertyDetail() {
                   <div className="grid grid-cols-2 gap-3">
                     <Detail label="Area Calculation ID" value={record.reference_no} />
                     <Detail label="Date" value={new Date(`${record.measured_on}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} />
-                    <Detail label="Paintable area" value={`${Number(record.total_sqft || 0).toFixed(2)} sq ft`} />
+                    <Detail label="Paintable area" value={`${Number(record.total_sqft || 0).toFixed(0)} sq ft`} />
                     <Detail label="Rooms" value={record.room_count || 0} />
                   </div>
                   <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2 border-t border-slate-100 pt-3">
@@ -233,7 +233,7 @@ export default function PropertyDetail() {
                   <tr key={record.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4 font-bold text-slate-950">{record.reference_no}</td>
                     <td className="px-5 py-4">{new Date(`${record.measured_on}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                    <td className="px-5 py-4 font-bold">{Number(record.total_sqft || 0).toFixed(2)} sq ft</td>
+                    <td className="px-5 py-4 font-bold">{Number(record.total_sqft || 0).toFixed(0)} sq ft</td>
                     <td className="px-5 py-4">{record.room_count || 0}</td>
                     <td className="px-5 py-4"><div className="flex items-center gap-2"><Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold"><Eye className="h-4 w-4" />{record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "Edit" : "View"}</Link><button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40"><Download className="h-4 w-4" />PDF</button><button type="button" disabled={record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="rounded-lg border border-red-200 p-2 text-red-600 disabled:cursor-not-allowed disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></div></td>
                   </tr>
@@ -327,14 +327,14 @@ export default function PropertyDetail() {
                       <td className="p-3">
                         {item.length} × {item.breadth} × {item.quantity || 1}
                       </td>
-                      <td className="p-3">{item.gross_area}</td>
+                      <td className="p-3">{Math.round(Number(item.gross_area || 0))}</td>
                       <td className="p-3 text-red-600">
                         {item.deduction_area}
                       </td>
                       <td className="p-3 text-emerald-600">
                         {item.addition_area}
                       </td>
-                      <td className="p-3 font-bold">{item.net_area} sq ft</td>
+                      <td className="p-3 font-bold">{Math.round(Number(item.net_area || 0))} sq ft</td>
                     </tr>
                   ))}
                 </tbody>
@@ -368,7 +368,7 @@ function Total({ label, value, strong }) {
       <p className={`text-xs ${strong ? "text-slate-300" : "text-slate-500"}`}>
         {label}
       </p>
-      <p className="mt-1 font-bold">{Number(value).toFixed(2)} sq ft</p>
+      <p className="mt-1 font-bold">{Number(value).toFixed(0)} sq ft</p>
     </div>
   );
 }

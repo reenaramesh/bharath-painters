@@ -684,3 +684,186 @@ svg {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Keep the application canvas balanced on wide displays with comfortable gutters. */
+.minimia-shell > div > main { width: 100%; max-width: none; margin-inline: auto; padding-inline: clamp(1rem, 2.4vw, 2.75rem); }
+.minimia-shell main > * { min-width: 0; }
+.minimia-shell main :is(section, article, form) { min-width: 0; }
+.minimia-shell main :is(table, [role="table"]) { max-width: 100%; }
+@media (min-width: 1800px) { .minimia-shell > div > main { padding-inline: 3rem; } }
+
+/* Formal quotation presentation, scoped to the contractor and customer views. */
+.bp-quotation-page {
+  --quotation-ink: #172033;
+  --quotation-brand: #312e81;
+  --quotation-line: #e2e8f0;
+  --quotation-muted: #64748b;
+  color: var(--quotation-ink);
+}
+.bp-quotation-page > :is(.quotation-toolbar, .quotation-sheet, .quotation-items, .quotation-supporting-info, .quotation-customer-actions) {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+}
+.bp-quotation-page .quotation-toolbar {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--quotation-line);
+  border-radius: 0.9rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+}
+.bp-quotation-page .quotation-sheet {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--quotation-line);
+  border-radius: 1.15rem;
+  background: #fff;
+  box-shadow: 0 18px 48px -30px rgb(15 23 42 / 0.32);
+}
+.bp-quotation-page .quotation-sheet::before {
+  display: block;
+  height: 0.4rem;
+  background: #4f46e5;
+  content: "";
+}
+.bp-quotation-page .quotation-company-header,
+.bp-quotation-page .quotation-number-header {
+  border-color: #edf0f5;
+}
+.bp-quotation-page .quotation-number-header h1 {
+  color: var(--quotation-brand);
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+.bp-quotation-page .quotation-customer-header {
+  border-color: #edf0f5;
+  background: linear-gradient(115deg, #fff 35%, #f8fafc 100%);
+}
+.bp-quotation-page .quotation-customer-header h1 {
+  color: var(--quotation-brand);
+  font-size: clamp(1.55rem, 3vw, 2rem);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+.bp-quotation-page .quotation-entity-cards > * {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--quotation-line);
+  border-radius: 0.9rem;
+  background: #f8fafc;
+}
+.bp-quotation-page .quotation-entity-cards > *::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.25rem;
+  background: #4f46e5;
+  content: "";
+}
+.bp-quotation-page .quotation-items {
+  overflow: hidden;
+  border-color: var(--quotation-line);
+  border-radius: 0.95rem;
+}
+.bp-quotation-page .quotation-items > div:first-child {
+  padding: 1.25rem 1.5rem;
+}
+.bp-quotation-page .quotation-items > div:first-child h2 {
+  color: var(--quotation-brand);
+  font-size: 0.8rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.bp-quotation-page .quotation-items table {
+  border-collapse: collapse;
+}
+.bp-quotation-page .quotation-customer-sheet table {
+  border-collapse: collapse;
+}
+.bp-quotation-page .quotation-customer-sheet thead {
+  background: var(--quotation-brand);
+  color: #fff;
+}
+.bp-quotation-page .quotation-customer-sheet thead th {
+  padding-block: 0.8rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.bp-quotation-page .quotation-customer-sheet tbody tr {
+  border-color: var(--quotation-line);
+}
+.bp-quotation-page .quotation-customer-sheet tbody td {
+  padding-block: 0.85rem;
+  vertical-align: top;
+}
+.bp-quotation-page .quotation-items thead {
+  background: var(--quotation-brand);
+  color: #fff;
+}
+.bp-quotation-page .quotation-items thead th {
+  padding-block: 0.8rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.055em;
+}
+.bp-quotation-page .quotation-items tbody tr {
+  border-color: var(--quotation-line);
+}
+.bp-quotation-page .quotation-items tbody td {
+  padding-block: 0.85rem;
+  vertical-align: top;
+}
+.bp-quotation-page .quotation-totals {
+  border-color: var(--quotation-line);
+  border-radius: 0.8rem;
+  background: #f8fafc;
+}
+.bp-quotation-page .quotation-totals > div:last-child {
+  margin: 0 -1.5rem -1.5rem;
+  padding: 1rem 1.5rem;
+  border: 0;
+  border-radius: 0 0 0.8rem 0.8rem;
+  background: var(--quotation-brand);
+  color: #fff;
+}
+.bp-quotation-page .quotation-totals > div:last-child :is(span, p) {
+  color: inherit;
+}
+.bp-quotation-page .quotation-supporting-info {
+  border-color: var(--quotation-line);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.bp-quotation-page .quotation-supporting-info h2 {
+  color: var(--quotation-brand);
+}
+.bp-quotation-page .quotation-customer-actions {
+  border-color: var(--quotation-line);
+  border-radius: 0.9rem;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.05);
+}
+@media (max-width: 767px) {
+  .bp-quotation-page .quotation-toolbar {
+    align-items: stretch;
+    padding: 0.8rem;
+  }
+  .bp-quotation-page .quotation-sheet {
+    border-radius: 0.9rem;
+  }
+  .bp-quotation-page .quotation-items > div:first-child {
+    padding: 1rem;
+  }
+  .bp-quotation-page .quotation-items > div[data-mobile-table="keep"] {
+    overflow-x: auto;
+  }
+  .bp-quotation-page .quotation-items table {
+    min-width: 900px;
+  }
+  .bp-quotation-page .quotation-customer-sheet table {
+    min-width: 900px;
+  }
+  .bp-quotation-page .quotation-totals > div:last-child {
+    margin-inline: -1.5rem;
+  }
+}

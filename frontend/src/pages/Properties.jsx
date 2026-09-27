@@ -28,7 +28,7 @@ export default function Properties() {
     try {
       const [propertyResponse, customerResponse] = await Promise.all([
         api.get("/quotations/properties/"),
-        api.get("/quotations/customers/"),
+        api.get("/quotations/customers/", { params: { include_pending: 1 } }),
       ]);
       setProperties(propertyResponse.data.results || propertyResponse.data);
       setCustomers(customerResponse.data.results || customerResponse.data);

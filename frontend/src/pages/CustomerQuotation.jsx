@@ -111,7 +111,7 @@ export default function CustomerQuotation() {
       </div>
     );
   return (
-    <div className="space-y-6">
+    <div className="bp-quotation-page space-y-6">
       <BackButton fallback="/customer-quotations" label="Back to My Quotations" />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -121,8 +121,8 @@ export default function CustomerQuotation() {
           {notice}
         </p>
       )}
-      <section className="rounded-2xl border bg-white">
-        <header className="flex flex-col gap-4 border-b p-6 sm:flex-row sm:items-start">
+      <section className="quotation-sheet quotation-customer-sheet rounded-2xl border bg-white">
+        <header className="quotation-customer-header flex flex-col gap-4 border-b p-6 sm:flex-row sm:items-start">
           <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-950 text-white">
             <FileText />
           </span>
@@ -157,8 +157,8 @@ export default function CustomerQuotation() {
             </button>
           ))}
         </div>
-        <div className="hidden p-6 md:block">
-          <table className="w-full table-fixed text-left text-xs lg:text-sm">
+        <div className="hidden overflow-x-auto p-6 md:block">
+          <table className="w-full min-w-[900px] table-fixed text-left text-xs lg:text-sm">
             <thead className="bg-slate-100">
               <tr>
                 {[
@@ -194,7 +194,7 @@ export default function CustomerQuotation() {
           </table>
         </div>
         {selectedItem && <CustomerQuotationItemDialog item={selectedItem.item} index={selectedItem.index} close={() => setSelectedItem(null)} />}
-        <div className="ml-auto w-full max-w-md space-y-2 border-t p-6 text-sm">
+        <div className="quotation-totals ml-auto w-full max-w-md space-y-2 border-t p-6 text-sm">
           <Total label="Subtotal" value={quotation.subtotal} />
           <Total label="Discount" value={quotation.discount} />
           <Total label="GST" value={quotation.gst_amount} />
@@ -218,7 +218,7 @@ export default function CustomerQuotation() {
           </div>
         )}
       </section>
-      <section className="rounded-2xl border bg-white p-6">
+      <section className="quotation-customer-actions rounded-2xl border bg-white p-6">
         <div className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={downloadPdf}
@@ -322,8 +322,7 @@ function Total({ label, value }) {
 }
 function money(value) {
   return Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   });
 }
 

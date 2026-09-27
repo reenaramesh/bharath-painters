@@ -374,7 +374,7 @@ export default function QuotationEdit() {
           <p className="mt-1 text-sm text-slate-500">
             {isLumpSum ? "Edit each service using the same card and popup format used during quotation creation." : "Room Area Calculations are combined into one net wall line and one ceiling line."}
           </p>
-          {!isLumpSum && measurements.length > 0 && <div className="mt-4 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50"><div className="border-b border-emerald-200 px-4 py-3 font-bold text-emerald-950">Full house Area Calculation</div><div className="divide-y divide-emerald-200"><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="font-semibold text-emerald-950">Full House Net Wall Area</p><p className="text-sm text-emerald-800">{fullHouseNetWall.toFixed(2)} sq ft after deductions</p></div>{!hasFullHouseWallLine && <button type="button" onClick={() => addFullHouseLine("wall")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">Add net wall line</button>}</div><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="font-semibold text-emerald-950">Full House Total Ceiling Area</p><p className="text-sm text-emerald-800">{fullHouseTotals.ceiling.toFixed(2)} sq ft</p></div>{!hasFullHouseCeilingLine && <button type="button" onClick={() => addFullHouseLine("ceiling")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">Add ceiling line</button>}</div></div></div>}
+          {!isLumpSum && measurements.length > 0 && <div className="mt-4 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50"><div className="border-b border-emerald-200 px-4 py-3 font-bold text-emerald-950">Full house Area Calculation</div><div className="divide-y divide-emerald-200"><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="font-semibold text-emerald-950">Full House Net Wall Area</p><p className="text-sm text-emerald-800">{fullHouseNetWall.toFixed(0)} sq ft after deductions</p></div>{!hasFullHouseWallLine && <button type="button" onClick={() => addFullHouseLine("wall")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">Add net wall line</button>}</div><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="font-semibold text-emerald-950">Full House Total Ceiling Area</p><p className="text-sm text-emerald-800">{fullHouseTotals.ceiling.toFixed(0)} sq ft</p></div>{!hasFullHouseCeilingLine && <button type="button" onClick={() => addFullHouseLine("ceiling")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">Add ceiling line</button>}</div></div></div>}
           <div className="hidden">
             <table className="w-full min-w-[1460px] text-sm">
               <thead className="bg-slate-100 text-left">
@@ -472,7 +472,7 @@ export default function QuotationEdit() {
                         {(
                           (Number(item.quantity) || 0) *
                           (Number(item.rate) || 0)
-                        ).toFixed(2)}
+                        ).toFixed(0)}
                       </td>
                       <td className="p-3">
                         <button
@@ -696,7 +696,7 @@ function EditMobileValue({ label, value, strong }) {
   return <div className="min-w-0 bg-white px-3 py-3"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p><p className={"mt-1 truncate text-xs " + (strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900")}>{value}</p></div>;
 }
 function formatMoney(value) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(value || 0));
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 function uniqueProductDetails(items, products, brands) {
   const seen = new Set();

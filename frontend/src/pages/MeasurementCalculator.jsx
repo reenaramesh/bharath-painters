@@ -15,15 +15,9 @@ const SURFACE_TYPES = [
   ["COLUMN", "Column"], ["BEAM", "Beam"], ["OTHER", "Other"],
 ];
 const DEDUCTION_TYPES = ["Window", "Door", "Wardrobe", "Vent", "Opening", "Skylight", "Stair Opening", "Other"];
-const AREA_SUGGESTIONS = [
-  "Living Room", "Bedroom", "Master Bedroom", "Kitchen", "Bathroom",
-  "Balcony", "Utility", "Terrace", "Basement", "Staircase", "Exterior",
-  "Reception", "Workspace", "Cabin", "Conference Room", "Showroom",
-  "Corridor", "Washroom", "Pantry", "Parking", "Warehouse", "Common Area",
-];
 const TYPE_LABELS = Object.fromEntries(SURFACE_TYPES);
 const number = (value) => Number(value || 0);
-const areaText = (value) => `${number(value).toFixed(2)} sq.ft`;
+const areaText = (value) => `${number(value).toFixed(0)} sq.ft`;
 const requestMessage = (error, fallback) => {
   const data = error?.response?.data;
   if (typeof data === "string") return data;
@@ -412,7 +406,7 @@ export default function MeasurementCalculator() {
           <AreaDetail area={activeArea} groups={activeGroups} summary={activeSummary} tab={tab}
             setTab={setTab} back={() => setActiveAreaId("")}
             editRoom={() => openAreaDialog(activeArea)}
-            addSurface={(group) => openSurfaceDialog(null, group)} editSurface={openSurfaceDialog}
+            editSurface={openSurfaceDialog}
             deleteSurface={deleteSurface} addDeduction={(group) => openDeductionDialog(null, group)}
             editDeduction={openDeductionDialog} deleteDeduction={deleteDeduction}
             surfaceTypes={surfaceTypes} saveSurfaceBatch={saveSurfaceBatch}
@@ -500,7 +494,7 @@ function StatCard({ label, value }) {
   </div>;
 }
 
-function AreaDetail({ area, groups, summary, tab, setTab, back, editRoom, addSurface, editSurface, deleteSurface, addDeduction, editDeduction, deleteDeduction, surfaceTypes, saveSurfaceBatch, saving, unit, multiplier }) {
+function AreaDetail({ area, groups, summary, tab, setTab, back, editRoom, editSurface, deleteSurface, addDeduction, editDeduction, deleteDeduction, surfaceTypes, saveSurfaceBatch, saving, unit, multiplier }) {
   const adjustments = groups.flatMap((group) => [
     ...group.deductions.map((item) => ({ ...item, targetLabel: group.label })),
     ...group.additions.map((item) => ({ ...item, targetLabel: group.label })),
@@ -514,13 +508,13 @@ function AreaDetail({ area, groups, summary, tab, setTab, back, editRoom, addSur
           <button key={key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg text-sm font-bold transition ${tab === key ? "bg-[#0056d2] text-white shadow" : "text-slate-600"}`}>{label}</button>)}
       </nav>
     </header>
-    {tab === "surfaces" && <SurfaceTab groups={groups} addSurface={addSurface} editSurface={editSurface} deleteSurface={deleteSurface} surfaceTypes={surfaceTypes} saveBatch={saveSurfaceBatch} saving={saving} unit={unit} multiplier={multiplier} />}
+    {tab === "surfaces" && <SurfaceTab groups={groups} editSurface={editSurface} deleteSurface={deleteSurface} surfaceTypes={surfaceTypes} saveBatch={saveSurfaceBatch} saving={saving} unit={unit} multiplier={multiplier} />}
     {tab === "deductions" && <DeductionTab groups={groups} deductions={adjustments} addDeduction={addDeduction} editDeduction={editDeduction} deleteDeduction={deleteDeduction} />}
     {tab === "summary" && <SummaryTab groups={groups} summary={summary} deductions={adjustments} />}
   </div>;
 }
 
-function SurfaceTab({ groups, addSurface, editSurface, deleteSurface, surfaceTypes, saveBatch, saving, unit, multiplier }) {
+function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatch, saving, unit, multiplier }) {
   const catalog = [...new Set([...SURFACE_TYPES.filter(([key]) => key !== "OTHER").map(([, label]) => label), ...surfaceTypes.map((item) => item.name)])];
   const [selected, setSelected] = useState("");
   const [surfaceSearch, setSurfaceSearch] = useState("");
@@ -620,7 +614,7 @@ function SummaryTab({ groups, summary, deductions }) {
   return <div className="space-y-4">
     <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4"><SummaryStat tone="blue" label="Total gross area" value={summary.gross} /><SummaryStat tone="orange" label="Total deductions" value={summary.deductionArea} /><SummaryStat tone="blue" label="Total additions" value={summary.additionArea} /><SummaryStat tone="green" label="Net area" value={summary.net} /></section>
     <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6"><h2 className="font-extrabold">Surface-wise details</h2>
-      <div className="mt-3 space-y-2">{groups.map((group) => <div key={group.key} className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-2 rounded-lg border p-3 text-right text-xs sm:text-sm"><b className="text-left">{group.label}</b><span><small className="block text-slate-400">Gross</small>{group.gross.toFixed(2)}</span><span><small className="block text-slate-400">Deduction</small>{group.deduction.toFixed(2)}</span><b><small className="block font-normal text-slate-400">Net</small>{group.net.toFixed(2)}</b></div>)}</div>
+      <div className="mt-3 space-y-2">{groups.map((group) => <div key={group.key} className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-2 rounded-lg border p-3 text-right text-xs sm:text-sm"><b className="text-left">{group.label}</b><span><small className="block text-slate-400">Gross</small>{group.gross.toFixed(0)}</span><span><small className="block text-slate-400">Deduction</small>{group.deduction.toFixed(0)}</span><b><small className="block font-normal text-slate-400">Net</small>{group.net.toFixed(0)}</b></div>)}</div>
     </section>
     {deductions.length > 0 && <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6"><h2 className="font-extrabold">Deduction / addition details</h2><div className="mt-3 space-y-2">{deductions.map((item) => <div key={item.id} className="grid grid-cols-[1.2fr_1fr_.5fr_1fr] gap-2 rounded-lg bg-[#f5f8fc] p-3 text-xs sm:text-sm"><b>{item.name || item.opening_type}</b><span>{item.width} x {item.height}</span><span>Qty {item.quantity}</span><span className={`text-right font-bold ${item.effect === "ADD" ? "text-emerald-700" : "text-orange-700"}`}>{item.effect === "ADD" ? "+" : "-"}{areaText(item.effect === "ADD" ? item.area : item.effective_deduction)}</span></div>)}</div></section>}
   </div>;
@@ -628,7 +622,7 @@ function SummaryTab({ groups, summary, deductions }) {
 
 function SummaryStat({ tone, label, value }) {
   const colors = { blue: "border-blue-100 bg-blue-50 text-blue-800", orange: "border-orange-100 bg-orange-50 text-orange-700", green: "border-emerald-100 bg-emerald-50 text-emerald-700" };
-  return <div className={`rounded-xl border p-3 text-center sm:p-5 ${colors[tone]}`}><p className="text-[10px] font-bold uppercase leading-tight sm:text-xs">{label}</p><b className="mt-2 block text-lg sm:text-2xl">{number(value).toFixed(2)}</b><small>sq.ft</small></div>;
+  return <div className={`rounded-xl border p-3 text-center sm:p-5 ${colors[tone]}`}><p className="text-[10px] font-bold uppercase leading-tight sm:text-xs">{label}</p><b className="mt-2 block text-lg sm:text-2xl">{number(value).toFixed(0)}</b><small>sq.ft</small></div>;
 }
 
 function AreaViewDialog({ area, summary, close, edit }) {
@@ -658,7 +652,7 @@ function AreaViewDialog({ area, summary, close, edit }) {
             </button>
             {open && <>
               <div className="divide-y">{group.surfaces.map((surface) => <div key={surface.id} className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 text-sm"><span><b className="block">{surface.name}</b><small className="text-slate-500">{surface.length} x {surface.breadth} x {surface.quantity}</small></span><b>{areaText(surface.gross_area)}</b></div>)}</div>
-              {(group.deduction > 0 || group.addition > 0) && <footer className="grid grid-cols-3 gap-2 border-t bg-white px-4 py-3 text-center text-xs"><span>Gross<b className="block">{group.gross.toFixed(2)}</b></span><span>Deduct / Add<b className="block">-{group.deduction.toFixed(2)} / +{group.addition.toFixed(2)}</b></span><span>Net<b className="block">{group.net.toFixed(2)}</b></span></footer>}
+              {(group.deduction > 0 || group.addition > 0) && <footer className="grid grid-cols-3 gap-2 border-t bg-white px-4 py-3 text-center text-xs"><span>Gross<b className="block">{group.gross.toFixed(0)}</b></span><span>Deduct / Add<b className="block">-{group.deduction.toFixed(0)} / +{group.addition.toFixed(0)}</b></span><span>Net<b className="block">{group.net.toFixed(0)}</b></span></footer>}
             </>}
           </section>;
         })}

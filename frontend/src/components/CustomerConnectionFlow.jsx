@@ -7,6 +7,17 @@ export default function CustomerConnectionFlow({ onClose, onNewCustomer }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  function getErrorMessage(data) {
+    if (typeof data === "string") {
+      return "Customer could not be saved due to a server error. Please try again shortly.";
+    }
+    if (data?.detail || data?.message) return data.detail || data.message;
+    const messages = Object.values(data || {}).flatMap((value) =>
+      Array.isArray(value) ? value : [value],
+    ).filter((value) => typeof value === "string" && value.trim());
+    return messages.join(" ") || "Customer could not be saved. Please try again.";
+  }
+
   async function save(event) {
     event.preventDefault();
     setBusy(true);
@@ -16,7 +27,7 @@ export default function CustomerConnectionFlow({ onClose, onNewCustomer }) {
       onClose();
     } catch (requestError) {
       const data = requestError.response?.data;
-      setError(data?.detail || data?.message || Object.values(data || {}).flat().join(" ") || "Customer could not be saved.");
+      setError(getErrorMessage(data));
     } finally { setBusy(false); }
   }
 

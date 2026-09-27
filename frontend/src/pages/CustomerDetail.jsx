@@ -209,10 +209,34 @@ export default function CustomerDetail() {
     <BackButton fallback="/customers" label="Back to customers" />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
-    <section className="rounded-2xl border bg-white p-6"><p className="text-sm font-bold text-indigo-600">Saved customer contact</p><h1 className="mt-2 text-3xl font-bold">{customer.name}</h1><p className="mt-2 text-slate-600">{customer.mobile}</p><p className="mt-4 text-sm text-slate-500">Your contact details are saved. A connection lets you create and share work with the customer's account after they approve.</p>
+    <section className="rounded-2xl border bg-white p-6"><div className="flex flex-wrap items-center gap-3"><p className="text-sm font-bold text-indigo-600">Customer profile</p><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"}</span></div><h1 className="mt-2 text-3xl font-bold">{customer.name}</h1><p className="mt-2 text-slate-600">{customer.mobile}</p><p className="mt-4 text-sm text-slate-500">{customer.connection_status === "PENDING" ? "You can prepare properties, Area Calculations, and quotation drafts for this customer. Drafts stay private and cannot be sent until the customer approves your connection." : "Your contact details are saved. Send a connection request to prepare customer-specific work."}</p>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
       <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
     </section>
+    <div className="grid gap-6 md:grid-cols-2">
+      <Summary
+        title="Properties"
+        icon={Building2}
+        value={customer.properties?.length || 0}
+        items={(customer.properties || []).map((item) => ({
+          label: item.name || item.property_type || "Property",
+          to: "/properties/" + item.id,
+          state: { customerPath: "/customers/" + customer.id },
+        }))}
+        action={<div className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to={"/properties?customer=" + customer.id + "&action=add"} className="text-amber-700">Add property</Link><Link to={"/properties?customer=" + customer.id} className="text-slate-600">View all properties</Link></div>}
+      />
+      <Summary
+        title="Quotations"
+        icon={FileText}
+        value={customer.quotations?.length || 0}
+        items={(customer.quotations || []).slice(0, 4).map((item) => ({
+          label: (item.quotation_number || "Draft quotation") + (item.status === "DRAFT" ? " · Draft" : ""),
+          to: "/quotations/" + item.id,
+          state: { customerPath: "/customers/" + customer.id },
+        }))}
+        action={<div className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to={"/quotations/new?customer=" + customer.id} className="text-amber-700">Create quotation draft</Link><Link to={"/quotations?customer=" + customer.id} className="text-slate-600">View quotations</Link></div>}
+      />
+    </div>
     {editing && <CustomerForm initialValue={customer} onSubmit={updateCustomer} onClose={() => setEditing(false)} saving={saving} error={error} />}
   </div>;
 

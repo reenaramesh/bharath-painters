@@ -32,6 +32,7 @@ const statusColors = {
   QUOTATION_SENT: "bg-cyan-50 text-cyan-700",
   NEGOTIATION: "bg-orange-50 text-orange-700",
   CONTACTED: "bg-indigo-50 text-indigo-700",
+  PENDING: "bg-amber-50 text-amber-800",
 };
 const label = (value) =>
   value
@@ -123,8 +124,31 @@ export default function Customers() {
     return grouped;
   }, [properties]);
 
+  const directoryRows = useMemo(() => {
+    const savedCustomerIds = new Set(savedContacts.map((item) => String(item.id)));
+    const savedRows = savedContacts.map((item) =>
+      item.connection_status === "PENDING"
+        ? { ...item, status: "PENDING", is_pending_connection: true }
+        : item,
+    );
+    const pendingRows = connections
+      .filter((item) => item.status === "PENDING" && !savedCustomerIds.has(String(item.customer?.id || "")))
+      .map((item) => ({
+        id: item.customer?.id || `pending-${item.id}`,
+        connection_id: item.id,
+        name: item.customer?.name || item.customer?.masked_customer_id || "Bharath Painters customer",
+        mobile: item.customer?.mobile || item.customer?.masked_mobile || "",
+        bharath_id: item.customer?.masked_customer_id || "",
+        status: "PENDING",
+        connection_status: "PENDING",
+        requested_at: item.requested_at,
+        is_pending_connection: true,
+      }));
+    return [...customers, ...savedRows, ...pendingRows];
+  }, [customers, savedContacts, connections]);
+
   const filtered = useMemo(() => {
-    const result = customers.filter((customer) => {
+    const result = directoryRows.filter((customer) => {
       const term = search.toLowerCase();
       const customerProperties =
         propertiesByCustomer[String(customer.id)] || [];
@@ -166,7 +190,7 @@ export default function Customers() {
             });
       return sort.direction === "asc" ? comparison : -comparison;
     });
-  }, [customers, propertiesByCustomer, search, sort, status]);
+  }, [directoryRows, propertiesByCustomer, search, sort, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -329,7 +353,7 @@ export default function Customers() {
       )}
 
       <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{value === "CONNECTED" ? "All customers" : value === "PENDING" ? "Pending requests" : "Rejected"} ({value === "CONNECTED" ? customers.length + savedContacts.length : connections.filter((item) => item.status === value).length})</button>)}
+        {["CONNECTED", "PENDING", "REJECTED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{value === "CONNECTED" ? "All customers" : value === "PENDING" ? "Pending requests" : "Rejected"} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
@@ -337,7 +361,6 @@ export default function Customers() {
         {!connections.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
-      {connectionView === "CONNECTED" && savedContacts.length > 0 && <section className="space-y-3"><h2 className="font-bold">Saved contacts</h2><p className="text-sm text-slate-500">These details are saved. Open a profile to request a connection.</p><div className="grid gap-3 md:grid-cols-2">{savedContacts.filter(item => [item.name, item.mobile].some(value => String(value || "").toLowerCase().includes(search.toLowerCase()))).map(item => <Link key={item.id} to={`/customers/${item.id}`} className="rounded-2xl border bg-white p-5 hover:border-indigo-400"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{item.name}</h3><p className="mt-1 text-sm text-slate-500">{item.mobile}</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{item.connection_status === "NOT_CONNECTED" ? "Saved contact" : item.connection_status.replaceAll("_", " ")}</span></div><p className="mt-4 text-sm font-semibold text-indigo-700">Open customer profile</p></Link>)}</div></section>}
       <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white`}>
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5">
@@ -862,8 +885,11 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
           {groups[letter].map((customer) => {
             const customerProperties = propertiesByCustomer[String(customer.id)] || [];
             const primaryProperty = customerProperties[0];
-            const whatsappNumber = formatWhatsAppNumber(customer.whatsapp || customer.mobile);
-            return <div key={customer.id} role="button" tabIndex="0" onClick={() => navigate(`/customers/${customer.id}`)} onKeyDown={(event) => { if (event.key === "Enter") navigate(`/customers/${customer.id}`); }} className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-indigo-50/60 focus:bg-indigo-50/60 focus:outline-none md:grid-cols-[minmax(220px,1.1fr)_minmax(180px,1fr)_110px_100px] md:px-5">
+            const contactDetailsAvailable = !customer.is_pending_connection || /^\d+$/.test(String(customer.id));
+            const whatsappNumber = contactDetailsAvailable ? formatWhatsAppNumber(customer.whatsapp || customer.mobile) : "";
+            const canOpen = Boolean(customer.id && (!customer.is_pending_connection || /^\d+$/.test(String(customer.id))));
+            const openCustomer = () => { if (canOpen) navigate(`/customers/${customer.id}`); };
+            return <div key={customer.id} role={canOpen ? "button" : undefined} tabIndex={canOpen ? 0 : undefined} onClick={openCustomer} onKeyDown={(event) => { if (canOpen && event.key === "Enter") openCustomer(); }} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition focus:bg-indigo-50/60 focus:outline-none md:grid-cols-[minmax(220px,1.1fr)_minmax(180px,1fr)_110px_100px] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
               <div className="min-w-0">
                 <div className="flex items-center gap-2"><p className="truncate font-bold text-slate-950">{customer.name || "Unnamed customer"}</p><span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>{label(customer.status)}</span></div>
                 <p className="mt-0.5 truncate text-xs text-slate-500">{customer.bharath_id || "No customer ID"} · {customer.mobile || "No mobile"}</p>
@@ -871,8 +897,8 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
               <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
               <p className="hidden text-sm font-semibold text-slate-700 md:block">{customer.mobile || "—"}</p>
               <div className="flex items-center justify-end gap-2">
-                {!customer.bharath_id && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title={activatingCustomerId === customer.id ? "Creating Customer ID & Login..." : "Create Customer ID & Login"} aria-label={`Create ID for ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
-                <a href={customer.mobile ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
+                {!customer.bharath_id && !customer.is_pending_connection && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title={activatingCustomerId === customer.id ? "Creating Customer ID & Login..." : "Create Customer ID & Login"} aria-label={`Create ID for ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
+                <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
                 <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`}><MessageCircle className="h-4 w-4" /></a>
               </div>
               <div className="col-span-2 min-w-0 md:hidden"><p className="truncate text-xs font-semibold text-slate-700">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 text-[11px] text-slate-400">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"} · Tap contact to view</p></div>

@@ -19,7 +19,7 @@ import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
 
 const money = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
     Number(value || 0),
   );
 export default function QuotationDetail() {
@@ -64,6 +64,7 @@ export default function QuotationDetail() {
   const contractor = quotation.contractor_details;
   const revisedDraft =
     quotation.status === "DRAFT" && Boolean(quotation.customer_response_note);
+  const pendingCustomerConnection = customer?.connection_status === "PENDING";
   const paintingSubtotal = quotation.items
     .filter((item) => !item.is_additional_service)
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -152,9 +153,10 @@ export default function QuotationDetail() {
     }
   }
   return (
-    <div className="space-y-6">
-      {location.state?.draftSaved && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Quotation draft saved. Use Submit to Customer when it is ready to share.</p>}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="bp-quotation-page space-y-6">
+      {location.state?.draftSaved && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Quotation draft saved.</p>}
+      {pendingCustomerConnection && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">This quotation is a private draft. It can be sent after the customer accepts your connection request.</p>}
+      <div className="quotation-toolbar flex flex-wrap items-center justify-between gap-3">
         <BackButton
           fallback={backPath}
           label={customerPath ? "Back to customer" : "Back to quotations"}
@@ -173,7 +175,7 @@ export default function QuotationDetail() {
           {quotation.status === "DRAFT" ? (
             <button
               onClick={submitToCustomer}
-              disabled={submitting}
+              disabled={submitting || pendingCustomerConnection}
               className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
             >
               <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -181,9 +183,11 @@ export default function QuotationDetail() {
                 "Sending..."
               ) : (
                 <>
-                  <span className="sm:hidden">Send</span>
+                  <span className="sm:hidden">{pendingCustomerConnection ? "Pending" : "Send"}</span>
                   <span className="hidden sm:inline">
-                    {revisedDraft
+                    {pendingCustomerConnection
+                      ? "Waiting for Connection Approval"
+                      : revisedDraft
                       ? "Send Revised Quotation"
                       : "Submit to Customer"}
                   </span>
@@ -281,8 +285,8 @@ export default function QuotationDetail() {
           </section>
         )}
       <RevisionSummary changes={quotation.revision_changes} />
-      <section className="rounded-2xl border bg-white">
-        <div className="flex flex-col gap-5 border-b p-6 md:flex-row md:items-center md:justify-between">
+      <section className="quotation-sheet rounded-2xl border bg-white">
+        <div className="quotation-company-header flex flex-col gap-5 border-b p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             {contractor?.company_logo ? (
               <img
@@ -328,7 +332,7 @@ export default function QuotationDetail() {
             )}
           </div>
         </div>
-        <div className="flex flex-col gap-4 border-b p-6 sm:flex-row sm:justify-between">
+        <div className="quotation-number-header flex flex-col gap-4 border-b p-6 sm:flex-row sm:justify-between">
           <div>
             <p className="text-sm text-slate-500">Quotation</p>
             <h1 className="mt-1 text-3xl font-bold">
@@ -346,7 +350,7 @@ export default function QuotationDetail() {
             {quotation.status}
           </span>
         </div>
-        <div className="grid gap-5 p-6 md:grid-cols-2">
+        <div className="quotation-entity-cards grid gap-5 p-6 md:grid-cols-2">
           <Info
             icon={User}
             label="Customer"
@@ -361,7 +365,7 @@ export default function QuotationDetail() {
           />
         </div>
       </section>
-      <section className="rounded-2xl border bg-white">
+      <section className="quotation-items rounded-2xl border bg-white">
         <div className="border-b p-6">
           <h2 className="font-bold">Quotation items</h2>
         </div>
@@ -403,7 +407,7 @@ export default function QuotationDetail() {
           })}
         </div>
         <div className="hidden md:block" data-mobile-table="keep">
-          <table className="w-full table-fixed text-left text-xs lg:text-sm">
+          <table className="w-full min-w-[900px] table-fixed text-left text-xs lg:text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="w-[5%] px-3 py-4">#</th>
@@ -443,7 +447,7 @@ export default function QuotationDetail() {
             close={() => setMobileItem(null)}
           />
         )}
-        <div className="ml-auto w-full max-w-sm space-y-3 border-t p-6">
+        <div className="quotation-totals ml-auto w-full max-w-sm space-y-3 border-t p-6">
           <Total label="Painting subtotal" value={paintingSubtotal} />
           {additionalSubtotal > 0 && (
             <Total
@@ -463,7 +467,7 @@ export default function QuotationDetail() {
         </div>
       </section>
       {(quotation.notes || quotation.terms_conditions) && (
-        <section className="grid gap-6 rounded-2xl border bg-white p-6 md:grid-cols-2">
+        <section className="quotation-supporting-info grid gap-6 rounded-2xl border bg-white p-6 md:grid-cols-2">
           <div>
             <h2 className="font-bold">Notes</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
@@ -484,7 +488,7 @@ export default function QuotationDetail() {
         quotation.work_procedures ||
         quotation.prepared_by ||
         quotation.inspected_by) && (
-        <section className="rounded-2xl border bg-white p-6">
+        <section className="quotation-supporting-info rounded-2xl border bg-white p-6">
           <h2 className="font-bold">Work and payment details</h2>
           <div className="mt-4 grid gap-5 md:grid-cols-2">
             <DetailField label="Prepared by" value={quotation.prepared_by} />

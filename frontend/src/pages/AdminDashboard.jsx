@@ -105,10 +105,41 @@ export default function AdminDashboard() {
   const load = useCallback(async () => {
     try {
       const { data: response } = await api.get("/quotations/admin-dashboard/");
+      const sections = [
+        "contractors",
+        "applicators",
+        "customers",
+        "messages",
+        "quotations",
+      ];
+      if (
+        !response?.counts ||
+        sections.some((key) => !Array.isArray(response[key]))
+      ) {
+        throw new Error("The backend returned an unexpected admin dashboard response.");
+      }
       setData(response);
       setError("");
-    } catch {
-      setError("Admin dashboard could not be loaded.");
+    } catch (requestError) {
+      const statusCode = requestError.response?.status;
+      const detail = requestError.response?.data?.detail;
+      const message = requestError.message || "";
+      setError(
+        detail ||
+          (message.includes("unexpected admin dashboard response")
+            ? message
+            : statusCode === 401
+              ? "Your admin session has expired. Sign in again."
+              : statusCode === 403
+                ? "The current account does not have administrator access."
+              : statusCode === 404
+                  ? "The admin dashboard API route was not found on the backend."
+                  : statusCode >= 500
+                    ? `The backend failed to load the admin dashboard (HTTP ${statusCode}).`
+                    : !requestError.response
+                      ? "The backend could not be reached. Check the API URL and backend status."
+                      : `Admin dashboard could not be loaded (HTTP ${statusCode}).`),
+      );
     }
   }, []);
   useEffect(() => {

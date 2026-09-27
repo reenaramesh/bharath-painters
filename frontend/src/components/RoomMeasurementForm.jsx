@@ -1239,7 +1239,7 @@ function Item({ entry, unit, area, change, remove }) {
               Calculated area
             </p>
             <p className="font-bold text-emerald-950">
-              {area.toFixed(2)} sq ft
+              {area.toFixed(0)} sq ft
             </p>
           </div>
           <Delete action={remove} compact />
@@ -1262,7 +1262,7 @@ function Collapsed({ label, name, area, open }) {
         <p className="font-bold">{name}</p>
       </div>
       <div className="text-right">
-        <b>{area.toFixed(2)} sq ft</b>
+        <b>{area.toFixed(0)} sq ft</b>
         <small className="block text-amber-700">Click to edit</small>
       </div>
     </button>
@@ -1287,7 +1287,7 @@ function Field({ label, value, set, number, whole, className = "" }) {
 function Area({ value }) {
   return (
     <div className="text-sm sm:pt-6">
-      <b>{value.toFixed(2)} sq ft</b>
+      <b>{value.toFixed(0)} sq ft</b>
     </div>
   );
 }
@@ -1313,7 +1313,7 @@ function Total({ label, value, strong }) {
       className={`rounded-xl p-3 ${strong ? "bg-slate-950 text-white" : "bg-slate-50"}`}
     >
       <p className="text-xs opacity-65">{label}</p>
-      <p className="mt-1 font-bold">{value.toFixed(2)} sq ft</p>
+      <p className="mt-1 font-bold">{value.toFixed(0)} sq ft</p>
     </div>
   );
 }

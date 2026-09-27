@@ -329,7 +329,10 @@ def activate_customer_account(customer):
 
 def contractor_property_scope(user, prefix=""):
     return (
-        models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__status": ContractorCustomerConnection.Status.CONNECTED})
+        models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__status__in": (
+            ContractorCustomerConnection.Status.CONNECTED,
+            ContractorCustomerConnection.Status.PENDING,
+        )})
         | models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__isnull": True})
     )
 
@@ -420,7 +423,11 @@ def connection_data(connection, viewer_role=""):
     elif connection.status == ContractorCustomerConnection.Status.CONNECTED:
         data["customer"] = {"id": customer.id, "bharath_id": customer.bharath_id, "name": customer.name, "mobile": customer.mobile}
     else:
-        data["customer"] = {"masked_customer_id": masked_customer_id(customer.bharath_id), "masked_mobile": masked_mobile(customer.mobile)}
+        data["customer"] = {
+            "id": customer.id,
+            "masked_customer_id": masked_customer_id(customer.bharath_id),
+            "masked_mobile": masked_mobile(customer.mobile),
+        }
         contact = SavedCustomerContact.objects.filter(customer=customer, contractor=connection.contractor).first()
         if contact:
             data["customer"].update({"id": customer.id, "name": contact.details.get("name", ""), "mobile": contact.details.get("mobile", "")})
@@ -1115,10 +1122,20 @@ class CustomerListCreateView(
 
     serializer_class = CustomerSerializer
 
+    def handle_exception(self, exc):
+        if getattr(exc, "status_code", 500) >= 500:
+            logger.exception(
+                "Customer create/list request failed (user_id=%s)",
+                getattr(getattr(self.request, "user", None), "pk", None),
+            )
+        return super().handle_exception(exc)
+
     def get_queryset(self):
         if self.request.user.role != BharathUser.Roles.CONTRACTOR:
             return Customer.objects.none()
         scope = models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED)
+        if self.request.query_params.get("include_pending") == "1":
+            scope |= models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.PENDING)
         if self.request.query_params.get("include_saved") == "1":
             scope |= models.Q(saved_contacts__contractor=self.request.user)
         return Customer.objects.filter(scope).distinct().order_by("-updated_at")
@@ -1226,10 +1243,10 @@ class PropertyListCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
+            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
         ).first()
         if not connection:
-            raise ValidationError({"customer": "Connect with this customer before creating a property."})
+            raise ValidationError({"customer": "A customer connection request is required before creating a property."})
         if "measurement_unit" in self.request.data:
             serializer.save(contractor=self.request.user, connection=connection)
             return
@@ -1810,46 +1827,76 @@ class ServiceRequestListCreateView(APIView):
         queryset.filter(**{f"{field}__isnull": True}).update(**{field: timezone.now()})
         return Response(data)
 
+    @transaction.atomic
     def post(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Only customers can raise service requests."}, status=status.HTTP_403_FORBIDDEN)
         selector = request.data.get("connection") or request.data.get("customer")
-        connection = ContractorCustomerConnection.objects.select_related("customer", "contractor").filter(
-            pk=selector,
-            customer__portal_user=request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
-        ).first()
-        if not connection:
-            legacy_customer = Customer.objects.filter(pk=request.data.get("customer"), portal_user=request.user).first()
-            legacy_connections = ContractorCustomerConnection.objects.filter(
-                customer=legacy_customer,
+        try:
+            selector_id = int(selector)
+            if selector_id < 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({"connection": "Select a valid connected contractor."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            connection = ContractorCustomerConnection.objects.select_related("customer", "contractor").filter(
+                pk=selector_id,
+                customer__portal_user=request.user,
                 status=ContractorCustomerConnection.Status.CONNECTED,
-            ) if legacy_customer else ContractorCustomerConnection.objects.none()
-            if legacy_connections.count() == 1:
-                connection = legacy_connections.first()
-        if not connection:
-            return Response({"connection": "Select the contractor for this service request."}, status=status.HTTP_400_BAD_REQUEST)
-        customer = connection.customer
-        service = ServiceType.objects.filter(pk=request.data.get("service_type"), is_active=True).filter(
-            models.Q(created_by=connection.contractor) | models.Q(created_by__isnull=True)
-        ).first()
-        title = str(request.data.get("title") or (service.name if service else "")).strip()
-        if not title:
-            return Response({"title": "Select a service or enter a request title."}, status=status.HTTP_400_BAD_REQUEST)
-        preferred_date = request.data.get("preferred_date") or None
-        item = ServiceRequest.objects.create(
-            customer=customer, connection=connection, service_type=service, title=title,
-            description=str(request.data.get("description") or "").strip(),
-            preferred_date=preferred_date,
-            address=str(request.data.get("address") or customer.address or "").strip(),
-            customer_seen_at=timezone.now(),
-        )
-        Lead.objects.create(
-            contractor=connection.contractor, customer=customer, service_request=item,
-            service_type=service, title=title, description=item.description,
-        )
-        create_notification(connection.contractor, "SERVICE_REQUEST", "New service request", f"{customer.name}: {title}", "/service-requests", request.user)
-        return Response(service_request_data(item), status=status.HTTP_201_CREATED)
+            ).first()
+            if not connection:
+                try:
+                    legacy_customer_id = int(request.data.get("customer"))
+                except (TypeError, ValueError):
+                    legacy_customer_id = None
+                legacy_customer = Customer.objects.filter(pk=legacy_customer_id, portal_user=request.user).first() if legacy_customer_id else None
+                legacy_connections = ContractorCustomerConnection.objects.filter(
+                    customer=legacy_customer,
+                    status=ContractorCustomerConnection.Status.CONNECTED,
+                ) if legacy_customer else ContractorCustomerConnection.objects.none()
+                if legacy_connections.count() == 1:
+                    connection = legacy_connections.first()
+            if not connection:
+                return Response({"connection": "Select the contractor for this service request."}, status=status.HTTP_400_BAD_REQUEST)
+            customer = connection.customer
+            raw_service_type = request.data.get("service_type")
+            try:
+                service_type_id = int(raw_service_type) if raw_service_type not in (None, "") else None
+            except (TypeError, ValueError):
+                return Response({"service_type": "Select a valid service."}, status=status.HTTP_400_BAD_REQUEST)
+            service = ServiceType.objects.filter(pk=service_type_id, is_active=True).filter(
+                models.Q(created_by=connection.contractor) | models.Q(created_by__isnull=True)
+            ).first() if service_type_id else None
+            title = str(request.data.get("title") or (service.name if service else "")).strip()
+            if not title:
+                return Response({"title": "Select a service or enter a request title."}, status=status.HTTP_400_BAD_REQUEST)
+            raw_preferred_date = request.data.get("preferred_date") or ""
+            try:
+                preferred_date = parse_date(str(raw_preferred_date)) if raw_preferred_date else None
+            except ValueError:
+                preferred_date = None
+            if raw_preferred_date and not preferred_date:
+                return Response({"preferred_date": "Enter a valid date."}, status=status.HTTP_400_BAD_REQUEST)
+            item = ServiceRequest.objects.create(
+                customer=customer, connection=connection, service_type=service, title=title,
+                description=str(request.data.get("description") or "").strip(),
+                preferred_date=preferred_date,
+                address=str(request.data.get("address") or customer.address or "").strip(),
+                customer_seen_at=timezone.now(),
+            )
+            Lead.objects.create(
+                contractor=connection.contractor, customer=customer, service_request=item,
+                service_type=service, title=title, description=item.description,
+            )
+            create_notification(connection.contractor, "SERVICE_REQUEST", "New service request", f"{customer.name}: {title}", "/service-requests", request.user)
+            return Response(service_request_data(item), status=status.HTTP_201_CREATED)
+        except Exception:
+            logger.exception(
+                "Customer service request submission failed (user_id=%s, connection_id=%s)",
+                request.user.pk,
+                selector,
+            )
+            raise
 
 
 def lead_data(item):
@@ -2517,7 +2564,11 @@ class AdminOperationsDashboardView(APIView):
             "requirement": item.requirement,
             "status": item.status,
             "source": item.source,
-            "contractor": item.contractor.get_full_name() or item.contractor.mobile,
+            "contractor": (
+                item.contractor.get_full_name() or item.contractor.mobile
+                if item.contractor
+                else "Unassigned"
+            ),
             "contractor_id": item.contractor_id,
             "portal_enabled": bool(item.portal_user_id),
             "created_at": item.created_at,
@@ -3369,7 +3420,12 @@ class CustomerPropertyListView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        properties = Property.objects.filter(customer__portal_user=request.user).select_related(
+        properties = Property.objects.filter(
+            customer__portal_user=request.user,
+        ).filter(
+            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
+            | models.Q(connection__isnull=True)
+        ).select_related(
             "customer", "contractor", "contractor__contractor_profile", "connection__contractor"
         ).annotate(room_count=models.Count("rooms", filter=models.Q(rooms__measurement_record__submitted_at__isnull=False), distinct=True), surface_count=models.Count("measurement_surfaces", filter=models.Q(measurement_surfaces__measurement_record__submitted_at__isnull=False), distinct=True)).order_by("-updated_at")
         data = []
@@ -3393,7 +3449,10 @@ class CustomerPropertyDetailView(APIView):
 
     def get(self, request, pk):
         property_obj = Property.objects.select_related("customer", "contractor", "contractor__contractor_profile", "connection__contractor").filter(
-            pk=pk, customer__portal_user=request.user
+            pk=pk, customer__portal_user=request.user,
+        ).filter(
+            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
+            | models.Q(connection__isnull=True)
         ).first()
         if not property_obj:
             return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -3450,7 +3509,10 @@ class CustomerPropertyMeasurementPdfView(APIView):
 
     def get(self, request, pk):
         property_obj = Property.objects.select_related("customer").filter(
-            pk=pk, customer__portal_user=request.user
+            pk=pk, customer__portal_user=request.user,
+        ).filter(
+            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
+            | models.Q(connection__isnull=True)
         ).first()
         if not property_obj:
             return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -3473,6 +3535,8 @@ class QuotationSubmitView(APIView):
         quotation = Quotation.objects.select_related("customer").filter(pk=pk, contractor=request.user).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+        if quotation.connection_id and quotation.connection.status != ContractorCustomerConnection.Status.CONNECTED:
+            return Response({"detail": "The customer must accept your connection request before you can send this quotation."}, status=status.HTTP_403_FORBIDDEN)
         if quotation.status != Quotation.Status.DRAFT:
             return Response(
                 {"detail": "Only a draft quotation can be submitted. Previous versions are preserved."},
@@ -3518,10 +3582,10 @@ class QuotationListCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
+            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
         ).first()
         if not connection:
-            raise ValidationError({"customer": "Connect with this customer before creating a quotation."})
+            raise ValidationError({"customer": "A customer connection request is required before creating a quotation."})
         serializer.save(
             contractor=self.request.user,
             connection=connection,
@@ -3580,11 +3644,11 @@ class QuotationPreviewPdfView(APIView):
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer,
             contractor=request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
+            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
         ).first()
         if not connection:
             raise ValidationError({
-                "customer": "Connect with this customer before previewing a quotation."
+                "customer": "A customer connection request is required before previewing a quotation."
             })
 
         with transaction.atomic():
@@ -3619,10 +3683,10 @@ class QuotationCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
+            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
         ).first()
         if not connection:
-            raise ValidationError({"customer": "Connect with this customer before creating a quotation."})
+            raise ValidationError({"customer": "A customer connection request is required before creating a quotation."})
         quotation = serializer.save(
             contractor=self.request.user,
             connection=connection,
@@ -3849,6 +3913,9 @@ class CustomerDetailView(
                 contractor_connections__contractor=self.request.user,
                 contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
             ) | models.Q(saved_contacts__contractor=self.request.user) | models.Q(
+                contractor_connections__contractor=self.request.user,
+                contractor_connections__status=ContractorCustomerConnection.Status.PENDING,
+            ) | models.Q(
                 contractor=self.request.user,
                 contractor_connections__isnull=True,
             )
@@ -4055,7 +4122,7 @@ class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
         return PropertyMeasurement.objects.filter(
             contractor=self.request.user,
         ).filter(
-            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
+            models.Q(connection__status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING))
             | models.Q(connection__isnull=True)
         ).select_related("contractor", "contractor__contractor_profile").prefetch_related("surfaces__openings", "rooms")
 

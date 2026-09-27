@@ -184,9 +184,45 @@ class ConnectionScopedCustomerMixin:
         request = self.context.get("request")
         if not connection and request and request.user.role == BharathUser.Roles.CONTRACTOR:
             contact = SavedCustomerContact.objects.filter(customer=instance, contractor=request.user).first()
-            if contact:
-                pending = ContractorCustomerConnection.objects.filter(customer=instance, contractor=request.user).first()
-                return saved_contact_representation(contact, pending)
+            pending = ContractorCustomerConnection.objects.filter(
+                customer=instance, contractor=request.user,
+                status=ContractorCustomerConnection.Status.PENDING,
+            ).first()
+            if contact or pending:
+                if contact:
+                    representation = saved_contact_representation(contact, pending)
+                else:
+                    raw_customer_id = str(instance.bharath_id or "")
+                    digits = "".join(character for character in str(instance.mobile or "") if character.isdigit())
+                    masked_id = f"BP-C-******{raw_customer_id[-3:]}" if raw_customer_id else "BP-C-*********"
+                    representation = {
+                        "id": instance.id,
+                        "name": masked_id,
+                        "mobile": f"******{digits[-4:]}" if len(digits) >= 4 else "**********",
+                        "bharath_id": masked_id,
+                        "status": "PENDING",
+                        "connection_status": "PENDING",
+                        "is_saved_contact": True,
+                        "properties": [], "quotations": [], "follow_ups": [], "work_history": [],
+                    }
+                if pending:
+                    representation["connection_status"] = pending.status
+                    representation["status"] = "PENDING"
+                    representation["is_pending_connection"] = True
+                    raw_customer_id = str(instance.bharath_id or "")
+                    representation.setdefault(
+                        "bharath_id",
+                        f"BP-C-******{raw_customer_id[-3:]}" if raw_customer_id else "BP-C-*********",
+                    )
+                    properties = instance.properties.filter(contractor=request.user, connection=pending).order_by("-updated_at")
+                    quotations = instance.quotations.filter(contractor=request.user, connection=pending).order_by("-updated_at")
+                    representation["properties"] = PropertySerializer(
+                        properties, many=True, context=self.context,
+                    ).data
+                    representation["quotations"] = QuotationSerializer(
+                        quotations, many=True, context=self.context,
+                    ).data
+                return representation
         representation = super().to_representation(instance)
         if not connection:
             return representation
@@ -289,12 +325,12 @@ class PropertySerializer(serializers.ModelSerializer):
         customer = attrs.get("customer", getattr(self.instance, "customer", None))
         request = self.context.get("request")
         if request and customer:
-            connected = ContractorCustomerConnection.objects.filter(
+            connection = ContractorCustomerConnection.objects.filter(
                 customer=customer,
                 contractor=request.user,
-                status=ContractorCustomerConnection.Status.CONNECTED,
-            ).exists()
-            if not connected and customer.contractor_id == request.user.id:
+                status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+            ).first()
+            if not connection and customer.contractor_id == request.user.id:
                 connection, _ = ContractorCustomerConnection.objects.get_or_create(
                     customer=customer,
                     contractor=request.user,
@@ -304,9 +340,8 @@ class PropertySerializer(serializers.ModelSerializer):
                         "approval_method": ContractorCustomerConnection.ApprovalMethod.INITIAL_CREATOR,
                     },
                 )
-                connected = connection.status == ContractorCustomerConnection.Status.CONNECTED
-            if not connected:
-                raise serializers.ValidationError({"customer": "Connect with this customer before creating a property."})
+            if not connection:
+                raise serializers.ValidationError({"customer": "A customer connection request is required before creating a property."})
         if (
             self.instance
             and "measurement_unit" in attrs
@@ -377,9 +412,18 @@ class WorkDescriptionSerializer(serializers.ModelSerializer):
     def validate_customer(self, customer):
         request = self.context.get("request")
         if request and customer.contractor_id != request.user.id:
-            raise serializers.ValidationError(
-                "You cannot create a property for another contractor's customer."
-            )
+            permitted = ContractorCustomerConnection.objects.filter(
+                customer=customer,
+                contractor=request.user,
+                status__in=(
+                    ContractorCustomerConnection.Status.CONNECTED,
+                    ContractorCustomerConnection.Status.PENDING,
+                ),
+            ).exists()
+            if not permitted:
+                raise serializers.ValidationError(
+                    "You need an active or pending customer connection before creating a property."
+                )
         return customer
 
 
@@ -1330,7 +1374,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             connection = ContractorCustomerConnection.objects.filter(
                 customer=customer,
                 contractor=request.user,
-                status=ContractorCustomerConnection.Status.CONNECTED,
+                status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
             ).first()
             if not connection and customer.contractor_id == request.user.id:
                 connection, _ = ContractorCustomerConnection.objects.get_or_create(

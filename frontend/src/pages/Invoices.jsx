@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
 
 const money = (v) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
     Number(v || 0),
   );
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
@@ -522,7 +522,7 @@ export default function Invoices() {
                   {row.surface === "WALL" ? <><Field label="Height"><input required type="number" min="0.01" step="0.01" value={row.height} onChange={(e) => adjustment(index, "height", e.target.value)} /></Field><Field label="Length"><input required type="number" min="0.01" step="0.01" value={row.length} onChange={(e) => adjustment(index, "length", e.target.value)} /></Field></> : <><Field label="Length"><input required type="number" min="0.01" step="0.01" value={row.length} onChange={(e) => adjustment(index, "length", e.target.value)} /></Field><Field label="Width"><input required type="number" min="0.01" step="0.01" value={row.width} onChange={(e) => adjustment(index, "width", e.target.value)} /></Field></>}
                   <Field label="Qty"><input required type="number" min="1" step="1" value={row.quantity || 1} onChange={(e) => adjustment(index, "quantity", e.target.value)} /></Field>
                   <Field label="Rate / sq ft"><input required type="number" min="0" step="0.01" value={row.rate ?? ""} onChange={(e) => adjustment(index, "rate", e.target.value)} placeholder="Enter rate" /></Field>
-                  <div className={`rounded-xl p-2.5 text-sm font-bold ${row.action === "REMOVE" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}><span className="block text-[10px] uppercase">Area</span>{row.action === "REMOVE" ? "−" : "+"}{adjustmentArea(row).toFixed(2)} sq ft</div>
+                  <div className={`rounded-xl p-2.5 text-sm font-bold ${row.action === "REMOVE" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}><span className="block text-[10px] uppercase">Area</span>{row.action === "REMOVE" ? "−" : "+"}{adjustmentArea(row).toFixed(0)} sq ft</div>
                   <div className={`rounded-xl p-2.5 text-sm font-bold ${row.action === "REMOVE" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}><span className="block text-[10px] uppercase">Amount</span>{row.action === "REMOVE" ? "−" : "+"}{money(adjustmentAmount(row))}</div>
                   <button type="button" aria-label="Delete adjustment" onClick={() => setEditing((current) => ({ ...current, measurement_adjustments: current.measurement_adjustments.filter((_, position) => position !== index) }))} className="rounded-lg p-2.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                 </div>)}
@@ -637,7 +637,7 @@ export default function Invoices() {
                         <td className="p-2"><span className="font-semibold">Net {row.surface === "WALL" ? "Wall" : "Ceiling"} Adjustment</span><small className="block text-slate-500">{row.count} area {row.count === 1 ? "entry" : "entries"} combined</small></td>
                         <td className="p-2">—</td>
                         <td className="p-2">Sq ft</td>
-                        <td className={`p-2 font-bold ${signedArea < 0 ? "text-red-700" : "text-emerald-700"}`}>{signedArea > 0 ? "+" : ""}{signedArea.toFixed(2)}</td>
+                        <td className={`p-2 font-bold ${signedArea < 0 ? "text-red-700" : "text-emerald-700"}`}>{signedArea > 0 ? "+" : ""}{signedArea.toFixed(0)}</td>
                         <td className="p-2">{money(row.rate)}</td>
                         <td className={`p-2 font-bold ${amount < 0 ? "text-red-700" : "text-emerald-700"}`}>{amount > 0 ? "+" : ""}{money(amount)}</td>
                         <td className="p-2 text-[11px] text-slate-500">Managed above</td>
@@ -648,7 +648,7 @@ export default function Invoices() {
                 <tfoot className="border-t-2 bg-slate-100">
                   <tr>
                     <td colSpan="6" className="p-3 text-right font-bold">Calculated invoice total</td>
-                    <td className="p-3 font-bold">{previewTotals.netMeasurementArea >= 0 ? "+" : ""}{previewTotals.netMeasurementArea.toFixed(2)} sq ft change</td>
+                    <td className="p-3 font-bold">{previewTotals.netMeasurementArea >= 0 ? "+" : ""}{previewTotals.netMeasurementArea.toFixed(0)} sq ft change</td>
                     <td className="p-3"></td>
                     <td className="p-3 font-extrabold">{money(previewTotals.subtotal)}</td>
                     <td className="p-3"></td>
@@ -831,5 +831,5 @@ function calculateCreateTotal(invoice) {
 }
 function AdjustmentTotal({ label, rows, surface }) {
   const value = rows.filter((row) => row.surface === surface).reduce((sum, row) => sum + adjustmentArea(row) * (row.action === "REMOVE" ? -1 : 1), 0);
-  return <span><b>{label}:</b> {value >= 0 ? "+" : ""}{value.toFixed(2)} sq ft</span>;
+  return <span><b>{label}:</b> {value >= 0 ? "+" : ""}{value.toFixed(0)} sq ft</span>;
 }

@@ -5,6 +5,8 @@ import {
   BriefcaseBusiness,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   MessageCircle,
   Paintbrush,
@@ -38,34 +40,25 @@ const columns = {
     ["name", "Owner"],
     ["mobile", "Mobile"],
     ["bharath_id", "Bharath ID"],
-    ["working_today", "Today"],
-    ["current_work", "Current project / customer"],
-    ["work_dates", "Work dates"],
-    ["service_areas", "Service areas"],
+    ["profile_completion", "Profile"],
     ["team_size", "Team"],
+    ["service_areas", "Service areas"],
   ],
   applicators: [
     ["name", "Name"],
     ["mobile", "Mobile"],
     ["bharath_id", "Bharath ID"],
-    ["working_today", "Today"],
-    ["current_work", "Current project / customer"],
-    ["work_dates", "Work dates"],
     ["experience_years", "Experience"],
     ["skills", "Skills"],
-    ["locations", "Locations"],
     ["teams", "Teams"],
   ],
   customers: [
     ["bharath_id", "Customer ID"],
     ["name", "Customer"],
     ["mobile", "Mobile"],
-    ["email", "Email"],
     ["city", "City"],
-    ["status", "Status"],
-    ["source", "Source"],
     ["contractor", "Contractor"],
-    ["portal_enabled", "Portal"],
+    ["email", "Email"],
   ],
   messages: [
     ["created_at", "Date/time"],
@@ -102,6 +95,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [selectedIds, setSelectedIds] = useState([]);
   const load = useCallback(async () => {
     try {
       const { data: response } = await api.get("/quotations/admin-dashboard/");
@@ -147,6 +141,7 @@ export default function AdminDashboard() {
   }, [load]);
   useEffect(() => {
     setFilter("ALL");
+    setSelectedIds([]);
     setSort({
       key: section === "messages" ? "created_at" : columns[section][0][0],
       direction: section === "messages" ? "desc" : "asc",
@@ -199,6 +194,34 @@ export default function AdminDashboard() {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
   useEffect(() => setPage(1), [section, search, filter, pageSize]);
+  useEffect(() => setSelectedIds([]), [search, filter, page]);
+  function toggleSelected(id) {
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+  function togglePageSelection() {
+    const ids = pagedRows.map((row) => row.id);
+    setSelectedIds((current) => ids.every((id) => current.includes(id))
+      ? current.filter((id) => !ids.includes(id))
+      : [...new Set([...current, ...ids])]);
+  }
+  async function deleteSelected() {
+    if (!selectedIds.length || saving) return;
+    const count = selectedIds.length;
+    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}?\n\nTheir account access will be removed. Related business records will be preserved.`)) return;
+    setSaving(true);
+    const failed = [];
+    for (const id of selectedIds) {
+      try {
+        await api.delete(`/quotations/admin-dashboard/${section}/${id}/`);
+      } catch {
+        failed.push(id);
+      }
+    }
+    await load();
+    setSelectedIds(failed);
+    if (failed.length) setError(`${count - failed.length} of ${count} records removed. ${failed.length} could not be removed; those selections remain checked.`);
+    setSaving(false);
+  }
   async function saveRecord(form) {
     setSaving(true);
     setError("");
@@ -238,6 +261,7 @@ export default function AdminDashboard() {
     try {
       await api.delete(`/quotations/admin-dashboard/${section}/${row.id}/`);
       await load();
+      setSelectedIds((current) => current.filter((id) => id !== row.id));
     } catch (err) {
       setError(
         Object.values(err.response?.data || {})
@@ -279,7 +303,7 @@ export default function AdminDashboard() {
       <LoadingState label="Loading administration data..." />
     );
   return (
-    <div className="space-y-6">
+    <div className="admin-dashboard space-y-4">
       <PageHeader
         eyebrow="Administration"
         title="Operations dashboard"
@@ -319,21 +343,12 @@ export default function AdminDashboard() {
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
-      <ActiveTodayCounts
-        contractors={
-          data.contractors.filter((item) => item.working_today).length
-        }
-        applicators={
-          data.applicators.filter((item) => item.working_today).length
-        }
-        openSection={setSection}
-      />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {sections.map(({ key, label, icon }) => (
           <button
             key={key}
             onClick={() => setSection(key)}
-            className={`rounded-2xl text-left transition ${section === key ? "ring-2 ring-indigo-500 ring-offset-2" : ""}`}
+            className={`admin-summary rounded-xl text-left transition ${section === key ? "is-active" : ""}`}
           >
             <StatCard
               icon={icon}
@@ -344,9 +359,9 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
-      <section className="overflow-hidden rounded-2xl border bg-white">
-        <div className="flex flex-col gap-3 border-b p-4 lg:flex-row">
-          <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
+      <section className="overflow-hidden rounded-xl border bg-white">
+        <div className="flex flex-col gap-2 border-b p-3 lg:flex-row">
+          <label className="flex flex-1 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
@@ -355,39 +370,54 @@ export default function AdminDashboard() {
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="rounded-xl border px-4 py-3 text-sm"
-          >
-            <option value="ALL">All statuses / roles</option>
-            {filterOptions.map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
+          {section !== "customers" && (
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            >
+              <option value="ALL">All statuses / roles</option>
+              {filterOptions.map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={exportCurrentCsv}
-            className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold"
+            className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"
           >
             <Download className="h-4 w-4" />
             Export current CSV
           </button>
         </div>
-        <div className="flex items-center justify-between border-b bg-slate-50 px-5 py-3">
+        <div className="flex items-center justify-between border-b bg-slate-50 px-4 py-2">
           <p className="text-sm font-semibold">{rows.length} records</p>
           <p className="text-xs text-slate-400">
             Click a column heading to sort
           </p>
         </div>
+        {editable && selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 border-b bg-[var(--app-soft)] px-4 py-2">
+            <span className="text-sm font-semibold text-[var(--app-primary)]">{selectedIds.length} selected</span>
+            <button type="button" disabled={saving} onClick={deleteSelected} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+              <Trash2 className="h-4 w-4" /> {saving ? "Deleting..." : "Delete selected"}
+            </button>
+            <button type="button" disabled={saving} onClick={() => setSelectedIds([])} className="text-xs font-semibold text-slate-600 hover:underline">Clear selection</button>
+          </div>
+        )}
         <DataTable
           section={section}
           rows={pagedRows}
+          startIndex={(page - 1) * pageSize}
           sort={sort}
           setSort={setSort}
           editable={editable}
           onEdit={setEditing}
           onDelete={deleteAccess}
           saving={saving}
+          selectedIds={selectedIds}
+          onToggleSelected={toggleSelected}
+          onTogglePageSelection={togglePageSelection}
         />
         <div className="flex flex-col gap-3 border-t bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
@@ -504,6 +534,7 @@ function WorkingTable({ title, icon: Icon, rows, type, open }) {
         <table className="w-full min-w-[620px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
+              <th className="px-4 py-3">Sl.</th>
               <th className="px-4 py-3">
                 {type === "contractors" ? "Company / contractor" : "Applicator"}
               </th>
@@ -514,8 +545,9 @@ function WorkingTable({ title, icon: Icon, rows, type, open }) {
           </thead>
           <tbody className="divide-y">
             {rows.length ? (
-              rows.map((row) => (
+              rows.map((row, index) => (
                 <tr key={row.id}>
+                  <td className="px-4 py-3">{index + 1}</td>
                   <td className="px-4 py-3">
                     <p className="font-semibold">
                       {type === "contractors" ? row.company : row.name}
@@ -535,7 +567,7 @@ function WorkingTable({ title, icon: Icon, rows, type, open }) {
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-slate-400">
+                <td colSpan="5" className="p-8 text-center text-slate-400">
                   Nobody is scheduled to work today.
                 </td>
               </tr>
@@ -550,12 +582,16 @@ function WorkingTable({ title, icon: Icon, rows, type, open }) {
 function DataTable({
   section,
   rows,
+  startIndex,
   sort,
   setSort,
   editable,
   onEdit,
   onDelete,
   saving,
+  selectedIds,
+  onToggleSelected,
+  onTogglePageSelection,
 }) {
   function choose(key) {
     setSort((current) => ({
@@ -565,15 +601,19 @@ function DataTable({
     }));
   }
   return (
-    <div className="overflow-auto">
-      <table className="w-full min-w-[1100px] text-left text-sm">
-        <thead className="sticky top-0 bg-white">
+    <div className="overflow-x-auto">
+      <table className="admin-directory-table w-full text-left text-xs sm:text-sm">
+        <thead className="bg-slate-50">
           <tr>
+            <th className="border-b px-2 py-2 sm:px-3">Sl.</th>
+            {editable && <th className="border-b px-2 py-2 sm:px-3">
+              <input type="checkbox" aria-label="Select all rows on this page" checked={rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))} ref={(node) => { if (node) node.indeterminate = rows.some((row) => selectedIds.includes(row.id)) && !rows.every((row) => selectedIds.includes(row.id)); }} onChange={onTogglePageSelection} disabled={saving || rows.length === 0} className="h-4 w-4 accent-[var(--app-primary)]" />
+            </th>}
             {columns[section].map(([key, label]) => (
-              <th key={key} className="border-b px-4 py-3">
+              <th key={key} className="border-b px-2 py-2 sm:px-3">
                 <button
                   onClick={() => choose(key)}
-                  className="flex items-center gap-1 font-bold"
+                  className="flex items-center gap-1 text-left font-bold"
                 >
                   {label}
                   <ArrowDownUp
@@ -582,38 +622,41 @@ function DataTable({
                 </button>
               </th>
             ))}
-            {editable && <th className="border-b px-4 py-3">Actions</th>}
+            {editable && <th className="border-b px-2 py-2 sm:px-3">Actions</th>}
           </tr>
         </thead>
         <tbody>
           {rows.length ? (
-            rows.map((row) => (
+            rows.map((row, index) => (
               <tr key={row.id} className="border-b hover:bg-slate-50">
+                <td className="px-2 py-2 align-top text-slate-500 sm:px-3">{startIndex + index + 1}</td>
+                {editable && <td className="px-2 py-2 align-top sm:px-3"><input type="checkbox" aria-label={`Select ${row.name || row.company}`} checked={selectedIds.includes(row.id)} onChange={() => onToggleSelected(row.id)} disabled={saving} className="h-4 w-4 accent-[var(--app-primary)]" /></td>}
                 {columns[section].map(([key]) => (
                   <td
                     key={key}
-                    className={`max-w-xs px-4 py-3 ${key === "text" || key === "skills" || key === "service_areas" ? "whitespace-normal" : "whitespace-nowrap"}`}
+                    className={`max-w-[220px] break-words px-2 py-2 align-top sm:px-3 ${key === "mobile" || key === "bharath_id" ? "whitespace-nowrap" : ""}`}
                   >
                     {display(key, row[key])}
                   </td>
                 ))}
                 {editable && (
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
                     <button
                       onClick={() => onEdit(row)}
-                      className="mr-2 rounded-lg border p-2"
+                      className="mr-1 rounded-lg border p-2 hover:bg-slate-50"
                       title="Edit"
+                      aria-label={`Edit ${row.name || row.company}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       disabled={saving}
                       onClick={() => onDelete(row)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 font-semibold text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center justify-center rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
                       title="Delete account access"
+                      aria-label={`Delete access for ${row.name || row.company}`}
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete
                     </button>
                   </td>
                 )}
@@ -622,7 +665,7 @@ function DataTable({
           ) : (
             <tr>
               <td
-                colSpan={columns[section].length + (editable ? 1 : 0)}
+                colSpan={columns[section].length + (editable ? 3 : 1)}
                 className="p-12 text-center text-slate-400"
               >
                 No matching records.
@@ -635,6 +678,7 @@ function DataTable({
   );
 }
 function display(key, value) {
+  if (key === "profile_completion") return `${value ?? 0}%`;
   if (key === "grand_total")
     return `₹${Number(value || 0).toLocaleString("en-IN")}`;
   if (key === "created_at" || key === "updated_at")
@@ -716,6 +760,7 @@ function RecordModal({
             source: "OTHER",
           };
   const [form, setForm] = useState({ ...blank, ...record, password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const input = "mt-2 w-full rounded-xl border px-3 py-3 font-normal";
   const change = (name) => ({
     value: form[name] ?? "",
@@ -754,25 +799,28 @@ function RecordModal({
             <input required {...change("mobile")} className={input} />
           </Field>
           <Field label="Email">
-            <input type="email" {...change("email")} className={input} />
+            <input type="email" required={section === "contractors" && !record.id} {...change("email")} className={input} />
           </Field>
           {section !== "customers" && (
-            <Field
-              label={
-                record.id
-                  ? "New password (optional)"
-                  : "Password (blank = generated)"
-              }
-            >
-              <input
-                type="text"
-                minLength={form.password ? 8 : undefined}
-                {...change("password")}
-                className={input}
-              />
-            </Field>
+            <div className="text-sm font-semibold">
+              <label htmlFor="admin-record-password">{record.id ? "New password (optional)" : section === "contractors" ? "Password" : "Password (blank = generated)"}</label>
+              <span className="relative block">
+                <input
+                  id="admin-record-password"
+                  type={showPassword ? "text" : "password"}
+                  required={section === "contractors" && !record.id}
+                  minLength={form.password ? 8 : undefined}
+                  autoComplete="new-password"
+                  {...change("password")}
+                  className={`${input} pr-12`}
+                />
+                <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-2 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </span>
+            </div>
           )}
-          {section === "contractors" && (
+          {section === "contractors" && record.id && (
             <>
               <Field label="Company">
                 <input required {...change("company")} className={input} />
@@ -863,40 +911,6 @@ function RecordModal({
                     <option key={item.id} value={item.id}>
                       {item.company} · {item.mobile}
                     </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Status">
-                <select {...change("status")} className={input}>
-                  {[
-                    "NEW",
-                    "CONTACTED",
-                    "FOLLOW_UP",
-                    "SITE_VISIT",
-                    "QUOTATION_SENT",
-                    "NEGOTIATION",
-                    "WON",
-                    "LOST",
-                    "CANCELLED",
-                  ].map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Source">
-                <select {...change("source")} className={input}>
-                  {[
-                    "WEBSITE",
-                    "PHONE",
-                    "WHATSAPP",
-                    "FACEBOOK",
-                    "INSTAGRAM",
-                    "GOOGLE",
-                    "REFERRAL",
-                    "WALK_IN",
-                    "OTHER",
-                  ].map((item) => (
-                    <option key={item}>{item}</option>
                   ))}
                 </select>
               </Field>

@@ -71,16 +71,16 @@ export default function ActivityLog() {
         <div>
           <p className="text-sm font-semibold text-indigo-600">Process monitoring</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">Activity Log</h1>
-          <p className="mt-1 text-sm text-slate-500">Track who created, updated, or deleted records and when it happened.</p>
+          <p className="mt-1 text-sm text-slate-500">Track who created, updated, or deleted records. Summary counts cover the last 60 days; unresolved reviews remain counted until reviewed.</p>
         </div>
         <div className="flex gap-2"><button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white"><Download className="h-4 w-4" /> Export</button><button onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</button></div>
       </header>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard label="Total activity" value={summary.total} icon={Activity} />
+        <SummaryCard label="Activity · 60 days" value={summary.total} icon={Activity} />
         <SummaryCard label="Today" value={summary.today} icon={RefreshCw} />
         <SummaryCard label="Needs review" value={summary.flagged} icon={AlertTriangle} danger />
-        <SummaryCard label="Active users" value={summary.active_users} icon={Users} />
+        <SummaryCard label="Users · 60 days" value={summary.active_users} icon={Users} />
       </section>
 
       <section className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -104,14 +104,15 @@ export default function ActivityLog() {
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="hidden grid-cols-[minmax(170px,1fr)_130px_150px_minmax(190px,1.3fr)_180px] gap-3 border-b bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
-          <span>User</span><span>Action</span><span>Process</span><span>Activity</span><span>Date &amp; time</span>
+        <div className="hidden grid-cols-[45px_minmax(170px,1fr)_130px_150px_minmax(190px,1.3fr)_180px] gap-3 border-b bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+          <span>Sl.</span><span>User</span><span>Action</span><span>Process</span><span>Activity</span><span>Date &amp; time</span>
         </div>
         {loading && !logs.length ? <p className="p-8 text-center text-sm text-slate-500">Loading activity…</p> : logs.length === 0 ? (
           <div className="p-10 text-center"><Activity className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-semibold text-slate-700">No activity found</p></div>
-        ) : logs.map((log) => (
+        ) : logs.map((log, index) => (
           <article key={log.id} className="border-b border-slate-100 px-4 py-4 last:border-0">
-          <div className="grid gap-2 md:grid-cols-[minmax(170px,1fr)_130px_150px_minmax(190px,1.3fr)_180px] md:items-center md:gap-3">
+          <div className="grid gap-2 md:grid-cols-[45px_minmax(170px,1fr)_130px_150px_minmax(190px,1.3fr)_180px] md:items-center md:gap-3">
+            <span className="text-xs font-semibold text-slate-500">{index + 1}<span className="md:hidden">.</span></span>
             <div><p className="font-semibold text-slate-800">{log.actor_name || "Unknown user"}</p><p className="text-xs text-slate-400">{title(log.actor_role)}</p></div>
             <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${actionStyle[log.action] || "bg-slate-100 text-slate-600"}`}>{log.action_display}</span></div>
             <p className="text-sm font-medium text-slate-700">{log.module}</p>

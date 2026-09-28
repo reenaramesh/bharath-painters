@@ -175,3 +175,14 @@
 .contractor-shell .contractor-customer-avatar { background: var(--app-soft); color: var(--app-primary); }
 .contractor-shell .contractor-add,
 .contractor-shell .contractor-attention { background: var(--app-primary); color: var(--app-on-primary); }
+
+.admin-dashboard { color: #172033; font-family: "Plus Jakarta Sans", Inter, sans-serif; }
+.admin-dashboard :is(h1, h2, h3) { color: #172033; letter-spacing: -.025em; }
+.admin-summary { border: 1px solid var(--app-line); overflow: hidden; }
+.admin-summary.is-active { border-color: var(--app-primary); box-shadow: 0 0 0 2px var(--app-soft); }
+.admin-summary > * { height: 100%; padding: 10px 12px; }
+.admin-directory-table { table-layout: auto; }
+.admin-directory-table th { color: var(--app-primary); }
+.admin-directory-table td { color: #26364b; line-height: 1.35; }
+.admin-directory-table tbody tr:hover { background: var(--app-soft); }
+@media (max-width: 767px) { .admin-dashboard .admin-summary > * { padding: 8px; } .admin-directory-table { min-width: 700px; } }

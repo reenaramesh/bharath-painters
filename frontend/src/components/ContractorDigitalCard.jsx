@@ -33,8 +33,8 @@ export default function ContractorDigitalCard({ data }) {
   return <div className="mx-auto max-w-5xl space-y-4 pb-8">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital identity</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">My digital card</h1></div><p className="text-xs text-slate-500">Share the verified card or its matching PDF.</p></div>
     <article className="overflow-hidden rounded-2xl border border-[#d7e4ea] bg-white shadow-lg">
-      <div className="relative flex h-28 items-start justify-between bg-gradient-to-r from-[#14374a] via-[#1d5773] to-[#508398] px-4 py-4 text-white sm:h-32 sm:px-7 sm:py-6">
-        <span className="grid h-12 w-40 place-items-center overflow-hidden rounded-xl bg-white p-2 shadow sm:h-14 sm:w-52">{card.logo ? <img src={card.logo} alt={`${card.title} logo`} className="max-h-full max-w-full object-contain" /> : <b className="truncate text-sm text-[#1d5773]">{card.title}</b>}</span>
+      <div className="relative flex h-32 items-start justify-between bg-gradient-to-r from-[#14374a] via-[#1d5773] to-[#508398] px-4 py-4 text-white sm:h-[180px] sm:px-7 sm:py-6">
+        <span className="flex h-[72px] w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-2 shadow sm:h-24 sm:w-64">{card.logo ? <img src={card.logo} alt={`${card.title} logo`} className="block h-full w-full min-h-0 min-w-0 object-contain" /> : <b className="truncate text-sm text-[#1d5773]">{card.title}</b>}</span>
         <span className="hidden rounded-full border border-white/30 bg-white/10 px-3 py-2 text-[11px] font-bold sm:block">{card.bharath_id}</span>
       </div>
       <div className="relative mx-4 -mt-7 grid grid-cols-[86px_minmax(0,1fr)] items-start gap-3 sm:mx-7 sm:-mt-11 sm:grid-cols-[132px_minmax(0,1fr)_90px] sm:gap-5">

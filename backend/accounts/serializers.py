@@ -81,8 +81,9 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
 
     password = serializers.CharField(write_only=True)
 
-    company_name = serializers.CharField()
-    owner_name = serializers.CharField()
+    name = serializers.CharField(write_only=True, required=False)
+    company_name = serializers.CharField(required=False, allow_blank=True)
+    owner_name = serializers.CharField(required=False, allow_blank=True)
     years_in_business = serializers.IntegerField(required=False)
     company_logo = serializers.ImageField(required=False, allow_null=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
@@ -97,6 +98,7 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
             "mobile",
             "email",
             "password",
+            "name",
             "profile_photo",
             "company_name",
             "owner_name",
@@ -111,8 +113,14 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
 
-        company_name = validated_data.pop("company_name")
-        owner_name = validated_data.pop("owner_name")
+        name = validated_data.pop("name", "").strip()
+        company_name = validated_data.pop("company_name", "").strip()
+        owner_name = validated_data.pop("owner_name", "").strip() or name
+        if not owner_name:
+            raise serializers.ValidationError({"name": "Enter your name."})
+        name_parts = owner_name.split(maxsplit=1)
+        validated_data["first_name"] = name_parts[0]
+        validated_data["last_name"] = name_parts[1] if len(name_parts) > 1 else ""
         years_in_business = validated_data.pop(
             "years_in_business",
             0
@@ -153,11 +161,14 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email")
     profile_photo = serializers.ImageField(source="user.profile_photo", required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
+    company_name = serializers.CharField(required=False, allow_blank=True)
+    owner_name = serializers.CharField(required=False)
+    profile_completion = serializers.SerializerMethodField()
 
     class Meta:
         model = ContractorProfile
         fields = [
-            "mobile", "email", "password", "profile_photo", "company_name", "owner_name",
+            "mobile", "email", "password", "profile_photo", "company_name", "owner_name", "profile_completion",
             "company_logo", "company_logo_shape", "pdf_color_template", "pdf_font_template",
             "pdf_custom_primary_color", "pdf_custom_accent_color", "pdf_custom_text_color",
             "app_primary_color", "app_accent_color",
@@ -169,7 +180,11 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             "quotation_payment_terms", "quotation_product_details",
             "quotation_work_procedures",
         ]
-        read_only_fields = ["company_name", "owner_name"]
+        read_only_fields = ["profile_completion"]
+
+    def get_profile_completion(self, instance):
+        from .profile_completion import contractor_profile_completion
+        return contractor_profile_completion(instance)
 
     def validate_pdf_custom_primary_color(self, value):
         return self._validate_pdf_color(value)
@@ -197,6 +212,11 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         user_data = validated_data.pop("user", {})
         password = validated_data.pop("password", "")
         user = instance.user
+        if "owner_name" in validated_data:
+            parts = validated_data["owner_name"].strip().split(maxsplit=1)
+            if parts:
+                user.first_name = parts[0]
+                user.last_name = parts[1] if len(parts) > 1 else ""
         if "mobile" in user_data:
             user.mobile = user_data["mobile"]
         if "email" in user_data:

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyRound, MailCheck, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, KeyRound, MailCheck, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 
@@ -10,6 +10,7 @@ const roles = [
 ];
 
 export default function ForgotPassword() {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const [step, setStep] = useState("LOOKUP");
   const [role, setRole] = useState("CUSTOMER");
@@ -126,8 +127,8 @@ export default function ForgotPassword() {
 
         {step === "PASSWORD" && <form onSubmit={resetPassword} className="mt-6 space-y-4">
           <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700"><ShieldCheck className="h-5 w-5" />Recovery email verified</div>
-          <Field label="Create New Password"><input required type="password" minLength="8" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className={input} /></Field>
-          <Field label="Confirm New Password"><input required type="password" minLength="8" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={input} /></Field>
+          <div className="text-sm font-semibold text-slate-700"><label htmlFor="new-password">Create New Password</label><span className="relative block"><input id="new-password" required type={showPassword ? "text" : "password"} minLength="8" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide passwords" : "Show passwords"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-2 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span></div>
+          <Field label="Confirm New Password"><input required type={showPassword ? "text" : "password"} minLength="8" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={input} /></Field>
           {error && <Error>{error}</Error>}
           <button disabled={loading} className={button}>{loading ? "Updating..." : "Update password"}</button>
         </form>}

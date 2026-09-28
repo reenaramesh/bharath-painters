@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { QrCode, Save, Upload } from "lucide-react";
+import { Eye, EyeOff, QrCode, Save, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
 
@@ -75,6 +75,7 @@ export default function ContractorSettings({ themeOnly = false }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [previewDocument, setPreviewDocument] = useState("QUOTATION");
   useEffect(() => {
     api
@@ -124,6 +125,8 @@ export default function ContractorSettings({ themeOnly = false }) {
       ] : [
         "mobile",
         "email",
+        "company_name",
+        "owner_name",
         "company_logo_shape",
         "office_address",
         "service_areas",
@@ -188,6 +191,11 @@ export default function ContractorSettings({ themeOnly = false }) {
         </div>
       )}
       {success && <div role="status" aria-live="polite" className="fixed right-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-5 py-4 text-sm font-semibold text-emerald-800 shadow-xl">✓ {success}</div>}
+      {!themeOnly && <section className="rounded-2xl border bg-white p-5" aria-label="Company profile completion">
+        <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Company profile</h2><p className="mt-1 text-xs text-slate-500">Fill in your company details to complete your public profile.</p></div><strong className="text-2xl text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
+        {form.profile_completion?.missing?.length > 0 && <p className="mt-2 text-xs text-slate-500">Still to add: {form.profile_completion.missing.map((field) => field.replaceAll("_", " ")).join(", ")}.</p>}
+      </section>}
       <form
         onSubmit={submit}
         className="grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
@@ -199,17 +207,19 @@ export default function ContractorSettings({ themeOnly = false }) {
         <label className="text-sm font-medium">
           Company name
           <input
+            name="company_name"
             value={form.company_name}
-            readOnly
-            className={`${input} cursor-not-allowed bg-slate-100 text-slate-500`}
+            onChange={update}
+            className={input}
           />
         </label>
         <label className="text-sm font-medium">
           Owner / proprietor
           <input
+            name="owner_name"
             value={form.owner_name}
-            readOnly
-            className={`${input} cursor-not-allowed bg-slate-100 text-slate-500`}
+            onChange={update}
+            className={input}
           />
         </label>
         <div className="text-sm font-medium sm:col-span-2">
@@ -457,9 +467,8 @@ export default function ContractorSettings({ themeOnly = false }) {
         </>}
         {!themeOnly && <>
         <label className="text-sm font-medium sm:col-span-2">
-          Office address *
+          Office address
           <textarea
-            required
             rows="3"
             name="office_address"
             value={form.office_address}
@@ -563,20 +572,27 @@ export default function ContractorSettings({ themeOnly = false }) {
           </select>
           <span className="mt-1 block font-normal text-slate-500">New properties use this unit. Quotations remain in square feet.</span>
         </label>
-        <label className="text-sm font-medium sm:col-span-2">
-          New password{" "}
+        <div className="text-sm font-medium sm:col-span-2">
+          <label htmlFor="contractor-new-password">New password</label>{" "}
           <span className="font-normal text-slate-400">
             (leave blank to keep current password)
           </span>
-          <input
-            type="password"
-            minLength="8"
-            name="password"
-            value={form.password}
-            onChange={update}
-            className={input}
-          />
-        </label>
+          <span className="relative block">
+            <input
+              id="contractor-new-password"
+              type={showPassword ? "text" : "password"}
+              minLength="8"
+              autoComplete="new-password"
+              name="password"
+              value={form.password}
+              onChange={update}
+              className={`${input} pr-12`}
+            />
+            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide new password" : "Show new password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </span>
+        </div>
         </>}
         <div className="flex justify-end border-t pt-5 sm:col-span-2">
           <button

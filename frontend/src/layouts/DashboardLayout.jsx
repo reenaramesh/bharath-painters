@@ -13,7 +13,7 @@ import "../pages/contractor-dashboard.css";
 export default function DashboardLayout() {
   const { user } = useAuth();
   const contractorWorkspace = user?.role === "CONTRACTOR";
-  const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role);
+  const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [appColors, setAppColors] = useState(null);
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${themedWorkspace ? "contractor-shell" : ""}`}>
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <GlobalTableSorting />
       <MobileTableDialogs />
       <CustomerConnectionPrompt />

@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from accounts.models import BharathUser, ContractorProfile, PainterProfile
+from accounts.profile_completion import contractor_profile_completion
 
 
 from .models import (
@@ -804,14 +805,15 @@ class ActivityLogSummaryView(APIView):
         queryset = ActivityLog.objects.all()
         if request.user.role != BharathUser.Roles.ADMIN:
             queryset = queryset.filter(actor=request.user)
+        recent = queryset.filter(created_at__gte=timezone.now() - timedelta(days=60))
         today = timezone.localdate()
         return Response({
-            "total": queryset.count(),
-            "today": queryset.filter(created_at__date=today).count(),
+            "total": recent.count(),
+            "today": recent.filter(created_at__date=today).count(),
             "flagged": queryset.filter(is_flagged=True, reviewed_at__isnull=True).count(),
-            "active_users": queryset.exclude(actor=None).values("actor").distinct().count(),
-            "by_action": list(queryset.values("action").annotate(count=models.Count("id")).order_by("-count")),
-            "by_module": list(queryset.values("module").annotate(count=models.Count("id")).order_by("-count")[:8]),
+            "active_users": recent.exclude(actor=None).values("actor").distinct().count(),
+            "by_action": list(recent.values("action").annotate(count=models.Count("id")).order_by("-count")),
+            "by_module": list(recent.values("module").annotate(count=models.Count("id")).order_by("-count")[:8]),
         })
 
 
@@ -2511,9 +2513,9 @@ class AdminOperationsDashboardView(APIView):
         for assignment in today_assignments:
             applicator_work.setdefault(assignment.painter_id, []).append(assignment.schedule)
 
-        contractors = ContractorProfile.objects.select_related("user").order_by("-user__created_at")
-        painters = PainterProfile.objects.select_related("user").order_by("-user__created_at")
-        customers = Customer.objects.select_related("contractor", "portal_user").order_by("-created_at")
+        contractors = ContractorProfile.objects.select_related("user").filter(user__is_active=True).order_by("-user__created_at")
+        painters = PainterProfile.objects.select_related("user").filter(user__is_active=True).order_by("-user__created_at")
+        customers = Customer.objects.select_related("contractor", "portal_user").exclude(status=Customer.Status.CANCELLED).order_by("-created_at")
         quotations = Quotation.objects.select_related("contractor", "customer", "property").prefetch_related("items").order_by("-updated_at")
         messages = ChatMessage.objects.select_related(
             "sender", "conversation__customer", "conversation__customer__contractor", "conversation__customer__portal_user",
@@ -2536,6 +2538,7 @@ class AdminOperationsDashboardView(APIView):
             "gst_number": profile.gst_number,
             "number_of_painters": profile.number_of_painters,
             "team_size": profile.user.applicator_team_members.count(),
+            "profile_completion": contractor_profile_completion(profile)["percent"],
             "created_at": profile.user.created_at,
         } for profile in contractors]
         painter_rows = [{
@@ -2660,13 +2663,15 @@ class AdminEntityListCreateView(APIView):
         if not role: return Response({"detail": "Unknown entity."}, status=status.HTTP_404_NOT_FOUND)
         mobile = str(request.data.get("mobile") or "").strip(); name = str(request.data.get("name") or "").strip()
         if not mobile or not name: return Response({"detail": "Name and mobile are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if role == BharathUser.Roles.CONTRACTOR and not str(request.data.get("email") or "").strip(): return Response({"email": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if role == BharathUser.Roles.CONTRACTOR and not str(request.data.get("password") or "").strip(): return Response({"password": "Password is required."}, status=status.HTTP_400_BAD_REQUEST)
         if BharathUser.objects.filter(mobile=mobile).exists(): return Response({"mobile": "This mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
         password = str(request.data.get("password") or "").strip() or f"BP@{secrets.token_urlsafe(6)}"
         if len(password) < 8: return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
         parts = name.split(maxsplit=1); now = timezone.now()
         user = BharathUser.objects.create_user(mobile=mobile, email=str(request.data.get("email") or "").strip() or None, password=password, first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "", role=role, is_active=True, is_verified=True, verification_status=BharathUser.VerificationStatus.VERIFIED, verified_at=now, badge_issued_at=now, bharath_id=next_bharath_id(role), verification_notes="Created by administrator.")
         if role == BharathUser.Roles.CONTRACTOR:
-            ContractorProfile.objects.create(user=user, owner_name=name, company_name=str(request.data.get("company") or name).strip(), service_areas=str(request.data.get("service_areas") or "").strip(), office_address=str(request.data.get("address") or "").strip(), gst_number=str(request.data.get("gst_number") or "").strip(), number_of_painters=max(0, int(request.data.get("number_of_painters") or 0)))
+            ContractorProfile.objects.create(user=user, owner_name=name, company_name=str(request.data.get("company") or "").strip(), service_areas=str(request.data.get("service_areas") or "").strip(), office_address=str(request.data.get("address") or "").strip(), gst_number=str(request.data.get("gst_number") or "").strip(), number_of_painters=max(0, int(request.data.get("number_of_painters") or 0)))
         else:
             PainterProfile.objects.create(user=user, experience_years=max(0, int(request.data.get("experience_years") or 0)), skills=str(request.data.get("skills") or "").strip(), preferred_locations=str(request.data.get("locations") or "").strip(), daily_wage=request.data.get("daily_wage") or None, weekly_wage=request.data.get("weekly_wage") or None, availability=request.data.get("availability") or PainterProfile.Availability.AVAILABLE)
         return Response({"id": user.id, "message": "Account created.", "credentials": {"mobile": mobile, "password": password, "bharath_id": user.bharath_id}}, status=status.HTTP_201_CREATED)
@@ -2849,6 +2854,7 @@ class ContractorCrmDashboardView(APIView):
         profile = request.user.contractor_profile if hasattr(request.user, "contractor_profile") else None
         return Response({
             "contractor_name": profile.company_name if profile and profile.company_name else request.user.get_full_name() or request.user.mobile,
+            "profile_completion": contractor_profile_completion(profile) if profile else {"percent": 0, "missing": []},
             "counts": {
                 "customers": customers.count(),
                 "active_leads": connected_customer_records.exclude(customer_status__in=(Customer.Status.WON, Customer.Status.LOST, Customer.Status.CANCELLED)).count(),

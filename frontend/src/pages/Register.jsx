@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, Palette } from "lucide-react";
+import { BriefcaseBusiness, Eye, EyeOff, Palette } from "lucide-react";
 import api from "../api/client";
 import RegistrationConsent from "../components/RegistrationConsent";
 
@@ -11,17 +11,9 @@ export default function Register() {
     mobile: "",
     email: "",
     password: "",
+    name: "",
     first_name: "",
     last_name: "",
-    company_name: "",
-    owner_name: "",
-    company_logo: null,
-    office_address: "",
-    service_areas: "",
-    gst_number: "",
-    pan_number: "",
-    number_of_painters: 0,
-    years_in_business: 0,
     experience_years: 0,
     skills: "",
     daily_wage: "",
@@ -30,6 +22,7 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
   const update = (event) =>
     setForm((value) => ({ ...value, [event.target.name]: event.target.value }));
@@ -49,23 +42,8 @@ export default function Register() {
         "mobile",
         "email",
         "password",
-        "company_name",
-        "owner_name",
-        "office_address",
-        "service_areas",
-        "gst_number",
-        "pan_number",
+        "name",
       ].forEach((field) => contractor.append(field, form[field]));
-      contractor.append(
-        "years_in_business",
-        Number(form.years_in_business) || 0,
-      );
-      contractor.append(
-        "number_of_painters",
-        Number(form.number_of_painters) || 0,
-      );
-      if (form.company_logo)
-        contractor.append("company_logo", form.company_logo);
       contractor.append("policy_version", consent.policyVersion);
       contractor.append("document_scrolled", String(consent.scrolled));
       contractor.append("terms_accepted", "true");
@@ -138,6 +116,10 @@ export default function Register() {
             </p>
           )}
           <form onSubmit={submit} className="mt-6 grid gap-5 sm:grid-cols-2">
+            {role === "CONTRACTOR" && <label className="text-sm font-medium sm:col-span-2">
+              Name *
+              <input required name="name" value={form.name} onChange={update} className={input} />
+            </label>}
             <label className="text-sm font-medium">
               Mobile *
               <input
@@ -159,118 +141,12 @@ export default function Register() {
                 className={input}
               />
             </label>
-            <label className="text-sm font-medium sm:col-span-2">
-              Password *
-              <input
-                required
-                minLength="8"
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={update}
-                className={input}
-              />
-            </label>
+            <div className="text-sm font-medium sm:col-span-2">
+              <label htmlFor="registration-password">Password *</label>
+              <span className="relative block"><input required minLength="8" type={showPassword ? "text" : "password"} id="registration-password" name="password" autoComplete="new-password" value={form.password} onChange={update} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span>
+            </div>
             {role === "CONTRACTOR" ? (
-              <>
-                <label className="text-sm font-medium">
-                  Company name *
-                  <input
-                    required
-                    name="company_name"
-                    value={form.company_name}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Owner name *
-                  <input
-                    required
-                    name="owner_name"
-                    value={form.owner_name}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Company logo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) =>
-                      setForm((value) => ({
-                        ...value,
-                        company_logo: event.target.files?.[0] || null,
-                      }))
-                    }
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Office address *
-                  <textarea
-                    required
-                    rows="3"
-                    name="office_address"
-                    value={form.office_address}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Service areas
-                  <input
-                    name="service_areas"
-                    value={form.service_areas}
-                    onChange={update}
-                    placeholder="Bengaluru, Mysuru..."
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  GSTIN
-                  <input
-                    name="gst_number"
-                    maxLength="15"
-                    value={form.gst_number}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  PAN number
-                  <input
-                    name="pan_number"
-                    maxLength="10"
-                    value={form.pan_number}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Years in business
-                  <input
-                    type="number"
-                    min="0"
-                    name="years_in_business"
-                    value={form.years_in_business}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Number of Paint Applicators
-                  <input
-                    type="number"
-                    min="0"
-                    name="number_of_painters"
-                    value={form.number_of_painters}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-              </>
+              <p className="text-sm text-slate-500 sm:col-span-2">You can complete your company profile after registration.</p>
             ) : (
               <>
                 <label className="text-sm font-medium">

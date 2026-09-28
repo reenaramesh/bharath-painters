@@ -23,7 +23,6 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
   const c = data.counts;
   const metrics = [
     [Building2, "Customer properties", c.properties, "Sites in your workspace", "/properties"],
-    [Paintbrush, "Crew working today", c.active_applicators, "Applicators scheduled today", "/applicator-team"],
     [FileText, "Quotations", c.quotations, `${money(c.quotation_value)} quotation value`, "/quotations"],
     [Users, "Customers", c.customers, `${c.active_leads} active leads`, "/customers"],
   ];
@@ -33,6 +32,7 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
       <div className="contractor-greeting-copy"><span className="contractor-eyebrow">Contractor hub · Operational overview</span><h1>Namaste, {data.contractor_name}</h1><p>Your customers, crew and site commitments in one place.</p></div>
       <button className="contractor-button contractor-secondary" onClick={onRefresh}><RefreshCw size={16} /> Refresh</button>
     </header>
+    {data.profile_completion?.percent < 100 && <Link to="/settings" className="contractor-notice" style={{ textDecoration: "none" }}><span className="contractor-icon"><Users size={20} /></span><div><span className="contractor-eyebrow">Company profile</span><h2>{data.profile_completion.percent}% complete</h2><p>Add your company details so customers can see your full profile.</p></div><ArrowRight size={18} /></Link>}
     {error && <p role="alert" className="contractor-error">{error}</p>}
     {c.due_tasks > 0 && <section className="contractor-notice"><CalendarClock size={28} /><div><span className="contractor-eyebrow">Attention required</span><h2>{c.due_tasks} follow-up{c.due_tasks === 1 ? "" : "s"} need your attention</h2><p>Keep customer commitments moving. Review overdue and due callbacks.</p></div><Link className="contractor-button" to="/tasks">Review follow-ups <ArrowRight size={16} /></Link></section>}
     <div className="contractor-metrics">{metrics.map(([Icon, label, value, hint, to]) => <Link key={label} to={to} className="contractor-metric"><div><span className="contractor-eyebrow">{label}</span><span className="contractor-icon"><Icon size={21} /></span></div><strong>{value ?? 0}</strong><p>{hint}</p></Link>)}</div>

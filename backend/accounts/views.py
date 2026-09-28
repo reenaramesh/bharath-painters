@@ -23,6 +23,7 @@ from .utils import activate_business_identity, bharath_profile_url, generate_bha
 from django.shortcuts import render
 from django.http import HttpResponse
 from .profile_card_pdf import render_contractor_card_pdf
+from .mobile import normalize_mobile, matching_mobile_users
 
 from .serializers import (
     PainterRegistrationSerializer,
@@ -95,22 +96,11 @@ class RegistrationLegalDocumentView(APIView):
 
 
 def _normalise_mobile(value):
-    return str(value or "").strip()
-
-
-def _mobile_key(value):
-    return "".join(character for character in str(value or "") if character.isdigit())[-10:]
+    return normalize_mobile(value)
 
 
 def _find_user_by_mobile(mobile, queryset=None):
-    queryset = queryset if queryset is not None else BharathUser.objects.all()
-    exact = queryset.filter(mobile=_normalise_mobile(mobile)).first()
-    if exact:
-        return exact
-    key = _mobile_key(mobile)
-    if len(key) != 10:
-        return None
-    matches = [user for user in queryset if _mobile_key(user.mobile) == key]
+    matches = matching_mobile_users(mobile, queryset)
     # Never guess when legacy formatting has produced more than one account.
     return matches[0] if len(matches) == 1 else None
 
@@ -276,7 +266,7 @@ class ContractorRegistrationView(APIView):
 class CustomerRegistrationView(APIView):
     @transaction.atomic
     def post(self, request):
-        from quotations.models import ChatConversation, Customer, ContractorCustomerConnection, normalize_indian_mobile
+        from quotations.models import ChatConversation, Customer, ContractorCustomerConnection
 
         consent_error = _registration_consent_error(request)
         if consent_error:
@@ -286,17 +276,14 @@ class CustomerRegistrationView(APIView):
         name = str(request.data.get("name") or "").strip()
         email = str(request.data.get("email") or "").strip()
         password = str(request.data.get("password") or "")
-        mobile_key = "".join(character for character in mobile if character.isdigit())[-10:]
-        if len(mobile_key) != 10:
-            return Response({"mobile": "Enter a valid 10-digit mobile number."}, status=status.HTTP_400_BAD_REQUEST)
+        normalized_mobile = normalize_mobile(mobile)
+        if not normalized_mobile:
+            return Response({"mobile": "Enter a valid mobile number. Include + and the country code for international numbers."}, status=status.HTTP_400_BAD_REQUEST)
         if not name:
             return Response({"name": "Name is required."}, status=status.HTTP_400_BAD_REQUEST)
         if len(password) < 8:
             return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
 
-        normalized_mobile = normalize_indian_mobile(mobile)
-        if not normalized_mobile:
-            return Response({"mobile": "Enter a valid Indian mobile number."}, status=status.HTTP_400_BAD_REQUEST)
         customer_records = list(Customer.objects.select_related("portal_user").filter(normalized_mobile=normalized_mobile))
 
         user = _find_user_by_mobile(mobile, BharathUser.objects.all())
@@ -307,9 +294,9 @@ class CustomerRegistrationView(APIView):
         if user and user.has_usable_password():
             return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
         if not user:
-            user = BharathUser(mobile=mobile, role=BharathUser.Roles.CUSTOMER)
+            user = BharathUser(mobile=normalized_mobile, role=BharathUser.Roles.CUSTOMER)
         if not customer_records:
-            customer_records = [Customer.objects.create(name=name, mobile=mobile_key, email=email)]
+            customer_records = [Customer.objects.create(name=name, mobile=normalized_mobile, email=email)]
         primary_customer = customer_records[0]
         if not primary_customer.bharath_id:
             sequence = primary_customer.pk

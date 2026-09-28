@@ -12,9 +12,15 @@ const emptyItem = {
   room_index: "",
   property_room_id: "",
   service_category: "",
+  custom_service_category: "",
+  save_service_category_to_master: false,
   service_type: "",
   paint_type: "",
+  custom_product_type: "",
+  save_product_type_to_master: false,
   paint_brand: "",
+  custom_brand: "",
+  save_brand_to_master: false,
   color: "",
   description: "",
   promote_to_master: false,
@@ -54,13 +60,18 @@ const quotationSurfaceGroup = (surface) => {
 };
 function missingQuotationFields(item) {
   const missing = [];
-  if (!item.service_category) missing.push("Type of service");
+  if (!item.service_category && !String(item.custom_service_category || "").trim()) missing.push("Type of service");
   if (!item.field_id && !item.property_room_id && !String(item.room_name || "").trim()) missing.push("Room / Area");
   if (!String(item.description || "").trim()) missing.push("Product description");
   if (!item.unit) missing.push("MOU");
   if (Number(item.quantity || 0) <= 0) missing.push("Quantity");
   if (item.rate === "" || item.rate === null || item.rate === undefined) missing.push("Rate");
   return missing;
+}
+function incompleteLineMessage(items) {
+  const index = items.findIndex((item) => missingQuotationFields(item).length);
+  if (index < 0) return "";
+  return `Line ${index + 1} (${items[index].room_name || "service"}) needs: ${missingQuotationFields(items[index]).join(", ")}.`;
 }
 
 export default function QuotationBuilder() {
@@ -75,6 +86,7 @@ export default function QuotationBuilder() {
   const [savedRooms, setSavedRooms] = useState([]);
   const [measurements, setMeasurements] = useState([]);
   const [measurementRecords, setMeasurementRecords] = useState([]);
+  const [measurementRecordsLoading, setMeasurementRecordsLoading] = useState(false);
   const [selectedMeasurementId, setSelectedMeasurementId] = useState("");
   const [selectedRoomIds, setSelectedRoomIds] = useState([]);
   const [selectedFieldIds, setSelectedFieldIds] = useState([]);
@@ -118,6 +130,10 @@ export default function QuotationBuilder() {
   const [savingProperty, setSavingProperty] = useState(false);
   async function createCustomer(values) {
     const { data } = await api.post("/quotations/customers/", values);
+    if (data.connection_status !== "CONNECTED") {
+      setError("Customer saved. You can create a quotation after the customer accepts your connection request.");
+      return data;
+    }
     setCustomers((current) => [data, ...current.filter((item) => item.id !== data.id)]);
     setCustomerSearch(data.name);
     setForm((current) => ({ ...current, customer: data.id, property: "" }));
@@ -194,6 +210,7 @@ export default function QuotationBuilder() {
     setSelectedFieldIds([]);
     knownFieldIds.current = new Set();
     if (!form.property) {
+      setMeasurementRecordsLoading(false);
       setMeasurementRecords([]);
       setSelectedMeasurementId("");
       setSavedRooms([]);
@@ -203,6 +220,7 @@ export default function QuotationBuilder() {
     }
     const requestedMeasurement = searchParams.get("measurement");
     const requestedProperty = searchParams.get("property");
+    setMeasurementRecordsLoading(true);
     api.get(`/quotations/properties/${form.property}/measurement-records/`)
       .then((response) => {
         const records = response.data.results || response.data;
@@ -216,7 +234,7 @@ export default function QuotationBuilder() {
         setMeasurementRecords([]);
         setSelectedMeasurementId("");
         setError("Saved Area Calculations could not be loaded for this property.");
-      });
+      }).finally(() => setMeasurementRecordsLoading(false));
   }, [form.property, searchParams]);
   useEffect(() => {
     setItems([]);
@@ -640,10 +658,17 @@ export default function QuotationBuilder() {
         itemIndex === index ? { ...item, [name]: value } : item,
       ),
     );
-  const updateProductType = (index, value) => {
+  const updateMasterChoice = (index, field, customField, saveField, value, customName = "") =>
+    setItems((current) => current.map((item, itemIndex) => itemIndex === index
+      ? { ...item, [field]: value, [customField]: customName, [saveField]: customName ? item[saveField] : false,
+          ...(field === "service_category" ? { service_type: "" } : {}) }
+      : item));
+  const updateProductType = (index, value, customName = "") => {
     const product = masters.paintTypes.find((entry) => String(entry.id) === String(value));
     setItems((current) => current.map((item, itemIndex) => itemIndex === index
-      ? { ...item, paint_type: value, ...(product?.default_price !== null && product?.default_price !== undefined ? { rate: String(product.default_price) } : {}) }
+      ? { ...item, paint_type: value, custom_product_type: customName,
+          save_product_type_to_master: customName ? item.save_product_type_to_master : false,
+          ...(product?.default_price !== null && product?.default_price !== undefined ? { rate: String(product.default_price) } : {}) }
       : item));
   };
   const updateMeasurementFieldItem = (fieldId, name, value) =>
@@ -720,7 +745,7 @@ export default function QuotationBuilder() {
       )
     )
       return "Enter a quantity greater than zero for every Lump Sum or custom line.";
-    if (step === 2 && activeItems.some((item) => !item.service_category))
+    if (step === 2 && activeItems.some((item) => !item.service_category && !String(item.custom_service_category || "").trim()))
       return "Select the type of service for every quotation line.";
     return "";
   }
@@ -740,7 +765,7 @@ export default function QuotationBuilder() {
       return;
     }
     if (activeItems.some((item) => missingQuotationFields(item).length)) {
-      setError("Complete the highlighted service lines before previewing the quotation.");
+      setError(incompleteLineMessage(activeItems));
       setStep(2);
       return;
     }
@@ -749,7 +774,7 @@ export default function QuotationBuilder() {
   }
   async function submit(pdfPreviewOnly = false) {
     if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
-      setError("Complete the highlighted service lines before saving the draft.");
+      setError(activeItems.length ? incompleteLineMessage(activeItems) : "Add at least one quotation line.");
       setStep(2);
       return;
     }
@@ -1036,6 +1061,17 @@ export default function QuotationBuilder() {
                 ))}
               </select>
             </label>
+            {useMeasurements && <div className="text-sm font-medium md:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label htmlFor="quotation-area-calculation">Area Calculation *</label>
+                <button type="button" disabled={!form.property} onClick={() => navigate(`/properties/${form.property}/measurements?new=1`)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add measurement</button>
+              </div>
+              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => setSelectedMeasurementId(event.target.value)} disabled={!form.property || measurementRecordsLoading} className={input}>
+                <option value="">{!form.property ? "Select a property first" : measurementRecordsLoading ? "Loading Area Calculations..." : "Select Area Calculation"}</option>
+                {measurementRecords.map((record) => <option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}
+              </select>
+              {form.property && !measurementRecordsLoading && !measurementRecords.length && <p className="mt-2 text-xs text-amber-700">No saved Area Calculations with measurements for this property. Add one to continue.</p>}
+            </div>}
             <label className="text-sm font-medium">
               Valid until
               <input
@@ -1055,7 +1091,6 @@ export default function QuotationBuilder() {
               <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
               <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
-            {useMeasurements&&<label className="mt-6 block text-sm font-medium">Area Calculation *<select value={selectedMeasurementId} onChange={(event)=>setSelectedMeasurementId(event.target.value)} className={input}><option value="">Select Area Calculation</option>{measurementRecords.map((record)=><option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}</select></label>}
           </div>
         )}
         {step === 1 && (
@@ -1248,7 +1283,7 @@ export default function QuotationBuilder() {
                   ? selectedRooms[Number(item.room_index)]
                   : null);
                 const itemRoomName = item.room_name || selectedItemRoom?.name || (exteriorMode ? "Exterior" : "General");
-                const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || "Select service";
+                const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || item.custom_service_category || "Select service";
                 const productName = item.description || "Description not added";
                 const amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
                 const showsCoats = categoryName.toLowerCase().includes("paint");
@@ -1265,6 +1300,7 @@ export default function QuotationBuilder() {
                       <MobilePriceValue label="Rate" value={money(item.rate)} />
                       <MobilePriceValue label="Amount" value={money(amount)} strong />
                     </div>
+                    {missingFields.length > 0 && <p className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800">Required: {missingFields.join(", ")}</p>}
                   </article>
                 );
               })}
@@ -1284,6 +1320,7 @@ export default function QuotationBuilder() {
                 exteriorMode={exteriorMode}
                 updateItem={updateItem}
                 updateProductType={updateProductType}
+                updateMasterChoice={updateMasterChoice}
                 saveRoom={createRoomFromService}
                 close={() => setMobileItemIndex(null)}
                 remove={() => {
@@ -1445,15 +1482,15 @@ function QuotationPreviewDialog({
     const category =
       masters.categories.find(
         (entry) => String(entry.id) === String(item.service_category),
-      )?.name || "Service";
+      )?.name || item.custom_service_category || "Service";
     const product =
       masters.paintTypes.find(
         (entry) => String(entry.id) === String(item.paint_type),
-      )?.name || "";
+      )?.name || item.custom_product_type || "";
     const brand =
       masters.brands.find(
         (entry) => String(entry.id) === String(item.paint_brand),
-      )?.name || "";
+      )?.name || item.custom_brand || "";
     const unit =
       masters.units.find(
         (entry) => String(entry.id) === String(item.unit),
@@ -1630,15 +1667,17 @@ function uniqueProductDetails(items, products, brands) {
     return lines;
   }, []).join("\n");
 }
-function SearchableProductType({ value, options, onChange, controlClass, label = "Product type", placeholder = "Search product type", emptyText = "No matching product types" }) {
+function SearchableProductType({ value, customValue = "", options, onChange, controlClass, label = "Product type", placeholder = "Search product type", emptyText = "No matching product types", allowCustom = false }) {
   const selected = options.find((entry) => String(entry.id) === String(value));
-  const [query, setQuery] = useState(selected?.name || "");
+  const [query, setQuery] = useState(selected?.name || customValue || "");
   const [open, setOpen] = useState(false);
-  useEffect(() => { setQuery(selected?.name || ""); }, [selected?.name, value]);
+  useEffect(() => { setQuery(selected?.name || customValue || ""); }, [selected?.name, value, customValue]);
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return options.filter((entry) => !term || String(entry.name || "").toLowerCase().includes(term)).slice(0, 30);
   }, [options, query]);
+  const exactMatch = () => options.find((entry) => String(entry.name || "").trim().toLowerCase() === query.trim().toLowerCase());
+  const choose = (entry) => { onChange(entry.id, ""); setQuery(entry.name); setOpen(false); };
   return (
     <label className="block text-sm font-semibold">{label}
       <div className="relative">
@@ -1646,16 +1685,18 @@ function SearchableProductType({ value, options, onChange, controlClass, label =
         <input
           value={query}
           onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-          onChange={(event) => { setQuery(event.target.value); setOpen(true); onChange(""); }}
+          onBlur={() => { const match = exactMatch(); if (match) choose(match); else window.setTimeout(() => setOpen(false), 120); }}
+          onChange={(event) => { const next = event.target.value; setQuery(next); setOpen(true); onChange("", allowCustom ? next : ""); }}
+          onKeyDown={(event) => { if (event.key === "Enter") { const match = exactMatch(); if (match) { event.preventDefault(); choose(match); } else if (allowCustom) { event.preventDefault(); setOpen(false); } else if (filtered.length) { event.preventDefault(); choose(filtered[0]); } } }}
           placeholder={placeholder}
           autoComplete="off"
           className={`${controlClass} pl-10`}
         />
         {open && <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.id); setQuery(entry.name); setOpen(false); }} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
-          {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">{emptyText}</p>}
+          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
+          {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">{allowCustom ? "New entry. Choose whether to save it below." : emptyText}</p>}
         </div>}
+        {!value && query.trim() && !open && !allowCustom && label === "Type of service" && <p className="mt-1 text-xs text-red-700">Choose a service from the results.</p>}
       </div>
     </label>
   );
@@ -1688,7 +1729,10 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
     </label>
   );
 }
-function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, saveRoom, close, remove }) {
+function SaveMasterOption({ label, checked, onChange }) {
+  return <label className="mt-2 flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-3 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(checked)} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4" />Save this {label} for future quotations</label>;
+}
+function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, updateMasterChoice, saveRoom, close, remove }) {
   const [addingRoom, setAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [roomSaving, setRoomSaving] = useState(false);
@@ -1700,9 +1744,9 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
     : null);
   const roomName = item.room_name || selectedItemRoom?.name || (exteriorMode ? "Exterior" : "General");
   const amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
-  const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || "";
+  const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || item.custom_service_category || "";
   const paintingApplicable = categoryName.toLowerCase().includes("paint");
-  const descriptionOptions = masters.descriptions.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category));
+  const descriptionOptions = masters.descriptions.filter((entry) => !entry.service_category || !item.service_category || String(entry.service_category) === String(item.service_category));
   const descriptionSaved = descriptionOptions.some((entry) => String(entry.name || "").trim().toLowerCase() === String(item.description || "").trim().toLowerCase());
   const calculatedRoomOptions = roomOptions;
   const calculatedRoomKey = calculatedRoomOptions.find((room) => {
@@ -1722,7 +1766,8 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
         </header>
         <div className="space-y-4 p-4 pb-28">
           <div className="grid gap-3 sm:grid-cols-2">
-            <SearchableProductType label="Type of service" placeholder="Search type of service" emptyText="No matching services" value={item.service_category} options={masters.categories} onChange={(value) => { updateItem(index, "service_category", value); const selectedService = masters.services.find((entry) => String(entry.id) === String(item.service_type)); if (selectedService && String(selectedService.category_master) !== String(value)) updateItem(index, "service_type", ""); }} controlClass={requiredControl(!item.service_category)} />
+            <div><SearchableProductType label="Type of service" placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />
+              {String(item.custom_service_category || "").trim() && <SaveMasterOption label="Type of service" checked={item.save_service_category_to_master} onChange={(value) => updateItem(index, "save_service_category_to_master", value)} />}</div>
             <label className="block text-sm font-semibold">Room / Area
               {item.field_id
                 ? <SearchableSelect value={calculatedRoomKey} options={[{ value: "", label: exteriorMode ? "Full Exterior" : "Full House" }, ...calculatedRoomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))]} onChange={(value) => { const room = calculatedRoomOptions.find((option) => option.key === value); updateItem(index, "room_index", room?.roomIndex ?? ""); updateItem(index, "room_id", room?.propertyRoomId || ""); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || (exteriorMode ? "Full Exterior" : "Full House")); updateItem(index, "scope", room ? "room" : "full"); }} placeholder="Search calculated room" className={control} />
@@ -1736,15 +1781,19 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
           <SearchableProductType
             key={item.service_category || "all-products"}
             value={item.paint_type}
+            customValue={item.custom_product_type}
             options={masters.paintTypes.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category))}
-            onChange={(value) => updateProductType(index, value)}
+            allowCustom
+            onChange={(value, customName) => updateProductType(index, value, customName)}
             controlClass={control}
           />
+          {String(item.custom_product_type || "").trim() && <SaveMasterOption label="Product type" checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} />}
           <SearchableDescription value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
           {String(item.description || "").trim() && (descriptionSaved
             ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Product Description selected</p>
             : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Product Description for future quotations</label>)}
-          <SearchableProductType label="Brand" placeholder="Search brand (optional)" emptyText="No matching brands" value={item.paint_brand} options={masters.brands} onChange={(value) => updateItem(index, "paint_brand", value)} controlClass={control} />
+          <SearchableProductType label="Brand" placeholder="Select or type a brand (optional)" value={item.paint_brand} customValue={item.custom_brand} options={masters.brands} allowCustom onChange={(value, customName) => updateMasterChoice(index, "paint_brand", "custom_brand", "save_brand_to_master", value, customName)} controlClass={control} />
+          {String(item.custom_brand || "").trim() && <SaveMasterOption label="Brand" checked={item.save_brand_to_master} onChange={(value) => updateItem(index, "save_brand_to_master", value)} />}
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm font-semibold">Quantity
               <input type="number" min="0.01" step="0.01" value={item.quantity} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={requiredControl(Number(item.quantity || 0) <= 0)} />

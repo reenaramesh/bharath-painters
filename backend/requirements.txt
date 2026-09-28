@@ -12,6 +12,7 @@ google-auth>=2.0,<3
 requests>=2.31,<3
 openpyxl==3.1.5
 pillow==12.3.0
+phonenumbers==9.0.40
 psycopg2-binary==2.9.13
 PyJWT==2.13.0
 pywebpush==2.5.0

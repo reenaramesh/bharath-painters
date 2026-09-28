@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BedDouble,
+  Building2,
   Boxes,
   FileText,
   Layers3,
@@ -11,6 +12,7 @@ import {
   Save,
   Tags,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import api from "../api/client";
@@ -24,8 +26,9 @@ const groups = [
   { key: "descriptions", label: "Product Descriptions", singular: "Product Description", endpoint: "work-descriptions", icon: FileText },
   { key: "brands", label: "Brands", singular: "Brand", endpoint: "brands", icon: Tags },
   { key: "units", label: "Measurement Units", singular: "MOU", endpoint: "units", icon: Ruler },
+  { key: "apartments", label: "Apartments", singular: "Apartment", endpoint: "master-data/apartments", icon: Building2 },
 ];
-const empty = { name: "", service_category: "", key_features: "", default_price: "" };
+const empty = { name: "", service_category: "", key_features: "", default_price: "", locality: "", zone: "", pincode: "" };
 
 export default function MasterServices() {
   const { user } = useAuth();
@@ -41,6 +44,10 @@ export default function MasterServices() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [popupEditing, setPopupEditing] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [importSummary, setImportSummary] = useState(null);
+  const [visiblePage, setVisiblePage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,7 +74,12 @@ export default function MasterServices() {
     setCategoryFilter("ALL");
     setSelectedGroupId(null);
     setPopupEditing(null);
+    setUploadFile(null);
+    setImportSummary(null);
+    setVisiblePage(1);
   }, [load]);
+
+  useEffect(() => { setVisiblePage(1); }, [search]);
 
   const categoryMap = useMemo(
     () => Object.fromEntries(categories.map((item) => [String(item.id), item.name])),
@@ -76,10 +88,11 @@ export default function MasterServices() {
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((item) =>
-      (!term || String(item.name || "").toLowerCase().includes(term)) &&
+      (!term || [item.name, item.locality, item.zone, item.pincode].some((value) => String(value || "").toLowerCase().includes(term))) &&
       (categoryFilter === "ALL" || String(item.service_category) === categoryFilter),
     );
   }, [items, search, categoryFilter]);
+  const visibleItems = filteredItems.slice(0, visiblePage * 50);
   const usesServiceCategory = ["products", "descriptions"].includes(active.key);
   const groupedItems = useMemo(() => {
     if (!usesServiceCategory) return [];
@@ -95,8 +108,9 @@ export default function MasterServices() {
     return groupsByCategory;
   }, [categories, categoryMap, filteredItems, usesServiceCategory]);
   const selectedGroup = groupedItems.find((group) => group.id === selectedGroupId) || null;
-  const canManageItem = (item) => user?.role === "ADMIN" || Number(item.created_by) === Number(user?.id);
+  const canManageItem = (item) => active.key === "apartments" ? user?.role === "ADMIN" : user?.role === "ADMIN" || Number(item.created_by) === Number(user?.id);
   const itemScopeLabel = (item) => {
+    if (active.key === "apartments") return "Shared apartment directory";
     if (!item.created_by) return user?.role === "ADMIN" ? "Default for all contractors" : "Bharath Painters default";
     return Number(item.created_by) === Number(user?.id) ? "Your entry" : "Shared master";
   };
@@ -107,6 +121,11 @@ export default function MasterServices() {
     setError("");
     try {
       const payload = { name: form.name.trim() };
+      if (active.key === "apartments") {
+        payload.locality = form.locality.trim();
+        payload.zone = form.zone.trim();
+        payload.pincode = form.pincode.trim();
+      }
       if (usesServiceCategory) payload.service_category = Number(form.service_category);
       if (active.key === "products") {
         payload.key_features = form.key_features.trim();
@@ -136,8 +155,54 @@ export default function MasterServices() {
 
   function edit(item) {
     setEditing(item.id);
-    setForm({ name: item.name, service_category: item.service_category || "", key_features: item.key_features || "", default_price: item.default_price ?? "" });
+    setForm({ name: item.name, service_category: item.service_category || "", key_features: item.key_features || "", default_price: item.default_price ?? "", locality: item.locality || "", zone: item.zone || "", pincode: item.pincode || "" });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function downloadTemplate() {
+    const headings = active.key === "apartments" ? "name,locality,zone,pincode"
+      : usesServiceCategory ? active.key === "products" ? "name,service_category,key_features,default_price" : "name,service_category"
+        : "name";
+    downloadCsv(`${headings}\n`, `${active.key}-template.csv`);
+  }
+
+  function downloadCurrent() {
+    const headings = active.key === "apartments" ? ["name", "locality", "zone", "pincode"]
+      : usesServiceCategory ? active.key === "products" ? ["name", "service_category", "key_features", "default_price"] : ["name", "service_category"]
+        : ["name"];
+    const rows = items.map((item) => headings.map((heading) => heading === "service_category" ? categoryMap[String(item.service_category)] || "" : item[heading] ?? ""));
+    downloadCsv([headings, ...rows].map((row) => row.map(csvCell).join(",")).join("\n") + "\n", `${active.key}-current.csv`);
+  }
+
+  function downloadCsv(content, filename) {
+    const url = URL.createObjectURL(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function uploadMaster(event) {
+    event.preventDefault();
+    if (!uploadFile) return;
+    const uploadForm = event.currentTarget;
+    setUploading(true);
+    setError("");
+    setImportSummary(null);
+    try {
+      const payload = new FormData();
+      payload.append("file", uploadFile);
+      const { data } = await api.post(`/quotations/master-data/import/${active.key === "apartments" ? "apartments" : active.endpoint}/`, payload, { headers: { "Content-Type": "multipart/form-data" } });
+      setImportSummary(data);
+      setUploadFile(null);
+      uploadForm.reset();
+      await load();
+    } catch (requestError) {
+      setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Master Data upload failed.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function savePopupEdit(event) {
@@ -194,7 +259,9 @@ export default function MasterServices() {
         {user?.role === "CONTRACTOR" && <QuotationDefaults />}
       </nav>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {active.key === "apartments" && user?.role !== "ADMIN" && <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">The apartment directory is shared across the app. An administrator can add, edit, or upload entries.</p>}
+
+      {(active.key !== "apartments" || user?.role === "ADMIN") && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="flex items-center gap-3 border-b bg-slate-50 p-4 sm:p-5">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white"><ActiveIcon className="h-5 w-5" /></span>
           <div><h2 className="text-lg font-bold">{editing ? `Edit ${active.singular}` : `Add ${active.singular}`}</h2></div>
@@ -202,10 +269,19 @@ export default function MasterServices() {
         <form onSubmit={submit} className={`grid gap-4 p-4 sm:p-5 ${usesServiceCategory ? "md:grid-cols-[1fr_1fr_auto]" : "md:grid-cols-[1fr_auto]"}`}>
           <Field label={`${active.singular} name`}><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={placeholder(active.key)} /></Field>
           {usesServiceCategory && <Field label="Type of Service"><select required value={form.service_category} onChange={(event) => setForm({ ...form, service_category: event.target.value })}><option value="">Select type of service</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>}
+          {active.key === "apartments" && <><Field label="Locality"><input value={form.locality} onChange={(event) => setForm({ ...form, locality: event.target.value })} placeholder="Area or neighbourhood" /></Field><Field label="Zone / State"><input value={form.zone} onChange={(event) => setForm({ ...form, zone: event.target.value })} placeholder="Karnataka" /></Field><Field label="PIN code"><input value={form.pincode} onChange={(event) => setForm({ ...form, pincode: event.target.value })} placeholder="560001" /></Field></>}
           <div className="flex items-end gap-2"><button disabled={saving} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-semibold text-white disabled:opacity-50 md:flex-none"><Plus className="h-4 w-4" />{saving ? "Saving..." : editing ? "Update" : `Add ${active.singular}`}</button>{editing && <button type="button" onClick={() => { setEditing(null); setForm(empty); }} className="grid h-12 w-12 place-items-center rounded-xl border" aria-label="Cancel editing"><X className="h-4 w-4" /></button>}</div>
           {active.key === "products" && <div className="grid gap-4 md:col-span-full md:grid-cols-[220px_1fr]"><Field label="Default price (optional)"><input type="number" min="0" step="0.01" value={form.default_price} onChange={(event) => setForm({ ...form, default_price: event.target.value })} placeholder="Example: 28.00" /></Field><Field label="Key features (optional)"><textarea rows="3" value={form.key_features} onChange={(event) => setForm({ ...form, key_features: event.target.value })} placeholder="Example: Stain resistance, smooth finish, 8-year warranty" /></Field></div>}
         </form>
-      </section>
+      </section>}
+
+      {(active.key !== "apartments" || user?.role === "ADMIN") && <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Upload {active.label}</h2><p className="mt-1 text-sm text-slate-500">Import CSV or Excel (.xlsx). Matching entries are updated; new entries are added. Maximum 5 MB or 5,000 rows.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadTemplate} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">CSV template</button><button type="button" onClick={downloadCurrent} disabled={!items.length} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Download current data</button></div></div>
+        <form onSubmit={uploadMaster} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><input required type="file" accept=".csv,.xlsx" onChange={(event) => setUploadFile(event.target.files?.[0] || null)} className="min-w-0 flex-1 rounded-xl border border-slate-300 p-2 text-sm" /><button disabled={uploading || !uploadFile} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-50"><Upload className="h-4 w-4" />{uploading ? "Uploading..." : "Upload data"}</button></form>
+        {usesServiceCategory && <p className="mt-2 text-xs text-slate-500">The service_category column must match an existing Type of Service name in Master Data.</p>}
+        {active.key === "apartments" && <p className="mt-2 text-xs text-slate-500">Apartments are shared with every contractor. Name and PIN code identify an existing entry during upload.</p>}
+        {importSummary && <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm"><p className="font-semibold">{importSummary.created} added · {importSummary.updated} updated · {importSummary.skipped} skipped · {importSummary.error_count} errors</p>{importSummary.errors?.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">{importSummary.errors.map((item) => <li key={item.row}>Row {item.row}: {item.message}</li>)}</ul>}</div>}
+      </section>}
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <header className="flex flex-col gap-4 border-b p-4 sm:p-5 lg:flex-row lg:items-end lg:justify-between">
@@ -232,15 +308,16 @@ export default function MasterServices() {
             </div>
           ) : <>
           <div className="grid gap-3 p-3 md:hidden">
-            {filteredItems.map((item) => <MasterCard key={item.id} item={item} category={categoryMap[String(item.service_category)]} owned={canManageItem(item)} scope={itemScopeLabel(item)} edit={() => edit(item)} remove={() => remove(item)} />)}
+            {visibleItems.map((item) => <MasterCard key={item.id} item={item} category={categoryMap[String(item.service_category)]} subtitle={active.key === "apartments" ? [item.locality, item.zone, item.pincode].filter(Boolean).join(", ") : ""} owned={canManageItem(item)} scope={itemScopeLabel(item)} edit={() => edit(item)} remove={() => remove(item)} />)}
           </div>
           <div className="hidden md:block">
             <table className="w-full table-fixed text-left text-sm">
               <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-16 px-5 py-3">#</th><th className="px-5 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[34%] px-5 py-3">Type of Service</th>}<th className="w-32 px-5 py-3 text-right">Actions</th></tr></thead>
-              <tbody className="divide-y">{filteredItems.map((item, index) => { const owned = canManageItem(item); return <tr key={item.id} className="hover:bg-slate-50"><td className="px-5 py-4 font-bold text-slate-400">{index + 1}</td><td className="px-5 py-4"><span className="font-semibold text-slate-950">{item.name}</span><span className="mt-1 block text-xs font-semibold text-violet-600">{itemScopeLabel(item)}</span></td>{usesServiceCategory && <td className="px-5 py-4"><span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{categoryMap[String(item.service_category)] || "Not assigned"}</span></td>}<td className="px-5 py-4"><div className="flex justify-end gap-2">{owned ? <><button type="button" onClick={() => edit(item)} className="rounded-lg border p-2 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></> : <span className="text-xs text-slate-400">{itemScopeLabel(item)}</span>}</div></td></tr>; })}</tbody>
+              <tbody className="divide-y">{visibleItems.map((item, index) => { const owned = canManageItem(item); return <tr key={item.id} className="hover:bg-slate-50"><td className="px-5 py-4 font-bold text-slate-400">{index + 1}</td><td className="px-5 py-4"><span className="font-semibold text-slate-950">{item.name}</span>{active.key === "apartments" && <span className="mt-1 block text-xs text-slate-500">{[item.locality, item.zone, item.pincode].filter(Boolean).join(", ")}</span>}<span className="mt-1 block text-xs font-semibold text-violet-600">{itemScopeLabel(item)}</span></td>{usesServiceCategory && <td className="px-5 py-4"><span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{categoryMap[String(item.service_category)] || "Not assigned"}</span></td>}<td className="px-5 py-4"><div className="flex justify-end gap-2">{owned ? <><button type="button" onClick={() => edit(item)} className="rounded-lg border p-2 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></> : <span className="text-xs text-slate-400">{itemScopeLabel(item)}</span>}</div></td></tr>; })}</tbody>
             </table>
           </div></>}
           {!filteredItems.length && <p className="p-12 text-center text-sm text-slate-500">No {active.label.toLowerCase()} found.</p>}
+          {!usesServiceCategory && visibleItems.length < filteredItems.length && <div className="border-t p-4 text-center"><button type="button" onClick={() => setVisiblePage((page) => page + 1)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold">Show more ({filteredItems.length - visibleItems.length} remaining)</button></div>}
         </>}
       </section>
 
@@ -370,12 +447,16 @@ function QuotationDefaults() {
   );
 }
 
-function MasterCard({ item, category, owned, scope, edit, remove }) {
-  return <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-bold text-slate-950">{item.name}</h3>{category && <p className="mt-1 text-xs font-semibold text-violet-700">{category}</p>}<p className="mt-1 text-xs font-semibold text-slate-400">{scope}</p></div>{owned && <div className="flex shrink-0 gap-2"><button type="button" onClick={edit} className="rounded-lg border p-2"><Pencil className="h-4 w-4" /></button><button type="button" onClick={remove} className="rounded-lg border border-red-200 p-2 text-red-600"><Trash2 className="h-4 w-4" /></button></div>}</div></article>;
+function MasterCard({ item, category, subtitle, owned, scope, edit, remove }) {
+  return <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-bold text-slate-950">{item.name}</h3>{subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}{category && <p className="mt-1 text-xs font-semibold text-violet-700">{category}</p>}<p className="mt-1 text-xs font-semibold text-slate-400">{scope}</p></div>{owned && <div className="flex shrink-0 gap-2"><button type="button" onClick={edit} className="rounded-lg border p-2"><Pencil className="h-4 w-4" /></button><button type="button" onClick={remove} className="rounded-lg border border-red-200 p-2 text-red-600"><Trash2 className="h-4 w-4" /></button></div>}</div></article>;
 }
 function Field({ label, children }) {
   return <label className="text-sm font-semibold">{label}<span className="mt-2 block [&>*]:w-full [&>*]:rounded-xl [&>*]:border [&>*]:bg-white [&>*]:px-3 [&>*]:py-3 [&>*]:outline-none [&>*]:focus:border-violet-500 [&>*]:focus:ring-4 [&>*]:focus:ring-violet-100">{children}</span></label>;
 }
 function placeholder(key) {
-  return { rooms: "Master Bedroom", surfaces: "Texture wall", categories: "Plumbing", products: "Premium emulsion", descriptions: "Apply one primer and two finish coats", brands: "Asian Paints", units: "Sq ft" }[key] || "Enter name";
+  return { rooms: "Master Bedroom", surfaces: "Texture wall", categories: "Plumbing", products: "Premium emulsion", descriptions: "Apply one primer and two finish coats", brands: "Asian Paints", units: "Sq ft", apartments: "Skyline Bagmane Champagne Hills" }[key] || "Enter name";
+}
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

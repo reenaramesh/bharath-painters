@@ -20,33 +20,34 @@ class CustomerActivationAndStandaloneInvoiceTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return Customer.objects.get(pk=response.data["id"])
 
-    def test_customer_creation_does_not_create_id_or_login(self):
+    def test_customer_creation_creates_id_and_unusable_login(self):
         customer = self.create_customer()
-        self.assertIsNone(customer.bharath_id)
-        self.assertIsNone(customer.portal_user_id)
+        self.assertEqual(customer.bharath_id, f"BP-C-{customer.id:06d}")
+        self.assertIsNotNone(customer.portal_user_id)
+        self.assertFalse(customer.portal_user.has_usable_password())
 
     def test_explicit_activation_creates_one_id_and_login(self):
         customer = self.create_customer()
         first = self.client.post(reverse("customer-activate-account", args=[customer.id]), {}, format="json")
         self.assertEqual(first.status_code, status.HTTP_200_OK)
         self.assertEqual(first.data["bharath_id"], f"BP-C-{customer.id:06d}")
-        self.assertIn("temporary_password", first.data)
+        self.assertNotIn("temporary_password", first.data)
         second = self.client.post(reverse("customer-activate-account", args=[customer.id]), {}, format="json")
         self.assertEqual(second.status_code, status.HTTP_200_OK)
-        self.assertTrue(second.data["already_active"])
+        self.assertFalse(second.data["already_active"])
         self.assertNotIn("temporary_password", second.data)
         customer.refresh_from_db()
         self.assertIsNotNone(customer.portal_user_id)
 
     def test_activation_skips_customer_id_used_by_an_existing_login(self):
-        customer = self.create_customer()
-        colliding_id = f"BP-C-{customer.id:06d}"
+        colliding_id = "BP-C-000001"
         BharathUser.objects.create_user(
             mobile="9000098765",
             password="Pass123!",
             role="CONTRACTOR",
             bharath_id=colliding_id,
         )
+        customer = self.create_customer()
 
         response = self.client.post(
             reverse("customer-activate-account", args=[customer.id]),

@@ -3,8 +3,8 @@ import json
 from django.conf import settings
 
 
-POLICY_VERSION = "2026-09-25"
-EFFECTIVE_DATE = "25 September 2026"
+POLICY_VERSION = "2026-09-28"
+EFFECTIVE_DATE = "28 September 2026"
 LEGAL_CONTACT_EMAIL = settings.LEGAL_CONTACT_EMAIL
 LEGAL_OPERATOR_NAME = settings.LEGAL_OPERATOR_NAME
 LEGAL_OPERATOR_ADDRESS = settings.LEGAL_OPERATOR_ADDRESS
@@ -145,6 +145,43 @@ ROLE_TERMS = {
     },
 }
 
+CUSTOMER_SAFETY_TERMS = [
+    {
+        "title": "Customer payments and financial arrangements",
+        "body": (
+            "Customers, contractors and Paint Applicators agree prices, deposits, payment schedules, refunds "
+            "and payment methods with each other. Unless a payment feature expressly states that Bharath Painters "
+            "collects or holds a payment, the Platform does not receive, hold, guarantee or refund money paid "
+            "directly between users. Check the written quotation, the recipient's identity and bank or UPI details "
+            "before paying. Keep your own payment receipts. Disputes about direct payments are generally between "
+            "the parties involved, subject to applicable law and any separately stated payment-service terms."
+        ),
+    },
+    {
+        "title": "Fraud awareness and reporting",
+        "body": (
+            "A profile, message, connection or verification indicator does not remove the need to exercise care. "
+            "Be alert to advance-payment demands, changed bank or UPI details, requests for OTPs or passwords, "
+            "and people claiming to represent the Platform. Verify important changes through a trusted contact "
+            "channel before acting. Report suspected misuse through Platform support. If you suspect financial "
+            "cyber fraud in India, promptly contact the national cybercrime helpline at 1930 or use "
+            "cybercrime.gov.in."
+        ),
+    },
+    {
+        "title": "Contact details, personal conduct and disputes",
+        "body": (
+            "Share only the contact, address and personal information needed for the work and use the Platform's "
+            "connection controls. Do not share passwords, OTPs, bank credentials or unrelated personal documents. "
+            "Users are responsible for their own communications and conduct. Personal disagreements, threats, "
+            "harassment, fraud and other unlawful acts should be reported to Platform support and, where appropriate, "
+            "the police or other competent authority. Bharath Painters may review reports and restrict accounts "
+            "under these Terms but cannot decide every private dispute or guarantee another user's conduct. "
+            "Nothing here limits duties or rights that cannot lawfully be excluded."
+        ),
+    },
+]
+
 
 PRIVACY_SECTIONS = [
     {
@@ -228,6 +265,8 @@ PRIVACY_SECTIONS = [
 
 
 REFERENCES = [
+    {"label": "National Cyber Crime Reporting Portal", "url": "https://www.cybercrime.gov.in/"},
+    {"label": "Consumer Protection Act, 2019", "url": "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection/consumer-protection"},
     {"label": "Digital Personal Data Protection Act, 2023", "url": "https://www.meity.gov.in/static/uploads/2024/02/Digital-Personal-Data-Protection-Act-2023.pdf"},
     {"label": "Digital Personal Data Protection Rules, 2025", "url": "https://www.meity.gov.in/documents/act-and-policies/digital-personal-data-protection-rules-2025-gDOxUjMtQWa"},
     {"label": "Information Technology Act, 2000", "url": "https://www.indiacode.nic.in/handle/123456789/1999"},
@@ -241,6 +280,8 @@ def registration_legal_payload(role):
     terms = [*COMMON_TERMS]
     if role_section:
         terms.insert(2, role_section)
+    if normalized_role == "CUSTOMER":
+        terms[3:3] = CUSTOMER_SAFETY_TERMS
     return {
         "policy_version": POLICY_VERSION,
         "effective_date": EFFECTIVE_DATE,

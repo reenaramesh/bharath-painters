@@ -213,12 +213,24 @@ export default function Customers() {
   async function createCustomer(values) {
     const { data } = await api.post("/quotations/customers/", values);
     if (data.is_saved_contact || data.already_saved) {
-      navigate(`/customers/${data.id}`);
+      await loadCustomers();
+      setConnectionView(data.connection_status || "PENDING");
     } else {
       setCustomers((current) => [data, ...current.filter(item => item.id !== data.id)]);
       setOnboarding(data);
     }
     return data;
+  }
+
+  async function resendConnection(item) {
+    setError("");
+    try {
+      await api.post("/quotations/contractor/customer-connections/request/", { mobile: item.customer?.mobile });
+      await loadCustomers();
+      setConnectionView("RECONNECT_PENDING");
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.response?.data?.detail || "Request could not be resent.");
+    }
   }
 
   async function importFile(event) {
@@ -353,11 +365,11 @@ export default function Customers() {
       )}
 
       <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{value === "CONNECTED" ? "All customers" : value === "PENDING" ? "Pending requests" : "Rejected"} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
+        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
-        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{item.status}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
+        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{item.status === "REJECTED" && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
         {!connections.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
@@ -793,10 +805,10 @@ export default function Customers() {
           <h2 className="text-xl font-extrabold">Customer created</h2>
           <p className="mt-2 text-sm text-slate-500">Send the welcome message so the customer can register free and continue securely.</p>
           <div className="mt-5 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">{buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices })}</div>
-          {onboarding.temporary_password && <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800"><KeyRound className="h-4 w-4 shrink-0" />The temporary password is included. Ask the customer to change it after signing in.</div>}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => navigator.clipboard.writeText(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))} className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Copy className="h-4 w-4" />Copy</button>
             <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />WhatsApp</a>
+            <a href={`sms:${onboarding.mobile}?body=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} className="col-span-2 flex items-center justify-center rounded-xl border px-4 py-3 font-bold">Send SMS</a>
           </div>
           <button onClick={() => setOnboarding(null)} className="mt-3 w-full rounded-xl border px-4 py-3 font-bold">Done</button>
         </section>

@@ -43,10 +43,13 @@ export default function CustomerRegister() {
       <p className="mt-2 text-sm text-slate-500">Create your account directly. No contractor registration is required.</p>
       <form onSubmit={submit} className="mt-6 grid gap-4 sm:grid-cols-2">
         <Field label="Name" name="name" value={form.name} onChange={update} />
-        <Field label="Mobile number" name="mobile" inputMode="tel" value={form.mobile} onChange={update} />
+        <div>
+          <Field label="Mobile number" name="mobile" inputMode="tel" value={form.mobile} onChange={update} />
+          <p className="mt-1 text-xs text-slate-500">Use 9876543210, 09876543210, or +91 9876543210. For other countries, include + and the country code.</p>
+        </div>
         <Field label="Email (optional)" name="email" type="email" required={false} value={form.email} onChange={update} />
         <Field label="Create password" name="password" type="password" minLength="8" value={form.password} onChange={update} />
-        <RegistrationConsent role="CUSTOMER" inline onConsentChange={setConsent} />
+        <RegistrationConsent role="CUSTOMER" onConsentChange={setConsent} />
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
         <button disabled={saving || !consent.accepted} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:col-span-2">{saving ? "Creating account..." : "Create customer account"}</button>
       </form>

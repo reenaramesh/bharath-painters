@@ -5,15 +5,29 @@ from .models import (
     ContractorProfile,
     ContractorCompletedProject,
 )
+from .mobile import normalize_mobile, matching_mobile_users
+
+
+def validate_account_mobile(value, exclude_pk=None):
+    normalized = normalize_mobile(value)
+    if not normalized:
+        raise serializers.ValidationError("Enter a valid mobile number. Include + and the country code for international numbers.")
+    if matching_mobile_users(normalized, exclude_pk=exclude_pk):
+        raise serializers.ValidationError("An account with this mobile number already exists.")
+    return normalized
 
 
 class PainterRegistrationSerializer(serializers.ModelSerializer):
 
-    first_name = serializers.CharField()
-    last_name = serializers.CharField(required=False, allow_blank=True)
-    password = serializers.CharField(write_only=True)
+    mobile = serializers.CharField(max_length=32)
 
-    experience_years = serializers.IntegerField()
+    name = serializers.CharField(write_only=True, required=False)
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    experience_years = serializers.IntegerField(required=False, min_value=0, default=0)
     skills = serializers.CharField(required=False, allow_blank=True)
     daily_wage = serializers.DecimalField(
         max_digits=10,
@@ -36,6 +50,7 @@ class PainterRegistrationSerializer(serializers.ModelSerializer):
             "mobile",
             "email",
             "password",
+            "name",
             "first_name",
             "last_name",
             "profile_photo",
@@ -46,9 +61,22 @@ class PainterRegistrationSerializer(serializers.ModelSerializer):
             "preferred_locations",
         ]
 
+    def validate(self, attrs):
+        if not (attrs.get("name") or attrs.get("first_name")):
+            raise serializers.ValidationError({"name": "Enter your name."})
+        return attrs
+
+    def validate_mobile(self, value):
+        return validate_account_mobile(value)
+
     def create(self, validated_data):
 
-        experience_years = validated_data.pop("experience_years")
+        name = validated_data.pop("name", "").strip()
+        if name:
+            name_parts = name.split(maxsplit=1)
+            validated_data["first_name"] = name_parts[0]
+            validated_data["last_name"] = name_parts[1] if len(name_parts) > 1 else ""
+        experience_years = validated_data.pop("experience_years", 0)
         skills = validated_data.pop("skills", "")
         daily_wage = validated_data.pop("daily_wage", None)
         weekly_wage = validated_data.pop("weekly_wage", None)
@@ -78,6 +106,8 @@ class PainterRegistrationSerializer(serializers.ModelSerializer):
 
 
 class ContractorRegistrationSerializer(serializers.ModelSerializer):
+
+    mobile = serializers.CharField(max_length=32)
 
     password = serializers.CharField(write_only=True)
 
@@ -110,6 +140,9 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
             "pan_number",
             "number_of_painters",
         ]
+
+    def validate_mobile(self, value):
+        return validate_account_mobile(value)
 
     def create(self, validated_data):
 
@@ -185,6 +218,9 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     def get_profile_completion(self, instance):
         from .profile_completion import contractor_profile_completion
         return contractor_profile_completion(instance)
+
+    def validate_mobile(self, value):
+        return validate_account_mobile(value, exclude_pk=self.instance.user_id)
 
     def validate_pdf_custom_primary_color(self, value):
         return self._validate_pdf_color(value)

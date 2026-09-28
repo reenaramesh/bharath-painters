@@ -76,6 +76,7 @@ export default function ApplicatorProfile() {
         "name",
         "experience_years",
         "skills",
+        "preferred_locations",
         "emergency_contact_name",
         "emergency_contact_number",
         "blood_group",
@@ -198,6 +199,9 @@ export default function ApplicatorProfile() {
                 </button>
               ))}
             </div>
+          </Field>
+          <Field label="Preferred work locations" wide>
+            <input {...field("preferred_locations")} placeholder="For example: Whitefield, Marathahalli" className={input} />
           </Field>
           <Field label="Emergency contact name">
             <input {...field("emergency_contact_name")} className={input} />

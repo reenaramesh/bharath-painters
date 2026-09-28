@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from .mobile import normalize_mobile, matching_mobile_users
 
 
 class BharathUserManager(BaseUserManager):
@@ -8,6 +9,11 @@ class BharathUserManager(BaseUserManager):
         if not mobile:
             raise ValueError("Mobile number is required")
 
+        mobile = normalize_mobile(mobile)
+        if not mobile:
+            raise ValueError("Enter a valid mobile number. Include + and the country code for international numbers.")
+        if matching_mobile_users(mobile, self.model.objects.using(self._db)):
+            raise ValueError("An account with this mobile number already exists.")
         email = self.normalize_email(email)
 
         user = self.model(
@@ -305,7 +311,7 @@ class PainterProfile(models.Model):
     )
 
     emergency_contact_number = models.CharField(
-        max_length=15,
+        max_length=16,
         blank=True
     )
 

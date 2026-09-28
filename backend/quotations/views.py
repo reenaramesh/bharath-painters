@@ -1,6 +1,8 @@
 
 from django.db import IntegrityError, models, transaction
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
+from django.core.files.base import File
+from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime, parse_date
 from decimal import Decimal, InvalidOperation
@@ -9,7 +11,10 @@ import logging
 import csv
 import io
 import secrets
+import hashlib
 import re
+from pathlib import Path
+from PIL import Image, UnidentifiedImageError
 from openpyxl import Workbook, load_workbook
 from .pdf_utils import build_quotation_pdf, build_measurement_pdf, build_invoice_pdf, build_invoice_receipt_pdf
 from .revision_utils import clone_quotation_revision, previous_revision, quotation_revision_changes
@@ -18,10 +23,13 @@ from .product_details import consolidated_product_details
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from accounts.models import BharathUser, ContractorProfile, PainterProfile
+from accounts.mobile import normalize_mobile as canonical_mobile, matching_mobile_users
 from accounts.profile_completion import contractor_profile_completion
+from accounts.views import _registration_consent_error, _record_registration_consent
+from accounts.utils import generate_bharath_qr
 
 
 from .models import (
@@ -33,9 +41,9 @@ from .models import (
     PaintBrand,
     PaintColor,
     Unit,
-    Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, normalize_indian_mobile,
+    Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, CustomerShareLink, normalize_indian_mobile,
     CustomerFollowUp,
-    CustomerWorkHistory, ChatConversation, ChatMessage, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, MeasurementAccessRequest,
+    CustomerWorkHistory, ChatConversation, ChatMessage, ChatAttachment, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, MeasurementAccessRequest,
     WorkPhoto,
     Property, ApartmentCommunity,
     Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoiceNumberSequence, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
@@ -63,6 +71,8 @@ from .serializers import (
     MeasurementOpeningSerializer, ActivityLogSerializer, WorkChangeSerializer, WorkChangeItemSerializer,
 )
 from .work_changes import current_scope, work_change_summary
+from .master_import import MASTER_MODELS, import_master_rows
+from .chat_colours import colour_catalogue, colour_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -235,16 +245,36 @@ class GlobalSearchView(APIView):
 
 
 CONNECTION_REQUEST_COOLDOWN = timedelta(days=7)
+CUSTOMER_LINK_LIFETIME = timedelta(days=7)
+
+
+def issue_customer_share_link(connection, purpose):
+    CustomerShareLink.objects.filter(connection=connection, purpose=purpose, used_at__isnull=True).delete()
+    token = secrets.token_urlsafe(32)
+    CustomerShareLink.objects.create(
+        connection=connection, purpose=purpose,
+        token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        expires_at=timezone.now() + CUSTOMER_LINK_LIFETIME,
+    )
+    return {"share_link": f"/customer-link/{token}", "link_purpose": purpose,
+            "link_expires_at": timezone.now() + CUSTOMER_LINK_LIFETIME}
+
+
+def get_customer_share_link(token):
+    if not isinstance(token, str) or len(token) > 100:
+        return None
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return CustomerShareLink.objects.select_related("connection__customer__portal_user", "connection__contractor", "connection__contractor__contractor_profile").filter(
+        token_hash=digest, expires_at__gt=timezone.now(), used_at__isnull=True,
+    ).first()
 
 
 def find_user_by_normalized_mobile(normalized_mobile, role=None):
     users = BharathUser.objects.all()
     if role:
         users = users.filter(role=role)
-    return next((
-        user for user in users
-        if normalize_indian_mobile(user.mobile) == normalized_mobile
-    ), None)
+    matches = matching_mobile_users(normalized_mobile, users)
+    return matches[0] if len(matches) == 1 else None
 
 
 def find_customer_portal_user(normalized_mobile):
@@ -298,14 +328,14 @@ def activate_customer_account(customer):
             except IntegrityError:
                 raise ValidationError({"bharath_id": "A customer ID conflict occurred. Please retry, or contact support."})
     else:
-        temporary_password = f"BP@{secrets.randbelow(900000) + 100000}"
+        temporary_password = None
         try:
             # Keep a uniqueness conflict inside a savepoint so the outer API
             # transaction remains usable and can return a helpful 409/400.
             with transaction.atomic():
                 portal_user = BharathUser.objects.create_user(
                     mobile=customer.mobile, email=customer.email or None,
-                    password=temporary_password, first_name=customer.name,
+                    password=None, first_name=customer.name,
                     role=BharathUser.Roles.CUSTOMER, is_active=True, is_verified=False,
                     verification_status=BharathUser.VerificationStatus.PENDING,
                     bharath_id=customer.bharath_id,
@@ -330,11 +360,11 @@ def activate_customer_account(customer):
 
 def contractor_property_scope(user, prefix=""):
     return (
-        models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__status__in": (
-            ContractorCustomerConnection.Status.CONNECTED,
-            ContractorCustomerConnection.Status.PENDING,
-        )})
-        | models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__isnull": True})
+        models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__contractor": user,
+                    f"{prefix}connection__status": ContractorCustomerConnection.Status.CONNECTED})
+        | models.Q(**{f"{prefix}contractor": user, f"{prefix}connection__isnull": True,
+                      f"{prefix}customer__contractor_connections__contractor": user,
+                      f"{prefix}customer__contractor_connections__status": ContractorCustomerConnection.Status.CONNECTED})
     )
 
 
@@ -377,8 +407,8 @@ def safe_customer_lookup(customer, connection=None):
             ContractorCustomerConnection.Status.REJECTED,
             ContractorCustomerConnection.Status.DISCONNECTED,
         }
-        if connection.status == ContractorCustomerConnection.Status.REJECTED and connection.rejected_at:
-            cooldown_until = connection.rejected_at + CONNECTION_REQUEST_COOLDOWN
+        if can_request and (connection.last_request_at or connection.requested_at):
+            cooldown_until = (connection.last_request_at or connection.requested_at) + CONNECTION_REQUEST_COOLDOWN
             can_request = timezone.now() >= cooldown_until
     return {
         "state": state,
@@ -390,6 +420,7 @@ def safe_customer_lookup(customer, connection=None):
         "message": {
             "CONNECTED": "You are already connected with this customer.",
             "PENDING": "Your connection request is waiting for customer approval.",
+            "RECONNECT_PENDING": "Your reconnect request is waiting for customer approval.",
             "BLOCKED": "This customer is not accepting connection requests from your account.",
         }.get(state, "This customer already has a Bharath Painters account."),
     }
@@ -415,6 +446,10 @@ def connection_data(connection, viewer_role=""):
         "id": connection.id,
         "status": connection.status,
         "requested_at": connection.requested_at,
+        "accepted_at": connection.accepted_at,
+        "last_request_at": connection.last_request_at,
+        "request_count": connection.request_count,
+        "cooldown_until": (connection.last_request_at or connection.requested_at) + CONNECTION_REQUEST_COOLDOWN if connection.status in (ContractorCustomerConnection.Status.REJECTED, ContractorCustomerConnection.Status.DISCONNECTED) else None,
         "connected_at": connection.connected_at,
         "approved_at": connection.approved_at,
         "rejected_at": connection.rejected_at,
@@ -487,14 +522,16 @@ class ContractorCustomerConnectionRequestView(APIView):
         if connection:
             if connection.status == ContractorCustomerConnection.Status.CONNECTED:
                 return Response(safe_customer_lookup(customer, connection), status=status.HTTP_409_CONFLICT)
-            if connection.status == ContractorCustomerConnection.Status.PENDING:
+            if connection.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
                 return Response(safe_customer_lookup(customer, connection), status=status.HTTP_409_CONFLICT)
             if connection.status == ContractorCustomerConnection.Status.BLOCKED:
                 return Response(safe_customer_lookup(customer, connection), status=status.HTTP_403_FORBIDDEN)
-            if connection.status == ContractorCustomerConnection.Status.REJECTED and connection.rejected_at and now < connection.rejected_at + CONNECTION_REQUEST_COOLDOWN:
+            if now < (connection.last_request_at or connection.requested_at) + CONNECTION_REQUEST_COOLDOWN:
                 return Response(safe_customer_lookup(customer, connection), status=status.HTTP_429_TOO_MANY_REQUESTS)
-            connection.status = ContractorCustomerConnection.Status.PENDING
+            connection.status = ContractorCustomerConnection.Status.RECONNECT_PENDING
             connection.requested_at = now
+            connection.last_request_at = now
+            connection.request_count += 1
             connection.requested_by = request.user
             connection.rejected_at = None
             connection.disconnected_at = None
@@ -502,7 +539,7 @@ class ContractorCustomerConnectionRequestView(APIView):
             connection.save()
             action = CustomerConnectionAudit.Actions.RESENT
         else:
-            connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=request.user, requested_by=request.user, **saved_contact_connection_defaults(customer, request.user))
+            connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=request.user, requested_by=request.user, last_request_at=now, **saved_contact_connection_defaults(customer, request.user))
         record_connection_audit(request, connection, action)
         public = contractor_public_data(request.user)
         create_notification(
@@ -510,7 +547,7 @@ class ContractorCustomerConnectionRequestView(APIView):
             f"{public['business_name']} wants to connect with your Bharath Painters account.",
             "/customer/connections?tab=pending", request.user,
         )
-        return Response({"state": "PENDING", "connection_id": connection.id, "message": "Connection request sent. Waiting for customer approval."}, status=status.HTTP_201_CREATED)
+        return Response({"state": connection.status, "connection_id": connection.id, "message": "Connection request sent. Waiting for customer approval."}, status=status.HTTP_201_CREATED)
 
 
 class ContractorCustomerConnectionListView(APIView):
@@ -573,8 +610,10 @@ class CustomerContractorConnectView(APIView):
             connection.status = ContractorCustomerConnection.Status.CONNECTED
             connection.requested_by = request.user
             connection.requested_at = now
+            connection.last_request_at = now
             connection.connected_at = now
             connection.approved_at = now
+            connection.accepted_at = now
             connection.approval_method = ContractorCustomerConnection.ApprovalMethod.CUSTOMER_PORTAL
             connection.rejected_at = None
             connection.disconnected_at = None
@@ -597,7 +636,7 @@ class CustomerConnectionRequestListView(APIView):
             return Response({"pending_count": 0, "results": []})
         queryset = ContractorCustomerConnection.objects.filter(customer=customer).select_related("customer", "contractor", "contractor__contractor_profile")
         results = [connection_data(item, request.user.role) for item in queryset]
-        return Response({"pending_count": queryset.filter(status=ContractorCustomerConnection.Status.PENDING).count(), "results": results})
+        return Response({"pending_count": queryset.filter(status__in=(ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING)).count(), "results": results})
 
 
 class CustomerConnectionRequestDetailView(APIView):
@@ -625,10 +664,11 @@ class CustomerConnectionActionView(APIView):
             return Response({"detail": "Connection request not found."}, status=status.HTTP_404_NOT_FOUND)
         now = timezone.now()
         if self.action == "accept":
-            if connection.status != ContractorCustomerConnection.Status.PENDING:
+            if connection.status not in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
                 return Response({"detail": "Only a pending request can be accepted."}, status=status.HTTP_409_CONFLICT)
             connection.status = ContractorCustomerConnection.Status.CONNECTED
             connection.approved_at = now
+            connection.accepted_at = now
             connection.connected_at = now
             connection.approval_method = ContractorCustomerConnection.ApprovalMethod.CUSTOMER_PORTAL
             connection.save()
@@ -636,7 +676,7 @@ class CustomerConnectionActionView(APIView):
             record_connection_audit(request, connection, CustomerConnectionAudit.Actions.ACCEPTED)
             create_notification(connection.contractor, "CONNECTION_ACCEPTED", "Connection accepted", f"{masked_customer_id(connection.customer.bharath_id)} accepted your connection request.", "/customers", request.user)
         elif self.action == "reject":
-            if connection.status != ContractorCustomerConnection.Status.PENDING:
+            if connection.status not in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
                 return Response({"detail": "Only a pending request can be rejected."}, status=status.HTTP_409_CONFLICT)
             connection.status = ContractorCustomerConnection.Status.REJECTED
             connection.rejected_at = now
@@ -653,11 +693,33 @@ class CustomerConnectionActionView(APIView):
             record_connection_audit(request, connection, CustomerConnectionAudit.Actions.DISCONNECTED)
             create_notification(connection.contractor, "CONNECTION_DISCONNECTED", "Customer disconnected", "A customer has disconnected your account. Historical records remain preserved.", "/customers", request.user)
         elif self.action == "block":
+            if connection.status == ContractorCustomerConnection.Status.BLOCKED:
+                return Response({"detail": "This contractor is already blocked."}, status=status.HTTP_409_CONFLICT)
             connection.status = ContractorCustomerConnection.Status.BLOCKED
             connection.blocked_at = now
             connection.save()
             record_connection_audit(request, connection, CustomerConnectionAudit.Actions.BLOCKED)
             create_notification(connection.contractor, "CONTRACTOR_BLOCKED", "Customer connection blocked", "You can no longer request this customer connection.", "/customers", request.user)
+        elif self.action == "connect-back":
+            if connection.status != ContractorCustomerConnection.Status.REJECTED:
+                return Response({"detail": "Only a declined connection can be requested again."}, status=status.HTTP_409_CONFLICT)
+            if now < (connection.last_request_at or connection.requested_at) + CONNECTION_REQUEST_COOLDOWN:
+                return Response({"detail": "Please wait before requesting another connection."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            connection.status = ContractorCustomerConnection.Status.RECONNECT_PENDING
+            connection.requested_at = now
+            connection.last_request_at = now
+            connection.request_count += 1
+            connection.requested_by = request.user
+            connection.save()
+            record_connection_audit(request, connection, CustomerConnectionAudit.Actions.RESENT)
+            create_notification(connection.contractor, "CONNECTION_REQUEST", "Customer wants to reconnect", "A customer asked to reconnect with your account.", "/customers", request.user)
+        elif self.action == "unblock":
+            if connection.status != ContractorCustomerConnection.Status.BLOCKED:
+                return Response({"detail": "This contractor is not blocked."}, status=status.HTTP_409_CONFLICT)
+            connection.status = ContractorCustomerConnection.Status.REJECTED
+            connection.blocked_at = None
+            connection.save()
+            record_connection_audit(request, connection, CustomerConnectionAudit.Actions.REJECTED)
         return Response(connection_data(connection, request.user.role))
 
 
@@ -675,6 +737,14 @@ class CustomerContractorDisconnectView(CustomerConnectionActionView):
 
 class CustomerContractorBlockView(CustomerConnectionActionView):
     action = "block"
+
+
+class CustomerContractorConnectBackView(CustomerConnectionActionView):
+    action = "connect-back"
+
+
+class CustomerContractorUnblockView(CustomerConnectionActionView):
+    action = "unblock"
 
 
 class AdminCustomerConnectionListView(APIView):
@@ -753,6 +823,76 @@ class ApartmentCommunitySearchView(APIView):
             }
             for item in communities
         ])
+
+
+def apartment_data(item):
+    return {
+        "id": item.id, "name": item.name, "zone": item.zone,
+        "locality": item.locality, "pincode": item.pincode,
+        "is_active": item.is_active,
+    }
+
+
+class ApartmentCommunityMasterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role not in {BharathUser.Roles.ADMIN, BharathUser.Roles.CONTRACTOR}:
+            return Response({"detail": "Admin or contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        items = ApartmentCommunity.objects.filter(is_active=True).order_by("name", "locality")
+        return Response([apartment_data(item) for item in items])
+
+    def post(self, request):
+        if request.user.role != BharathUser.Roles.ADMIN:
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        name = str(request.data.get("name") or "").strip()
+        pincode = str(request.data.get("pincode") or "").strip()
+        if not name or len(name) > 200 or len(pincode) > 10:
+            return Response({"name": "Enter an apartment name (up to 200 characters) and PIN code (up to 10 characters)."}, status=status.HTTP_400_BAD_REQUEST)
+        locality = str(request.data.get("locality") or "").strip()
+        zone = str(request.data.get("zone") or "").strip()
+        if len(locality) > 160 or len(zone) > 120:
+            return Response({"detail": "Locality or zone is too long."}, status=status.HTTP_400_BAD_REQUEST)
+        existing = ApartmentCommunity.objects.filter(name__iexact=name, pincode=pincode).first()
+        if existing:
+            if existing.is_active:
+                return Response({"name": "This apartment and PIN code already exist. Edit the existing entry."}, status=status.HTTP_400_BAD_REQUEST)
+            existing.locality, existing.zone, existing.is_active = locality, zone, True
+            existing.save(update_fields=["locality", "zone", "is_active", "updated_at"])
+            return Response(apartment_data(existing))
+        item = ApartmentCommunity.objects.create(name=name, pincode=pincode, locality=locality, zone=zone)
+        return Response(apartment_data(item), status=status.HTTP_201_CREATED)
+
+
+class ApartmentCommunityMasterDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if request.user.role != BharathUser.Roles.ADMIN:
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        item = ApartmentCommunity.objects.filter(pk=pk).first()
+        if not item:
+            return Response({"detail": "Apartment not found."}, status=status.HTTP_404_NOT_FOUND)
+        values = {field: str(request.data.get(field, getattr(item, field)) or "").strip()
+                  for field in ("name", "pincode", "locality", "zone")}
+        if not values["name"] or len(values["name"]) > 200 or len(values["pincode"]) > 10 or len(values["locality"]) > 160 or len(values["zone"]) > 120:
+            return Response({"detail": "Check the apartment name and field lengths."}, status=status.HTTP_400_BAD_REQUEST)
+        if ApartmentCommunity.objects.exclude(pk=pk).filter(name__iexact=values["name"], pincode=values["pincode"]).exists():
+            return Response({"name": "This apartment and PIN code already exist."}, status=status.HTTP_400_BAD_REQUEST)
+        for field, value in values.items():
+            setattr(item, field, value)
+        item.save(update_fields=[*values, "updated_at"])
+        return Response(apartment_data(item))
+
+    def delete(self, request, pk):
+        if request.user.role != BharathUser.Roles.ADMIN:
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        item = ApartmentCommunity.objects.filter(pk=pk).first()
+        if not item:
+            return Response({"detail": "Apartment not found."}, status=status.HTTP_404_NOT_FOUND)
+        item.is_active = False
+        item.save(update_fields=["is_active", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ActivityLogListView(generics.ListAPIView):
@@ -864,6 +1004,22 @@ class IsVerifiedContractor(BasePermission):
 # ============================================================
 # MASTER DATA
 # ============================================================
+
+class MasterDataImportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, section):
+        if section not in MASTER_MODELS:
+            return Response({"detail": "Unknown Master Data section."}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.role not in {BharathUser.Roles.ADMIN, BharathUser.Roles.CONTRACTOR}:
+            return Response({"detail": "Admin or contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        if section == "apartments" and request.user.role != BharathUser.Roles.ADMIN:
+            return Response({"detail": "Only administrators can update the shared apartment directory."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            result = import_master_rows(section, request.FILES.get("file"), request.user)
+        except ValueError as error:
+            return Response({"file": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
 
 class ContractorOwnedCreateListView(
     generics.ListCreateAPIView
@@ -1049,16 +1205,11 @@ class UnitDetailView(MasterDataDetailView):
 # ============================================================
 
 def link_customer_portal(customer):
-    mobile_key = "".join(character for character in customer.mobile if character.isdigit())[-10:]
-    if len(mobile_key) != 10:
+    normalized = normalize_indian_mobile(customer.mobile)
+    if not normalized:
         return customer
-    portal_user = next(
-        (
-            user for user in BharathUser.objects.filter(role=BharathUser.Roles.CUSTOMER)
-            if "".join(character for character in user.mobile if character.isdigit())[-10:] == mobile_key
-        ),
-        None,
-    )
+    matches = matching_mobile_users(normalized, BharathUser.objects.filter(role=BharathUser.Roles.CUSTOMER))
+    portal_user = matches[0] if len(matches) == 1 else None
     if portal_user:
         customer.portal_user = portal_user
         customer.save(update_fields=("portal_user",))
@@ -1072,7 +1223,7 @@ def link_customer_portal(customer):
 
 def customer_identity_ids(customer):
     """Return legacy and current CRM records that represent the same customer."""
-    mobile_key = "".join(character for character in customer.mobile if character.isdigit())[-10:]
+    normalized = normalize_indian_mobile(customer.mobile)
     candidates = Customer.objects.all()
     if customer.portal_user_id:
         candidates = candidates.filter(
@@ -1081,9 +1232,8 @@ def customer_identity_ids(customer):
         )
     matching = []
     for candidate in candidates.only("id", "mobile", "portal_user_id"):
-        candidate_key = "".join(character for character in candidate.mobile if character.isdigit())[-10:]
         same_portal = customer.portal_user_id and candidate.portal_user_id == customer.portal_user_id
-        same_mobile = len(mobile_key) == 10 and candidate_key == mobile_key
+        same_mobile = normalized and normalize_indian_mobile(candidate.mobile) == normalized
         if same_portal or same_mobile:
             matching.append(candidate.id)
     return matching
@@ -1098,7 +1248,9 @@ def saved_contact_connection_defaults(customer, contractor):
 
 @transaction.atomic
 def save_existing_customer_contact(request, customer, partial=False):
-    connection = ContractorCustomerConnection.objects.filter(customer=customer, contractor=request.user).first()
+    connection = ContractorCustomerConnection.objects.select_for_update().filter(customer=customer, contractor=request.user).first()
+    if not customer.portal_user_id or not customer.bharath_id:
+        activate_customer_account(customer)
     if connection and connection.status == ContractorCustomerConnection.Status.CONNECTED:
         data = CustomerSerializer(customer, context={"request": request}).data
         data["already_saved"] = True
@@ -1111,13 +1263,29 @@ def save_existing_customer_contact(request, customer, partial=False):
     values = {key: value for key, value in serializer.validated_data.items() if key in SAVED_CONTACT_FIELDS}
     contact.details = {**contact.details, **values}
     contact.save(update_fields=("details", "updated_at"))
+    if not connection:
+        now = timezone.now()
+        connection = ContractorCustomerConnection.objects.create(
+            customer=customer, contractor=request.user, requested_by=request.user,
+            status=ContractorCustomerConnection.Status.PENDING,
+            requested_at=now, last_request_at=now,
+            **saved_contact_connection_defaults(customer, request.user),
+        )
+        record_connection_audit(request, connection, CustomerConnectionAudit.Actions.REQUESTED)
+        public = contractor_public_data(request.user)
+        create_notification(customer.portal_user, "CONNECTION_REQUEST", "New contractor connection request",
+                            f"{public['business_name']} wants to connect with your account.",
+                            "/customer/connections?tab=pending", request.user)
     if connection:
         scoped_values = saved_contact_connection_defaults(customer, request.user)
         for field, value in scoped_values.items():
             setattr(connection, field, value)
         if scoped_values:
             connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
-    return Response(saved_contact_representation(contact, connection), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    payload = saved_contact_representation(contact, connection)
+    if connection.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
+        payload.update(issue_customer_share_link(connection, CustomerShareLink.Purpose.CONNECTION))
+    return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class CustomerListCreateView(
@@ -1176,11 +1344,12 @@ class CustomerListCreateView(
                 raise
             return save_existing_customer_contact(request, existing)
         now = timezone.now()
+        activate_customer_account(customer)
         connection = ContractorCustomerConnection.objects.create(
             customer=customer, contractor=request.user,
             status=ContractorCustomerConnection.Status.CONNECTED,
             requested_by=request.user,
-            requested_at=now, connected_at=now, approved_at=now,
+            requested_at=now, last_request_at=now, connected_at=now, approved_at=now, accepted_at=now,
             approval_method=ContractorCustomerConnection.ApprovalMethod.INITIAL_CREATOR,
             customer_status=customer.status,
             customer_source=customer.source,
@@ -1194,8 +1363,10 @@ class CustomerListCreateView(
             defaults={"connection": connection},
         )
         record_connection_audit(request, connection, CustomerConnectionAudit.Actions.ACCEPTED)
+        SavedCustomerContact.objects.get_or_create(customer=customer, contractor=request.user, defaults={"details": {"name": customer.name, "mobile": customer.mobile}})
         output = self.get_serializer(customer).data
         output["connection_status"] = connection.status
+        output.update(issue_customer_share_link(connection, CustomerShareLink.Purpose.ACTIVATION))
         return Response(output, status=status.HTTP_201_CREATED)
 
 
@@ -1213,12 +1384,14 @@ class CustomerActivateAccountView(APIView):
             ).exists()
             if request.user.role != BharathUser.Roles.CONTRACTOR or not connected:
                 return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-            _, temporary_password = activate_customer_account(customer)
+            portal_user, _ = activate_customer_account(customer)
             payload = CustomerSerializer(customer, context={"request": request}).data
             payload["account_created"] = True
-            payload["already_active"] = temporary_password is None
-            if temporary_password:
-                payload["temporary_password"] = temporary_password
+            payload["already_active"] = portal_user.has_usable_password()
+            payload.update(issue_customer_share_link(
+                ContractorCustomerConnection.objects.get(customer=customer, contractor=request.user),
+                CustomerShareLink.Purpose.ACTIVATION,
+            ))
             return Response(payload)
         except ValidationError:
             raise
@@ -1249,7 +1422,7 @@ class PropertyListCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+            status=ContractorCustomerConnection.Status.CONNECTED,
         ).first()
         if not connection:
             raise ValidationError({"customer": "A customer connection request is required before creating a property."})
@@ -1440,9 +1613,11 @@ def conversation_data(conversation, viewer):
         "contractor_mobile": contractor.mobile,
         "contractor_bharath_id": contractor.bharath_id or "",
         "is_online": bool(other_user and other_user.is_active and other_user.last_activity_at and other_user.last_activity_at >= online_cutoff),
-        "last_message": last.text if last else "",
+        "last_message": chat_message_summary(last) if last else "",
         "last_message_at": last.created_at if last else conversation.created_at,
         "unread_count": conversation.messages.exclude(sender=viewer).filter(read_at__isnull=True).count(),
+        "is_blocked": bool(conversation.blocked_by_id),
+        "blocked_by_me": conversation.blocked_by_id == viewer.id,
     }
 
 
@@ -1487,9 +1662,9 @@ def notify_blocked_chat(request, conversation, category):
         create_notification(admin, "CHAT_SAFETY", "Blocked chat safety alert", message, "/messages", request.user)
 
 
-def validate_chat_text(request, conversation, text):
+def validate_chat_text(request, conversation, text, allow_empty=False):
     value = str(text or "").strip()
-    if not value:
+    if not value and not allow_empty:
         return None, Response({"text": "Message cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
     if len(value) > 4000:
         return None, Response({"text": "Message is too long."}, status=status.HTTP_400_BAD_REQUEST)
@@ -1504,15 +1679,77 @@ def validate_chat_text(request, conversation, text):
 
 
 def chat_message_data(item, viewer):
+    can_change = item.sender_id == viewer.id and not item.deleted_at and timezone.now() <= item.created_at + timedelta(minutes=10)
+    reply = item.reply_to
     return {
         "id": item.id,
         "sender": item.sender_id,
         "sender_role": item.sender.role,
-        "text": item.text,
+        "text": "" if item.deleted_at else item.text,
+        "contact": None if item.deleted_at or not item.contact_name else {"name": item.contact_name, "mobile": item.contact_mobile},
+        "colour": None if item.deleted_at or not item.colour_code else {
+            "brand": item.colour_brand, "name": item.colour_name,
+            "code": item.colour_code, "hex": item.colour_hex,
+        },
+        "attachments": [] if item.deleted_at else [
+            {"id": attachment.id, "name": attachment.file_name, "content_type": attachment.content_type, "size": attachment.size,
+             "url": f"/quotations/chat/attachments/{attachment.id}/"}
+            for attachment in item.attachments.all()
+        ],
+        "reply_to": None if not reply else {"id": reply.id, "text": chat_message_summary(reply)},
+        "is_forwarded": bool(item.forwarded_from_id),
         "created_at": item.created_at,
+        "edited_at": item.edited_at,
+        "deleted_at": item.deleted_at,
         "read_at": item.read_at,
         "is_mine": item.sender_id == viewer.id,
+        "can_edit": bool(can_change),
+        "can_delete": bool(can_change),
     }
+
+
+def chat_message_summary(item):
+    if item.deleted_at:
+        return "Message deleted"
+    if item.text:
+        return item.text[:120]
+    if item.contact_name:
+        return f"Contact: {item.contact_name}"
+    if item.colour_code:
+        return f"Colour: {item.colour_brand} {item.colour_code} {item.colour_name}"[:120]
+    attachment = item.attachments.first()
+    return f"Attachment: {attachment.file_name}" if attachment else "Message"
+
+
+CHAT_MAX_FILE_BYTES = 10 * 1024 * 1024
+CHAT_MAX_FILES = 5
+
+
+def validate_chat_files(files):
+    if len(files) > CHAT_MAX_FILES:
+        return "Attach at most five files per message."
+    for uploaded in files:
+        if uploaded.size > CHAT_MAX_FILE_BYTES:
+            return f"{uploaded.name} exceeds the 10 MB file limit."
+        extension = Path(uploaded.name).suffix.lower()
+        if extension == ".pdf":
+            if uploaded.read(5) != b"%PDF-":
+                return f"{uploaded.name} is not a valid PDF."
+        elif extension in {".jpg", ".jpeg", ".png", ".webp"}:
+            try:
+                image = Image.open(uploaded)
+                image.verify()
+                if image.format not in {"JPEG", "PNG", "WEBP"}:
+                    return f"{uploaded.name} is not a supported photo."
+            except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError):
+                return f"{uploaded.name} is not a valid photo."
+        elif extension == ".vcf":
+            if not uploaded.read(2048).lstrip().startswith(b"BEGIN:VCARD"):
+                return f"{uploaded.name} is not a valid contact card."
+        else:
+            return f"{uploaded.name} must be a PDF, JPG, PNG, WEBP or VCF file."
+        uploaded.seek(0)
+    return ""
 
 
 def contractor_can_message_painter(contractor, painter):
@@ -1528,6 +1765,30 @@ def contractor_can_message_painter(contractor, painter):
             contractor=contractor, applicator=painter,
         ).exists()
     )
+
+
+def chat_targets_for(user):
+    if user.role == BharathUser.Roles.PAINTER:
+        from jobs.models import ApplicatorBooking, ContractorApplicatorTeam, JobApplication
+        ids = set(ContractorApplicatorTeam.objects.filter(painter=user, is_active=True).values_list("contractor_id", flat=True))
+        ids.update(JobApplication.objects.filter(painter=user).values_list("job__contractor_id", flat=True))
+        ids.update(ApplicatorBooking.objects.filter(applicator=user).values_list("contractor_id", flat=True))
+        contractors = BharathUser.objects.filter(pk__in=ids, role=BharathUser.Roles.CONTRACTOR, is_active=True).select_related("contractor_profile")
+        return [{"type": "CONTRACTOR", "id": item.id, "name": item.contractor_profile.company_name if hasattr(item, "contractor_profile") and item.contractor_profile.company_name else item.get_full_name() or item.mobile, "subtitle": item.bharath_id or "Contractor"} for item in contractors]
+    if user.role == BharathUser.Roles.CUSTOMER:
+        connections = ContractorCustomerConnection.objects.filter(customer__portal_user=user, status=ContractorCustomerConnection.Status.CONNECTED, contractor__is_active=True).select_related("contractor", "contractor__contractor_profile")
+        return [{"type": "CONTRACTOR", "id": item.contractor_id, "connection": item.id, "name": item.contractor.contractor_profile.company_name if hasattr(item.contractor, "contractor_profile") and item.contractor.contractor_profile.company_name else item.contractor.get_full_name() or item.contractor.mobile, "subtitle": item.contractor.bharath_id or "Contractor"} for item in connections]
+    if user.role == BharathUser.Roles.CONTRACTOR:
+        from jobs.models import ApplicatorBooking, ContractorApplicatorTeam, JobApplication
+        painter_ids = set(ContractorApplicatorTeam.objects.filter(contractor=user, is_active=True).values_list("painter_id", flat=True))
+        painter_ids.update(JobApplication.objects.filter(job__contractor=user).values_list("painter_id", flat=True))
+        painter_ids.update(ApplicatorBooking.objects.filter(contractor=user).values_list("applicator_id", flat=True))
+        painters = BharathUser.objects.filter(pk__in=painter_ids, role=BharathUser.Roles.PAINTER, is_active=True)
+        targets = [{"type": "PAINTER", "id": item.id, "name": item.get_full_name() or item.mobile, "subtitle": item.bharath_id or "Paint Applicator"} for item in painters]
+        connections = ContractorCustomerConnection.objects.filter(contractor=user, status=ContractorCustomerConnection.Status.CONNECTED).select_related("customer")
+        targets.extend({"type": "CUSTOMER", "id": item.customer_id, "name": item.customer.name, "subtitle": item.customer.bharath_id or "Customer"} for item in connections)
+        return targets
+    return []
 
 
 def notification_data(item):
@@ -1600,18 +1861,48 @@ class PortalNotificationListView(APIView):
         return Response({"message": "Notifications marked as read."})
 
 
+class ChatColourListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = str(request.query_params.get("q") or "").strip().casefold()[:80]
+        group = str(request.query_params.get("group") or "All")
+        try:
+            offset = max(0, min(int(request.query_params.get("offset") or 0), 10000))
+        except (TypeError, ValueError):
+            offset = 0
+        matches = (
+            (index, item) for index, item in enumerate(colour_catalogue())
+            if (group == "All" or item["group"] == group)
+            and (not query or query in " ".join((item["name"], item["code"], item["hex"], item["brand"], item["group"])).casefold())
+        )
+        found = list(matches)
+        return Response({
+            "count": len(found),
+            "results": [{"id": index, **item} for index, item in found[offset:offset + 60]],
+            "next_offset": offset + 60 if offset + 60 < len(found) else None,
+        })
+
+
+class ChatContactListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(chat_targets_for(request.user))
+
+
 class ChatConversationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
+        requested_conversation_id = request.query_params.get("conversation")
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             from jobs.models import ContractorApplicatorTeam
             painter_ids = ContractorApplicatorTeam.objects.filter(contractor=request.user, is_active=True).values_list("painter_id", flat=True)
             for painter_id in painter_ids:
                 ChatConversation.objects.get_or_create(contractor=request.user, painter_id=painter_id, customer=None)
             requested_painter_id = request.query_params.get("painter_id")
-            requested_conversation_id = request.query_params.get("conversation")
             if requested_painter_id:
                 painter = BharathUser.objects.filter(
                     pk=requested_painter_id, role=BharathUser.Roles.PAINTER, is_active=True,
@@ -1621,7 +1912,11 @@ class ChatConversationListView(APIView):
                 ChatConversation.objects.get_or_create(
                     contractor=request.user, painter=painter, customer=None,
                 )
-            conversations = ChatConversation.objects.filter(contractor=request.user)
+            conversations = ChatConversation.objects.filter(contractor=request.user).filter(
+                models.Q(painter__isnull=False) |
+                models.Q(customer__contractor_connections__contractor=request.user,
+                         customer__contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED)
+            ).distinct()
             search = str(request.query_params.get("search") or "").strip()
             if search:
                 conversations = conversations.filter(
@@ -1644,25 +1939,61 @@ class ChatConversationListView(APIView):
                 else:
                     conversations = conversations.filter(messages__isnull=False).distinct()
         elif request.user.role == BharathUser.Roles.CUSTOMER:
-            conversations = ChatConversation.objects.filter(customer__portal_user=request.user)
+            conversations = ChatConversation.objects.filter(
+                customer__portal_user=request.user,
+                customer__contractor_connections__contractor=models.F("contractor"),
+                customer__contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+            ).distinct()
         elif request.user.role == BharathUser.Roles.PAINTER:
             contractor_id = request.query_params.get("contractor_id")
             if contractor_id:
                 contractor = BharathUser.objects.filter(
                     pk=contractor_id, role=BharathUser.Roles.CONTRACTOR, is_active=True,
                 ).first()
-                if not contractor:
-                    return Response({"detail": "Contractor not found."}, status=status.HTTP_404_NOT_FOUND)
+                if not contractor or not contractor_can_message_painter(contractor, request.user):
+                    return Response({"detail": "This contractor is not connected to your work."}, status=status.HTTP_403_FORBIDDEN)
                 ChatConversation.objects.get_or_create(contractor=contractor, painter=request.user, customer=None)
             conversations = ChatConversation.objects.filter(painter=request.user)
         else:
             return Response([], status=status.HTTP_200_OK)
         conversations = conversations.select_related("customer", "contractor", "contractor__contractor_profile", "painter").annotate(
-            recent_message_at=models.Max("messages__created_at")
-        ).order_by(models.F("recent_message_at").desc(nulls_last=True), "-updated_at")
+            recent_message_at=models.Max("messages__created_at"),
+            requested_first=models.Case(models.When(pk=requested_conversation_id, then=0), default=1, output_field=models.IntegerField()) if requested_conversation_id else models.Value(1, output_field=models.IntegerField()),
+        ).order_by("requested_first", models.F("recent_message_at").desc(nulls_last=True), "-updated_at")
         return Response([conversation_data(item, request.user) for item in conversations[:20]])
 
     def post(self, request):
+        if request.user.role == BharathUser.Roles.PAINTER:
+            contractor = BharathUser.objects.filter(
+                pk=request.data.get("contractor"), role=BharathUser.Roles.CONTRACTOR, is_active=True,
+            ).first()
+            if not contractor or not contractor_can_message_painter(contractor, request.user):
+                return Response({"contractor": "Select a contractor connected to your work."}, status=status.HTTP_400_BAD_REQUEST)
+            conversation, _ = ChatConversation.objects.get_or_create(
+                contractor=contractor, painter=request.user, customer=None,
+            )
+            conversation = ChatConversation.objects.select_related(
+                "customer", "contractor", "contractor__contractor_profile", "painter"
+            ).get(pk=conversation.pk)
+            return Response(conversation_data(conversation, request.user))
+        if request.user.role == BharathUser.Roles.CUSTOMER:
+            connection = ContractorCustomerConnection.objects.select_related("customer", "contractor").filter(
+                pk=request.data.get("connection"), customer__portal_user=request.user,
+                status=ContractorCustomerConnection.Status.CONNECTED,
+            ).first()
+            if not connection:
+                return Response({"connection": "Select one of your connected contractors."}, status=status.HTTP_400_BAD_REQUEST)
+            conversation, _ = ChatConversation.objects.get_or_create(
+                customer=connection.customer, contractor=connection.contractor,
+                defaults={"connection": connection},
+            )
+            if conversation.connection_id != connection.id:
+                conversation.connection = connection
+                conversation.save(update_fields=("connection", "updated_at"))
+            conversation = ChatConversation.objects.select_related(
+                "customer", "contractor", "contractor__contractor_profile", "painter"
+            ).get(pk=conversation.pk)
+            return Response(conversation_data(conversation, request.user))
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
         painter_id = request.data.get("painter")
@@ -1712,6 +2043,11 @@ class ChatMessageListCreateView(APIView):
             or conversation.contractor_id == request.user.id
             or conversation.painter_id == request.user.id
         )
+        if allowed and conversation.customer_id:
+            allowed = ContractorCustomerConnection.objects.filter(
+                customer_id=conversation.customer_id, contractor_id=conversation.contractor_id,
+                status=ContractorCustomerConnection.Status.CONNECTED,
+            ).exists()
         return conversation if allowed else None
 
     def get(self, request, pk):
@@ -1720,17 +2056,47 @@ class ChatMessageListCreateView(APIView):
         if not conversation:
             return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
         conversation.messages.exclude(sender=request.user).filter(read_at__isnull=True).update(read_at=timezone.now())
-        return Response([chat_message_data(item, request.user) for item in conversation.messages.select_related("sender")])
+        return Response([chat_message_data(item, request.user) for item in conversation.messages.select_related("sender", "reply_to").prefetch_related("attachments", "reply_to__attachments")])
 
     def post(self, request, pk):
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
         conversation = self.get_conversation(request, pk)
         if not conversation:
             return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
-        text, error = validate_chat_text(request, conversation, request.data.get("text"))
+        if conversation.blocked_by_id:
+            return Response({"detail": "This conversation is blocked."}, status=status.HTTP_403_FORBIDDEN)
+        files = request.FILES.getlist("files")
+        file_error = validate_chat_files(files)
+        if file_error:
+            return Response({"files": file_error}, status=status.HTTP_400_BAD_REQUEST)
+        contact_name = str(request.data.get("contact_name") or "").strip()
+        contact_mobile = str(request.data.get("contact_mobile") or "").strip()
+        if contact_name or contact_mobile:
+            contact_mobile = canonical_mobile(contact_mobile)
+            if not contact_name or len(contact_name) > 120 or not contact_mobile:
+                return Response({"contact": "Enter a contact name and valid mobile number."}, status=status.HTTP_400_BAD_REQUEST)
+        colour = None
+        if "colour_id" in request.data:
+            colour = colour_by_id(request.data.get("colour_id"))
+            if not colour:
+                return Response({"colour": "Select a colour from the catalogue."}, status=status.HTTP_400_BAD_REQUEST)
+        reply_to = None
+        if request.data.get("reply_to"):
+            reply_to = ChatMessage.objects.filter(pk=request.data["reply_to"], conversation=conversation, deleted_at__isnull=True).first()
+            if not reply_to:
+                return Response({"reply_to": "The message to reply to is unavailable."}, status=status.HTTP_400_BAD_REQUEST)
+        text, error = validate_chat_text(request, conversation, request.data.get("text"), allow_empty=bool(files or contact_name or colour))
         if error:
             return error
-        message = ChatMessage.objects.create(conversation=conversation, sender=request.user, text=text)
+        message = ChatMessage.objects.create(conversation=conversation, sender=request.user, text=text, reply_to=reply_to,
+                                             contact_name=contact_name, contact_mobile=contact_mobile,
+                                             colour_brand=colour["brand"] if colour else "", colour_name=colour["name"] if colour else "",
+                                             colour_code=colour["code"] if colour else "", colour_hex=colour["hex"] if colour else "")
+        for uploaded in files:
+            extension = Path(uploaded.name).suffix.lower()
+            content_type = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".vcf": "text/vcard"}[extension]
+            ChatAttachment.objects.create(message=message, file=uploaded, file_name=Path(uploaded.name).name[:255],
+                                          content_type=content_type, size=uploaded.size)
         conversation.save(update_fields=("updated_at",))
         recipient = None
         if conversation.customer:
@@ -1739,15 +2105,123 @@ class ChatMessageListCreateView(APIView):
             recipient = conversation.contractor
         else:
             recipient = conversation.painter
-        create_notification(recipient, "MESSAGE", "New message", f"{request.user.get_full_name() or request.user.mobile}: {text[:120]}", "/messages", request.user)
+        create_notification(recipient, "MESSAGE", "New message", f"{request.user.get_full_name() or request.user.mobile}: {chat_message_summary(message)}", "/messages", request.user)
         return Response(chat_message_data(message, request.user), status=status.HTTP_201_CREATED)
+
+
+class ChatMessageForwardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        source = ChatMessage.objects.select_related("conversation", "sender").prefetch_related("attachments").filter(pk=pk, deleted_at__isnull=True).first()
+        if not source or not ChatMessageListCreateView().get_conversation(request, source.conversation_id):
+            return Response({"detail": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+        target = ChatMessageListCreateView().get_conversation(request, request.data.get("conversation"))
+        if not target:
+            return Response({"detail": "Destination conversation not found."}, status=status.HTTP_404_NOT_FOUND)
+        if target.pk == source.conversation_id:
+            return Response({"detail": "Choose a different conversation."}, status=status.HTTP_400_BAD_REQUEST)
+        if target.blocked_by_id:
+            return Response({"detail": "Destination conversation is blocked."}, status=status.HTTP_403_FORBIDDEN)
+        if target.painter_id:
+            if not contractor_can_message_painter(target.contractor, target.painter):
+                return Response({"detail": "This work connection is no longer available."}, status=status.HTTP_403_FORBIDDEN)
+        elif not ContractorCustomerConnection.objects.filter(
+            contractor=target.contractor, customer=target.customer,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).exists():
+            return Response({"detail": "This customer connection is no longer available."}, status=status.HTTP_403_FORBIDDEN)
+        with transaction.atomic():
+            forwarded = ChatMessage.objects.create(
+                conversation=target, sender=request.user, text=source.text,
+                contact_name=source.contact_name, contact_mobile=source.contact_mobile,
+                colour_brand=source.colour_brand, colour_name=source.colour_name,
+                colour_code=source.colour_code, colour_hex=source.colour_hex,
+                forwarded_from=source,
+            )
+            for attachment in source.attachments.all():
+                attachment.file.open("rb")
+                try:
+                    copy = ChatAttachment(message=forwarded, file_name=attachment.file_name,
+                                          content_type=attachment.content_type, size=attachment.size)
+                    copy.file.save(attachment.file_name, File(attachment.file), save=False)
+                    copy.save()
+                finally:
+                    attachment.file.close()
+            target.save(update_fields=("updated_at",))
+        if target.customer_id:
+            recipient = target.customer.portal_user if request.user.id == target.contractor_id else target.contractor
+        else:
+            recipient = target.contractor if request.user.id == target.painter_id else target.painter
+        create_notification(recipient, "MESSAGE", "Forwarded message", f"{request.user.get_full_name() or request.user.mobile}: {chat_message_summary(forwarded)}", "/messages", request.user)
+        return Response(chat_message_data(forwarded, request.user), status=status.HTTP_201_CREATED)
+
+
+class ChatConversationSafetyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_conversation(self, request, pk):
+        if request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser:
+            return ChatConversation.objects.filter(pk=pk).first()
+        return ChatMessageListCreateView().get_conversation(request, pk)
+
+    def get(self, request, pk):
+        if request.user.role != BharathUser.Roles.ADMIN and not request.user.is_superuser:
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        conversation = self.get_conversation(request, pk)
+        if not conversation:
+            return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"is_blocked": bool(conversation.blocked_by_id), "blocked_by_admin": bool(conversation.blocked_by and (conversation.blocked_by.role == BharathUser.Roles.ADMIN or conversation.blocked_by.is_superuser))})
+
+    def post(self, request, pk):
+        conversation = self.get_conversation(request, pk)
+        if not conversation:
+            return Response({"detail": "Conversation not found."}, status=status.HTTP_404_NOT_FOUND)
+        action = str(request.data.get("action") or "").strip().lower()
+        if action == "block":
+            if conversation.blocked_by_id and conversation.blocked_by_id != request.user.id:
+                return Response({"detail": "This conversation is already blocked."}, status=status.HTTP_403_FORBIDDEN)
+            conversation.blocked_by = request.user
+            conversation.blocked_at = timezone.now()
+            conversation.save(update_fields=("blocked_by", "blocked_at", "updated_at"))
+            return Response({"is_blocked": True, "blocked_by_me": True})
+        if action == "unblock":
+            admin_unlock = (request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser) and conversation.blocked_by and (conversation.blocked_by.role == BharathUser.Roles.ADMIN or conversation.blocked_by.is_superuser)
+            if conversation.blocked_by_id != request.user.id and not admin_unlock:
+                return Response({"detail": "Only the person who blocked this conversation can unblock it."}, status=status.HTTP_403_FORBIDDEN)
+            conversation.blocked_by = None
+            conversation.blocked_at = None
+            conversation.save(update_fields=("blocked_by", "blocked_at", "updated_at"))
+            return Response({"is_blocked": False, "blocked_by_me": False})
+        if action == "report":
+            if request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser:
+                return Response({"detail": "Administrators review reports in Support Desk."}, status=status.HTTP_403_FORBIDDEN)
+            reason = str(request.data.get("reason") or "").strip()
+            if len(reason) < 10 or len(reason) > 1000:
+                return Response({"reason": "Describe the concern in 10 to 1000 characters."}, status=status.HTTP_400_BAD_REQUEST)
+            subject = f"Chat safety report #{conversation.pk}"
+            if SupportTicket.objects.filter(requester=request.user, subject=subject, created_at__gte=timezone.now() - timedelta(hours=24)).exists():
+                return Response({"detail": "A report for this conversation was already submitted today."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            recent = list(conversation.messages.filter(deleted_at__isnull=True).select_related("sender").order_by("-created_at")[:10])
+            evidence = "\n".join(f"{item.created_at.isoformat()} | user {item.sender_id}: {chat_message_summary(item)[:300]}" for item in reversed(recent))
+            ticket = SupportTicket.objects.create(
+                requester=request.user, chat_conversation=conversation, subject=subject, category=SupportTicket.Category.OTHER,
+                priority=SupportTicket.Priority.HIGH,
+                description=f"Conversation: {conversation.pk}\nReporter: {request.user.pk}\nReason: {reason}\nRecent messages:\n{evidence or '(none)'}",
+                requester_seen_at=timezone.now(),
+            )
+            admins = BharathUser.objects.filter(is_active=True).filter(models.Q(role=BharathUser.Roles.ADMIN) | models.Q(is_superuser=True)).distinct()
+            for admin in admins:
+                create_notification(admin, "CHAT_REPORT", "Chat safety report", f"Conversation #{conversation.pk} was reported.", "/support-tickets", request.user)
+            return Response({"detail": "Report submitted to the safety team."}, status=status.HTTP_201_CREATED)
+        return Response({"action": "Choose block, unblock, or report."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ChatMessageDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_message(self, request, pk):
-        return ChatMessage.objects.select_related("sender", "conversation").filter(
+        return ChatMessage.objects.select_related("sender", "conversation", "reply_to").prefetch_related("attachments").filter(
             pk=pk, sender=request.user,
         ).first()
 
@@ -1755,11 +2229,14 @@ class ChatMessageDetailView(APIView):
         message = self.get_message(request, pk)
         if not message:
             return Response({"detail": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
-        text, error = validate_chat_text(request, message.conversation, request.data.get("text"))
+        if message.deleted_at or timezone.now() > message.created_at + timedelta(minutes=10):
+            return Response({"detail": "Messages can be edited only within 10 minutes of sending."}, status=status.HTTP_403_FORBIDDEN)
+        text, error = validate_chat_text(request, message.conversation, request.data.get("text"), allow_empty=bool(message.contact_name or message.colour_code or message.attachments.exists()))
         if error:
             return error
         message.text = text
-        message.save(update_fields=("text",))
+        message.edited_at = timezone.now()
+        message.save(update_fields=("text", "edited_at"))
         message.conversation.save(update_fields=("updated_at",))
         return Response(chat_message_data(message, request.user))
 
@@ -1767,10 +2244,40 @@ class ChatMessageDetailView(APIView):
         message = self.get_message(request, pk)
         if not message:
             return Response({"detail": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+        if message.deleted_at or timezone.now() > message.created_at + timedelta(minutes=10):
+            return Response({"detail": "Messages can be deleted only within 10 minutes of sending."}, status=status.HTTP_403_FORBIDDEN)
         conversation = message.conversation
-        message.delete()
+        for attachment in message.attachments.all():
+            attachment.file.delete(save=False)
+            attachment.delete()
+        message.text = ""
+        message.contact_name = ""
+        message.contact_mobile = ""
+        message.colour_brand = ""
+        message.colour_name = ""
+        message.colour_code = ""
+        message.colour_hex = ""
+        message.deleted_at = timezone.now()
+        message.save(update_fields=("text", "contact_name", "contact_mobile", "colour_brand", "colour_name", "colour_code", "colour_hex", "deleted_at"))
         conversation.save(update_fields=("updated_at",))
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatAttachmentDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        attachment = ChatAttachment.objects.select_related("message", "message__conversation").filter(pk=pk, message__deleted_at__isnull=True).first()
+        if not attachment:
+            return Response({"detail": "Attachment not found."}, status=status.HTTP_404_NOT_FOUND)
+        conversation = ChatMessageListCreateView().get_conversation(request, attachment.message.conversation_id)
+        if not conversation:
+            return Response({"detail": "Attachment not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            return FileResponse(attachment.file.open("rb"), as_attachment=True,
+                                filename=attachment.file_name, content_type=attachment.content_type)
+        except (OSError, FileNotFoundError):
+            return Response({"detail": "Attachment file is unavailable."}, status=status.HTTP_404_NOT_FOUND)
 
 
 def service_request_data(item):
@@ -2307,6 +2814,7 @@ def ticket_data(ticket):
     requester_name = customer.name if customer else (requester.get_full_name() or requester.mobile if requester else "Unknown user")
     return {
         "id": ticket.id, "ticket_number": f"BP-TKT-{ticket.id:06d}",
+        "chat_conversation_id": ticket.chat_conversation_id,
         "customer": ticket.customer_id, "customer_bharath_id": customer.bharath_id if customer else "", "customer_name": customer.name if customer else "",
         "customer_mobile": customer.mobile if customer else (requester.mobile if requester else ""),
         "customer_email": customer.email if customer else (requester.email if requester else ""),
@@ -2665,7 +3173,9 @@ class AdminEntityListCreateView(APIView):
         if not mobile or not name: return Response({"detail": "Name and mobile are required."}, status=status.HTTP_400_BAD_REQUEST)
         if role == BharathUser.Roles.CONTRACTOR and not str(request.data.get("email") or "").strip(): return Response({"email": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
         if role == BharathUser.Roles.CONTRACTOR and not str(request.data.get("password") or "").strip(): return Response({"password": "Password is required."}, status=status.HTTP_400_BAD_REQUEST)
-        if BharathUser.objects.filter(mobile=mobile).exists(): return Response({"mobile": "This mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+        mobile = canonical_mobile(mobile)
+        if not mobile: return Response({"mobile": "Enter a valid mobile number with country code for international numbers."}, status=status.HTTP_400_BAD_REQUEST)
+        if matching_mobile_users(mobile): return Response({"mobile": "This mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
         password = str(request.data.get("password") or "").strip() or f"BP@{secrets.token_urlsafe(6)}"
         if len(password) < 8: return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
         parts = name.split(maxsplit=1); now = timezone.now()
@@ -2716,8 +3226,12 @@ class AdminEntityDetailView(APIView):
         if entity == "customers":
             item = Customer.objects.filter(pk=pk).first()
             if not item: return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+            if "mobile" in request.data:
+                mobile = canonical_mobile(request.data["mobile"])
+                if not mobile: return Response({"mobile": "Enter a valid mobile number with country code for international numbers."}, status=status.HTTP_400_BAD_REQUEST)
+                if Customer.objects.exclude(pk=item.pk).filter(normalized_mobile=mobile).exists(): return Response({"mobile": "This customer mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
             for field in ("name", "mobile", "email", "city", "address", "status", "source", "requirement"):
-                if field in request.data: setattr(item, field, request.data[field])
+                if field in request.data: setattr(item, field, mobile if field == "mobile" else request.data[field])
             if "contractor_id" in request.data:
                 contractor = BharathUser.objects.filter(pk=request.data["contractor_id"], role=BharathUser.Roles.CONTRACTOR).first()
                 if not contractor: return Response({"contractor_id": "Select a contractor."}, status=status.HTTP_400_BAD_REQUEST)
@@ -2726,11 +3240,15 @@ class AdminEntityDetailView(APIView):
         role = BharathUser.Roles.CONTRACTOR if entity == "contractors" else BharathUser.Roles.PAINTER if entity == "applicators" else None
         user = BharathUser.objects.filter(pk=pk, role=role).first() if role else None
         if not user: return Response({"detail": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
-        if "mobile" in request.data and BharathUser.objects.exclude(pk=user.pk).filter(mobile=request.data["mobile"]).exists(): return Response({"mobile": "This mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+        if "mobile" in request.data:
+            mobile = canonical_mobile(request.data["mobile"])
+            if not mobile: return Response({"mobile": "Enter a valid mobile number with country code for international numbers."}, status=status.HTTP_400_BAD_REQUEST)
+            if matching_mobile_users(mobile, exclude_pk=user.pk): return Response({"mobile": "This mobile number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
         if "name" in request.data:
             parts = str(request.data["name"]).strip().split(maxsplit=1); user.first_name = parts[0] if parts else ""; user.last_name = parts[1] if len(parts) > 1 else ""
-        for field in ("mobile", "email", "verification_status"):
+        for field in ("email", "verification_status"):
             if field in request.data: setattr(user, field, request.data[field])
+        if "mobile" in request.data: user.mobile = mobile
         if request.data.get("password"): user.set_password(str(request.data["password"]))
         user.is_verified = user.verification_status == BharathUser.VerificationStatus.VERIFIED; user.save()
         if role == BharathUser.Roles.CONTRACTOR:
@@ -3594,7 +4112,7 @@ class QuotationListCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+            status=ContractorCustomerConnection.Status.CONNECTED,
         ).first()
         if not connection:
             raise ValidationError({"customer": "A customer connection request is required before creating a quotation."})
@@ -3668,7 +4186,7 @@ class QuotationPreviewPdfView(APIView):
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer,
             contractor=request.user,
-            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+            status=ContractorCustomerConnection.Status.CONNECTED,
         ).first()
         if not connection:
             raise ValidationError({
@@ -3707,7 +4225,7 @@ class QuotationCreateView(
         customer = serializer.validated_data["customer"]
         connection = ContractorCustomerConnection.objects.filter(
             customer=customer, contractor=self.request.user,
-            status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+            status=ContractorCustomerConnection.Status.CONNECTED,
         ).first()
         if not connection:
             raise ValidationError({"customer": "A customer connection request is required before creating a quotation."})
@@ -3738,8 +4256,8 @@ class CustomerBulkImportView(APIView):
             name = self.cell_text(row.get("name") or row.get("customer name"))
             mobile = self.cell_text(row.get("mobile") or row.get("mobile number") or row.get("phone") or row.get("phone number"))
             key = self.mobile_key(mobile)
-            if not name or len(key) != 10:
-                errors.append({"row": number, "error": "Name and a valid 10-digit mobile are required."})
+            if not name or not key:
+                errors.append({"row": number, "error": "Name and a valid mobile number are required; include +country code for international numbers."})
                 continue
             if key in existing:
                 skipped += 1
@@ -3747,7 +4265,7 @@ class CustomerBulkImportView(APIView):
             status_value = str(row.get("status") or "NEW").strip().upper().replace(" ", "_")
             source_value = str(row.get("source") or "OTHER").strip().upper().replace(" ", "_")
             customer = Customer.objects.create(
-                contractor=request.user, name=name, mobile=mobile,
+                contractor=request.user, name=name, mobile=key,
                 email=str(row.get("email") or "").strip(), whatsapp=str(row.get("whatsapp") or row.get("whatsapp number") or "").strip(),
                 address=str(row.get("address") or "").strip(), city=str(row.get("city") or "").strip(), pincode=str(row.get("pincode") or row.get("pin code") or "").strip(),
                 status=status_value if status_value in valid_statuses else "NEW", source=source_value if source_value in valid_sources else "OTHER",
@@ -3793,7 +4311,7 @@ class CustomerBulkImportView(APIView):
 
     @staticmethod
     def mobile_key(value):
-        return "".join(character for character in str(value) if character.isdigit())[-10:]
+        return canonical_mobile(value)
 
     @staticmethod
     def cell_text(value):
@@ -4146,7 +4664,7 @@ class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
         return PropertyMeasurement.objects.filter(
             contractor=self.request.user,
         ).filter(
-            models.Q(connection__status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING))
+            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
             | models.Q(connection__isnull=True)
         ).select_related("contractor", "contractor__contractor_profile").prefetch_related("surfaces__openings", "rooms")
 

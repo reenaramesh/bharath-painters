@@ -10,8 +10,11 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerOpen, setOwnerOpen] = useState(false);
   const [apartmentSearch, setApartmentSearch] = useState("");
+  const [selectedApartmentName, setSelectedApartmentName] = useState("");
   const [apartmentMatches, setApartmentMatches] = useState([]);
   const [searchingApartments, setSearchingApartments] = useState(false);
+  const [apartmentSearchError, setApartmentSearchError] = useState("");
+  const [apartmentSearchComplete, setApartmentSearchComplete] = useState(false);
   useEffect(() => { setForm(initialValue ? { ...empty, ...initialValue } : { ...empty, customer: initialCustomer || "" }); }, [initialValue, initialCustomer]);
   useEffect(() => {
     const ownerId = initialValue?.customer || initialCustomer;
@@ -21,19 +24,30 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   useEffect(() => { if (!initialValue) api.get("/accounts/contractor-profile/").then(({ data }) => setForm((value) => ({ ...value, measurement_unit: data.default_measurement_unit || "FEET" }))).catch(() => {}); }, [initialValue]);
   useEffect(() => {
     const query = apartmentSearch.trim();
-    if (query.length < 2) {
+    if (query.length < 2 || query === selectedApartmentName) {
       setApartmentMatches([]);
+      setSearchingApartments(false);
+      setApartmentSearchError("");
+      setApartmentSearchComplete(false);
       return undefined;
     }
     let active = true;
     setSearchingApartments(true);
+    setApartmentSearchError("");
+    setApartmentSearchComplete(false);
     const timer = window.setTimeout(() => {
       api.get("/quotations/apartment-communities/", { params: { q: query } })
         .then(({ data }) => {
-          if (active) setApartmentMatches(data);
+          if (active) {
+            setApartmentMatches(Array.isArray(data) ? data : []);
+            setApartmentSearchComplete(true);
+          }
         })
         .catch(() => {
-          if (active) setApartmentMatches([]);
+          if (active) {
+            setApartmentMatches([]);
+            setApartmentSearchError("Apartment directory could not be loaded. Please try again.");
+          }
         })
         .finally(() => {
           if (active) setSearchingApartments(false);
@@ -43,7 +57,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apartmentSearch]);
+  }, [apartmentSearch, selectedApartmentName]);
   function selectApartment(apartment) {
     const location = [apartment.name, apartment.locality, apartment.zone]
       .filter((value, index, values) => value && values.indexOf(value) === index)
@@ -56,7 +70,9 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       pincode: apartment.pincode || "",
     }));
     setApartmentSearch(apartment.name);
+    setSelectedApartmentName(apartment.name);
     setApartmentMatches([]);
+    setApartmentSearchComplete(false);
   }
   const update = (event) => setForm((value) => ({
     ...value,
@@ -98,7 +114,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         <label className="text-sm font-medium">Apartment / gated community <span className="font-normal text-slate-400">(optional)</span>
           <span className="relative mt-1.5 flex items-center">
             <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-            <input value={apartmentSearch} onChange={(event) => setApartmentSearch(event.target.value)} placeholder="Search apartment name, locality or PIN code" className={`${input} mt-0 pl-10`} />
+            <input value={apartmentSearch} onChange={(event) => { setSelectedApartmentName(""); setApartmentSearch(event.target.value); }} placeholder="Search apartment name, locality or PIN code" className={`${input} mt-0 pl-10`} aria-label="Search apartment communities" />
           </span>
         </label>
         {apartmentMatches.length > 0 && (
@@ -112,6 +128,9 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
           </div>
         )}
         {searchingApartments && <p className="mt-1 text-xs text-slate-400">Searching apartment directory...</p>}
+        {apartmentSearch.trim().length < 2 && <p className="mt-1 text-xs text-slate-500">Type at least 2 characters to search the apartment directory.</p>}
+        {!searchingApartments && apartmentSearchError && <p role="alert" className="mt-1 text-xs text-red-700">{apartmentSearchError}</p>}
+        {!searchingApartments && !apartmentSearchError && apartmentSearchComplete && apartmentMatches.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching apartments found. You can still enter the property details manually.</p>}
       </div>
       <label className="text-sm font-medium">Project name *<input required name="name" value={form.name} onChange={update} placeholder="e.g. Brigade Cassia" className={input} /></label>
       <label className="text-sm font-medium">Type<select name="property_type" value={form.property_type} onChange={update} className={input}>{types.map((type) => <option key={type}>{type}</option>)}</select></label>

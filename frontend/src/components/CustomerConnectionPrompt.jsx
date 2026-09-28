@@ -13,7 +13,7 @@ export default function CustomerConnectionPrompt() {
   useEffect(() => {
     if (user?.role !== "CUSTOMER" || sessionStorage.getItem(sessionKey)) return;
     api.get("/quotations/customer/connection-requests/").then(({ data }) => {
-      const pending = (data.results || []).filter((item) => item.status === "PENDING");
+      const pending = (data.results || []).filter((item) => ["PENDING", "RECONNECT_PENDING"].includes(item.status));
       setItems(pending);
       setOpen(pending.length > 0);
     }).catch(() => {});

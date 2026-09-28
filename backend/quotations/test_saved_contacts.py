@@ -20,9 +20,9 @@ class SavedContactAndCustomerConnectTests(APITestCase):
         response = self.save_contact()
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["id"], self.customer.id)
-        self.assertEqual(response.data["connection_status"], "NOT_CONNECTED")
-        self.assertFalse(ContractorCustomerConnection.objects.exists())
-        self.assertFalse(PortalNotification.objects.exists())
+        self.assertEqual(response.data["connection_status"], "PENDING")
+        self.assertEqual(ContractorCustomerConnection.objects.count(), 1)
+        self.assertTrue(PortalNotification.objects.exists())
         self.assertEqual(Customer.objects.count(), 1)
         detail = self.client.get(self.customer_url)
         self.assertEqual(detail.status_code, 200)
@@ -31,7 +31,7 @@ class SavedContactAndCustomerConnectTests(APITestCase):
         self.assertEqual(detail.data["address"], "")
         self.assertEqual(detail.data["notes"], "My follow-up notes")
         self.assertNotIn("portal_user", detail.data)
-        self.assertNotIn("bharath_id", detail.data)
+        self.assertTrue(detail.data["bharath_id"].startswith("BP-C-******"))
         self.assertEqual(detail.data["properties"], [])
         self.customer.refresh_from_db()
         self.assertEqual(self.customer.name, "Private account name")
@@ -50,7 +50,7 @@ class SavedContactAndCustomerConnectTests(APITestCase):
         self.assertEqual(self.save_contact().status_code, 201)
         self.assertEqual(self.save_contact().status_code, 200)
         self.assertEqual(SavedCustomerContact.objects.count(), 1)
-        self.assertFalse(ContractorCustomerConnection.objects.exists())
+        self.assertEqual(ContractorCustomerConnection.objects.count(), 1)
 
     def test_private_contact_edits_never_change_global_profile(self):
         self.save_contact()
@@ -72,20 +72,21 @@ class SavedContactAndCustomerConnectTests(APITestCase):
     def test_saved_contact_survives_pending_and_rejected_request(self):
         self.save_contact()
         response = self.client.post(reverse("contractor-customer-connection-request"), {"mobile": self.user.mobile}, format="json")
-        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.status_code, 409, response.data)
+        connection = ContractorCustomerConnection.objects.get()
         self.assertEqual(self.client.get(self.customer_url).data["connection_status"], "PENDING")
         self.assertEqual(self.client.get(self.customer_url).data["name"], "My saved name")
         self.client.force_authenticate(self.user)
-        self.client.post(reverse("customer-connection-request-reject", args=[response.data["connection_id"]]))
+        self.client.post(reverse("customer-connection-request-reject", args=[connection.id]))
         self.client.force_authenticate(self.contractor)
         self.assertEqual(self.client.get(self.customer_url).data["connection_status"], "REJECTED")
         self.assertEqual(self.client.get(self.customer_url).data["name"], "My saved name")
 
     def test_approval_preserves_contractor_notes_and_enables_work(self):
         self.save_contact()
-        request = self.client.post(reverse("contractor-customer-connection-request"), {"mobile": self.user.mobile}, format="json")
+        request = ContractorCustomerConnection.objects.get()
         self.client.force_authenticate(self.user)
-        approved = self.client.post(reverse("customer-connection-request-accept", args=[request.data["connection_id"]]))
+        approved = self.client.post(reverse("customer-connection-request-accept", args=[request.id]))
         self.assertEqual(approved.status_code, 200)
         self.client.force_authenticate(self.contractor)
         detail = self.client.get(self.customer_url)
@@ -95,7 +96,7 @@ class SavedContactAndCustomerConnectTests(APITestCase):
 
     def test_customer_search_accepts_mobile_formats_and_invites_unknown_number(self):
         self.client.force_authenticate(self.user)
-        for mobile in (self.contractor.mobile, "+91" + self.contractor.mobile, "91" + self.contractor.mobile):
+        for mobile in (self.contractor.mobile[-10:], self.contractor.mobile, self.contractor.mobile.lstrip("+")):
             response = self.client.get(reverse("customer-contractor-search"), {"mobile": mobile})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data["contractor"]["id"], self.contractor.id)
@@ -120,7 +121,7 @@ class SavedContactAndCustomerConnectTests(APITestCase):
         self.assertEqual(connection.approval_method, "CUSTOMER_PORTAL")
         self.assertEqual(connection.requested_by_id, self.user.id)
         self.assertEqual(connection.internal_notes, "My follow-up notes")
-        self.assertEqual(CustomerConnectionAudit.objects.count(), 1)
+        self.assertEqual(CustomerConnectionAudit.objects.count(), 2)
         self.assertEqual(ChatConversation.objects.count(), 1)
         self.assertEqual(PortalNotification.objects.filter(recipient=self.contractor).count(), 1)
 

@@ -207,8 +207,11 @@ export default function Topbar({ openMenu, toggleSidebar }) {
             {languages.map(([code, nativeName, englishName]) => <option key={code} value={code}>{nativeName} · {englishName}</option>)}
           </select>
         </label>
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
+            type="button"
+            aria-label={t("Notifications")}
+            aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
             className="relative rounded-lg border border-transparent p-2.5 hover:border-slate-200 hover:bg-slate-100"
           >
@@ -220,7 +223,7 @@ export default function Topbar({ openMenu, toggleSidebar }) {
             )}
           </button>
           {open && (
-            <div className="absolute right-0 top-12 z-50 w-[min(92vw,380px)] overflow-hidden rounded-2xl border bg-white shadow-2xl">
+            <div className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] sm:max-h-[min(80vh,560px)]">
               <div className="flex items-center justify-between border-b p-4">
                 <div>
                   <h2 className="font-bold">{t("Notifications")}</h2>
@@ -245,12 +248,12 @@ export default function Topbar({ openMenu, toggleSidebar }) {
                       className={`block w-full border-b p-4 text-left hover:bg-slate-50 ${item.is_read ? "bg-white" : "bg-indigo-50/60"}`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <strong className="text-sm">{item.title}</strong>
+                        <strong className="min-w-0 break-words text-sm">{item.title}</strong>
                         {!item.is_read && (
                           <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                         )}
                       </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-600">
+                      <p className="mt-1 line-clamp-2 break-words text-xs text-slate-600">
                         {item.message}
                       </p>
                       <p className="mt-2 text-[10px] text-slate-400">

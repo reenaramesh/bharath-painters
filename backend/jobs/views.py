@@ -14,6 +14,7 @@ import csv
 from math import asin, cos, radians, sin, sqrt
 
 from accounts.models import BharathUser, PainterProfile
+from accounts.mobile import normalize_mobile, matching_mobile_users
 from accounts.utils import activate_business_identity
 
 from .models import Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter, WorkPhoto, WorkReview, PainterSeekingPost, ContractorApplicatorTeam, ApplicatorBooking, ApplicatorAvailabilityBlock, ApplicatorAttendance, ApplicatorLedgerEntry
@@ -775,7 +776,10 @@ class ContractorApplicatorCreateView(APIView):
         mobile = str(request.data.get("mobile") or "").strip()
         if not name or not mobile:
             return Response({"detail": "Name and mobile number are required."}, status=status.HTTP_400_BAD_REQUEST)
-        if BharathUser.objects.filter(mobile=mobile).exists():
+        mobile = normalize_mobile(mobile)
+        if not mobile:
+            return Response({"mobile": "Enter a valid mobile number with country code for international numbers."}, status=status.HTTP_400_BAD_REQUEST)
+        if matching_mobile_users(mobile):
             return Response({"mobile": "An account with this mobile number already exists."}, status=status.HTTP_400_BAD_REQUEST)
         password = str(request.data.get("password") or "").strip() or f"BP@{secrets.token_urlsafe(6)}"
         if len(password) < 8:
@@ -1165,6 +1169,7 @@ class ApplicatorProfileView(APIView):
             "verification_status": request.user.verification_status,
             "experience_years": profile.experience_years,
             "skills": profile.skills,
+            "preferred_locations": profile.preferred_locations,
             "emergency_contact_name": profile.emergency_contact_name,
             "emergency_contact_number": profile.emergency_contact_number,
             "blood_group": profile.blood_group,
@@ -1178,7 +1183,7 @@ class ApplicatorProfileView(APIView):
         if request.user.role != BharathUser.Roles.PAINTER:
             return Response({"detail": "Paint Applicator access only."}, status=status.HTTP_403_FORBIDDEN)
         profile, _ = PainterProfile.objects.get_or_create(user=request.user)
-        for field in ("skills", "emergency_contact_name", "emergency_contact_number", "blood_group", "permanent_address", "current_location", "willing_to_travel"):
+        for field in ("skills", "preferred_locations", "emergency_contact_name", "emergency_contact_number", "blood_group", "permanent_address", "current_location", "willing_to_travel"):
             if field in request.data:
                 setattr(profile, field, request.data[field])
         if "experience_years" in request.data:

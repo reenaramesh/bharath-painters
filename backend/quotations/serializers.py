@@ -186,7 +186,6 @@ class ConnectionScopedCustomerMixin:
             contact = SavedCustomerContact.objects.filter(customer=instance, contractor=request.user).first()
             pending = ContractorCustomerConnection.objects.filter(
                 customer=instance, contractor=request.user,
-                status=ContractorCustomerConnection.Status.PENDING,
             ).first()
             if contact or pending:
                 if contact:
@@ -205,7 +204,7 @@ class ConnectionScopedCustomerMixin:
                         "is_saved_contact": True,
                         "properties": [], "quotations": [], "follow_ups": [], "work_history": [],
                     }
-                if pending:
+                if pending and pending.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
                     representation["connection_status"] = pending.status
                     representation["status"] = "PENDING"
                     representation["is_pending_connection"] = True
@@ -273,6 +272,8 @@ class ConnectionScopedCustomerMixin:
 
 class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSerializer):
 
+    mobile = serializers.CharField(max_length=32)
+
     class Meta:
         model = Customer
         fields = "__all__"
@@ -289,13 +290,13 @@ class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSeriali
     def validate_mobile(self, value):
         normalized = normalize_indian_mobile(value)
         if not normalized:
-            raise serializers.ValidationError("Enter a valid Indian mobile number.")
+            raise serializers.ValidationError("Enter a valid mobile number. Include + and the country code for international numbers.")
         queryset = Customer.objects.filter(normalized_mobile=normalized)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
             raise serializers.ValidationError("A Bharath Painters customer already exists for this mobile number.")
-        return value
+        return normalized
 
 
 # ---------------------------------------------------------
@@ -328,20 +329,10 @@ class PropertySerializer(serializers.ModelSerializer):
             connection = ContractorCustomerConnection.objects.filter(
                 customer=customer,
                 contractor=request.user,
-                status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+                status=ContractorCustomerConnection.Status.CONNECTED,
             ).first()
-            if not connection and customer.contractor_id == request.user.id:
-                connection, _ = ContractorCustomerConnection.objects.get_or_create(
-                    customer=customer,
-                    contractor=request.user,
-                    defaults={
-                        "status": ContractorCustomerConnection.Status.CONNECTED,
-                        "requested_by": request.user,
-                        "approval_method": ContractorCustomerConnection.ApprovalMethod.INITIAL_CREATOR,
-                    },
-                )
             if not connection:
-                raise serializers.ValidationError({"customer": "A customer connection request is required before creating a property."})
+                raise serializers.ValidationError({"customer": "Customer approval is required before creating a property."})
         if (
             self.instance
             and "measurement_unit" in attrs
@@ -411,18 +402,15 @@ class WorkDescriptionSerializer(serializers.ModelSerializer):
 
     def validate_customer(self, customer):
         request = self.context.get("request")
-        if request and customer.contractor_id != request.user.id:
+        if request:
             permitted = ContractorCustomerConnection.objects.filter(
                 customer=customer,
                 contractor=request.user,
-                status__in=(
-                    ContractorCustomerConnection.Status.CONNECTED,
-                    ContractorCustomerConnection.Status.PENDING,
-                ),
+                status=ContractorCustomerConnection.Status.CONNECTED,
             ).exists()
             if not permitted:
                 raise serializers.ValidationError(
-                    "You need an active or pending customer connection before creating a property."
+                    "Customer approval is required before creating a property."
                 )
         return customer
 
@@ -845,6 +833,9 @@ class QuotationRoomSerializer(serializers.ModelSerializer):
 class QuotationItemSerializer(serializers.ModelSerializer):
 
     promote_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
+    save_service_category_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
+    save_product_type_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
+    save_brand_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
 
     id = serializers.IntegerField(
         required=False
@@ -912,6 +903,9 @@ class QuotationItemSerializer(serializers.ModelSerializer):
             "unit",
             "unit_name",
             "promote_to_master",
+            "save_service_category_to_master",
+            "save_product_type_to_master",
+            "save_brand_to_master",
             "rate",
             "amount",
 
@@ -1374,18 +1368,8 @@ class QuotationSerializer(serializers.ModelSerializer):
             connection = ContractorCustomerConnection.objects.filter(
                 customer=customer,
                 contractor=request.user,
-                status__in=(ContractorCustomerConnection.Status.CONNECTED, ContractorCustomerConnection.Status.PENDING),
+                status=ContractorCustomerConnection.Status.CONNECTED,
             ).first()
-            if not connection and customer.contractor_id == request.user.id:
-                connection, _ = ContractorCustomerConnection.objects.get_or_create(
-                    customer=customer,
-                    contractor=request.user,
-                    defaults={
-                        "status": ContractorCustomerConnection.Status.CONNECTED,
-                        "requested_by": request.user,
-                        "approval_method": ContractorCustomerConnection.ApprovalMethod.INITIAL_CREATOR,
-                    },
-                )
             if not connection:
                 raise serializers.ValidationError({
                     "customer": "Connect with this customer before creating a quotation."
@@ -1454,8 +1438,11 @@ class QuotationSerializer(serializers.ModelSerializer):
         }
 
     def resolve_item_masters(self, item_data):
-        promote = item_data.pop("promote_to_master", False)
-        if not promote:
+        promote_description = item_data.pop("promote_to_master", False)
+        save_category = item_data.pop("save_service_category_to_master", False)
+        save_product = item_data.pop("save_product_type_to_master", False)
+        save_brand = item_data.pop("save_brand_to_master", False)
+        if not any((promote_description, save_category, save_product, save_brand)):
             return item_data
         request = self.context.get("request")
         owner = request.user if request else None
@@ -1472,27 +1459,16 @@ class QuotationSerializer(serializers.ModelSerializer):
             return queryset.first() or model.objects.create(name=name, created_by=owner, **extra)
 
         category = item_data.get("service_category")
-        if not category:
+        if not category and save_category:
             category = master(ServiceCategory, item_data.get("custom_service_category"))
             if category:
                 item_data["service_category"] = category
         service = item_data.get("service_type")
-        if not service and item_data.get("custom_service_type"):
-            service = master(
-                ServiceType,
-                item_data.get("custom_service_type"),
-                category_master=category,
-                category=category.name if category else "Other",
-                calculation_type=ServiceType.CalculationType.CUSTOM,
-            )
-            item_data["service_type"] = service
-        if not item_data.get("paint_type"):
+        if save_product and not item_data.get("paint_type"):
             item_data["paint_type"] = master(PaintType, item_data.get("custom_product_type"))
-        if not item_data.get("paint_brand"):
+        if save_brand and not item_data.get("paint_brand"):
             item_data["paint_brand"] = master(PaintBrand, item_data.get("custom_brand"))
-        if not item_data.get("unit"):
-            item_data["unit"] = master(Unit, item_data.get("custom_unit"))
-        if category and item_data.get("description"):
+        if promote_description and item_data.get("description"):
             master(WorkDescription, item_data["description"], service_type=service, service_category=category)
         return item_data
 

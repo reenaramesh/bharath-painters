@@ -12,13 +12,6 @@ export default function Register() {
     email: "",
     password: "",
     name: "",
-    first_name: "",
-    last_name: "",
-    experience_years: 0,
-    skills: "",
-    daily_wage: "",
-    weekly_wage: "",
-    preferred_locations: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -52,13 +45,7 @@ export default function Register() {
         mobile: form.mobile,
         email: form.email,
         password: form.password,
-        first_name: form.first_name,
-        last_name: form.last_name,
-        experience_years: Number(form.experience_years) || 0,
-        skills: form.skills,
-        daily_wage: form.daily_wage || null,
-        weekly_wage: form.weekly_wage || null,
-        preferred_locations: form.preferred_locations,
+        name: form.name.trim(),
         policy_version: consent.policyVersion,
         document_scrolled: consent.scrolled,
         terms_accepted: true,
@@ -116,19 +103,23 @@ export default function Register() {
             </p>
           )}
           <form onSubmit={submit} className="mt-6 grid gap-5 sm:grid-cols-2">
-            {role === "CONTRACTOR" && <label className="text-sm font-medium sm:col-span-2">
+            <label className="text-sm font-medium sm:col-span-2">
               Name *
-              <input required name="name" value={form.name} onChange={update} className={input} />
-            </label>}
+              <input required name="name" autoComplete="name" value={form.name} onChange={update} className={input} />
+            </label>
             <label className="text-sm font-medium">
               Mobile *
               <input
                 required
                 name="mobile"
+                type="tel"
+                autoComplete="tel"
+                placeholder="9876543210 or +91 9876543210"
                 value={form.mobile}
                 onChange={update}
                 className={input}
               />
+              <span className="mt-1 block text-xs font-normal text-slate-500">For other countries, include + and the country code.</span>
             </label>
             <label className="text-sm font-medium">
               Email *
@@ -145,72 +136,7 @@ export default function Register() {
               <label htmlFor="registration-password">Password *</label>
               <span className="relative block"><input required minLength="8" type={showPassword ? "text" : "password"} id="registration-password" name="password" autoComplete="new-password" value={form.password} onChange={update} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span>
             </div>
-            {role === "CONTRACTOR" ? (
-              <p className="text-sm text-slate-500 sm:col-span-2">You can complete your company profile after registration.</p>
-            ) : (
-              <>
-                <label className="text-sm font-medium">
-                  First name *
-                  <input
-                    required
-                    name="first_name"
-                    value={form.first_name}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Last name
-                  <input
-                    name="last_name"
-                    value={form.last_name}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Experience (years) *
-                  <input
-                    required
-                    type="number"
-                    min="0"
-                    name="experience_years"
-                    value={form.experience_years}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Daily wage
-                  <input
-                    type="number"
-                    min="0"
-                    name="daily_wage"
-                    value={form.daily_wage}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Skills
-                  <input
-                    name="skills"
-                    value={form.skills}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Preferred locations
-                  <input
-                    name="preferred_locations"
-                    value={form.preferred_locations}
-                    onChange={update}
-                    className={input}
-                  />
-                </label>
-              </>
-            )}
+            <p className="text-sm text-slate-500 sm:col-span-2">{role === "CONTRACTOR" ? "You can complete your company profile after registration." : "You can add your skills, experience, and preferred work locations to your painter profile after registration."}</p>
             <RegistrationConsent role={role} onConsentChange={setConsent} />
             <button
               disabled={saving || !consent.accepted}

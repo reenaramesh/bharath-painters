@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from decimal import Decimal
 from builtins import property as python_property
+from accounts.mobile import normalize_mobile
 
 
 class MasterDataBase(models.Model):
@@ -165,13 +166,9 @@ class PaintColor(models.Model):
 
 
 def normalize_indian_mobile(value):
-    digits = "".join(character for character in str(value or "") if character.isdigit())
-    if len(digits) < 10:
-        return ""
-    national_number = digits[-10:]
-    if national_number[0] not in "6789":
-        return ""
-    return f"+91{national_number}"
+    # Retain the existing helper name for callers while accepting explicit
+    # international prefixes and rejecting unrelated country codes as India.
+    return normalize_mobile(value)
 
 
 class Customer(models.Model):
@@ -224,7 +221,7 @@ class Customer(models.Model):
     )
 
     mobile = models.CharField(
-        max_length=15
+        max_length=16
     )
 
     normalized_mobile = models.CharField(max_length=16, unique=True)
@@ -336,6 +333,7 @@ class ContractorCustomerConnection(models.Model):
         PENDING = "PENDING", "Pending"
         CONNECTED = "CONNECTED", "Connected"
         REJECTED = "REJECTED", "Rejected"
+        RECONNECT_PENDING = "RECONNECT_PENDING", "Reconnect pending"
         DISCONNECTED = "DISCONNECTED", "Disconnected"
         BLOCKED = "BLOCKED", "Blocked"
 
@@ -348,6 +346,9 @@ class ContractorCustomerConnection(models.Model):
     contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="customer_connections")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     requested_at = models.DateTimeField(default=timezone.now)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    last_request_at = models.DateTimeField(null=True, blank=True)
+    request_count = models.PositiveIntegerField(default=1)
     connected_at = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     rejected_at = models.DateTimeField(null=True, blank=True)
@@ -370,6 +371,19 @@ class ContractorCustomerConnection(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("customer", "contractor"), name="unique_customer_contractor_connection"),
         ]
+
+
+class CustomerShareLink(models.Model):
+    class Purpose(models.TextChoices):
+        ACTIVATION = "ACTIVATION", "Activation"
+        CONNECTION = "CONNECTION", "Connection request"
+
+    connection = models.ForeignKey(ContractorCustomerConnection, on_delete=models.CASCADE, related_name="share_links")
+    purpose = models.CharField(max_length=20, choices=Purpose.choices)
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class CustomerConnectionAudit(models.Model):
@@ -406,6 +420,8 @@ class ChatConversation(models.Model):
     contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="contractor_conversations", null=True, blank=True)
     connection = models.ForeignKey(ContractorCustomerConnection, on_delete=models.CASCADE, related_name="conversations", null=True, blank=True)
     painter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="painter_conversations", null=True, blank=True)
+    blocked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="blocked_chat_conversations", null=True, blank=True)
+    blocked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -430,12 +446,31 @@ class ChatMessage(models.Model):
         on_delete=models.CASCADE,
         related_name="chat_messages",
     )
-    text = models.TextField()
+    text = models.TextField(blank=True)
+    reply_to = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies")
+    forwarded_from = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="forwards")
+    contact_name = models.CharField(max_length=120, blank=True)
+    contact_mobile = models.CharField(max_length=16, blank=True)
+    colour_brand = models.CharField(max_length=40, blank=True)
+    colour_name = models.CharField(max_length=120, blank=True)
+    colour_code = models.CharField(max_length=32, blank=True)
+    colour_hex = models.CharField(max_length=7, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("created_at",)
+
+
+class ChatAttachment(models.Model):
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="attachments")
+    file = models.FileField(upload_to="chat_attachments/%Y/%m/")
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    size = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class PortalNotification(models.Model):
@@ -654,6 +689,7 @@ class SupportTicket(models.Model):
         CLOSED = "CLOSED", "Closed"
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="support_tickets", null=True, blank=True)
+    chat_conversation = models.ForeignKey(ChatConversation, on_delete=models.SET_NULL, related_name="safety_reports", null=True, blank=True)
     connection = models.ForeignKey(
         ContractorCustomerConnection,
         on_delete=models.PROTECT,

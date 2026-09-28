@@ -1498,29 +1498,6 @@ class QuotationSerializer(serializers.ModelSerializer):
 
     def get_contractor_details(self, quotation):
         snapshot = quotation.contractor_snapshot or {}
-        if snapshot:
-            request = self.context.get("request")
-            logo = ""
-            if snapshot.get("company_logo"):
-                logo = f"{settings.MEDIA_URL.rstrip('/')}/{snapshot['company_logo'].lstrip('/')}"
-                if request:
-                    logo = request.build_absolute_uri(logo)
-            return {
-                "id": quotation.contractor_id,
-                "bharath_id": snapshot.get("bharath_id", ""),
-                "company_name": snapshot.get("company_name", ""),
-                "owner_name": snapshot.get("owner_name", ""),
-                "mobile": snapshot.get("mobile", ""),
-                "email": snapshot.get("email", ""),
-                "company_logo": logo,
-                "company_logo_shape": snapshot.get("company_logo_shape", "RECTANGLE"),
-                "office_address": snapshot.get("office_address", ""),
-                "service_areas": snapshot.get("service_areas", ""),
-                "gst_number": snapshot.get("gst_number", ""),
-                "pan_number": snapshot.get("pan_number", ""),
-                "is_verified": snapshot.get("is_verified", False),
-                "verification_status": snapshot.get("verification_status", ""),
-            }
         contractor = quotation.contractor
         try:
             profile = contractor.contractor_profile
@@ -1531,22 +1508,27 @@ class QuotationSerializer(serializers.ModelSerializer):
         logo = None
         if profile and profile.company_logo:
             logo = profile.company_logo.url
-            if request:
-                logo = request.build_absolute_uri(logo)
+        elif profile is None and snapshot.get("company_logo"):
+            logo = f"{settings.MEDIA_URL.rstrip('/')}/{snapshot['company_logo'].lstrip('/')}"
+        if logo and request:
+            logo = request.build_absolute_uri(logo)
+
+        def current(field, fallback=""):
+            return getattr(profile, field, fallback) if profile else snapshot.get(field, fallback)
 
         return {
             "id": contractor.id,
             "bharath_id": contractor.bharath_id,
-            "company_name": profile.company_name if profile else contractor.get_full_name(),
-            "owner_name": profile.owner_name if profile else contractor.get_full_name(),
+            "company_name": current("company_name", contractor.get_full_name()),
+            "owner_name": current("owner_name", contractor.get_full_name()),
             "mobile": contractor.mobile,
             "email": contractor.email,
             "company_logo": logo,
-            "company_logo_shape": profile.company_logo_shape if profile else "RECTANGLE",
-            "office_address": profile.office_address if profile else "",
-            "service_areas": profile.service_areas if profile else "",
-            "gst_number": profile.gst_number if profile else "",
-            "pan_number": profile.pan_number if profile else "",
+            "company_logo_shape": current("company_logo_shape", "RECTANGLE"),
+            "office_address": current("office_address"),
+            "service_areas": current("service_areas"),
+            "gst_number": current("gst_number"),
+            "pan_number": current("pan_number"),
             "is_verified": contractor.is_verified,
             "verification_status": contractor.verification_status,
         }

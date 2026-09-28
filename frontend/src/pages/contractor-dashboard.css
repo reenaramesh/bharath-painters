@@ -1,6 +1,6 @@
-.contractor-shell.minimia-shell { --bp-canvas: #f9f9ff; --bp-ink: #121b2e; background: #f9f9ff; }
-.contractor-shell .bp-sidebar { background: #f1f3ff; border-color: #e9edff; }
-.contractor-shell .bp-sidebar nav a[aria-current="page"] { background: #4f46e5; color: white; }
+.contractor-shell.minimia-shell { --bp-canvas: #f7f9fb; --bp-ink: #121b2e; background: var(--bp-canvas); }
+.contractor-shell .bp-sidebar { background: #f1f3ff; border-color: var(--app-soft); }
+.contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: white; }
 .contractor-shell .bp-sidebar nav a[aria-current="page"]::before { display: none; }
 .contractor-dashboard { display: flex; flex-direction: column; gap: 24px; color: #121b2e; font-size: 14px; }
 .contractor-dashboard h1,.contractor-dashboard h2,.contractor-dashboard h3 { font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; }
@@ -8,14 +8,14 @@
 .contractor-dashboard h3 { font-size: 14px; }
 .contractor-dashboard p { color: #646477; font-size: 12px; line-height: 1.6; }
 .contractor-dashboard a,.contractor-dashboard button { transition: background .15s, box-shadow .15s; }
-.contractor-dashboard a:focus-visible,.contractor-dashboard button:focus-visible { outline: 3px solid #4f46e5; outline-offset: 4px; }
+.contractor-dashboard a:focus-visible,.contractor-dashboard button:focus-visible { outline: 3px solid var(--app-primary); outline-offset: 4px; }
 .contractor-greeting { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 12px; background: white; box-shadow: 0 1px 4px #121b2e08; }
-.contractor-avatar { display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; background: #e2dfff; color: #3525cd; border-radius: 12px; font-size: 26px; font-weight: 800; }
+.contractor-avatar { display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; background: var(--app-soft); color: var(--app-primary); border-radius: 12px; font-size: 26px; font-weight: 800; }
 .contractor-greeting-copy { flex: 1; min-width: 0; }
 .contractor-greeting h1 { font-size: 24px; line-height: 1.4; overflow-wrap: anywhere; }
 .contractor-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #646477; }
 .contractor-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; padding: 11px 14px; background: white; color: #753800; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-.contractor-secondary { background: #e9edff; color: #3525cd; cursor: pointer; }
+.contractor-secondary { background: var(--app-soft); color: var(--app-primary); cursor: pointer; }
 .contractor-notice { display: flex; align-items: center; gap: 16px; padding: 20px; background: #984b00; border-radius: 12px; color: white; }
 .contractor-notice > div { flex: 1; }
 .contractor-notice .contractor-eyebrow,.contractor-notice p { color: #ffdcc6; }
@@ -23,7 +23,7 @@
 .contractor-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
 .contractor-metric { padding: 18px; background: white; border-radius: 12px; box-shadow: 0 1px 4px #121b2e08; }
 .contractor-metric > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.contractor-icon { display: grid; place-items: center; width: 40px; height: 40px; background: #e2dfff; color: #3525cd; border-radius: 10px; flex-shrink: 0; }
+.contractor-icon { display: grid; place-items: center; width: 40px; height: 40px; background: var(--app-soft); color: var(--app-primary); border-radius: 10px; flex-shrink: 0; }
 .contractor-metric:nth-child(2) .contractor-icon { background: #dae2ff; color: #0054cd; }
 .contractor-metric:nth-child(4) .contractor-icon { background: #ffdcc6; color: #753800; }
 .contractor-metric > strong { display: block; margin-top: 12px; font-size: 28px; line-height: 1.2; font-weight: 800; }
@@ -32,44 +32,44 @@
 .contractor-section-title h2 { font: 800 11px Inter,sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .contractor-section-title > span { font-size: 11px; color: #777587; }
 .contractor-tools-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
-.contractor-tools-grid > a { display: flex; align-items: center; gap: 10px; padding: 16px 12px; border-radius: 12px; background: #e9edff; }
+.contractor-tools-grid > a { display: flex; align-items: center; gap: 10px; padding: 16px 12px; border-radius: 12px; background: var(--app-soft); }
 .contractor-tools-grid > a > div { flex: 1; }
-.contractor-tools-grid > a > svg { color: #3525cd; flex-shrink: 0; }
+.contractor-tools-grid > a > svg { color: var(--app-primary); flex-shrink: 0; }
 .contractor-tools-grid p { font-size: 10px; margin-top: 3px; }
 .contractor-tools-grid .contractor-icon { background: white; }
-.contractor-tools-grid a:hover,.contractor-metric:hover { box-shadow: 0 3px 14px #3525cd18; }
+.contractor-tools-grid a:hover,.contractor-metric:hover { box-shadow: 0 3px 14px color-mix(in srgb, var(--app-primary) 12%, transparent); }
 .contractor-workspace { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(0,1fr); gap: 24px; align-items: start; }
 .contractor-panel { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px #121b2e08; }
 .contractor-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 1px solid #f1f3ff; }
 .contractor-panel-head p { margin-top: 3px; }
-.contractor-panel-head > a { display: inline-flex; gap: 5px; align-items: center; color: #3525cd; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.contractor-panel-head > a { display: inline-flex; gap: 5px; align-items: center; color: var(--app-primary); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .contractor-quotes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 16px; }
-.contractor-quote { background: #f9f9ff; padding: 16px; border: 1px solid #e9edff; border-radius: 10px; min-width: 0; }
+.contractor-quote { background: var(--bp-canvas); padding: 16px; border: 1px solid var(--app-soft); border-radius: 10px; min-width: 0; }
 .contractor-quote:hover { background: #f1f3ff; }
 .contractor-quote-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
 .contractor-quote h3 { overflow-wrap: anywhere; }
-.contractor-status { display: inline-block; max-width: 100%; border-radius: 6px; padding: 4px 7px; font-size: 9px; font-weight: 800; background: #e9edff; color: #3525cd; text-transform: uppercase; overflow-wrap: anywhere; }
+.contractor-status { display: inline-block; max-width: 100%; border-radius: 6px; padding: 4px 7px; font-size: 9px; font-weight: 800; background: var(--app-soft); color: var(--app-primary); text-transform: uppercase; overflow-wrap: anywhere; }
 .contractor-status.is-success { background: #e5f5ee; color: #16724a; }
 .contractor-quote-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin: 16px 0; font-size: 11px; color: #777587; }
 .contractor-quote-meta strong { color: #121b2e; font-size: 15px; }
-.contractor-quote-link { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e1e8ff; padding-top: 12px; color: #3525cd; font-size: 12px; font-weight: 700; }
-.contractor-add { display: flex; gap: 7px; align-items: center; justify-content: center; margin: 0 16px 16px; padding: 12px; border-radius: 8px; background: #4f46e5; color: white; font-weight: 700; font-size: 12px; }
-.contractor-add:hover { background: #3525cd; }
+.contractor-quote-link { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--app-line); padding-top: 12px; color: var(--app-primary); font-size: 12px; font-weight: 700; }
+.contractor-add { display: flex; gap: 7px; align-items: center; justify-content: center; margin: 0 16px 16px; padding: 12px; border-radius: 8px; background: var(--app-primary); color: white; font-weight: 700; font-size: 12px; }
+.contractor-add:hover { background: var(--app-primary); }
 .contractor-timeline { padding: 20px; }
-.contractor-task { position: relative; padding: 0 0 24px 23px; border-left: 2px solid #e9edff; margin-left: 5px; }
+.contractor-task { position: relative; padding: 0 0 24px 23px; border-left: 2px solid var(--app-soft); margin-left: 5px; }
 .contractor-task:last-child { border-color: transparent; padding-bottom: 0; }
-.contractor-timeline-dot { position: absolute; top: 4px; left: -6px; width: 10px; height: 10px; background: #4f46e5; border: 2px solid white; box-shadow: 0 0 0 2px #e2dfff; border-radius: 50%; }
+.contractor-timeline-dot { position: absolute; top: 4px; left: -6px; width: 10px; height: 10px; background: var(--app-primary); border: 2px solid white; box-shadow: 0 0 0 2px var(--app-soft); border-radius: 50%; }
 .is-overdue .contractor-timeline-dot { background: #984b00; box-shadow: 0 0 0 2px #ffdcc6; }
-.contractor-task-date { color: #3525cd; font-size: 10px; font-weight: 700; }
+.contractor-task-date { color: var(--app-primary); font-size: 10px; font-weight: 700; }
 .is-overdue .contractor-task-date { color: #984b00; }
 .contractor-task h3 { margin: 4px 0; }
-.contractor-call { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; color: #3525cd; font-size: 11px; }
+.contractor-call { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; color: var(--app-primary); font-size: 11px; }
 .contractor-empty { padding: 28px 16px; text-align: center; grid-column: 1 / -1; }
 .contractor-customer { display: flex; gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #f1f3ff; }
-.contractor-customer:hover { background: #f9f9ff; }
+.contractor-customer:hover { background: var(--bp-canvas); }
 .contractor-customer > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.contractor-customer-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: #e9edff; color: #3525cd; font-weight: 800; }
-.contractor-attention { padding: 24px; background: #3525cd; color: white; border-radius: 12px; }
+.contractor-customer-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--app-soft); color: var(--app-primary); font-weight: 800; }
+.contractor-attention { padding: 24px; background: var(--app-primary); color: white; border-radius: 12px; }
 .contractor-attention .contractor-eyebrow,.contractor-attention > p { color: #dad7ff; }
 .contractor-attention h2 { font-size: 24px; margin: 10px 0; }
 .contractor-attention > p { margin-bottom: 22px; }
@@ -85,24 +85,93 @@
 @media(max-width:767px) { .contractor-dashboard { gap: 18px; } .contractor-greeting { padding: 16px; flex-wrap: wrap; gap: 12px; } .contractor-greeting-copy { flex-basis: calc(100% - 68px); } .contractor-greeting h1 { font-size: 22px; } .contractor-greeting .contractor-button { margin-left: auto; } .contractor-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; } .contractor-metric { padding: 14px; } .contractor-metric .contractor-icon { width: 30px; height: 30px; } .contractor-eyebrow { font-size: 9px; } .contractor-notice { flex-wrap: wrap; padding: 16px; } .contractor-notice > div { flex-basis: calc(100% - 44px); } .contractor-notice .contractor-button { width: 100%; } .contractor-workspace { grid-template-columns: minmax(0,1fr); gap: 18px; } .contractor-section-title > span { display: none; } .contractor-tools-grid > a { flex-direction: column; align-items: flex-start; padding: 14px; } .contractor-tools-grid > a > svg { display: none; } .contractor-tools-grid { gap: 10px; } .contractor-panel-head { padding: 16px; } .contractor-customer { padding: 14px 16px; } }
 
 /* Continue the contractor visual system through workflows and dialogs. */
-.contractor-shell main { --contractor-primary: #3525cd; --contractor-primary-container: #4f46e5; --contractor-canvas: #f9f9ff; --contractor-line: #e1e8ff; }
+.contractor-shell main { --contractor-primary: var(--app-primary); --contractor-primary-container: var(--app-primary); --contractor-canvas: var(--bp-canvas); --contractor-line: var(--app-line); }
 .contractor-shell main > *:not(.contractor-dashboard) { color: #121b2e; }
 .contractor-shell main h1 { color: #121b2e; font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; letter-spacing: -.035em; }
 .contractor-shell main h2,.contractor-shell main h3 { font-family: "Plus Jakarta Sans", Inter, sans-serif; letter-spacing: -.02em; }
-.contractor-shell main section.rounded-2xl,.contractor-shell main article.rounded-2xl { border-color: #e1e8ff; border-radius: 14px; box-shadow: 0 1px 4px #121b2e0a; }
-.contractor-shell main button[class*="bg-slate-950"],.contractor-shell main a[class*="bg-slate-950"] { background-color: #4f46e5; }
-.contractor-shell main button[class*="bg-slate-950"]:hover,.contractor-shell main a[class*="bg-slate-950"]:hover { background-color: #3525cd; }
-.contractor-shell main button[class*="bg-[#0056d2]"],.contractor-shell main button[class*="bg-blue-600"],.contractor-shell main a[class*="bg-blue-600"] { background-color: #4f46e5; }
-.contractor-shell main button[class*="text-[#0056d2]"],.contractor-shell main a[class*="text-[#0056d2]"],.contractor-shell main button[class*="text-blue-600"],.contractor-shell main a[class*="text-blue-600"] { color: #3525cd; }
+.contractor-shell main section.rounded-2xl,.contractor-shell main article.rounded-2xl { border-color: var(--app-line); border-radius: 14px; box-shadow: 0 1px 4px #121b2e0a; }
+.contractor-shell main button[class*="bg-slate-950"],.contractor-shell main a[class*="bg-slate-950"] { background-color: var(--app-primary); }
+.contractor-shell main button[class*="bg-slate-950"]:hover,.contractor-shell main a[class*="bg-slate-950"]:hover { background-color: var(--app-primary); }
+.contractor-shell main button[class*="bg-[#0056d2]"],.contractor-shell main button[class*="bg-blue-600"],.contractor-shell main a[class*="bg-blue-600"] { background-color: var(--app-primary); }
+.contractor-shell main button[class*="text-[#0056d2]"],.contractor-shell main a[class*="text-[#0056d2]"],.contractor-shell main button[class*="text-blue-600"],.contractor-shell main a[class*="text-blue-600"] { color: var(--app-primary); }
 .contractor-shell main input:not([type="checkbox"]):not([type="radio"]),.contractor-shell main select,.contractor-shell main textarea { min-height: 44px; border-color: #c7c4d8; border-radius: 10px; color: #121b2e; }
-.contractor-shell main input:focus,.contractor-shell main select:focus,.contractor-shell main textarea:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px #4f46e51c; }
+.contractor-shell main input:focus,.contractor-shell main select:focus,.contractor-shell main textarea:focus { border-color: var(--app-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 12%, transparent); }
 .contractor-shell main label { color: #343448; font-size: 13px; font-weight: 650; }
 .contractor-shell main table thead { background: #f1f3ff; color: #464555; }
 .contractor-shell main table thead th { font-size: 11px; font-weight: 800; letter-spacing: .04em; }
-.contractor-shell main table tbody tr:hover { background: #f9f9ff; }
-.contractor-shell .bp-sidebar nav a:not([aria-current="page"]):hover { background: #e9edff; color: #3525cd; }
-.contractor-shell .bp-sidebar button[class*="bg-indigo-50"] { background: #e9edff; color: #3525cd; }
+.contractor-shell main table tbody tr:hover { background: var(--bp-canvas); }
+.contractor-shell .bp-sidebar nav a:not([aria-current="page"]):hover { background: var(--app-soft); color: var(--app-primary); }
+.contractor-shell .bp-sidebar button[class*="bg-indigo-50"] { background: var(--app-soft); color: var(--app-primary); }
 .contractor-shell .bp-sidebar button[class*="bg-amber-50"] { background: #ffdcc6; color: #753800; }
 .contractor-shell .bp-sidebar button[class*="bg-emerald-50"] { background: #dae2ff; color: #0040a1; }
-.contractor-shell .bp-sidebar button[class*="bg-violet-50"] { background: #e2dfff; color: #3525cd; }
+.contractor-shell .bp-sidebar button[class*="bg-violet-50"] { background: var(--app-soft); color: var(--app-primary); }
 .contractor-shell main .fixed.inset-0.z-50 > div { box-shadow: -12px 0 36px #121b2e1a; }
+
+/* Contractor app colors are saved in the profile and set on the workspace root. */
+.contractor-shell {
+  --app-primary: #176B9B;
+  --app-accent: #508398;
+  --app-on-primary: #ffffff;
+  --app-soft: color-mix(in srgb, var(--app-accent) 12%, white);
+  --app-line: color-mix(in srgb, var(--app-accent) 28%, white);
+  --bp-brand: var(--app-primary);
+  --bp-brand-dark: color-mix(in srgb, var(--app-primary) 78%, black);
+  --color-indigo-50: var(--app-soft);
+  --color-indigo-100: var(--app-soft);
+  --color-indigo-500: var(--app-primary);
+  --color-indigo-600: var(--app-primary);
+  --color-indigo-700: var(--app-primary);
+  --color-violet-50: var(--app-soft);
+  --color-violet-100: var(--app-soft);
+  --color-violet-600: var(--app-primary);
+  --color-violet-700: var(--app-primary);
+  --color-blue-50: var(--app-soft);
+  --color-blue-100: var(--app-soft);
+  --color-blue-600: var(--app-primary);
+  --color-blue-700: var(--app-primary);
+}
+.contractor-shell.minimia-shell { --bp-canvas: color-mix(in srgb, var(--app-accent) 5%, white); background: var(--bp-canvas); }
+.contractor-shell .bp-sidebar { background: var(--app-soft); border-color: var(--app-line); }
+.contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: var(--app-on-primary); }
+.contractor-shell .bp-sidebar nav a:not([aria-current="page"]):hover,
+.contractor-shell .bp-sidebar button[class*="bg-indigo-50"] { background: var(--app-soft); color: var(--app-primary); }
+.contractor-shell main { --contractor-primary: var(--app-primary); --contractor-primary-container: var(--app-primary); --contractor-canvas: var(--bp-canvas); --contractor-line: var(--app-line); }
+.contractor-shell main section.rounded-2xl,
+.contractor-shell main article.rounded-2xl { border-color: var(--app-line); }
+.contractor-shell main :is(button, a)[class*="bg-slate-950"],
+.contractor-shell main :is(button, a)[class*="bg-blue-600"],
+.contractor-shell main :is(button, a)[class*="bg-indigo-600"],
+.contractor-shell main :is(button, a)[class*="bg-indigo-700"],
+.contractor-shell main :is(button, a)[class*="bg-violet-600"],
+.contractor-shell main :is(button, a)[class*="bg-violet-700"],
+.contractor-shell main :is(button, a)[class*="bg-blue-700"],
+.contractor-shell main :is(button, a)[class*="bg-[#0056d2]"],
+.contractor-shell main :is(button, a)[class*="bg-[#176b9b]"] { background-color: var(--app-primary); color: var(--app-on-primary); }
+.contractor-shell main :is(button, a)[class*="text-[#0056d2]"],
+.contractor-shell main :is(button, a)[class*="text-[#176b9b]"],
+.contractor-shell main :is(button, a)[class*="text-blue-600"],
+.contractor-shell main :is(button, a)[class*="text-blue-700"],
+.contractor-shell main :is(button, a)[class*="text-indigo-600"],
+.contractor-shell main :is(button, a)[class*="text-indigo-700"],
+.contractor-shell main :is(button, a)[class*="text-violet-700"] { color: var(--app-primary); }
+.contractor-shell main :is(button, a)[class*="bg-blue-50"],
+.contractor-shell main :is(button, a)[class*="bg-indigo-50"],
+.contractor-shell main :is(button, a)[class*="bg-violet-50"] { background-color: var(--app-soft); }
+.contractor-shell main input:focus,
+.contractor-shell main select:focus,
+.contractor-shell main textarea:focus { border-color: var(--app-primary); box-shadow: 0 0 0 3px var(--app-soft); }
+.contractor-shell main table thead { background: var(--app-soft); }
+.contractor-shell .contractor-dashboard a:focus-visible,
+.contractor-shell .contractor-dashboard button:focus-visible { outline-color: var(--app-primary); }
+.contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-soft); color: var(--app-primary); }
+.contractor-shell .bp-sidebar nav a[aria-current="page"]::before { background: var(--app-primary); }
+.contractor-shell :is(a, button)[class*="text-indigo-700"],
+.contractor-shell :is(a, button)[class*="text-indigo-600"] { color: var(--app-primary); }
+.contractor-shell :is(a, button)[class*="bg-indigo-50"] { background: var(--app-soft); }
+.contractor-shell :is(a, button)[class*="bg-indigo-600"] { background: var(--app-primary); color: var(--app-on-primary); }
+.contractor-shell :is(button, a)[class*="bg-gradient-to-r"][class*="from-indigo-50"] { background: var(--app-soft); color: var(--app-primary); }
+.contractor-shell .contractor-avatar,
+.contractor-shell .contractor-icon,
+.contractor-shell .contractor-customer-avatar { background: var(--app-soft); color: var(--app-primary); }
+.contractor-shell .contractor-add,
+.contractor-shell .contractor-attention { background: var(--app-primary); color: var(--app-on-primary); }

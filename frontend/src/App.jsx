@@ -29,6 +29,8 @@ const Painters = page("Painters");
 const MeasurementCalculator = page("MeasurementCalculator");
 const MasterServices = page("MasterServices");
 const ContractorSettings = page("ContractorSettings");
+const ContractorCompletedProjects = page("ContractorCompletedProjects");
+const AppearanceSettings = page("AppearanceSettings");
 const Tasks = page("Tasks");
 const Chat = page("Chat");
 const ServiceRequests = page("ServiceRequests");
@@ -74,6 +76,7 @@ const MeasurementTrial = page("MeasurementTrial");
 const WorkPhotos = page("WorkPhotos");
 const Reports = page("Reports");
 const ProfileCard = page("ProfileCard");
+const CustomerContractorReviews = page("CustomerContractorReviews");
 
 function App() {
   return (
@@ -104,9 +107,20 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/applicator" element={<Dashboard />} />
             <Route path="/customer-dashboard" element={<CustomerDashboard />} />
-            <Route path="/customer/connection-requests" element={<CustomerConnections />} />
+            <Route path="/customer/connections" element={<CustomerConnections />} />
+            <Route path="/customer/connection-requests" element={<Navigate to="/customer/connections" replace />} />
             <Route path="/profile" element={<ProfileCard />} />
+            <Route path="/customer-reviews" element={<CustomerContractorReviews />} />
+            <Route
+              path="/completed-projects"
+              element={
+                <VerifiedContractorRoute>
+                  <ContractorCompletedProjects />
+                </VerifiedContractorRoute>
+              }
+            />
             <Route path="/account-security" element={<RecoveryEmailSettings />} />
+            <Route path="/appearance" element={<AppearanceSettings />} />
             <Route path="/contractors" element={<Contractors />} />
             <Route path="/painters" element={<Painters />} />
             <Route path="/customers" element={<Customers />} />
@@ -213,6 +227,14 @@ function App() {
               element={
                 <VerifiedContractorRoute>
                   <ContractorSettings />
+                </VerifiedContractorRoute>
+              }
+            />
+            <Route
+              path="/contractor-theme"
+              element={
+                <VerifiedContractorRoute>
+                  <ContractorSettings themeOnly />
                 </VerifiedContractorRoute>
               }
             />

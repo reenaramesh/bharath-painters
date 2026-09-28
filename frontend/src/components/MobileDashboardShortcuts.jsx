@@ -49,7 +49,7 @@ const shortcutsByRole = {
     { label: "Schedule", icon: CalendarClock, to: "/work-schedules" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
     { label: "Requests", icon: ClipboardList, to: "/service-requests" },
-    { label: "Contractors", icon: Users, to: "/customer/connection-requests" },
+    { label: "My Contractors", icon: Users, to: "/customer/connections" },
   ],
   ADMIN: [
     { label: "Contractors", icon: BriefcaseBusiness, to: "/contractors" },

@@ -14,6 +14,7 @@ import useAuth from "../context/useAuth";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
+import PushAlertControl from "./PushAlertControl";
 import { languages, useLanguage } from "../i18n/LanguageContext";
 import { resolveBackTarget } from "../utils/navigation";
 
@@ -234,6 +235,7 @@ export default function Topbar({ openMenu, toggleSidebar }) {
                   </button>
                 )}
               </div>
+              <PushAlertControl userId={user?.id} />
               <div className="max-h-[420px] overflow-y-auto">
                 {notifications.length ? (
                   notifications.map((item) => (
@@ -299,11 +301,11 @@ export default function Topbar({ openMenu, toggleSidebar }) {
                 )}
               </div>
               <div className="p-2">
-                {user?.role === "CONTRACTOR" && (
+                {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
                   <button
                     onClick={() => {
                       setProfileOpen(false);
-                      navigate("/settings");
+                      navigate(user?.role === "CONTRACTOR" ? "/settings" : "/appearance");
                     }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-slate-50"
                   >

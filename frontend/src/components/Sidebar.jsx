@@ -88,6 +88,7 @@ const menuItems = [
     to: "/in-house-applicators",
   },
   { label: "Completed Work", icon: CalendarCheck, to: "/completed-work" },
+  { label: "Completed Projects", icon: BriefcaseBusiness, to: "/completed-projects" },
   { label: "Applicator Availability", icon: Users, to: "/painter-seeking" },
   {
     label: "Book Applicator",
@@ -160,9 +161,10 @@ const adminMenuItems = [
 
 const customerMenuItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/customer-dashboard" },
-  { label: "Connection Requests", icon: UserRoundCheck, to: "/customer/connection-requests", badge: "connection_requests" },
+  { label: "My Contractors", icon: UserRoundCheck, to: "/customer/connections", badge: "connection_requests" },
   { label: "Activity Log", icon: Activity, to: "/activity-log" },
   { label: "My Quotations", icon: FileText, to: "/customer-quotations" },
+  { label: "Review Contractors", icon: Star, to: "/customer-reviews" },
   { label: "Payments & Invoices", icon: FileText, to: "/customer-invoices" },
   { label: "My Properties", icon: Building2, to: "/customer-properties" },
   { label: "Work Photos", icon: Camera, to: "/work-photos" },
@@ -377,14 +379,24 @@ export default function Sidebar({
               <span className={collapsed ? "lg:hidden" : ""}>Account Security</span>
             </NavLink>
           )}
-          {user?.role === "CONTRACTOR" && (
+          {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
             <NavLink
-              to="/settings"
+              to={user?.role === "CONTRACTOR" ? "/settings" : "/appearance"}
               onClick={closeMobile}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
             >
               <Settings className="w-5 h-5" />
-              <span className={collapsed ? "lg:hidden" : ""}>Settings</span>
+              <span className={collapsed ? "lg:hidden" : ""}>{user?.role === "CONTRACTOR" ? "Company Details" : "Settings"}</span>
+            </NavLink>
+          )}
+          {user?.role === "CONTRACTOR" && (
+            <NavLink
+              to="/contractor-theme"
+              onClick={closeMobile}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+            >
+              <Palette className="h-5 w-5" />
+              <span className={collapsed ? "lg:hidden" : ""}>Theme Settings</span>
             </NavLink>
           )}
 
@@ -415,7 +427,7 @@ export default function Sidebar({
 
 const routeGroups = {
   Dashboard: new Set(["/dashboard", "/customer-dashboard"]),
-  CRM: new Set(["/customers", "/properties", "/quotations", "/work-schedules", "/tasks", "/messages"]),
+  CRM: new Set(["/customer/connections", "/customers", "/properties", "/quotations", "/work-schedules", "/tasks", "/messages"]),
   Sales: new Set(["/opportunities", "/opportunities/new", "/site-visits", "/customers", "/quotations", "/leads"]),
   Work: new Set([
     "/tasks",
@@ -424,6 +436,7 @@ const routeGroups = {
     "/painter-assignments",
     "/work-schedules",
     "/completed-work",
+    "/completed-projects",
     "/work-photos",
   ]),
   People: new Set([
@@ -434,6 +447,7 @@ const routeGroups = {
     "/job-activity",
   ]),
   Business: new Set([
+    "/customer-reviews",
     "/quotations",
     "/customer-quotations",
     "/invoices",

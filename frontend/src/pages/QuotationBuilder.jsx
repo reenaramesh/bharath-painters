@@ -4,6 +4,8 @@ import { goBackFromBuilder } from "../utils/navigation";
 import { ArrowLeft, ArrowRight, Check, Eye, IndianRupee, Pencil, Plus, Ruler, Search, Trash2, X } from "lucide-react";
 import api from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
+import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
+import PropertyForm from "../components/PropertyForm";
 import { previewPdf } from "../components/PdfPreview";
 
 const emptyItem = {
@@ -25,11 +27,9 @@ const emptyItem = {
   rate: "",
 };
 const steps = [
-  "Customer & property",
-  "Quotation type",
+  "Customer, property & type",
   "Area fields & coats",
-  "Services & rates",
-  "Totals & notes",
+  "Services, rates & totals",
 ];
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
@@ -113,6 +113,30 @@ export default function QuotationBuilder() {
   const [previewingPdf, setPreviewingPdf] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [savingProperty, setSavingProperty] = useState(false);
+  async function createCustomer(values) {
+    const { data } = await api.post("/quotations/customers/", values);
+    setCustomers((current) => [data, ...current.filter((item) => item.id !== data.id)]);
+    setCustomerSearch(data.name);
+    setForm((current) => ({ ...current, customer: data.id, property: "" }));
+    return data;
+  }
+  async function createProperty(values) {
+    setSavingProperty(true);
+    try {
+      const { data } = await api.post("/quotations/properties/", values);
+      setProperties((current) => [data, ...current.filter((item) => item.id !== data.id)]);
+      setForm((current) => ({ ...current, customer: data.customer, property: data.id }));
+      setShowPropertyForm(false);
+      setError("");
+    } catch (requestError) {
+      setError(formatError(requestError.response?.data) || "Property could not be created.");
+    } finally {
+      setSavingProperty(false);
+    }
+  }
   useEffect(() => {
     Promise.all([
       api.get("/quotations/customers/", { params: { include_pending: 1 } }),
@@ -678,25 +702,25 @@ export default function QuotationBuilder() {
   function canContinue() {
     if (step === 0 && !form.customer) return "Select a customer.";
     if (step === 0 && !form.property) return "Select a property.";
-    if (step === 1 && useMeasurements && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
-    if (step === 1 && useMeasurements && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
-    if (step === 3 && !activeItems.length) return "Add at least one quotation line.";
-    if (step === 3 && activeItems.some((item) => !item.field_id && !item.property_room_id && !String(item.room_name || "").trim()))
+    if (step === 0 && useMeasurements && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
+    if (step === 0 && useMeasurements && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
+    if (step === 2 && !activeItems.length) return "Add at least one quotation line.";
+    if (step === 2 && activeItems.some((item) => !item.field_id && !item.property_room_id && !String(item.room_name || "").trim()))
       return "Select a room or area for every Lump Sum line.";
-    if (step === 3 && activeItems.some((item) => item.is_additional_service && !item.unit)) return "Select a unit for every general service line.";
+    if (step === 2 && activeItems.some((item) => item.is_additional_service && !item.unit)) return "Select a unit for every general service line.";
     if (
-      step === 3 &&
+      step === 2 &&
       activeItems.some((item) => !item.description || item.rate === "")
     )
       return "Every quotation line needs a product description and rate.";
     if (
-      step === 3 &&
+      step === 2 &&
       activeItems.some(
         (item) => !item.field_id && Number(item.quantity || 0) <= 0,
       )
     )
       return "Enter a quantity greater than zero for every Lump Sum or custom line.";
-    if (step === 3 && activeItems.some((item) => !item.service_category))
+    if (step === 2 && activeItems.some((item) => !item.service_category))
       return "Select the type of service for every quotation line.";
     return "";
   }
@@ -707,17 +731,17 @@ export default function QuotationBuilder() {
       return;
     }
     setError("");
-    setStep((value) => value === 1 && !useMeasurements ? 3 : Math.min(4, value + 1));
+    setStep((value) => value === 0 && !useMeasurements ? 2 : Math.min(2, value + 1));
   }
   function openQuotationPreview() {
     if (!activeItems.length) {
       setError("Add at least one quotation line.");
-      setStep(3);
+      setStep(2);
       return;
     }
     if (activeItems.some((item) => missingQuotationFields(item).length)) {
       setError("Complete the highlighted service lines before previewing the quotation.");
-      setStep(3);
+      setStep(2);
       return;
     }
     setError("");
@@ -726,7 +750,7 @@ export default function QuotationBuilder() {
   async function submit(pdfPreviewOnly = false) {
     if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
       setError("Complete the highlighted service lines before saving the draft.");
-      setStep(3);
+      setStep(2);
       return;
     }
     const message = canContinue();
@@ -902,7 +926,7 @@ export default function QuotationBuilder() {
     return data;
   }
   const input =
-    "mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-slate-900";
+    "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]";
   const toggleMeasurementField = (fieldId) => {
     setSelectedFieldIds((ids) => {
       if (ids.includes(fieldId)) return ids.filter((id) => id !== fieldId);
@@ -946,30 +970,31 @@ export default function QuotationBuilder() {
     { wall: 0, ceiling: 0, custom: 0, total: 0, count: 0 },
   );
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-5 pb-8">
       <button
         onClick={() =>
           step
-            ? setStep(step === 3 && !useMeasurements ? 1 : step - 1)
+            ? setStep(step === 2 && !useMeasurements ? 0 : step - 1)
             : goBackFromBuilder(location, navigate, "/quotations")
         }
-        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"
       >
         <ArrowLeft className="h-4 w-4" />
         {step ? "Previous step" : "Back to quotations"}
       </button>
-      <div>
-        <p className="text-sm font-semibold text-amber-600">New estimate</p>
-        <h1 className="mt-1 text-3xl font-bold">Create quotation</h1>
+      <div className="rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">New quotation</p>
+        <h1 className="mt-1 text-2xl font-extrabold text-[#193750] sm:text-3xl">Create quotation</h1>
+        <p className="mt-2 text-sm text-slate-500">Step {step + 1} of {steps.length} · {steps[step]}</p>
       </div>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4">
         {steps.map((title, index) => (
           <div key={title}>
             <div
-              className={`h-1.5 rounded-full ${index <= step ? "bg-slate-950" : "bg-slate-200"}`}
+              className={`h-1.5 rounded-full ${index <= step ? "bg-[#176b9b]" : "bg-slate-200"}`}
             />
             <p
-              className={`mt-2 hidden text-xs sm:block ${index === step ? "font-semibold text-slate-900" : "text-slate-400"}`}
+              className={`mt-2 hidden text-xs sm:block ${index === step ? "font-bold text-[#176b9b]" : "text-slate-400"}`}
             >
               {title}
             </p>
@@ -981,12 +1006,13 @@ export default function QuotationBuilder() {
           {error}
         </div>
       )}
-      <section className="min-w-0 rounded-2xl border bg-white p-4 sm:p-6">
+      <section className="min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6">
         {step === 0 && (
           <div className="grid gap-5 md:grid-cols-2">
+            <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2><p className="mt-1 text-sm text-slate-500">Select the customer and the site for this quotation.</p></div>
             <label className="text-sm font-medium">
-              Customer *
-              <span className="mt-2 flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2.5 focus-within:border-slate-900">
+              <span className="flex items-center justify-between gap-2"><span>Customer *</span><button type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
+              <span className="mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input value={customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
               </span>
@@ -996,7 +1022,7 @@ export default function QuotationBuilder() {
               {customerSearch && !form.customer && customerSearchResults.length === 0 && <span className="mt-2 block text-xs font-normal text-red-600">No matching customers found.</span>}
             </label>
             <label className="text-sm font-medium">
-              Property *
+              <span className="flex items-center justify-between gap-2"><span>Property *</span><button type="button" onClick={() => setShowPropertyForm(true)} disabled={!form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add Property</button></span>
               <select
                 value={form.property}
                 onChange={(e) => update("property", e.target.value)}
@@ -1021,17 +1047,18 @@ export default function QuotationBuilder() {
             </label>
           </div>
         )}
-        {step === 1 && (
-          <div>
-            <h2 className="font-bold">Choose how to prepare this quotation</h2>
+        {step === 0 && (
+          <div className="mt-6 border-t border-[#dce7ed] pt-6">
+            <h2 className="text-lg font-extrabold text-[#193750]">Quotation type</h2>
+            <p className="mt-1 text-sm text-slate-500">Choose how to calculate the work.</p>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-slate-950 bg-slate-950 text-white shadow-lg":"bg-white hover:border-slate-400"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-violet-50 text-violet-700"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
-              <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-amber-500 bg-amber-50 shadow-lg":"bg-white hover:border-amber-300"}`}><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-800"><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
+              <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
+              <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
             {useMeasurements&&<label className="mt-6 block text-sm font-medium">Area Calculation *<select value={selectedMeasurementId} onChange={(event)=>setSelectedMeasurementId(event.target.value)} className={input}><option value="">Select Area Calculation</option>{measurementRecords.map((record)=><option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}</select></label>}
           </div>
         )}
-        {step === 2 && (
+        {step === 1 && (
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1061,7 +1088,7 @@ export default function QuotationBuilder() {
                 </button>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-5">
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-3 sm:grid-cols-5">
               {[
                 ["Selected walls", selectedAreaTotals.wall],
                 ["Selected ceiling", selectedAreaTotals.ceiling],
@@ -1073,8 +1100,8 @@ export default function QuotationBuilder() {
                   <p className="mt-0.5 font-extrabold tabular-nums text-slate-950">{Number(value).toFixed(0)} <span className="text-[10px] font-semibold text-slate-500">sq ft</span></p>
                 </div>
               ))}
-              <div className="col-span-2 rounded-lg bg-emerald-900 px-3 py-2 text-white sm:col-span-1">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-200">Selected lines</p>
+              <div className="col-span-2 rounded-lg bg-[#176b9b] px-3 py-2 text-white sm:col-span-1">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-white/75">Selected lines</p>
                 <p className="mt-0.5 text-lg font-extrabold">{selectedAreaTotals.count}</p>
               </div>
             </div>
@@ -1087,7 +1114,7 @@ export default function QuotationBuilder() {
             </div>
           </div>
         )}
-        {step === 3 && (
+        {step === 2 && (
           <div className="space-y-5">
             <div className="flex flex-wrap justify-between gap-3">
               <div>
@@ -1102,33 +1129,6 @@ export default function QuotationBuilder() {
                 </button>
               </div>
             </div>
-            <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">
-                    Live quotation value
-                  </p>
-                  <h3 className="mt-0.5 font-bold">Estimated total</h3>
-                </div>
-                <p className="text-xl font-extrabold tabular-nums text-emerald-300 sm:text-2xl">
-                  {money(preview.total)}
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-px bg-white/10 text-center">
-                <div className="bg-slate-950 px-3 py-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Subtotal</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums">{money(preview.subtotal)}</p>
-                </div>
-                <div className="bg-slate-950 px-3 py-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Discount</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums">{money(preview.discount)}</p>
-                </div>
-                <div className="bg-slate-950 px-3 py-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">GST</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums">{money(preview.gst)}</p>
-                </div>
-              </div>
-            </section>
             <div className="hidden">
               <table className="w-full min-w-[1480px] border-collapse text-xs">
                 <thead>
@@ -1165,7 +1165,7 @@ export default function QuotationBuilder() {
                         <td className="border p-2">
                           {item.field_id ? <span className="font-semibold text-slate-700">{itemRoomName}</span> : <SearchableSelect value={item.property_room_id} options={[{ value: "", label: "General / No room" }, ...savedRooms.map((room) => ({ value: room.id, label: room.name }))]} onChange={(value) => updateItem(index, "property_room_id", value)} placeholder="Search room / area" className="w-full rounded border p-1.5" />}
                         </td>
-                        <td className="border p-2 font-semibold text-violet-700">{itemRoomType}</td>
+                        <td className="border p-2 font-semibold text-[#176b9b]">{itemRoomType}</td>
                         <td className="border p-2">
                           <SearchableProductType label="" value={item.paint_type} options={masters.paintTypes.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category))} onChange={(value) => updateProductType(index, value)} controlClass="w-44 rounded border p-1.5 pl-8" />
                         </td>
@@ -1271,7 +1271,7 @@ export default function QuotationBuilder() {
               {!pricedItems.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">No quotation lines selected.</p>}
             </div>
             <div className="flex justify-end border-t border-slate-200 pt-4">
-              <button type="button" onClick={addAdditionalService} className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-900 px-5 py-3 text-sm font-semibold text-white sm:w-auto"><Plus className="h-4 w-4" />Add services</button>
+              <button type="button" onClick={addAdditionalService} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 text-sm font-semibold text-white sm:w-auto"><Plus className="h-4 w-4" />Add services</button>
             </div>
             {mobileItemIndex !== null && items[mobileItemIndex] && (
               <MobileRateDialog
@@ -1296,8 +1296,8 @@ export default function QuotationBuilder() {
             )}
           </div>
         )}
-        {step === 4 && (
-          <div className="grid gap-6 xl:grid-cols-2">
+        {step === 2 && (
+          <div className="mt-8 border-t border-[#dce7ed] pt-6"><h2 className="mb-5 text-lg font-extrabold text-[#193750]">Totals &amp; notes</h2><div className="grid gap-6 xl:grid-cols-2">
             <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
               <label className="text-sm">
                 Discount type
@@ -1353,25 +1353,14 @@ export default function QuotationBuilder() {
                   className={input}
                 />
               </label>
-              <label className="text-sm sm:col-span-2">
-                Terms and conditions
-                <textarea
-                  rows="3"
-                  value={form.terms_conditions}
-                  onChange={(e) => update("terms_conditions", e.target.value)}
-                  className={input}
-                />
-              </label>
               <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={input} placeholder="Name shown on quotation" /></label>
               <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={input} placeholder="Site inspector name" /></label>
               <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={input} placeholder="For example, 15-18 days" /></label>
-              <label className="text-sm sm:col-span-2">Payment terms<textarea rows="3" value={form.payment_terms} onChange={(e) => update("payment_terms", e.target.value)} className={input} placeholder="Advance, milestone and final-payment details" /></label>
-              <label className="text-sm sm:col-span-2">Product details<textarea rows="2" value={form.product_details} onChange={(e) => update("product_details", e.target.value)} className={input} placeholder="Add any general product notes here" /></label>
-              {form.show_product_key_features && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm sm:col-span-2"><b className="text-slate-950">Selected product details</b>{selectedProductDetails ? <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-600">{selectedProductDetails}</p> : <p className="mt-2 text-slate-500">Select a Product Type to preview its saved details here.</p>}</div>}
-              <label className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm sm:col-span-2"><input type="checkbox" checked={form.show_product_key_features} onChange={(e) => update("show_product_key_features", e.target.checked)} className="mt-0.5 h-4 w-4" /><span><b className="block text-emerald-950">Include selected product details</b><span className="mt-1 block text-xs leading-5 text-emerald-800">Each selected product and its key features will appear only once in Product details.</span></span></label>
-              <label className="text-sm sm:col-span-2">Work procedures and safety<textarea rows="4" value={form.work_procedures} onChange={(e) => update("work_procedures", e.target.value)} className={input} placeholder="Cleaning, protection, safety and execution procedure" /></label>
-            </div>
-            <div className="order-first h-fit rounded-xl bg-slate-950 p-6 text-white xl:order-last">
+              <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 sm:col-span-2">
+                Payment terms, product details, work procedures and terms and conditions come from Master Services. Review them in the quotation preview.
+              </p>
+             </div>
+            <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
               <h2 className="font-bold">Estimated total</h2>
               <div className="mt-5 space-y-3 text-sm">
                 <Row label="Subtotal" value={preview.subtotal} />
@@ -1386,33 +1375,35 @@ export default function QuotationBuilder() {
                 Review the total before previewing.
               </p>
             </div>
-          </div>
-        )}
+           </div></div>
+         )}
       </section>
-      <div className="flex flex-wrap justify-end gap-3">
-        {step < 4 ? (
+       <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
+        {step < 2 ? (
           <button
             onClick={next}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white sm:w-auto"
           >
             Continue
             <ArrowRight className="h-4 w-4" />
           </button>
         ) : (<>
-          <button type="button" onClick={() => submit(false)} disabled={saving} className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 disabled:opacity-60">
+          <button type="button" onClick={() => submit(false)} disabled={saving} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-[#176b9b] bg-white px-5 py-3 font-bold text-[#176b9b] disabled:opacity-60 sm:flex-none">
             <Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}
           </button>
           <button
             onClick={openQuotationPreview}
             disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white disabled:opacity-60"
+            className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60 sm:flex-none"
           >
             <Eye className="h-4 w-4" />
             Preview quotation
           </button>
         </>)}
       </div>
-      {showPreview && (
+       {showCustomerForm && <CustomerConnectionFlow quotationTheme onClose={() => setShowCustomerForm(false)} onNewCustomer={createCustomer} />}
+       {showPropertyForm && <PropertyForm quotationTheme customers={customers} initialCustomer={form.customer} onSubmit={createProperty} onClose={() => setShowPropertyForm(false)} saving={savingProperty} />}
+       {showPreview && (
         <QuotationPreviewDialog
           customer={selectedCustomer}
           property={selectedProperty}
@@ -1511,7 +1502,7 @@ function QuotationPreviewDialog({
       aria-label="Quotation preview"
     >
       <section className="mx-auto min-h-full max-w-6xl overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-slate-950 px-4 py-3 text-white sm:px-6">
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-[#245b75] px-4 py-3 text-white sm:px-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
               Preview only · Not yet saved
@@ -1582,14 +1573,15 @@ function QuotationPreviewDialog({
           </section>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
             <section className="space-y-3">
-              {form.show_product_key_features && productDetails && <PreviewText title="Product details" value={productDetails} />}
+              {form.product_details && <PreviewText title="Product details" value={form.product_details} />}
+              {form.show_product_key_features && productDetails && <PreviewText title="Selected product details" value={productDetails} />}
               {form.work_duration && <PreviewText title="Work duration" value={form.work_duration} />}
               {form.payment_terms && <PreviewText title="Payment terms" value={form.payment_terms} />}
               {form.terms_conditions && <PreviewText title="Terms and conditions" value={form.terms_conditions} />}
               {form.work_procedures && <PreviewText title="Work procedures and safety" value={form.work_procedures} />}
               {form.notes && <PreviewText title="Notes" value={form.notes} />}
             </section>
-            <section className="h-fit rounded-xl bg-slate-950 p-5 text-white">
+            <section className="h-fit rounded-xl bg-[#245b75] p-5 text-white">
               <h3 className="font-bold">Quotation total</h3>
               <div className="mt-4 space-y-2 text-sm">
                 <Row label="Subtotal" value={totals.subtotal} />
@@ -1603,7 +1595,7 @@ function QuotationPreviewDialog({
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
           <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold">Back to edit</button>
           <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Creating..." : "Create Quotation"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Creating..." : "Create Quotation"}</button>
         </footer>
       </section>
     </div>
@@ -1661,7 +1653,7 @@ function SearchableProductType({ value, options, onChange, controlClass, label =
           className={`${controlClass} pl-10`}
         />
         {open && <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.id); setQuery(entry.name); setOpen(false); }} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-violet-50 ${String(entry.id) === String(value) ? "bg-violet-50 text-violet-700" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
+          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.id); setQuery(entry.name); setOpen(false); }} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
           {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">{emptyText}</p>}
         </div>}
       </div>
@@ -1689,7 +1681,7 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
           className={`${controlClass} pl-10`}
         />
         {open && <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.name, true); setOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-violet-50">{entry.name}</button>)}
+          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.name, true); setOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-[#e8f3f8]">{entry.name}</button>)}
           {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">No saved description. Continue typing to create a new one.</p>}
         </div>}
       </div>
@@ -1719,13 +1711,13 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
       ? String(room.propertyRoomId) === String(propertyRoomId)
       : !room.propertyRoomId && room.name === item.room_name;
   })?.key || "";
-  const control = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100";
+  const control = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#176b9b] focus:ring-4 focus:ring-[#e8f3f8]";
   const requiredControl = (missing) => `${control} ${missing ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-100" : ""}`;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section role="dialog" aria-modal="true" aria-label="Edit quotation service and rate" className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-slate-50 shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
         <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white px-4 py-4">
-          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Services & rates</p><h2 className="truncate text-lg font-bold">{roomName}</h2></div>
+          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-[#176b9b]">Services & rates</p><h2 className="truncate text-lg font-bold">{roomName}</h2></div>
           <button type="button" onClick={close} aria-label="Close editor" className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button>
         </header>
         <div className="space-y-4 p-4 pb-28">
@@ -1737,8 +1729,8 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
                 : <SearchableSelect value={roomOptions.find((room) => item.property_room_id ? String(room.propertyRoomId) === String(item.property_room_id) : !room.propertyRoomId && room.name === item.room_name)?.key || ""} options={roomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))} onChange={(value) => { const room = roomOptions.find((option) => option.key === value); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || ""); }} placeholder="Search room / area" invalid={!item.property_room_id && !String(item.room_name || "").trim()} className={requiredControl(!item.property_room_id && !String(item.room_name || "").trim())} />}
             </label>
           </div>
-          {!item.field_id && <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50 p-3">
-            {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-violet-800"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} placeholder="Enter room name" className={control + " mt-0 flex-1"} /><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{roomSaving ? "Saving..." : "Save room"}</button></div>}
+          {!item.field_id && <div className="rounded-xl border border-dashed border-[#9cc4d6] bg-[#e8f3f8] p-3">
+            {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} placeholder="Enter room name" className={control + " mt-0 flex-1"} /><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-[#176b9b] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{roomSaving ? "Saving..." : "Save room"}</button></div>}
             {roomError && <p className="mt-2 text-xs font-semibold text-red-600">{roomError}</p>}
           </div>}
           <SearchableProductType
@@ -1751,7 +1743,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
           <SearchableDescription value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
           {String(item.description || "").trim() && (descriptionSaved
             ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Product Description selected</p>
-            : <label className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm font-semibold text-violet-900"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Product Description for future quotations</label>)}
+            : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Product Description for future quotations</label>)}
           <SearchableProductType label="Brand" placeholder="Search brand (optional)" emptyText="No matching brands" value={item.paint_brand} options={masters.brands} onChange={(value) => updateItem(index, "paint_brand", value)} controlClass={control} />
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm font-semibold">Quantity
@@ -1769,11 +1761,11 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
               <input type="number" min="0" step="0.01" value={item.rate} aria-invalid={item.rate === "" || item.rate === null || item.rate === undefined} onChange={(event) => updateItem(index, "rate", event.target.value)} className={requiredControl(item.rate === "" || item.rate === null || item.rate === undefined)} />
             </label>
           </div>
-          <div className="rounded-2xl bg-slate-950 p-4 text-center text-white"><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
+          <div className="rounded-2xl bg-[#245b75] p-4 text-center text-white"><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
         </div>
         <footer className="sticky bottom-0 z-20 grid grid-cols-[auto_1fr] gap-3 border-t bg-white p-4">
           <button type="button" onClick={remove} className="inline-flex items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600"><Trash2 className="h-5 w-5" /></button>
-          <button type="button" onClick={close} className="rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white">Update line</button>
+          <button type="button" onClick={close} className="rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white">Update line</button>
         </footer>
       </section>
     </div>
@@ -1813,7 +1805,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
                   const item = items.find((entry) => entry.field_id === field.field_id) || field;
                   const checked = selectedFieldIds.includes(field.field_id);
                   const ensureSelected = () => { if (!checked) toggle(field.field_id); };
-                  return <tr key={field.field_id} onClick={() => toggle(field.field_id)} className={`cursor-pointer ${checked ? "bg-violet-50/40" : "hover:bg-slate-50"}`}>
+                  return <tr key={field.field_id} onClick={() => toggle(field.field_id)} className={`cursor-pointer ${checked ? "bg-[#e8f3f8]/40" : "hover:bg-slate-50"}`}>
                     <td className="px-4 py-3"><input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} onClick={(event) => event.stopPropagation()} aria-label={`Select ${field.room_name} ${field.description}`} /></td>
                     <td className="px-3 py-3 font-semibold text-slate-900">{field.room_name}</td>
                     <td className="px-3 py-3 font-semibold text-slate-600">{field.description}</td>
@@ -1833,8 +1825,8 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
           const item = items.find((entry) => entry.field_id === field.field_id) || field;
           const serviceName = serviceCategories.find((entry) => String(entry.id) === String(item.service_category))?.name || "Service not selected";
           return (
-            <button type="button" key={"mobile-field-" + field.field_id} onClick={() => setMobileFieldId(field.field_id)} className={"grid w-full grid-cols-[auto_minmax(0,1fr)_72px_82px] items-center gap-2 rounded-xl border p-3 text-left " + (checked ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-white")}>
-              <span className={"grid h-6 w-6 shrink-0 place-items-center rounded-md border " + (checked ? "border-violet-600 bg-violet-600 text-white" : "border-slate-300")}>{checked && <Check className="h-4 w-4" />}</span>
+            <button type="button" key={"mobile-field-" + field.field_id} onClick={() => setMobileFieldId(field.field_id)} className={"grid w-full grid-cols-[auto_minmax(0,1fr)_72px_82px] items-center gap-2 rounded-xl border p-3 text-left " + (checked ? "border-[#9cc4d6] bg-[#e8f3f8]" : "border-slate-200 bg-white")}>
+              <span className={"grid h-6 w-6 shrink-0 place-items-center rounded-md border " + (checked ? "border-[#176b9b] bg-[#176b9b] text-white" : "border-slate-300")}>{checked && <Check className="h-4 w-4" />}</span>
               <span className="min-w-0 flex-1"><b className="block truncate text-sm">{field.room_name}</b><small className="block truncate text-slate-500">{field.description} · {serviceName}</small></span>
               <span className="text-right"><b className="block text-sm">{field.quantity}</b><small className="text-slate-500">sq ft</small></span>
               <span className="rounded-lg border bg-white px-2 py-1.5 text-center text-xs font-bold">{item.coats || 1} coat{Number(item.coats || 1) === 1 ? "" : "s"}</span>
@@ -1845,7 +1837,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
       {mobileField && mobileItem && (
         <div className="fixed inset-0 z-[80] flex items-end bg-slate-950/60 md:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileFieldId(null); }}>
           <section role="dialog" aria-modal="true" aria-label="Edit selected area field" className="w-full rounded-t-[28px] bg-white p-4 pb-6 shadow-2xl">
-            <header className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Selected area field</p><h2 className="text-lg font-bold">{mobileField.room_name}</h2><p className="text-sm text-slate-500">{mobileField.description} · {mobileField.quantity} sq ft</p></div><button type="button" onClick={() => setMobileFieldId(null)} className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button></header>
+            <header className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#176b9b]">Selected area field</p><h2 className="text-lg font-bold">{mobileField.room_name}</h2><p className="text-sm text-slate-500">{mobileField.description} · {mobileField.quantity} sq ft</p></div><button type="button" onClick={() => setMobileFieldId(null)} className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button></header>
             <label className="flex items-center gap-3 rounded-xl border p-4 font-semibold"><input type="checkbox" checked={selectedFieldIds.includes(mobileField.field_id)} onChange={() => toggle(mobileField.field_id)} />Include this field in quotation</label>
             <label className="mt-4 block text-sm font-semibold">Type of service
               <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"><option value="">Select type of service</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
@@ -1853,7 +1845,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
             <label className="mt-4 block text-sm font-semibold">No. of coats
               <select value={mobileItem.coats || 1} onChange={(event) => { updateFieldItem(mobileField.field_id, "coats", event.target.value); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
             </label>
-            <button type="button" onClick={() => setMobileFieldId(null)} className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white">Update selection</button>
+            <button type="button" onClick={() => setMobileFieldId(null)} className="mt-5 w-full rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white">Update selection</button>
           </section>
         </div>
       )}
@@ -1864,7 +1856,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
 function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, updateFieldItem }) {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <header className="flex items-center justify-between border-b bg-slate-950 px-3 py-2.5 text-white">
+      <header className="flex items-center justify-between border-b bg-[#245b75] px-3 py-2.5 text-white">
         <h3 className="truncate text-sm font-bold">{title}</h3>
         <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold">{fields.length}</span>
       </header>
@@ -1874,8 +1866,8 @@ function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, update
             const checked = selectedFieldIds.includes(field.field_id);
             const item = items.find((entry) => entry.field_id === field.field_id) || field;
             return (
-              <div key={field.field_id} className={`grid grid-cols-[auto_minmax(0,1fr)_120px] items-center gap-3 px-3 py-2.5 transition sm:grid-cols-[auto_minmax(0,1fr)_160px_150px] sm:px-4 ${checked ? "bg-violet-50" : "bg-white"}`}>
-                <input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} aria-label={`Select ${field.description}`} className="h-4 w-4 accent-violet-600" />
+              <div key={field.field_id} className={`grid grid-cols-[auto_minmax(0,1fr)_120px] items-center gap-3 px-3 py-2.5 transition sm:grid-cols-[auto_minmax(0,1fr)_160px_150px] sm:px-4 ${checked ? "bg-[#e8f3f8]" : "bg-white"}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} aria-label={`Select ${field.description}`} className="h-4 w-4 accent-[#176b9b]" />
                 <button type="button" onClick={() => toggle(field.field_id)} className="min-w-0 text-left"><b className="block truncate text-sm text-slate-900">{field.description}</b><span className="mt-0.5 block text-xs font-bold tabular-nums text-slate-600 sm:hidden">{field.quantity} sq ft</span></button>
                 <span className="hidden text-right text-sm font-extrabold tabular-nums text-slate-950 sm:block">{field.quantity} <small className="text-[10px] font-semibold text-slate-500">sq ft</small></span>
                 <label className="text-[9px] font-bold uppercase tracking-wide text-slate-400"><span>Number of coats</span><select value={item.coats || 1} onChange={(event) => { updateFieldItem(field.field_id, "coats", event.target.value); if (!checked) toggle(field.field_id); }} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold normal-case text-slate-800"><option value="1">1 coat</option>{[2, 3, 4, 5, 6].map((coat) => <option key={coat} value={coat}>{coat} coats</option>)}</select></label>

@@ -14,8 +14,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --bp-brand: #4f46e5;
-  --bp-brand-dark: #3730a3;
+  --bp-brand: #176b9b;
+  --bp-brand-dark: #245b75;
   --bp-ink: #172033;
   --bp-muted: #667085;
   --bp-line: #e5e9f2;
@@ -54,8 +54,8 @@ svg {
   max-width: 100%;
 }
 ::selection {
-  background: #ddd6fe;
-  color: #312e81;
+  background: #d9edf5;
+  color: #193750;
 }
 
 .minimia-shell {
@@ -700,9 +700,9 @@ svg {
   --quotation-muted: #64748b;
   color: var(--quotation-ink);
 }
-.bp-quotation-page > :is(.quotation-toolbar, .quotation-sheet, .quotation-items, .quotation-supporting-info, .quotation-customer-actions) {
+.bp-quotation-page > :is(.quotation-toolbar, .quotation-sheet, .quotation-items, .quotation-supporting-info, .quotation-pdf-options, .quotation-customer-actions) {
   width: 100%;
-  max-width: 64rem;
+  max-width: 82rem;
   margin-inline: auto;
 }
 .bp-quotation-page .quotation-toolbar {
@@ -732,9 +732,9 @@ svg {
 }
 .bp-quotation-page .quotation-number-header h1 {
   color: var(--quotation-brand);
-  font-size: clamp(1.75rem, 3vw, 2.35rem);
-  font-weight: 850;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 .bp-quotation-page .quotation-customer-header {
   border-color: #edf0f5;
@@ -777,6 +777,9 @@ svg {
 }
 .bp-quotation-page .quotation-items table {
   border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 .bp-quotation-page .quotation-customer-sheet table {
   border-collapse: collapse;
@@ -803,16 +806,53 @@ svg {
   color: #fff;
 }
 .bp-quotation-page .quotation-items thead th {
-  padding-block: 0.8rem;
-  font-size: 0.66rem;
+  padding: 0.72rem 0.5rem;
+  font-size: 0.64rem;
   letter-spacing: 0.055em;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.bp-quotation-page .quotation-resizable-heading {
+  position: relative;
+}
+.bp-quotation-page .quotation-column-resizer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0.85rem;
+  cursor: col-resize;
+  touch-action: none;
+}
+.bp-quotation-page .quotation-column-resizer::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.25rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: #c7d2fe;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.25);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+.bp-quotation-page .quotation-column-resizer:hover,
+.bp-quotation-page .quotation-column-resizer:focus-visible {
+  background: rgb(165 180 252 / 0.3);
+  outline: none;
+}
+.bp-quotation-page .quotation-column-resizer:hover::after,
+.bp-quotation-page .quotation-column-resizer:focus-visible::after {
+  background: #fff;
 }
 .bp-quotation-page .quotation-items tbody tr {
   border-color: var(--quotation-line);
 }
 .bp-quotation-page .quotation-items tbody td {
-  padding-block: 0.85rem;
+  padding: 0.72rem 0.5rem;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 .bp-quotation-page .quotation-totals {
   border-color: var(--quotation-line);
@@ -838,6 +878,24 @@ svg {
 .bp-quotation-page .quotation-supporting-info h2 {
   color: var(--quotation-brand);
 }
+.bp-quotation-page .quotation-pdf-options {
+  border-color: var(--quotation-line);
+  border-radius: 0.95rem;
+  background: linear-gradient(135deg, #fff 40%, #f8f9ff 100%);
+  box-shadow: 0 8px 26px -22px rgb(49 46 129 / 0.45);
+}
+.bp-quotation-page .quotation-pdf-options h2 {
+  color: var(--quotation-brand);
+}
+.bp-quotation-page .quotation-pdf-check {
+  min-width: 0;
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 0.82);
+}
+.bp-quotation-page .quotation-pdf-check input {
+  flex: none;
+  accent-color: #4f46e5;
+}
 .bp-quotation-page .quotation-customer-actions {
   border-color: var(--quotation-line);
   border-radius: 0.9rem;
@@ -853,12 +911,6 @@ svg {
   }
   .bp-quotation-page .quotation-items > div:first-child {
     padding: 1rem;
-  }
-  .bp-quotation-page .quotation-items > div[data-mobile-table="keep"] {
-    overflow-x: auto;
-  }
-  .bp-quotation-page .quotation-items table {
-    min-width: 900px;
   }
   .bp-quotation-page .quotation-customer-sheet table {
     min-width: 900px;

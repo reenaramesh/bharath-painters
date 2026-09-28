@@ -1,11 +1,21 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.db import transaction
 from django.utils import timezone
 
 from .models import (
     Lead, LeadStageHistory, Quotation, ServiceRequest,
     PropertyMeasurement, PropertyRoom, MeasurementSurface, MeasurementOpening,
+    PortalNotification,
 )
+
+
+@receiver(post_save, sender=PortalNotification)
+def deliver_browser_push(sender, instance, created, raw=False, **kwargs):
+    if not created or raw:
+        return
+    from .web_push import send_portal_push
+    transaction.on_commit(lambda: send_portal_push(instance.pk))
 
 
 QUOTATION_TO_LEAD = {

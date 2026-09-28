@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Camera, MapPin, QrCode, Save } from "lucide-react";
+import { BadgeCheck, Camera, MapPin, QrCode, Save, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
 
@@ -35,6 +35,7 @@ export default function ApplicatorProfile() {
   const [form, setForm] = useState(null),
     [photo, setPhoto] = useState(null),
     [error, setError] = useState(""),
+    [success, setSuccess] = useState(""),
     [saving, setSaving] = useState(false);
   const load = useCallback(async () => {
     try {
@@ -68,6 +69,7 @@ export default function ApplicatorProfile() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    setSuccess("");
     try {
       const payload = new FormData();
       [
@@ -86,6 +88,7 @@ export default function ApplicatorProfile() {
       });
       setForm(data);
       setPhoto(null);
+      setSuccess("Painter profile saved successfully.");
     } catch (requestError) {
       setError(
         Object.values(requestError.response?.data || {})
@@ -107,31 +110,33 @@ export default function ApplicatorProfile() {
     onChange: (event) => setForm({ ...form, [name]: event.target.value }),
   });
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
+      {success && <div role="status" className="fixed right-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-5 py-4 text-sm font-semibold text-emerald-800 shadow-xl">✓ {success}</div>}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-amber-600">
+          <p className="text-sm font-semibold text-[#176b9b]">
             Paint Applicator portal
           </p>
-          <h1 className="mt-1 text-3xl font-bold">My Profile</h1>
+          <h1 className="mt-1 text-3xl font-bold">Painter profile</h1>
           <p className="mt-2 text-slate-500">
             Keep the basic information contractors need.
           </p>
         </div>
-        <Link
-          to="/profile"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white"
-        >
-          <QrCode className="h-5 w-5" />
-          View & share QR profile
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/appearance" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#176b9b] px-4 py-3 text-sm font-bold text-[#176b9b]">
+            <Settings className="h-5 w-5" />App theme
+          </Link>
+          <Link to="/profile" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">
+            <QrCode className="h-5 w-5" />View & share QR profile
+          </Link>
+        </div>
       </header>
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
-      <section className="rounded-2xl border bg-white p-6">
+      <section className="rounded-2xl border border-[#d7e4ea] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 border-b pb-6 sm:flex-row sm:items-center">
-          <label className="relative grid h-24 w-24 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-slate-950 text-white">
+          <label className="relative grid h-24 w-24 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[#14374a] text-white">
             {photo || form.profile_photo ? (
               <img
                 src={photo ? URL.createObjectURL(photo) : form.profile_photo}
@@ -235,7 +240,7 @@ export default function ApplicatorProfile() {
           </p>
           <button
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save profile"}

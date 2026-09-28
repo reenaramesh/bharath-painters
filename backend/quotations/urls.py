@@ -1,4 +1,5 @@
 from django.urls import path
+from .push_views import WebPushSubscriptionView
 
 from .views import (
     AreaListCreateView,
@@ -98,6 +99,7 @@ from .views import ClientSearchView, SiteVisitListCreateView, SiteVisitDetailVie
 
 
 urlpatterns = [
+    path("push-subscription/", WebPushSubscriptionView.as_view(), name="push-subscription"),
     path("work-changes/", WorkChangeListCreateView.as_view(), name="work-change-list-create"),
     path("work-changes/<int:pk>/", WorkChangeDetailView.as_view(), name="work-change-detail"),
     path("work-changes/<int:pk>/send/", WorkChangeSendView.as_view(), name="work-change-send"),

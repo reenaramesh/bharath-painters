@@ -140,6 +140,8 @@ class BharathUser(AbstractUser):
     preferred_language = models.CharField(
         max_length=5, choices=Languages.choices, default=Languages.ENGLISH,
     )
+    app_primary_color = models.CharField(max_length=7, default="#176B9B")
+    app_accent_color = models.CharField(max_length=7, default="#508398")
 
     # Kept separate from the ordinary contact email because contact details are
     # editable in several portals. Password recovery must only use an address
@@ -331,6 +333,22 @@ class PainterProfile(models.Model):
 
 
 class ContractorProfile(models.Model):
+    class PdfFontTemplate(models.TextChoices):
+        MODERN = "MODERN", "Modern sans"
+        CLASSIC = "CLASSIC", "Classic serif"
+        CLEAN = "CLEAN", "Clean sans"
+        COMPACT = "COMPACT", "Compact sans"
+
+    class PdfColorTemplate(models.TextChoices):
+        STUDIO = "STUDIO", "Studio navy and orange"
+        INDIGO = "INDIGO", "Indigo and violet"
+        FOREST = "FOREST", "Forest and gold"
+        CHARCOAL = "CHARCOAL", "Charcoal and copper"
+        COASTAL = "COASTAL", "Coastal blue and silver"
+        CORAL = "CORAL", "Deep teal and coral"
+        MIST = "MIST", "Slate and ice blue"
+        CUSTOM = "CUSTOM", "Custom colors"
+
     class LogoShape(models.TextChoices):
         RECTANGLE = "RECTANGLE", "Rectangle"
         ROUND = "ROUND", "Round"
@@ -363,6 +381,21 @@ class ContractorProfile(models.Model):
         choices=LogoShape.choices,
         default=LogoShape.RECTANGLE,
     )
+    pdf_color_template = models.CharField(
+        max_length=12,
+        choices=PdfColorTemplate.choices,
+        default=PdfColorTemplate.STUDIO,
+    )
+    pdf_custom_primary_color = models.CharField(max_length=7, default="#142743")
+    pdf_custom_accent_color = models.CharField(max_length=7, default="#FF991F")
+    pdf_custom_text_color = models.CharField(max_length=7, default="#172033")
+    app_primary_color = models.CharField(max_length=7, default="#176B9B")
+    app_accent_color = models.CharField(max_length=7, default="#508398")
+    pdf_font_template = models.CharField(
+        max_length=12,
+        choices=PdfFontTemplate.choices,
+        default=PdfFontTemplate.MODERN,
+    )
 
     years_in_business = models.PositiveIntegerField(
         default=0
@@ -385,6 +418,7 @@ class ContractorProfile(models.Model):
     service_areas = models.TextField(
         blank=True
     )
+    work_skills = models.TextField(blank=True)
 
     office_address = models.TextField(
         blank=True
@@ -446,3 +480,37 @@ class ContractorProfile(models.Model):
 
     def __str__(self):
         return f"Contractor - {self.company_name}"
+
+
+class ContractorCompletedProject(models.Model):
+    contractor = models.ForeignKey(ContractorProfile, on_delete=models.CASCADE, related_name="completed_projects")
+    title = models.CharField(max_length=160)
+    apartment_community = models.CharField(max_length=160, blank=True)
+    location = models.CharField(max_length=160, blank=True)
+    address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+    work_completed = models.TextField(blank=True)
+    photo = models.ImageField(upload_to="contractors/projects/", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
+class ContractorCustomerReview(models.Model):
+    contractor = models.ForeignKey(ContractorProfile, on_delete=models.CASCADE, related_name="customer_reviews")
+    customer = models.ForeignKey(BharathUser, on_delete=models.CASCADE, related_name="contractor_reviews_written")
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=("contractor", "customer"), name="unique_customer_contractor_review")]
+
+    def __str__(self):
+        return f"{self.customer_id} rated {self.contractor_id}: {self.rating}/5"

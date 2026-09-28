@@ -32,7 +32,15 @@ export function AuthProvider({ children }) {
     return acceptSession(data);
   }, [acceptSession]);
 
-  function logout() {
+  async function logout() {
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration("/");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        await api.delete("/quotations/push-subscription/", { data: { endpoint: subscription.endpoint }, timeout: 2500 }).catch(() => {});
+        await subscription.unsubscribe();
+      }
+    } catch { /* logout still completes if push cleanup is unavailable */ }
     localStorage.removeItem("bharath_access");
     localStorage.removeItem("bharath_refresh");
     localStorage.removeItem("bharath_user");

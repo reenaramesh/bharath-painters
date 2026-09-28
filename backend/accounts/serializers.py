@@ -3,6 +3,7 @@ from .models import (
     BharathUser,
     PainterProfile,
     ContractorProfile,
+    ContractorCompletedProject,
 )
 
 
@@ -150,13 +151,17 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
 class ContractorProfileSerializer(serializers.ModelSerializer):
     mobile = serializers.CharField(source="user.mobile")
     email = serializers.EmailField(source="user.email")
+    profile_photo = serializers.ImageField(source="user.profile_photo", required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
 
     class Meta:
         model = ContractorProfile
         fields = [
-            "mobile", "email", "password", "company_name", "owner_name",
-            "company_logo", "company_logo_shape", "office_address", "service_areas", "gst_number",
+            "mobile", "email", "password", "profile_photo", "company_name", "owner_name",
+            "company_logo", "company_logo_shape", "pdf_color_template", "pdf_font_template",
+            "pdf_custom_primary_color", "pdf_custom_accent_color", "pdf_custom_text_color",
+            "app_primary_color", "app_accent_color",
+            "office_address", "service_areas", "work_skills", "gst_number",
             "pan_number", "years_in_business", "number_of_painters",
             "default_measurement_unit",
             "quotation_terms_conditions", "quotation_prepared_by",
@@ -166,6 +171,28 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["company_name", "owner_name"]
 
+    def validate_pdf_custom_primary_color(self, value):
+        return self._validate_pdf_color(value)
+
+    def validate_pdf_custom_accent_color(self, value):
+        return self._validate_pdf_color(value)
+
+    def validate_pdf_custom_text_color(self, value):
+        return self._validate_pdf_color(value)
+
+    def validate_app_primary_color(self, value):
+        return self._validate_pdf_color(value)
+
+    def validate_app_accent_color(self, value):
+        return self._validate_pdf_color(value)
+
+    @staticmethod
+    def _validate_pdf_color(value):
+        import re
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            raise serializers.ValidationError("Enter a six-digit hex color, such as #395F6E.")
+        return value.upper()
+
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
         password = validated_data.pop("password", "")
@@ -174,7 +201,16 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             user.mobile = user_data["mobile"]
         if "email" in user_data:
             user.email = user_data["email"]
+        if "profile_photo" in user_data:
+            user.profile_photo = user_data["profile_photo"]
         if password:
             user.set_password(password)
         user.save()
         return super().update(instance, validated_data)
+
+
+class ContractorCompletedProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContractorCompletedProject
+        fields = ["id", "title", "apartment_community", "location", "address", "description", "work_completed", "photo", "created_at"]
+        read_only_fields = ["id", "created_at"]

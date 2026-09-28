@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Phone, UserRound, X } from "lucide-react";
 
-export default function CustomerConnectionFlow({ onClose, onNewCustomer }) {
+export default function CustomerConnectionFlow({ onClose, onNewCustomer, quotationTheme = false }) {
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,7 +38,7 @@ export default function CustomerConnectionFlow({ onClose, onNewCustomer }) {
         <label className="flex items-center gap-2 rounded-xl border px-3 py-3"><UserRound className="h-5 w-5 text-slate-400" /><input autoFocus required aria-label="Customer name" value={name} onChange={event => setName(event.target.value)} placeholder="Customer name" className="w-full outline-none" /></label>
         <label className="flex items-center gap-2 rounded-xl border px-3 py-3"><Phone className="h-5 w-5 text-slate-400" /><input required inputMode="tel" aria-label="Mobile number" value={mobile} onChange={event => setMobile(event.target.value)} placeholder="10-digit mobile number" className="w-full outline-none" /></label>
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button disabled={busy} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-bold text-white disabled:opacity-60">{busy ? "Saving..." : "Save customer"}</button>
+        <button disabled={busy} className={`w-full rounded-xl px-4 py-3 font-bold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`}>{busy ? "Saving..." : "Save customer"}</button>
       </form>
     </section>
   </div>;

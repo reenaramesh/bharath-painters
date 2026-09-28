@@ -400,10 +400,10 @@ export default function MeasurementCalculator() {
         {!activeArea ? (
           <AreaList property={property} record={record} areas={areas} summaries={areaSummaries}
             totals={totals} openArea={openAreaDialog} deleteArea={deleteArea}
-            viewArea={setViewingArea}
+            viewArea={setViewingArea} editArea={(area) => { setActiveAreaId(String(area.id)); setTab("surfaces"); }}
             downloadPdf={downloadPdf} submitMeasurement={submitMeasurement} submitting={saving} measurementId={measurementId} isNew={isNew} />
         ) : (
-          <AreaDetail area={activeArea} groups={activeGroups} summary={activeSummary} tab={tab}
+          <AreaDetail area={activeArea} property={property} record={record} groups={activeGroups} summary={activeSummary} tab={tab}
             setTab={setTab} back={() => setActiveAreaId("")}
             editRoom={() => openAreaDialog(activeArea)}
             editSurface={openSurfaceDialog}
@@ -414,9 +414,8 @@ export default function MeasurementCalculator() {
         )}
         {error && <div className="fixed inset-x-4 top-4 z-[80] mx-auto flex max-w-xl items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-xl"><span>{error}</span><button onClick={() => setError("")}><X className="h-4 w-4" /></button></div>}
       </div>
-      {activeArea && <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden">
-        <div><p className="text-[11px] text-slate-500">Net area</p><b>{areaText(activeSummary.net)}</b></div>
-        <button onClick={() => setActiveAreaId("")} className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#0056d2] px-6 font-bold text-white"><Check className="h-5 w-5" />Save Area</button>
+      {activeArea && <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-end border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden">
+        <button onClick={() => setActiveAreaId("")} className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#176b9b] px-6 font-bold text-white"><Check className="h-5 w-5" />Save Area</button>
       </div>}
       {dialog === "area" && <AreaDialog draft={areaDraft} setDraft={setAreaDraft} editing={editing} save={saveArea} close={() => setDialog("")} saving={saving} roomTypes={selectableRoomTypes} />}
       {dialog === "surface" && <SurfaceDialog draft={surfaceDraft} setDraft={setSurfaceDraft} save={saveSurface} close={() => setDialog("")} saving={saving} unit={linearUnit} liveArea={liveSurfaceArea} editing={editing} />}
@@ -426,51 +425,97 @@ export default function MeasurementCalculator() {
   );
 }
 
-function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, downloadPdf, submitMeasurement, submitting, measurementId, isNew }) {
+function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, editArea, downloadPdf, submitMeasurement, submitting, measurementId, isNew }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileTab, setMobileTab] = useState("rooms");
+  const [expandedAreaId, setExpandedAreaId] = useState("");
   const waitingForFirstSave = isNew && !measurementId;
+  const mobileBreakdown = [...summaries.values()].flatMap((summary) => summary.groups).reduce((result, group) => {
+    const type = group.key === "WALL" ? "Walls" : group.key === "CEILING" ? "Ceilings" : "Other surfaces";
+    result[type] = (result[type] || 0) + group.net;
+    return result;
+  }, {});
   const goBack = () => {
     if (location.key && location.key !== "default") navigate(-1);
     else navigate(`/properties/${property.id}`);
   };
   return <div className="space-y-4">
-    <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-      <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0056d2]"><ArrowLeft className="h-4 w-4" />Back</button>
+    <div className="space-y-4 md:hidden">
+      <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm">
+        <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />Properties</button>
+        <div className="mt-4 flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold tracking-tight">Area calculation</h1><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${record?.submitted_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{record?.submitted_at ? "Submitted" : "Draft"}</span></div>
+        <p className="mt-2 text-sm font-semibold">{property.name || property.property_type}</p>
+        <p className="text-xs text-slate-500">{[property.city, record?.reference_no].filter(Boolean).join(" · ")}</p>
+        <div className="mt-4 rounded-2xl bg-[#245b75] p-4 text-white"><p className="text-[11px] font-bold uppercase tracking-wider text-white/75">Total measured area</p><p className="mt-1 text-3xl font-extrabold">{areaText(totals.net)}</p><div className="mt-3 flex gap-4 border-t border-white/20 pt-3 text-xs text-white/85"><span>{areas.length} rooms</span><span>{totals.surfaces} surfaces</span><span>{totals.deductions} deductions</span></div></div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button disabled={waitingForFirstSave} onClick={downloadPdf} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#cbdce6] bg-white px-3 text-sm font-bold text-[#245b75] disabled:opacity-40"><Download className="h-4 w-4" />View PDF</button>
+          {waitingForFirstSave ? <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#fff2de] px-3 text-sm font-bold text-[#9b5a0d] opacity-40"><FilePlus2 className="h-4 w-4" />New quotation</button> : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#fff2de] px-3 text-sm font-bold text-[#9b5a0d]"><FilePlus2 className="h-4 w-4" />New quotation</Link>}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">{record?.submitted_at ? "Submitted to customer. Editing makes this calculation private until resubmitted." : "Private draft. Submit when the measurements are ready for the customer."}</p>
+        <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} className="mt-2 min-h-10 w-full rounded-xl bg-[#176b9b] px-4 text-sm font-bold text-white disabled:opacity-40">{submitting ? "Submitting..." : record?.submitted_at ? "Submitted to Customer" : "Submit to Customer"}</button>
+      </header>
+    </div>
+    <header className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
+      <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />Back</button>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-extrabold sm:text-3xl">Measurements</h1>
             <button disabled={waitingForFirstSave} onClick={downloadPdf} title={waitingForFirstSave ? "Save the first room to create the Area Calculation" : "View PDF"} className="inline-flex min-h-10 items-center gap-2 rounded-lg border bg-white px-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"><Download className="h-4 w-4" />View</button>
             {waitingForFirstSave
-              ? <button type="button" disabled title="Save the first room to create the Area Calculation" className="inline-flex min-h-10 cursor-not-allowed items-center gap-2 rounded-lg bg-[#f58220] px-3 text-sm font-bold text-white opacity-40"><FilePlus2 className="h-4 w-4" />New Quotation</button>
-              : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#f58220] px-3 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />New Quotation</Link>}
+              ? <button type="button" disabled title="Save the first room to create the Area Calculation" className="inline-flex min-h-10 cursor-not-allowed items-center gap-2 rounded-lg bg-[#176b9b] px-3 text-sm font-bold text-white opacity-40"><FilePlus2 className="h-4 w-4" />New Quotation</button>
+              : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#176b9b] px-3 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />New Quotation</Link>}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="text-sm text-slate-600">{record?.submitted_at ? "Submitted to customer. Editing will make this calculation private until resubmitted." : "Private draft. Customers cannot see this calculation until you submit it."}</p>
-            <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{submitting ? "Submitting..." : record?.submitted_at ? "Submitted to Customer" : "Submit to Customer"}</button>
+            <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} className="rounded-lg bg-[#176b9b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{submitting ? "Submitting..." : record?.submitted_at ? "Submitted to Customer" : "Submit to Customer"}</button>
           </div>
           <p className="mt-1 font-semibold">{property.name || property.property_type}</p>
           <p className="text-sm text-slate-500">{property.property_type}{property.city ? ` " ${property.city}` : ""}</p>
         </div>
       </div>
     </header>
-    <section className="grid grid-cols-3 gap-2 sm:gap-4">
+    <section className="hidden grid-cols-3 gap-2 sm:gap-4 md:grid">
       <StatCard label="Total measured area" value={areaText(totals.net)} />
       <StatCard label="Total surfaces" value={totals.surfaces} />
       <StatCard label="Total deductions" value={totals.deductions} />
     </section>
-    <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
+    <section className="md:hidden">
+      <nav className="grid grid-cols-2 rounded-xl bg-[#e6edf2] p-1" aria-label="Calculation view">
+        {[["rooms", "Rooms"], ["summary", "Summary"]].map(([key, label]) => <button key={key} type="button" onClick={() => setMobileTab(key)} aria-pressed={mobileTab === key} className={`min-h-10 rounded-lg text-xs font-bold ${mobileTab === key ? "bg-[#176b9b] text-white shadow-sm" : "text-slate-500"}`}>{label}</button>)}
+      </nav>
+      {mobileTab === "rooms" ? <div className="mt-5 space-y-2">
+        <div className="flex items-center justify-between"><h2 className="text-base font-extrabold">Rooms & areas</h2><span className="text-xs text-slate-500">{areas.length} rooms</span></div>
+        {areas.map((area) => {
+          const summary = summaries.get(String(area.id)) || { groups: [], surfaceCount: 0, deductions: 0, net: 0 };
+          const expanded = expandedAreaId === String(area.id);
+          return <article key={area.id} className="overflow-hidden rounded-2xl border border-[#e1e7ef] bg-white shadow-sm">
+            <button type="button" onClick={() => setExpandedAreaId(expanded ? "" : String(area.id))} aria-expanded={expanded} className="flex min-h-[70px] w-full items-center gap-3 p-3 text-left">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eaf4f8] text-[#31728b]"><Layers3 className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{area.name}</strong><small className="mt-1 block text-xs text-slate-500">{summary.surfaceCount ? `${summary.surfaceCount} surfaces · ${summary.deductions} deductions` : "No measurements yet"}</small></span>
+              <span className="shrink-0 text-right text-xs font-extrabold">{areaText(summary.net)}<ChevronRight className={`ml-auto mt-1 h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} /></span>
+            </button>
+            {expanded && <div className="border-t border-[#e7edf1] px-4 pb-4 pt-3">
+              {summary.groups?.length ? <div className="space-y-1 text-xs text-slate-600">{summary.groups.map((group) => <div key={group.key} className="flex justify-between gap-2"><span>{group.label}</span><b className="text-[#193750]">{areaText(group.net)}</b></div>)}</div> : <p className="text-xs text-slate-500">Choose a surface to start this room.</p>}
+              <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => editArea(area)} className="min-h-10 rounded-lg bg-[#e8f3f8] px-3 text-xs font-bold text-[#176b9b]">{summary.surfaceCount ? "Edit measurements" : "Start measuring"}</button><button type="button" onClick={() => viewArea(area)} className="min-h-10 rounded-lg border border-[#dce6ed] px-3 text-xs font-bold text-[#245b75]">View details</button>{!area.legacy && <button type="button" onClick={() => deleteArea(area)} aria-label={`Delete ${area.name}`} className="ml-auto grid h-10 w-10 place-items-center rounded-lg border border-red-200 text-red-600"><Trash2 className="h-4 w-4" /></button>}</div>
+            </div>}
+          </article>;
+        })}
+        {!areas.length && <div className="rounded-2xl border border-dashed border-[#cbdce6] bg-white p-8 text-center text-sm text-slate-500">Add the first room or area to begin.</div>}
+      </div> : <div className="mt-5 rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm"><h2 className="text-base font-extrabold">Area breakdown</h2><div className="mt-3 divide-y divide-[#e7edf1]">{["Walls", "Ceilings", "Other surfaces"].map((label) => <div key={label} className="flex min-h-12 items-center justify-between text-sm"><span>{label}</span><b>{areaText(mobileBreakdown[label] || 0)}</b></div>)}<div className="flex min-h-12 items-center justify-between text-sm font-extrabold"><span>Total measured area</span><b>{areaText(totals.net)}</b></div></div></div>}
+    </section>
+    <section className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
       <div className="flex items-center justify-between gap-3">
         <div><h2 className="text-lg font-extrabold">Areas</h2><p className="hidden text-sm text-slate-500 sm:block">Rooms and custom work areas.</p></div>
-        <button onClick={() => openArea()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#0056d2] px-4 font-bold text-white"><Plus className="h-4 w-4" />Add Room</button>
+        <button onClick={() => openArea()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white"><Plus className="h-4 w-4" />Add Room</button>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {areas.map((area) => {
           const summary = summaries.get(String(area.id)) || { surfaceCount: 0, deductions: 0, net: 0 };
           return <article key={area.id} className="group rounded-xl border border-[#e1e7ef] bg-white p-3 transition hover:border-blue-300 hover:shadow-md">
             <button onClick={() => viewArea(area)} className="flex w-full min-w-0 items-center gap-3 text-left">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#0056d2]"><Layers3 className="h-5 w-5" /></span>
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f3f8] text-[#176b9b]"><Layers3 className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 font-extrabold"><span className="truncate">{area.name}</span>{summary.surfaceCount > 0 && <Check className="h-4 w-4 shrink-0 rounded-full bg-emerald-600 p-0.5 text-white" />}</span>
                 <span className="mt-0.5 block text-xs text-slate-500">{summary.surfaceCount ? `${summary.surfaceCount} Surfaces " ${summary.deductions} Deductions` : "Not measured yet"}</span>
@@ -478,12 +523,13 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
             </button>
-            {!area.legacy && <div className="mt-3 flex items-center justify-end border-t pt-3"><button title="Delete room" onClick={() => deleteArea(area)} className="rounded-lg border border-red-200 p-2 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div>}
+            {!area.legacy && <div className="mt-3 flex items-center justify-between border-t pt-3">{!summary.surfaceCount ? <button type="button" onClick={() => editArea(area)} className="min-h-10 rounded-lg bg-[#e8f3f8] px-3 text-xs font-bold text-[#176b9b] md:hidden">Start measuring</button> : <span />}<button title="Delete room" onClick={() => deleteArea(area)} className="rounded-lg border border-red-200 p-2 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div>}
           </article>;
         })}
         {!areas.length && <div className="rounded-xl border border-dashed p-10 text-center text-slate-500 lg:col-span-2"><Ruler className="mx-auto mb-3 h-8 w-8" />Add the first room or area to begin.</div>}
       </div>
     </section>
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden"><button type="button" onClick={() => openArea()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white"><Plus className="h-4 w-4" />Add Room</button></div>
   </div>;
 }
 
@@ -494,18 +540,28 @@ function StatCard({ label, value }) {
   </div>;
 }
 
-function AreaDetail({ area, groups, summary, tab, setTab, back, editRoom, editSurface, deleteSurface, addDeduction, editDeduction, deleteDeduction, surfaceTypes, saveSurfaceBatch, saving, unit, multiplier }) {
+function AreaDetail({ area, property, record, groups, summary, tab, setTab, back, editRoom, editSurface, deleteSurface, addDeduction, editDeduction, deleteDeduction, surfaceTypes, saveSurfaceBatch, saving, unit, multiplier }) {
   const adjustments = groups.flatMap((group) => [
     ...group.deductions.map((item) => ({ ...item, targetLabel: group.label })),
     ...group.additions.map((item) => ({ ...item, targetLabel: group.label })),
   ]);
   return <div className="space-y-4">
-    <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-      <button onClick={back} className="inline-flex items-center gap-2 text-sm font-bold text-[#0056d2]"><ArrowLeft className="h-4 w-4" />Back to Areas</button>
+    <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm md:hidden">
+      <button onClick={back} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />All rooms</button>
+      <div className="mt-4 flex items-start justify-between gap-2"><div className="min-w-0"><h1 className="text-2xl font-extrabold tracking-tight">{area.name}</h1><p className="mt-1 truncate text-xs text-slate-500">{property?.name || property?.property_type}{record?.reference_no ? ` · ${record.reference_no}` : ""}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${record?.submitted_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{record?.submitted_at ? "Submitted" : "Draft"}</span></div>
+      <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#245b75] p-4 text-white"><div><p className="text-[11px] font-bold uppercase tracking-wide text-white/75">Net measured area</p><p className="mt-1 text-2xl font-extrabold">{areaText(summary.net)}</p></div><Ruler className="h-7 w-7 text-white/70" /></div>
+      {!area.legacy && <button onClick={editRoom} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold"><Pencil className="h-4 w-4" />Change Room</button>}
+      <nav className="mt-4 grid grid-cols-3 rounded-xl bg-[#f1f5f9] p-1">
+        {[["surfaces", "Surfaces"], ["deductions", "Deduct / Add"], ["summary", "Summary"]].map(([key, label]) =>
+          <button key={key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg px-1 text-xs font-bold transition ${tab === key ? "bg-[#176b9b] text-white shadow" : "text-slate-600"}`}>{label}</button>)}
+      </nav>
+    </header>
+    <header className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
+      <button onClick={back} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />Back to Areas</button>
       <div className="mt-3 flex items-start justify-between gap-3"><div><h1 className="text-2xl font-extrabold">{area.name}</h1><p className="text-sm text-slate-500">{area.section || "Area Measurement"}</p></div>{!area.legacy && <button onClick={editRoom} className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-bold"><Pencil className="h-4 w-4" />Change Room</button>}</div>
       <nav className="mt-5 grid grid-cols-3 rounded-xl bg-[#f1f5f9] p-1">
         {[["surfaces", "Surfaces"], ["deductions", "Deduct / Add"], ["summary", "Summary"]].map(([key, label]) =>
-          <button key={key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg text-sm font-bold transition ${tab === key ? "bg-[#0056d2] text-white shadow" : "text-slate-600"}`}>{label}</button>)}
+          <button key={key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg text-sm font-bold transition ${tab === key ? "bg-[#176b9b] text-white shadow" : "text-slate-600"}`}>{label}</button>)}
       </nav>
     </header>
     {tab === "surfaces" && <SurfaceTab groups={groups} editSurface={editSurface} deleteSurface={deleteSurface} surfaceTypes={surfaceTypes} saveBatch={saveSurfaceBatch} saving={saving} unit={unit} multiplier={multiplier} />}
@@ -519,6 +575,7 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
   const [selected, setSelected] = useState("");
   const [surfaceSearch, setSurfaceSearch] = useState("");
   const [surfaceMenuOpen, setSurfaceMenuOpen] = useState(false);
+  const [showCustomSurfaceEntry, setShowCustomSurfaceEntry] = useState(false);
   const [rows, setRows] = useState([]);
   const [saveForFuture, setSaveForFuture] = useState(false);
   const known = catalog.some((name) => name.toLowerCase() === selected.trim().toLowerCase());
@@ -527,6 +584,7 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
     setSelected(value);
     setSurfaceSearch(value);
     setSurfaceMenuOpen(false);
+    setShowCustomSurfaceEntry(false);
     const count = groups.find((group) => group.label.toLowerCase() === value.toLowerCase())?.surfaces.length || 0;
     setRows(value ? [{ name: `${value} ${count + 1}`, length: "", breadth: "", quantity: 1 }] : []);
     setSaveForFuture(false);
@@ -536,8 +594,20 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
   const total = rows.reduce((sum, row) => sum + number(row.length) * number(row.breadth) * Math.max(1, number(row.quantity)) * multiplier, 0);
   const submit = async () => { if (await saveBatch(selected, rows, saveForFuture)) { setSelected(""); setSurfaceSearch(""); setRows([]); } };
   return <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-    <div><h2 className="text-lg font-extrabold">Select surface</h2><p className="text-sm text-slate-500">Choose Wall, Ceiling, Floor or another saved surface.</p></div>
-    <div className="relative mt-4">
+    <div><h2 className="text-lg font-extrabold"><span className="md:hidden">Start measuring</span><span className="hidden md:inline">Select surface</span></h2><p className="text-sm text-slate-500">Choose Wall, Ceiling, Floor or another saved surface.</p></div>
+    <div className="mt-4 md:hidden">
+      {!groups.length && <div className="mb-4 flex items-center gap-3 rounded-xl border border-[#dce7ed] bg-[#f7fafb] p-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f2f7] text-[#2e7091]"><Layers3 className="h-5 w-5" /></span><div><p className="text-sm font-bold">No surfaces added yet</p><p className="text-xs text-slate-500">Choose a surface to start this room.</p></div></div>}
+      <button type="button" onClick={() => choose("Wall")} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white"><Plus className="h-4 w-4" />Add Wall</button>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {["Ceiling", "Floor"].map((name) => <button key={name} type="button" onClick={() => choose(name)} className="min-h-11 rounded-xl border border-[#dce6ed] bg-white px-1 text-xs font-bold text-[#2a506a]">{name}</button>)}
+        <select aria-label="Other surface type" value="" onChange={(event) => { if (event.target.value === "__custom__") { setShowCustomSurfaceEntry(true); setSurfaceSearch(""); } else if (event.target.value) choose(event.target.value); }} className="min-h-11 min-w-0 rounded-xl border border-[#dce6ed] bg-white px-2 text-xs font-bold text-[#2a506a]"><option value="">Other surfaces</option>{[...new Set(surfaceTypes.map((item) => item.name?.trim()).filter(Boolean))].map((name) => <option key={name} value={name}>{name}</option>)}<option value="__custom__">New surface type</option></select>
+      </div>
+      {showCustomSurfaceEntry && <div className="mt-3 rounded-xl border border-[#dce6ed] bg-[#f7fafb] p-3">
+        <label htmlFor="mobile-custom-surface-type" className="text-xs font-bold text-[#2a506a]">New surface type</label>
+        <div className="mt-2 flex gap-2"><input id="mobile-custom-surface-type" value={surfaceSearch} onChange={(event) => setSurfaceSearch(event.target.value)} placeholder="Enter surface type" className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#cbdce6] bg-white px-3 text-sm" /><button type="button" disabled={!surfaceSearch.trim()} onClick={() => choose(surfaceSearch.trim())} className="rounded-lg bg-[#176b9b] px-3 text-xs font-bold text-white disabled:opacity-40">Use type</button></div>
+      </div>}
+    </div>
+    <div className="relative mt-4 hidden md:block">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
@@ -552,13 +622,13 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
         <button type="button" onClick={() => setSurfaceMenuOpen((open) => !open)} className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Show surface choices"><ChevronRight className={`h-4 w-4 transition-transform ${surfaceMenuOpen ? "rotate-90" : ""}`} /></button>
       </div>
       {surfaceMenuOpen && <div className="absolute z-30 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-        {filteredSurfaces.map((name) => <button key={name} type="button" onClick={() => choose(name)} className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-blue-50 hover:text-[#0056d2]"><span>{name}</span>{selected.toLowerCase() === name.toLowerCase() && <Check className="h-4 w-4" />}</button>)}
-        {surfaceSearch.trim() && !catalog.some((name) => name.toLowerCase() === surfaceSearch.trim().toLowerCase()) && <button type="button" onClick={() => choose(surfaceSearch.trim())} className="flex w-full items-center gap-2 rounded-lg border-t px-3 py-3 text-left text-sm font-bold text-[#0056d2]"><Plus className="h-4 w-4" />Use new surface "{surfaceSearch.trim()}"</button>}
+        {filteredSurfaces.map((name) => <button key={name} type="button" onClick={() => choose(name)} className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-blue-50 hover:text-[#176b9b]"><span>{name}</span>{selected.toLowerCase() === name.toLowerCase() && <Check className="h-4 w-4" />}</button>)}
+        {surfaceSearch.trim() && !catalog.some((name) => name.toLowerCase() === surfaceSearch.trim().toLowerCase()) && <button type="button" onClick={() => choose(surfaceSearch.trim())} className="flex w-full items-center gap-2 rounded-lg border-t px-3 py-3 text-left text-sm font-bold text-[#176b9b]"><Plus className="h-4 w-4" />Use new surface "{surfaceSearch.trim()}"</button>}
         {!filteredSurfaces.length && !surfaceSearch.trim() && <p className="px-3 py-4 text-sm text-slate-500">No saved surfaces.</p>}
       </div>}
     </div>
     {selected && <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3 sm:p-4">
-      <div className="flex items-center justify-between"><div><h3 className="font-extrabold">{selected} measurements</h3><p className="text-xs text-slate-500">Enter as many lines as required, then save once.</p></div><button type="button" onClick={addRow} className="rounded-lg border bg-white px-3 py-2 text-sm font-bold text-[#0056d2]"><Plus className="mr-1 inline h-4 w-4" />Add line</button></div>
+      <div><h3 className="font-extrabold">{selected} measurements</h3><p className="text-xs text-slate-500">Enter as many lines as required, then save once.</p></div>
       <div className="mt-3 space-y-3">
         {rows.map((row, index) => (
           <div key={index} className="rounded-xl border bg-white p-3">
@@ -566,24 +636,25 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
               <input value={row.name} onChange={(event) => updateRow(index, "name", event.target.value)} placeholder="Name" aria-label="Surface name" className={inputClass} />
               <button type="button" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="mt-1.5 h-12 rounded-lg border border-red-200 px-3 text-red-600" aria-label={`Delete ${row.name || "surface"}`}><Trash2 className="h-4 w-4" /></button>
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} placeholder={`Length (${unit})`} aria-label={`Length in ${unit}`} className={`${inputClass} !mt-0 min-w-0`} />
-              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} placeholder={`Width / Height (${unit})`} aria-label={`Width or height in ${unit}`} className={`${inputClass} !mt-0 min-w-0`} />
-              <input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} placeholder="Qty" aria-label="Quantity" className={`${inputClass} !mt-0 min-w-0`} />
+            <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} placeholder={`Length (${unit})`} aria-label={`Length in ${unit}`} className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
+              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} placeholder={`Breadth (${unit})`} aria-label={`Width or height in ${unit}`} className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
+              <input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} placeholder="Quantity" aria-label="Quantity" className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
             </div>
           </div>
         ))}
       </div>
+      <button type="button" onClick={addRow} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#176b9b] bg-white px-3 text-sm font-bold text-[#176b9b] sm:w-auto"><Plus className="h-4 w-4" />Add line</button>
       {!known && <label className="mt-3 flex items-center gap-2 rounded-lg bg-white p-3 text-sm font-semibold"><input type="checkbox" checked={saveForFuture} onChange={(event) => setSaveForFuture(event.target.checked)} />Save "{selected}" for future calculations</label>}
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white p-3"><div><small className="block text-slate-500">{selected} total</small><b className="text-xl text-[#064a9b]">{areaText(total)}</b></div><button type="button" disabled={saving || !rows.length} onClick={submit} className="min-h-12 rounded-lg bg-[#0056d2] px-5 font-bold text-white disabled:opacity-40">{saving ? "Saving..." : `Save ${selected}`}</button></div>
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white p-3"><div><small className="block text-slate-500">{selected} total</small><b className="text-xl text-[#064a9b]">{areaText(total)}</b></div><button type="button" disabled={saving || !rows.length} onClick={submit} className="min-h-12 rounded-lg bg-[#176b9b] px-5 font-bold text-white disabled:opacity-40">{saving ? "Saving..." : `Save ${selected}`}</button></div>
     </div>}
     <h3 className="mt-6 font-extrabold">Saved surfaces</h3>
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
       {groups.map((group) => <article key={group.key} className="overflow-hidden rounded-xl border border-[#e1e7ef]">
-        <header className="flex items-center justify-between bg-[#f5f8fc] px-4 py-3"><div><h3 className="font-extrabold uppercase tracking-wide">{group.label}</h3><p className="text-xs text-slate-500">{group.surfaces.length} measurement{group.surfaces.length === 1 ? "" : "s"}</p></div><button onClick={() => { choose(group.label); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-[#0056d2]"><Plus className="mr-1 inline h-3.5 w-3.5" />Add</button></header>
+        <header className="flex items-center justify-between bg-[#f5f8fc] px-4 py-3"><div><h3 className="font-extrabold uppercase tracking-wide">{group.label}</h3><p className="text-xs text-slate-500">{group.surfaces.length} measurement{group.surfaces.length === 1 ? "" : "s"}</p></div><button onClick={() => { choose(group.label); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-[#176b9b]"><Plus className="mr-1 inline h-3.5 w-3.5" />Add</button></header>
         <div className="divide-y divide-[#e1e7ef]">
           {group.surfaces.map((surface) => <div key={surface.id} className="flex items-center gap-3 px-4 py-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0056d2]"><Layers3 className="h-5 w-5" /></span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#e8f3f8] text-[#176b9b]"><Layers3 className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1"><b className="block truncate">{surface.name}</b><p className="text-xs text-slate-500">{surface.length} x {surface.breadth} x {surface.quantity}</p></div>
             <b className="shrink-0 text-sm">{areaText(surface.gross_area)}</b>
             <button onClick={() => editSurface(surface)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Pencil className="h-4 w-4" /></button>
@@ -592,17 +663,17 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
         </div>
         <footer className="flex justify-between bg-blue-50 px-4 py-3 text-sm"><span>Gross {group.label}</span><b>{areaText(group.gross)}</b></footer>
       </article>)}
-      {!groups.length && <div className="rounded-xl border border-dashed p-10 text-center text-slate-500 lg:col-span-2">No surfaces added. Select Add Surface to begin.</div>}
+      {!groups.length && <div className="hidden rounded-xl border border-dashed p-10 text-center text-slate-500 md:block lg:col-span-2">No surfaces added. Choose a surface above to begin.</div>}
     </div>
   </section>;
 }
 
 function DeductionTab({ groups, deductions, addDeduction, editDeduction, deleteDeduction }) {
   return <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-    <div className="flex items-center justify-between"><div><h2 className="text-lg font-extrabold">Deductions / Additions</h2><p className="text-sm text-slate-500">Select the target surface total, then choose whether the area is deducted or added.</p></div><button disabled={!groups.length} onClick={() => addDeduction(groups[0])} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#0056d2] px-4 font-bold text-white disabled:opacity-40"><Plus className="h-4 w-4" />Add item</button></div>
+    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-extrabold">Deductions / Additions</h2><p className="text-sm text-slate-500">Select the target surface total, then choose whether the area is deducted or added.</p></div><button disabled={!groups.length} onClick={() => addDeduction(groups[0])} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white disabled:opacity-40 sm:w-auto"><Plus className="h-4 w-4" />Add item</button></div>
     <div className="mt-4 grid gap-3 lg:grid-cols-2">
       {deductions.map((item) => <article key={item.id} className="rounded-xl border border-[#e1e7ef] p-4">
-        <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg font-extrabold ${item.effect === "ADD" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-[#f58220]"}`}>{item.effect === "ADD" ? "+" : "-"}</span><div className="min-w-0 flex-1"><b>{item.name || item.opening_type.replaceAll("_", " ")}</b><p className="mt-1 text-xs text-slate-500">{item.width} x {item.height} x {item.quantity}</p><p className="mt-1 text-xs font-semibold text-[#0056d2]">{item.effect === "ADD" ? "Add to" : "Deduct from"}: {item.targetLabel}</p></div><b className={`text-sm ${item.effect === "ADD" ? "text-emerald-700" : "text-orange-700"}`}>{item.effect === "ADD" ? "+" : "-"}{areaText(item.effect === "ADD" ? item.area : item.effective_deduction)}</b></div>
+        <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg font-extrabold ${item.effect === "ADD" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-[#f58220]"}`}>{item.effect === "ADD" ? "+" : "-"}</span><div className="min-w-0 flex-1"><b>{item.name || item.opening_type.replaceAll("_", " ")}</b><p className="mt-1 text-xs text-slate-500">{item.width} x {item.height} x {item.quantity}</p><p className="mt-1 text-xs font-semibold text-[#176b9b]">{item.effect === "ADD" ? "Add to" : "Deduct from"}: {item.targetLabel}</p></div><b className={`text-sm ${item.effect === "ADD" ? "text-emerald-700" : "text-orange-700"}`}>{item.effect === "ADD" ? "+" : "-"}{areaText(item.effect === "ADD" ? item.area : item.effective_deduction)}</b></div>
         <div className="mt-3 flex justify-end gap-2 border-t pt-3"><button onClick={() => editDeduction(item)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-bold"><Pencil className="h-3.5 w-3.5" />Edit</button><button onClick={() => deleteDeduction(item)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600"><Trash2 className="h-3.5 w-3.5" />Delete</button></div>
       </article>)}
       {!deductions.length && <div className="rounded-xl border border-dashed p-10 text-center text-slate-500 lg:col-span-2">No deductions added.</div>}
@@ -658,12 +729,12 @@ function AreaViewDialog({ area, summary, close, edit }) {
         })}
         {!groups.length && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">No measurements saved for this room.</p>}
       </div>
-      <button onClick={edit} className="min-h-12 w-full rounded-lg bg-[#0056d2] font-bold text-white"><Pencil className="mr-2 inline h-4 w-4" />Edit Measurements</button>
+      <button onClick={edit} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white"><Pencil className="mr-2 inline h-4 w-4" />Edit Measurements</button>
     </div>
   </DialogShell>;
 }
 
-const inputClass = "mt-1.5 h-12 w-full rounded-lg border border-[#d6e0eb] bg-white px-3 text-base outline-none focus:border-[#0056d2] focus:ring-2 focus:ring-blue-100";
+const inputClass = "mt-1.5 h-12 w-full rounded-lg border border-[#d6e0eb] bg-white px-3 text-base outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-blue-100";
 function DialogShell({ title, close, children }) {
   return <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/55 sm:items-center sm:p-5" onMouseDown={close}>
     <section onMouseDown={(event) => event.stopPropagation()} className="max-h-[94vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-2xl">
@@ -677,10 +748,10 @@ function AreaDialog({ draft, setDraft, editing, save, close, saving, roomTypes }
   return <DialogShell title={editing ? "Change Room" : "Add Room"} close={close}><form onSubmit={save} className="space-y-4 p-4 sm:p-6">
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
       <label className="block min-w-0 text-sm font-bold">Select Room / Area *<select required={!draft.isCustom} value={draft.isCustom ? "" : draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value, isCustom: false, saveForFuture: false }))} className={inputClass}><option value="">Choose room</option>{roomTypes.map((type) => <option key={type.id} value={type.name}>{type.name}</option>)}</select></label>
-      <button type="button" onClick={() => setDraft((current) => ({ ...current, name: "", isCustom: true }))} className={`mb-0.5 min-h-12 rounded-lg border px-4 text-sm font-bold transition ${draft.isCustom ? "border-[#0056d2] bg-blue-50 text-[#0056d2]" : "border-slate-300 bg-white text-slate-800 hover:border-[#0056d2]"}`}><Plus className="mr-1 inline h-4 w-4" />New Room</button>
+      <button type="button" onClick={() => setDraft((current) => ({ ...current, name: "", isCustom: true }))} className={`mb-0.5 min-h-12 rounded-lg border px-4 text-sm font-bold transition ${draft.isCustom ? "border-[#176b9b] bg-[#e8f3f8] text-[#176b9b]" : "border-slate-300 bg-white text-slate-800 hover:border-[#176b9b]"}`}><Plus className="mr-1 inline h-4 w-4" />New Room</button>
     </div>
     {draft.isCustom && <><label className="block text-sm font-bold">Room / Area Name *<input required value={draft.name} onChange={(event) => update("name", event.target.value)} placeholder="Example: Terrace, Reception" className={inputClass} /></label><label className="flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm font-semibold"><input type="checkbox" checked={draft.saveForFuture} onChange={(event) => update("saveForFuture", event.target.checked)} />Save this room type for future use</label></>}
-    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#0056d2] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : editing ? "Save and Continue" : "Next"}</button>
+    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : editing ? "Save and Continue" : "Next"}</button>
   </form></DialogShell>;
 }
 function SurfaceDialog({ draft, setDraft, save, close, saving, unit, liveArea, editing }) {
@@ -691,7 +762,7 @@ function SurfaceDialog({ draft, setDraft, save, close, saving, unit, liveArea, e
     <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-bold">Length ({unit}) *<input required type="number" inputMode="decimal" min="0.01" step="0.01" value={draft.length} onChange={(event) => update("length", event.target.value)} className={inputClass} /></label><label className="block text-sm font-bold">Width / Height ({unit}) *<input required type="number" inputMode="decimal" min="0.01" step="0.01" value={draft.breadth} onChange={(event) => update("breadth", event.target.value)} className={inputClass} /></label></div>
     <label className="block text-sm font-bold">Quantity<input type="number" inputMode="numeric" min="1" step="1" value={draft.quantity} onChange={(event) => update("quantity", event.target.value)} className={inputClass} /></label>
     <div className="flex items-end justify-between rounded-xl bg-blue-50 p-4"><div><p className="text-xs font-bold uppercase text-blue-700">Calculated area</p><small>{draft.length || 0} x {draft.breadth || 0} x {draft.quantity || 1}</small></div><b className="text-xl text-[#064a9b]">{areaText(liveArea)}</b></div>
-    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#0056d2] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save Surface"}</button>
+    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save Surface"}</button>
   </form></DialogShell>;
 }
 function DeductionDialog({ draft, setDraft, groups, save, close, saving, unit, liveArea, editing }) {
@@ -704,6 +775,6 @@ function DeductionDialog({ draft, setDraft, groups, save, close, saving, unit, l
     <label className="block text-sm font-bold">Quantity<input type="number" inputMode="numeric" min="1" step="1" value={draft.quantity} onChange={(event) => update("quantity", event.target.value)} className={inputClass} /></label>
     <label className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4"><input type="checkbox" checked={draft.deduct} onChange={(event) => update("deduct", event.target.checked)} className="mt-1 h-5 w-5" /><span><b className="block">Deduct from selected surface total</b><small className="text-slate-600">Uncheck to add this area to the selected surface total.</small></span></label>
     <div className={`flex items-end justify-between rounded-xl p-4 ${draft.deduct ? "bg-orange-50" : "bg-emerald-50"}`}><div><p className={`text-xs font-bold uppercase ${draft.deduct ? "text-orange-700" : "text-emerald-700"}`}>{draft.deduct ? "Deduction area" : "Addition area"}</p><small>{draft.width || 0} x {draft.height || 0} x {draft.quantity || 1}</small></div><b className={`text-xl ${draft.deduct ? "text-orange-700" : "text-emerald-700"}`}>{areaText(liveArea)}</b></div>
-    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#0056d2] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : draft.deduct ? "Save Deduction" : "Save Addition"}</button>
+    <button disabled={saving} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white disabled:opacity-50">{saving ? "Saving..." : draft.deduct ? "Save Deduction" : "Save Addition"}</button>
   </form></DialogShell>;
 }

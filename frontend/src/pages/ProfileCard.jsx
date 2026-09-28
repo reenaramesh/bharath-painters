@@ -9,6 +9,8 @@ import {
 import { Navigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import ContractorDigitalCard from "../components/ContractorDigitalCard";
+import PainterDigitalCard from "../components/PainterDigitalCard";
 
 export default function ProfileCard() {
   const { user } = useAuth();
@@ -50,6 +52,10 @@ export default function ProfileCard() {
         {error || "Preparing your profile QR…"}
       </div>
     );
+  if (user?.role === "CONTRACTOR" && data.digital_card)
+    return <ContractorDigitalCard data={data} />;
+  if (user?.role === "PAINTER")
+    return <PainterDigitalCard data={data} />;
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>

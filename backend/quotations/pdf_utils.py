@@ -327,7 +327,7 @@ def build_invoice_receipt_pdf(invoice):
     styles = getSampleStyleSheet()
     profile = getattr(invoice.contractor, "contractor_profile", None)
     contractor_data = invoice.contractor_snapshot or {}
-    company = contractor_data.get("company_name") or (profile.company_name if profile else "Bharath Painters")
+    company = profile.company_name if profile else contractor_data.get("company_name") or "Bharath Painters"
     title = ParagraphStyle("receipt-title", parent=styles["Title"], fontSize=22, textColor=colors.white)
     small = ParagraphStyle("receipt-small", parent=styles["BodyText"], fontSize=9, leading=13, textColor=DARK)
     banner = Table([[Paragraph("PAYMENT RECEIPT", title)]], colWidths=[166*mm], style=TableStyle([("BACKGROUND", (0,0), (-1,-1), BLUE), ("PADDING", (0,0), (-1,-1), 10)]))
@@ -357,7 +357,7 @@ def build_advance_receipt_pdf(schedule):
     contractor_data = schedule.quotation.contractor_snapshot or {}
     customer_data = schedule.quotation.customer_snapshot or {}
     property_data = schedule.quotation.property_snapshot or {}
-    company = contractor_data.get("company_name") or (profile.company_name if profile else "Bharath Painters")
+    company = profile.company_name if profile else contractor_data.get("company_name") or "Bharath Painters"
     title = ParagraphStyle("advance-title", parent=styles["Title"], fontSize=21, textColor=colors.white)
     small = ParagraphStyle("advance-small", parent=styles["BodyText"], fontSize=9, leading=13, textColor=DARK)
     property_obj = schedule.quotation.property
@@ -387,7 +387,7 @@ def build_project_receipt_pdf(receipt):
     contractor_data = quotation.contractor_snapshot or {}
     customer_data = quotation.customer_snapshot or {}
     property_data = quotation.property_snapshot or {}
-    company = contractor_data.get("company_name") or (profile.company_name if profile else "Bharath Painters")
+    company = profile.company_name if profile else contractor_data.get("company_name") or "Bharath Painters"
     property_obj = quotation.property
     address = ", ".join(filter(None, [property_data.get("address", property_obj.address), property_data.get("city", property_obj.city), property_data.get("pincode", property_obj.pincode)]))
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=22*mm, rightMargin=22*mm, topMargin=20*mm, bottomMargin=20*mm, title=receipt.receipt_number)

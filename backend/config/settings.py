@@ -20,6 +20,10 @@ import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+WEB_PUSH_VAPID_PUBLIC_KEY = os.environ.get("WEB_PUSH_VAPID_PUBLIC_KEY", "")
+WEB_PUSH_VAPID_PRIVATE_KEY = os.environ.get("WEB_PUSH_VAPID_PRIVATE_KEY", "")
+WEB_PUSH_VAPID_SUBJECT = os.environ.get("WEB_PUSH_VAPID_SUBJECT", "")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -46,6 +50,25 @@ if not SECRET_KEY:
             "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is not 'true'."
         )
     SECRET_KEY = "django-insecure-sl*&%__q9@l(&kk(x23h_4y70s^yyy(ytfy+wbsmfkry$y-#tf"
+
+if bool(WEB_PUSH_VAPID_PRIVATE_KEY) != bool(WEB_PUSH_VAPID_PUBLIC_KEY):
+    raise ImproperlyConfigured("Set both WEB_PUSH_VAPID_PRIVATE_KEY and WEB_PUSH_VAPID_PUBLIC_KEY, or neither.")
+
+if not WEB_PUSH_VAPID_PRIVATE_KEY:
+    # Derive a stable, separate key pair from the deployment's Django secret.
+    import base64
+    import hashlib
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    order = int("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551", 16)
+    seed = int.from_bytes(hashlib.sha256((SECRET_KEY + ":bharath-web-push-v1").encode()).digest(), "big")
+    local_key = ec.derive_private_key(seed % (order - 1) + 1, ec.SECP256R1())
+    private_der = local_key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    public_point = local_key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    WEB_PUSH_VAPID_PRIVATE_KEY = base64.urlsafe_b64encode(private_der).rstrip(b"=").decode()
+    WEB_PUSH_VAPID_PUBLIC_KEY = base64.urlsafe_b64encode(public_point).rstrip(b"=").decode()
+    WEB_PUSH_VAPID_SUBJECT = WEB_PUSH_VAPID_SUBJECT or "mailto:support@bharathpainters.in"
 
 
 # Application definition

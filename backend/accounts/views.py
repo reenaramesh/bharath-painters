@@ -17,14 +17,16 @@ from django.utils import timezone
 from datetime import timedelta
 import secrets
 
-from .models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP, UserLegalConsent
+from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent
 from .legal import POLICY_VERSION, document_hashes, registration_legal_payload
 from .utils import activate_business_identity, bharath_profile_url, generate_bharath_qr
 from django.shortcuts import render
+from django.http import HttpResponse
+from .profile_card_pdf import render_contractor_card_pdf
 
 from .serializers import (
     PainterRegistrationSerializer,
-    ContractorRegistrationSerializer, ContractorProfileSerializer,
+    ContractorRegistrationSerializer, ContractorProfileSerializer, ContractorCompletedProjectSerializer,
 )
 
 
@@ -692,6 +694,8 @@ class CurrentUserView(APIView):
                 "verification_status": user.verification_status,
                 "bharath_id": user.bharath_id,
                 "preferred_language": user.preferred_language,
+                "app_primary_color": user.app_primary_color,
+                "app_accent_color": user.app_accent_color,
                 "display_name": _user_display_name(user),
                 "profile_photo": (
                     request.build_absolute_uri(user.profile_photo.url)
@@ -702,11 +706,24 @@ class CurrentUserView(APIView):
         )
 
     def patch(self, request):
-        language = str(request.data.get("preferred_language") or "").strip()
-        if language not in {value for value, _ in BharathUser.Languages.choices}:
-            return Response({"preferred_language": "Select a supported language."}, status=status.HTTP_400_BAD_REQUEST)
-        request.user.preferred_language = language
-        request.user.save(update_fields=("preferred_language",))
+        updates = []
+        if "preferred_language" in request.data:
+            language = str(request.data.get("preferred_language") or "").strip()
+            if language not in {value for value, _ in BharathUser.Languages.choices}:
+                return Response({"preferred_language": "Select a supported language."}, status=status.HTTP_400_BAD_REQUEST)
+            request.user.preferred_language = language
+            updates.append("preferred_language")
+        if request.user.role in {BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER}:
+            import re
+            for field in ("app_primary_color", "app_accent_color"):
+                if field in request.data:
+                    color = str(request.data.get(field) or "").strip().upper()
+                    if not re.fullmatch(r"#[0-9A-F]{6}", color):
+                        return Response({field: "Enter a six-digit hex color."}, status=status.HTTP_400_BAD_REQUEST)
+                    setattr(request.user, field, color)
+                    updates.append(field)
+        if updates:
+            request.user.save(update_fields=updates)
         return self.get(request)
 
 
@@ -732,6 +749,69 @@ class ContractorProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+def _profile_image_url(request, image):
+    return request.build_absolute_uri(image.url) if image else None
+
+
+def _profile_list(value):
+    import re
+    return [part.strip() for part in re.split(r"[,\n]+", value or "") if part.strip()]
+
+
+def _public_customer_name(user):
+    name = (user.get_full_name() or "Customer").strip().split()
+    return f"{name[0]} {name[-1][0]}." if len(name) > 1 else name[0]
+
+
+def _customer_review_data(profile):
+    reviews = list(profile.customer_reviews.select_related("customer").all())
+    return {
+        "rating": round(sum(review.rating for review in reviews) / len(reviews), 1) if reviews else None,
+        "count": len(reviews),
+        "items": [{
+            "id": review.id,
+            "customer_name": _public_customer_name(review.customer),
+            "rating": review.rating,
+            "comment": review.comment,
+            "date": review.updated_at.date().isoformat(),
+        } for review in reviews],
+    }
+
+
+def _contractor_digital_card(user, request):
+    profile = getattr(user, "contractor_profile", None)
+    if not profile:
+        return None
+    return {
+        "title": profile.company_name,
+        "owner_name": profile.owner_name,
+        "logo": _profile_image_url(request, profile.company_logo),
+        "owner_photo": _profile_image_url(request, user.profile_photo),
+        "bharath_id": user.bharath_id,
+        "verified": bool(user.is_verified and user.verification_status == BharathUser.VerificationStatus.VERIFIED),
+        "mobile": user.mobile,
+        "email": user.email,
+        "years_in_business": profile.years_in_business or None,
+        "workers": profile.number_of_painters or None,
+        "service_areas": _profile_list(profile.service_areas),
+        "work_skills": _profile_list(profile.work_skills),
+        "customer_reviews": _customer_review_data(profile),
+        "projects": [
+            {
+                "id": project.id,
+                "title": project.title,
+                "apartment_community": project.apartment_community,
+                "location": project.location,
+                "address": project.address,
+                "description": project.description,
+                "work_completed": project.work_completed,
+                "photo": _profile_image_url(request, project.photo),
+            }
+            for project in profile.completed_projects.all()
+        ],
+    }
 
 
 def _private_profile_card_data(user, request):
@@ -812,13 +892,132 @@ class ProfileCardView(APIView):
         ))
         return Response({
             **profile,
+            "digital_card": _contractor_digital_card(user, request) if user.role == BharathUser.Roles.CONTRACTOR else None,
             "bharath_id": user.bharath_id,
             "verified": bool(user.is_verified and user.verification_status == BharathUser.VerificationStatus.VERIFIED),
             "verification_status": user.verification_status,
             "qr_image": request.build_absolute_uri(user.bharath_qr.url),
             "profile_url": profile_url,
+            "pdf_url": request.build_absolute_uri(f"/api/accounts/profile-card/{user.bharath_id}/pdf/") if user.role == BharathUser.Roles.CONTRACTOR else None,
             "share_text": share_text,
         })
+
+
+class ContractorCompletedProjectsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_profile(self, request):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return None
+        return getattr(request.user, "contractor_profile", None)
+
+    def get(self, request):
+        profile = self.get_profile(request)
+        if not profile:
+            return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ContractorCompletedProjectSerializer(profile.completed_projects.all(), many=True, context={"request": request}).data)
+
+    def post(self, request):
+        profile = self.get_profile(request)
+        if not profile:
+            return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ContractorCompletedProjectSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(contractor=profile)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ContractorCompletedProjectDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, project_id):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        project = ContractorCompletedProject.objects.filter(id=project_id, contractor__user=request.user).first()
+        if not project:
+            return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ContractorCompletedProjectSerializer(project, data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, project_id):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        project = ContractorCompletedProject.objects.filter(id=project_id, contractor__user=request.user).first()
+        if not project:
+            return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+        project.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CustomerContractorReviewsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _connections(self, request):
+        from quotations.models import ContractorCustomerConnection
+        return ContractorCustomerConnection.objects.filter(
+            customer__portal_user=request.user,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+            contractor__role=BharathUser.Roles.CONTRACTOR,
+        ).select_related("contractor", "contractor__contractor_profile")
+
+    def get(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer account required."}, status=status.HTTP_403_FORBIDDEN)
+        existing = {review.contractor.user_id: review for review in ContractorCustomerReview.objects.filter(customer=request.user)}
+        return Response({"contractors": [{
+            "id": connection.contractor_id,
+            "name": connection.contractor.contractor_profile.company_name,
+            "review": {"rating": existing[connection.contractor_id].rating, "comment": existing[connection.contractor_id].comment} if connection.contractor_id in existing else None,
+        } for connection in self._connections(request) if getattr(connection.contractor, "contractor_profile", None)]})
+
+    def post(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer account required."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            contractor_id = int(request.data.get("contractor_id"))
+            rating = int(request.data.get("rating"))
+        except (TypeError, ValueError):
+            return Response({"detail": "Choose a contractor and a rating from 1 to 5."}, status=status.HTTP_400_BAD_REQUEST)
+        if rating not in range(1, 6):
+            return Response({"rating": "Choose a rating from 1 to 5."}, status=status.HTTP_400_BAD_REQUEST)
+        connection = self._connections(request).filter(contractor_id=contractor_id).first()
+        if not connection or not getattr(connection.contractor, "contractor_profile", None):
+            return Response({"detail": "A connected contractor is required to leave a review."}, status=status.HTTP_403_FORBIDDEN)
+        comment = str(request.data.get("comment") or "").strip()
+        if len(comment) > 1000:
+            return Response({"comment": "Keep your review under 1000 characters."}, status=status.HTTP_400_BAD_REQUEST)
+        review, _ = ContractorCustomerReview.objects.update_or_create(
+            contractor=connection.contractor.contractor_profile,
+            customer=request.user,
+            defaults={"rating": rating, "comment": comment},
+        )
+        return Response({"rating": review.rating, "comment": review.comment}, status=status.HTTP_200_OK)
+
+
+class ContractorDigitalCardPdfView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, bharath_id):
+        user = BharathUser.objects.filter(
+            bharath_id=bharath_id,
+            role=BharathUser.Roles.CONTRACTOR,
+            is_active=True,
+            is_verified=True,
+            verification_status=BharathUser.VerificationStatus.VERIFIED,
+        ).select_related("contractor_profile").first()
+        if not user or not getattr(user, "contractor_profile", None):
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not user.bharath_qr:
+            generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
+            user.save(update_fields=("bharath_qr",))
+        card = _contractor_digital_card(user, request)
+        profile_url = bharath_profile_url(user, request.build_absolute_uri("/").rstrip("/"))
+        response = HttpResponse(render_contractor_card_pdf(user, card, profile_url), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{user.bharath_id}-profile.pdf"'
+        return response
 
 
 class ContractorDirectoryView(APIView):
@@ -1065,6 +1264,34 @@ class VerifyBharathIDPageView(APIView):
                     "bharath_id": user.bharath_id,
                 }
             )
+
+        if user.role == BharathUser.Roles.CONTRACTOR and getattr(user, "contractor_profile", None):
+            if not user.bharath_qr:
+                generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
+                user.save(update_fields=("bharath_qr",))
+            card = _contractor_digital_card(user, request)
+            return render(request, "accounts/digital_card.html", {
+                "card": card,
+                "qr_image": _profile_image_url(request, user.bharath_qr),
+                "profile_url": bharath_profile_url(user, request.build_absolute_uri("/").rstrip("/")),
+                "pdf_url": request.build_absolute_uri(f"/api/accounts/profile-card/{user.bharath_id}/pdf/"),
+            })
+
+        if user.role == BharathUser.Roles.PAINTER and getattr(user, "painter_profile", None):
+            if not user.bharath_qr:
+                generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
+                user.save(update_fields=("bharath_qr",))
+            painter = user.painter_profile
+            return render(request, "accounts/painter_card.html", {
+                "name": user.get_full_name() or user.mobile,
+                "bharath_id": user.bharath_id,
+                "photo": _profile_image_url(request, user.profile_photo),
+                "experience": painter.experience_years,
+                "skills": _profile_list(painter.skills),
+                "location": painter.current_location,
+                "preferred_locations": _profile_list(painter.preferred_locations),
+                "qr_image": _profile_image_url(request, user.bharath_qr),
+            })
 
         profile_photo = None
         logo_shape = "ROUND"

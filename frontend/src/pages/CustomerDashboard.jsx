@@ -7,6 +7,7 @@ import {
   FileText,
   MessageCircle,
   Plus,
+  Settings,
   Users,
 } from "lucide-react";
 import api from "../api/client";
@@ -37,7 +38,7 @@ export default function CustomerDashboard() {
   const counts = data.counts;
   return (
     <div className="space-y-6">
-      <header>
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-amber-600">
             Customer portal
@@ -50,6 +51,7 @@ export default function CustomerDashboard() {
             one place.
           </p>
         </div>
+        <Link to="/appearance" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#176b9b] bg-white px-4 text-sm font-bold text-[#176b9b]"><Settings className="h-4 w-4" />Profile settings</Link>
       </header>
       <MobileDashboardShortcuts />
       <CustomerAds />
@@ -92,19 +94,19 @@ export default function CustomerDashboard() {
           icon={Users}
           label="Connected contractors"
           value={counts.contractors}
-          to="/customer/connection-requests"
+          to="/customer/connections"
           action="Manage contractors"
         />
         <PortalCard
           icon={Users}
           label="Pending requests"
           value={counts.pending_connection_requests || 0}
-          to="/customer/connection-requests"
+          to="/customer/connections?tab=pending"
           action="Review requests"
         />
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
-        <Panel title="My contractors" link="/customer/connection-requests" action="View all contractors">
+        <Panel title="My contractors" link="/customer/connections" action="View all contractors">
           {data.my_contractors?.length ? data.my_contractors.map((item) => <Row key={item.id} title={item.contractor?.business_name} subtitle={`${item.contractor?.contractor_id || "Bharath Painters Contractor"} · ${item.counts?.quotations || 0} quotations · ${item.counts?.active_projects || 0} active projects`} badge="CONNECTED" />) : <p className="p-6 text-sm text-slate-400">No connected contractors yet.</p>}
         </Panel>
         <Panel

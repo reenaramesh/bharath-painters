@@ -22,6 +22,21 @@ const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
     Number(value || 0),
   );
+const quotationColumnDefaults = [4, 14, 11, 15, 19, 9, 6, 10, 12];
+const quotationColumnMinimums = [3, 8, 7, 8, 10, 6, 5, 7, 8];
+const quotationColumnLabels = ["Number", "Type of service", "Room or area", "Product or brand", "Product description", "Quantity", "Coats", "Rate", "Amount"];
+const quotationColumnStorageKey = "bp-quotation-item-column-widths";
+
+function savedQuotationColumnWidths() {
+  try {
+    const widths = JSON.parse(window.localStorage.getItem(quotationColumnStorageKey));
+    if (Array.isArray(widths) && widths.length === quotationColumnDefaults.length &&
+        widths.every((width, index) => Number.isFinite(width) && width >= quotationColumnMinimums[index]) &&
+        Math.abs(widths.reduce((sum, width) => sum + width, 0) - 100) < 0.01) return widths;
+  } catch { /* Use the default widths when browser storage is unavailable. */ }
+  return quotationColumnDefaults;
+}
+
 export default function QuotationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -34,6 +49,7 @@ export default function QuotationDetail() {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pdfSectionSelection, setPdfSectionSelection] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [converting, setConverting] = useState(false);
   const convertingRef = useRef(false);
@@ -41,10 +57,52 @@ export default function QuotationDetail() {
   const [customerLogin, setCustomerLogin] = useState(null);
   const [mobileItem, setMobileItem] = useState(null);
   const [invoiceSetup, setInvoiceSetup] = useState(null);
+  const [columnWidths, setColumnWidths] = useState(savedQuotationColumnWidths);
+  const quotationTableRef = useRef(null);
+  const columnWidthsRef = useRef(columnWidths);
+  columnWidthsRef.current = columnWidths;
+  useEffect(() => {
+    try { window.localStorage.setItem(quotationColumnStorageKey, JSON.stringify(columnWidths)); } catch { /* Storage is optional. */ }
+  }, [columnWidths]);
+  function resizeColumns(index, delta) {
+    setColumnWidths((current) => {
+      const change = Math.max(
+        quotationColumnMinimums[index] - current[index],
+        Math.min(delta, current[index + 1] - quotationColumnMinimums[index + 1]),
+      );
+      const next = [...current];
+      next[index] += change;
+      next[index + 1] -= change;
+      return next;
+    });
+  }
+  function startColumnResize(event, index) {
+    event.preventDefault();
+    const tableWidth = quotationTableRef.current?.getBoundingClientRect().width;
+    if (!tableWidth) return;
+    const startX = event.clientX;
+    const initial = [...columnWidthsRef.current];
+    const onMove = (moveEvent) => {
+      const delta = ((moveEvent.clientX - startX) / tableWidth) * 100;
+      resizeColumns(index, Math.max(
+        quotationColumnMinimums[index] - initial[index],
+        Math.min(delta, initial[index + 1] - quotationColumnMinimums[index + 1]),
+      ) - (columnWidthsRef.current[index] - initial[index]));
+    };
+    const onStop = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onStop);
+      window.removeEventListener("pointercancel", onStop);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onStop);
+    window.addEventListener("pointercancel", onStop);
+  }
   useEffect(() => {
     api
       .get(`/quotations/${id}/`)
       .then(async ({ data }) => {
+        setPdfSectionSelection({});
         setQuotation(data);
         const [c, p] = await Promise.all([
           api.get(`/quotations/customers/${data.customer}/`),
@@ -65,6 +123,36 @@ export default function QuotationDetail() {
   const revisedDraft =
     quotation.status === "DRAFT" && Boolean(quotation.customer_response_note);
   const pendingCustomerConnection = customer?.connection_status === "PENDING";
+  const quotationProductDetails = quotation.consolidated_product_details || quotation.product_details || "";
+  const pdfSectionOptions = [
+    { key: "company_name", label: "Company name", group: "Contractor", available: contractor?.company_name },
+    { key: "contractor_address", label: "Office address", group: "Contractor", available: contractor?.office_address },
+    { key: "contractor_contact", label: "Mobile and email", group: "Contractor", available: contractor?.mobile || contractor?.email },
+    { key: "contractor_registration", label: "GSTIN and contractor ID", group: "Contractor", available: contractor?.gst_number || contractor?.bharath_id },
+    { key: "quotation_metadata", label: "Version and dates", group: "Contractor" },
+    { key: "footer_logo", label: "Footer logo", group: "Contractor", available: contractor?.company_logo },
+    { key: "customer_details", label: "Customer details", group: "Parties" },
+    { key: "property_details", label: "Property site details", group: "Parties" },
+    { key: "quotation_items", label: "Quotation items table", group: "Estimate" },
+    { key: "subtotal", label: "Subtotal", group: "Estimate" },
+    { key: "discount", label: "Discount", group: "Estimate", available: Number(quotation.discount) > 0 },
+    { key: "gst", label: "GST", group: "Estimate", available: Number(quotation.gst_amount) > 0 },
+    { key: "grand_total", label: "Grand total", group: "Estimate" },
+    { key: "total_words", label: "Total in words", group: "Estimate" },
+    { key: "prepared_by", label: "Prepared by name", group: "Supporting details", available: quotation.prepared_by, defaultSelected: false },
+    { key: "inspected_by", label: "Inspected by name", group: "Supporting details", available: quotation.inspected_by, defaultSelected: false },
+    { key: "work_duration", label: "Work duration", group: "Supporting details", available: quotation.work_duration },
+    { key: "payment_terms", label: "Payment terms", group: "Supporting details", available: quotation.payment_terms },
+    { key: "product_details", label: "Product details", group: "Supporting details", available: quotationProductDetails },
+    { key: "work_procedures", label: "Work procedures and safety", group: "Supporting details", available: quotation.work_procedures },
+    { key: "terms_conditions", label: "Terms and conditions", group: "Supporting details", available: quotation.terms_conditions },
+    { key: "notes", label: "Notes", group: "Supporting details", available: quotation.notes },
+    { key: "prepared_signature", label: "Prepared by signature", group: "Signatures" },
+    { key: "authorized_signature", label: "Authorized signature", group: "Signatures" },
+  ].filter((section) => section.available === undefined || Boolean(String(section.available || "").trim()) && section.available !== false);
+  const selectedPdfSections = pdfSectionOptions
+    .filter((section) => pdfSectionSelection[section.key] ?? section.defaultSelected !== false)
+    .map((section) => section.key);
   const paintingSubtotal = quotation.items
     .filter((item) => !item.is_additional_service)
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -88,6 +176,7 @@ export default function QuotationDetail() {
     try {
       const response = await api.get(`/quotations/${id}/pdf/`, {
         responseType: "blob",
+        params: { sections: selectedPdfSections.join(",") },
       });
       previewPdf(response.data, `${quotation.quotation_number}.pdf`);
     } catch {
@@ -332,18 +421,18 @@ export default function QuotationDetail() {
             )}
           </div>
         </div>
-        <div className="quotation-number-header flex flex-col gap-4 border-b p-6 sm:flex-row sm:justify-between">
+        <div className="quotation-number-header flex flex-col gap-3 border-b p-4 sm:flex-row sm:justify-between sm:p-5">
           <div>
-            <p className="text-sm text-slate-500">Quotation</p>
-            <h1 className="mt-1 text-3xl font-bold">
+            <p className="text-xs text-slate-500">Quotation</p>
+            <h1 className="mt-0.5 font-bold">
               {quotation.quotation_number}
             </h1>
-            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-indigo-600">
+            <p className="mt-0.5 text-xs font-bold uppercase tracking-wide text-indigo-600">
               Version {quotation.version_number || 1}
             </p>
-            <p className="mt-2 text-sm text-slate-500">
-              Created {quotation.quotation_date} · Valid until{" "}
-              {quotation.valid_until || "not specified"}
+            <p className="mt-1 text-xs text-slate-500">
+              Created {quotation.quotation_date}
+              {quotation.valid_until && ` · Valid until ${quotation.valid_until}`}
             </p>
           </div>
           <span className="h-fit rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
@@ -366,8 +455,11 @@ export default function QuotationDetail() {
         </div>
       </section>
       <section className="quotation-items rounded-2xl border bg-white">
-        <div className="border-b p-6">
-          <h2 className="font-bold">Quotation items</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-6">
+          <div><h2 className="font-bold">Quotation items</h2><p className="hidden text-xs text-slate-500 md:block">Drag the column edges to adjust widths.</p></div>
+          <button type="button" className="hidden text-xs font-semibold text-indigo-700 hover:underline md:inline" onClick={() => {
+            setColumnWidths(quotationColumnDefaults);
+          }}>Reset column widths</button>
         </div>
         <div className="grid gap-3 p-3 md:hidden">
           {quotation.items.map((item, index) => {
@@ -407,17 +499,29 @@ export default function QuotationDetail() {
           })}
         </div>
         <div className="hidden md:block" data-mobile-table="keep">
-          <table className="w-full min-w-[900px] table-fixed text-left text-xs lg:text-sm">
+          <table ref={quotationTableRef} className="w-full table-fixed text-left text-xs">
+            <colgroup>{columnWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                <th className="w-[5%] px-3 py-4">#</th>
-                <th className="w-[14%] px-3 py-4">Type of service</th>
-                <th className="w-[12%] px-3 py-4">Room / Area</th>
-                <th className="w-[25%] px-3 py-4">Product description</th>
-                <th className="w-[14%] px-3 py-4">Product / Brand</th>
-                <th className="w-[10%] px-3 py-4">Qty / MOU</th>
-                <th className="w-[7%] px-3 py-4 text-center">Coats</th>
-                <th className="w-[13%] px-3 py-4 text-right">Rate / Amount</th>
+                {["#", "Type of service", "Room / Area", "Product / Brand", "Product description", "Qty", "Coats", "Rate", "Amount"].map((label, index) => (
+                  <th key={label} scope="col" className={`quotation-resizable-heading px-3 py-4 ${index === 5 || index >= 7 ? "text-right" : index === 6 ? "text-center" : ""}`}>
+                    {label}
+                    {index < quotationColumnDefaults.length - 1 && <span
+                      role="separator"
+                      tabIndex={0}
+                      aria-label={`Resize ${quotationColumnLabels[index]} column`}
+                      aria-orientation="vertical"
+                      className="quotation-column-resizer"
+                      onPointerDown={(event) => startColumnResize(event, index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                          event.preventDefault();
+                          resizeColumns(index, event.key === "ArrowRight" ? 1 : -1);
+                        }
+                      }}
+                    />}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -427,13 +531,14 @@ export default function QuotationDetail() {
                 );
                 return <tr key={item.id} className="hover:bg-slate-50/70">
                   <td className="px-3 py-4 text-slate-400">{index + 1}</td>
-                  <td className="px-3 py-4 font-semibold">{item.service_category_name || "—"}</td>
+                  <td className="px-3 py-4 font-semibold">{[item.service_category_name, item.service_type_name].filter(Boolean).join(" / ") || "-"}</td>
                   <td className="px-3 py-4 font-semibold text-slate-700">{room?.name || "General"}</td>
+                  <td className="px-3 py-4"><p className="font-medium">{item.paint_type_name || "-"}</p><p className="mt-1 text-[11px] text-slate-500">{item.brand_name || "No brand"}</p></td>
                   <td className="break-words px-3 py-4 font-medium">{item.description}</td>
-                  <td className="px-3 py-4"><p className="font-medium">{item.paint_type_name || "—"}</p><p className="mt-1 text-[11px] text-slate-500">{item.brand_name || "No brand"}</p></td>
-                  <td className="px-3 py-4"><p className="font-bold tabular-nums">{item.quantity}</p><p className="text-[11px] text-slate-500">{item.unit_name || "—"}</p></td>
-                  <td className="px-3 py-4 text-center">{item.is_additional_service ? "—" : item.coats || 1}</td>
-                  <td className="px-3 py-4 text-right"><p className="text-slate-500">{money(item.rate)}</p><p className="mt-1 font-bold text-slate-950">{money(item.amount)}</p></td>
+                  <td className="px-3 py-4 text-right"><p className="font-bold tabular-nums">{item.quantity}</p><p className="text-[11px] text-slate-500">{item.unit_name || "-"}</p></td>
+                  <td className="px-3 py-4 text-center">{item.is_additional_service ? "-" : item.coats || 1}</td>
+                  <td className="px-3 py-4 text-right tabular-nums">{money(item.rate)}</td>
+                  <td className="px-3 py-4 text-right font-bold tabular-nums text-slate-950">{money(item.amount)}</td>
                 </tr>;
               })}
             </tbody>
@@ -464,6 +569,39 @@ export default function QuotationDetail() {
             <span>Grand total</span>
             <span>{money(quotation.grand_total)}</span>
           </div>
+        </div>
+      </section>
+      <section className="quotation-pdf-options rounded-2xl border bg-white p-5 sm:p-6" aria-labelledby="quotation-pdf-options-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="quotation-pdf-options-title" className="font-bold">Include in downloaded PDF</h2>
+            <p className="mt-1 text-sm text-slate-500">Select exactly which available fields appear in this PDF. Your saved quotation stays the same.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{selectedPdfSections.length} of {pdfSectionOptions.length} selected</span>
+            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, true])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Select all</button>
+            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, false])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Clear all</button>
+          </div>
+        </div>
+        <div className="mt-4 space-y-4">
+          {["Contractor", "Parties", "Estimate", "Supporting details", "Signatures"].map((group) => (
+            <div key={group}>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{group}</h3>
+              <div className="quotation-pdf-checklist grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {pdfSectionOptions.filter((section) => section.group === group).map((section) => (
+              <label key={section.key} className="quotation-pdf-check flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50">
+                <input
+                  type="checkbox"
+                  checked={pdfSectionSelection[section.key] ?? section.defaultSelected !== false}
+                  onChange={(event) => setPdfSectionSelection((current) => ({ ...current, [section.key]: event.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>{section.label}</span>
+              </label>
+              ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
       {(quotation.notes || quotation.terms_conditions) && (
@@ -503,7 +641,7 @@ export default function QuotationDetail() {
             />
             <DetailField
               label="Product details"
-              value={quotation.consolidated_product_details || quotation.product_details}
+              value={quotationProductDetails}
             />
             <DetailField
               label="Work procedures and safety"

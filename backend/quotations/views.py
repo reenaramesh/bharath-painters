@@ -358,7 +358,11 @@ def contractor_public_data(contractor):
         "is_verified": contractor.is_verified,
         "years_in_business": getattr(profile, "years_in_business", 0),
         "service_areas": getattr(profile, "service_areas", ""),
-        "public_rating": None,
+        "work_skills": getattr(profile, "work_skills", ""),
+        "workers": getattr(profile, "number_of_painters", 0),
+        "completed_projects": profile.completed_projects.count() if profile else 0,
+        "public_rating": round(profile.customer_reviews.aggregate(value=models.Avg("rating"))["value"], 1) if profile and profile.customer_reviews.exists() else None,
+        "review_count": profile.customer_reviews.count() if profile else 0,
     }
 
 
@@ -503,7 +507,7 @@ class ContractorCustomerConnectionRequestView(APIView):
         create_notification(
             customer.portal_user, "CONNECTION_REQUEST", "New contractor connection request",
             f"{public['business_name']} wants to connect with your Bharath Painters account.",
-            "/customer/connection-requests", request.user,
+            "/customer/connections?tab=pending", request.user,
         )
         return Response({"state": "PENDING", "connection_id": connection.id, "message": "Connection request sent. Waiting for customer approval."}, status=status.HTTP_201_CREATED)
 
@@ -3229,14 +3233,14 @@ class CustomerQuotationView(APIView):
         profile = quotation.contractor.contractor_profile if hasattr(quotation.contractor, "contractor_profile") else None
         contractor_snapshot = quotation.contractor_snapshot or {}
         property_snapshot = quotation.property_snapshot or {}
-        return Response({
+        response = Response({
             "id": quotation.id, "quotation_number": quotation.quotation_number,
             "revision_of": quotation.revision_of_id,
             "version_number": quotation.version_number,
             "revision_changes": quotation_revision_changes(quotation),
             "quotation_date": quotation.quotation_date, "valid_until": quotation.valid_until,
             "status": quotation.status,
-            "contractor_name": contractor_snapshot.get("company_name") or (profile.company_name if profile else quotation.contractor.get_full_name() or quotation.contractor.mobile),
+            "contractor_name": profile.company_name if profile else contractor_snapshot.get("company_name") or quotation.contractor.get_full_name() or quotation.contractor.mobile,
             "property_name": property_snapshot.get("name") or quotation.property.name or quotation.property.property_type,
             "subtotal": quotation.subtotal, "discount": quotation.discount,
             "gst_amount": quotation.gst_amount, "grand_total": quotation.grand_total,
@@ -3268,6 +3272,8 @@ class CustomerQuotationView(APIView):
                 "rate": item.rate, "amount": item.amount,
             } for index, item in enumerate(quotation.items.all(), 1)],
         })
+        response["Cache-Control"] = "no-store, max-age=0"
+        return response
 
 
 class CustomerQuotationListView(APIView):
@@ -3292,12 +3298,12 @@ class CustomerQuotationListView(APIView):
                 "grand_total": item.grand_total, "quotation_date": item.quotation_date,
                 "updated_at": item.updated_at,
                 "property_name": property_snapshot.get("name") or item.property.name or item.property.property_type,
-                "contractor_name": contractor_snapshot.get("company_name") or (profile.company_name if profile else item.contractor.get_full_name() or item.contractor.mobile),
-                "contractor_owner": contractor_snapshot.get("owner_name") or (profile.owner_name if profile else item.contractor.get_full_name()),
-                "contractor_mobile": contractor_snapshot.get("mobile", item.contractor.mobile),
-                "contractor_bharath_id": contractor_snapshot.get("bharath_id", item.contractor.bharath_id),
+                "contractor_name": profile.company_name if profile else contractor_snapshot.get("company_name") or item.contractor.get_full_name() or item.contractor.mobile,
+                "contractor_owner": profile.owner_name if profile else contractor_snapshot.get("owner_name") or item.contractor.get_full_name(),
+                "contractor_mobile": item.contractor.mobile,
+                "contractor_bharath_id": item.contractor.bharath_id,
                 "contractor_logo": request.build_absolute_uri(profile.company_logo.url) if profile and profile.company_logo else None,
-                "contractor_logo_shape": contractor_snapshot.get("company_logo_shape") or (profile.company_logo_shape if profile else "RECTANGLE"),
+                "contractor_logo_shape": profile.company_logo_shape if profile else contractor_snapshot.get("company_logo_shape") or "RECTANGLE",
                 "schedule_start_date": schedule.proposed_start_date if schedule else None,
                 "schedule_end_date": schedule.proposed_end_date if schedule else None,
                 "schedule_status": schedule.get_status_display() if schedule else "Not scheduled",
@@ -3605,6 +3611,11 @@ class QuotationDetailView(
 
     serializer_class = QuotationSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        response["Cache-Control"] = "no-store, max-age=0"
+        return response
+
     def get_queryset(self):
 
         return Quotation.objects.filter(
@@ -3626,7 +3637,14 @@ class QuotationPdfView(APIView):
         quotation = Quotation.objects.select_related("customer", "property", "contractor", "contractor__contractor_profile").prefetch_related("items__service_type", "items__paint_type").filter(pk=pk, contractor=request.user).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_quotation_pdf(quotation), content_type="application/pdf")
+        included_sections = None
+        if "sections" in request.query_params:
+            included_sections = {
+                section.strip()
+                for section in request.query_params.get("sections", "").split(",")
+                if section.strip()
+            }
+        response = HttpResponse(build_quotation_pdf(quotation, included_sections=included_sections), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{quotation.quotation_number}.pdf"'
         return response
 

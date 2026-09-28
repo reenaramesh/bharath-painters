@@ -5,7 +5,7 @@ import api from "../api/client";
 const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
 
-export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving }) {
+export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, quotationTheme = false }) {
   const [form, setForm] = useState(empty);
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerOpen, setOwnerOpen] = useState(false);
@@ -80,7 +80,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
     setOwnerSearch(customer.name);
     setOwnerOpen(false);
   }
-  const input = "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
+  const input = `mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none ${quotationTheme ? "focus:border-[#176b9b]" : "focus:border-slate-900"}`;
   return <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40"><div className="h-full w-full max-w-xl overflow-y-auto bg-white">
     <div className="flex items-center justify-between border-b p-6"><div><h2 className="text-xl font-bold">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button onClick={onClose} className="p-2"><X /></button></div>
     <form onSubmit={(event) => { event.preventDefault(); if (!form.customer) { setOwnerOpen(true); return; } onSubmit({ ...form, customer: Number(form.customer), approximate_area: form.approximate_area || null }); }} className="grid gap-5 p-6 sm:grid-cols-2">
@@ -121,6 +121,6 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       <label className="text-sm font-medium">Block / Tower <span className="font-normal text-slate-400">(optional)</span><input name="block_name" value={form.block_name} onChange={update} placeholder="e.g. Block B" className={input} /></label>
       <label className="text-sm font-medium sm:col-span-2">Project address *<textarea required name="address" value={form.address} onChange={update} rows="3" className={input} /></label>
       <label className="text-sm font-medium">City<input name="city" value={form.city} onChange={update} className={input} /></label><label className="text-sm font-medium">Pincode<input name="pincode" value={form.pincode} onChange={update} className={input} /></label>
-      <div className="flex justify-end gap-3 border-t pt-5 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-xl border px-5 py-2.5 font-semibold">Cancel</button><button disabled={saving} className="rounded-xl bg-slate-950 px-5 py-2.5 font-semibold text-white disabled:opacity-60">{saving ? "Saving..." : "Save property"}</button></div>
+      <div className="flex justify-end gap-3 border-t pt-5 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-xl border px-5 py-2.5 font-semibold">Cancel</button><button disabled={saving} className={`rounded-xl px-5 py-2.5 font-semibold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`}>{saving ? "Saving..." : "Save property"}</button></div>
     </form></div></div>;
 }

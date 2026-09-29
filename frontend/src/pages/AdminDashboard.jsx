@@ -94,6 +94,8 @@ export default function AdminDashboard() {
   const [credentials, setCredentials] = useState(null);
   const [saving, setSaving] = useState(false);
   const [repairMessage, setRepairMessage] = useState("");
+  const [retiredAccounts, setRetiredAccounts] = useState(null);
+  const [retiredSelection, setRetiredSelection] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -208,7 +210,7 @@ export default function AdminDashboard() {
   async function deleteSelected() {
     if (!selectedIds.length || saving) return;
     const count = selectedIds.length;
-    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}?\n\nTheir account access will be removed. Related business records will be preserved.`)) return;
+    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}?\n\nTheir mobile numbers will be released for new registrations. Related business records will be preserved.`)) return;
     setSaving(true);
     const failed = [];
     for (const id of selectedIds) {
@@ -234,6 +236,37 @@ export default function AdminDashboard() {
       await load();
     } catch (err) {
       setError(err.response?.data?.detail || "Deleted customer numbers could not be released.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function openInactiveAccountNumbers() {
+    const role = section === "contractors" ? "CONTRACTOR" : "PAINTER";
+    setError("");
+    try {
+      const { data: result } = await api.get("/quotations/admin-dashboard/release-inactive-business-mobiles/", { params: { role } });
+      setRetiredAccounts({ role, accounts: result.accounts });
+      setRetiredSelection([]);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Inactive accounts could not be loaded.");
+    }
+  }
+  async function releaseInactiveAccountNumbers() {
+    if (!retiredAccounts || !retiredSelection.length || saving) return;
+    if (!window.confirm(`Release the mobile numbers of ${retiredSelection.length} selected inactive accounts? Those accounts will no longer be able to sign in.`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const { data: result } = await api.post("/quotations/admin-dashboard/release-inactive-business-mobiles/", {
+        role: retiredAccounts.role,
+        user_ids: retiredSelection,
+      });
+      setRepairMessage(result.message);
+      setRetiredAccounts(null);
+      setRetiredSelection([]);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Selected numbers could not be released.");
     } finally {
       setSaving(false);
     }
@@ -269,7 +302,7 @@ export default function AdminDashboard() {
   async function deleteAccess(row) {
     if (
       !confirm(
-        `Delete access for ${row.name || row.company}?\n\nThe account will no longer be able to sign in. Quotations, invoices, projects, payments and audit history will be preserved.`,
+        `Delete access for ${row.name || row.company}?\n\nThe mobile number will be released for a new registration. Quotations, invoices, projects, payments and audit history will be preserved.`,
       )
     )
       return;
@@ -342,6 +375,17 @@ export default function AdminDashboard() {
               >
                 <RefreshCw className="h-4 w-4" />
                 Release deleted numbers
+              </button>
+            )}
+            {(section === "contractors" || section === "applicators") && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={openInactiveAccountNumbers}
+                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Release old deleted numbers
               </button>
             )}
             {editable && (
@@ -501,6 +545,33 @@ export default function AdminDashboard() {
           credentials={credentials}
           onClose={() => setCredentials(null)}
         />
+      )}
+      {retiredAccounts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="retired-account-title" className="w-full max-w-xl rounded-xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="retired-account-title" className="text-lg font-bold">Release old deleted numbers</h2>
+                <p className="mt-1 text-sm text-slate-600">Select only accounts you previously deleted. Suspended accounts also appear here.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRetiredAccounts(null)} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+              {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+              {retiredAccounts.accounts.length === 0 && <p className="rounded-lg bg-slate-50 p-4 text-sm">No inactive accounts are holding mobile numbers.</p>}
+              {retiredAccounts.accounts.map((account) => (
+                <label key={account.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                  <input type="checkbox" checked={retiredSelection.includes(account.id)} onChange={() => setRetiredSelection((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} />
+                  <span className="min-w-0"><strong className="block truncate">{account.name}</strong><span className="text-slate-500">{account.bharath_id} · {account.mobile}</span></span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setRetiredAccounts(null)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+              <button type="button" disabled={saving || !retiredSelection.length} onClick={releaseInactiveAccountNumbers} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Release {retiredSelection.length} numbers</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

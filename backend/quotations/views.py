@@ -3399,6 +3399,47 @@ class AdminReleaseDeletedCustomerMobilesView(APIView):
         })
 
 
+class AdminReleaseInactiveBusinessMobilesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not admin_only(request.user):
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        role = request.query_params.get("role")
+        if role not in (BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER):
+            return Response({"detail": "Select contractor or painter accounts."}, status=status.HTTP_400_BAD_REQUEST)
+        users = BharathUser.objects.filter(
+            role=role, is_active=False,
+            verification_status=BharathUser.VerificationStatus.SUSPENDED,
+        ).exclude(mobile__startswith="D").order_by("-id")
+        return Response({"accounts": [
+            {"id": user.pk, "name": user.get_full_name() or user.bharath_id,
+             "mobile": user.mobile, "bharath_id": user.bharath_id}
+            for user in users
+        ]})
+
+    @transaction.atomic
+    def post(self, request):
+        if not admin_only(request.user):
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        role = request.data.get("role")
+        ids = request.data.get("user_ids")
+        if role not in (BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER) or not isinstance(ids, list) or not ids:
+            return Response({"detail": "Select inactive contractor or painter accounts."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > 100 or any(not isinstance(value, int) or isinstance(value, bool) for value in ids):
+            return Response({"detail": "Select up to 100 valid accounts."}, status=status.HTTP_400_BAD_REQUEST)
+        users = list(BharathUser.objects.select_for_update().filter(
+            pk__in=ids, role=role, is_active=False,
+            verification_status=BharathUser.VerificationStatus.SUSPENDED,
+        ).exclude(mobile__startswith="D"))
+        if len(users) != len(set(ids)):
+            return Response({"detail": "Some selected accounts are no longer eligible. Refresh the list."}, status=status.HTTP_409_CONFLICT)
+        from accounts.account_retirement import retire_business_account
+        for user in users:
+            retire_business_account(user)
+        return Response({"message": f"Released numbers from {len(users)} inactive accounts.", "count": len(users)})
+
+
 def next_bharath_id(role):
     prefix = "BP-C-" if role == BharathUser.Roles.CONTRACTOR else "BP-P-"
     numbers = []
@@ -3558,8 +3599,9 @@ class AdminEntityDetailView(APIView):
             role = BharathUser.Roles.CONTRACTOR if entity == "contractors" else BharathUser.Roles.PAINTER if entity == "applicators" else None
             user = BharathUser.objects.filter(pk=pk, role=role).first() if role else None
             if not user: return Response({"detail": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
-            user.is_active = False; user.is_verified = False; user.verification_status = BharathUser.VerificationStatus.SUSPENDED; user.save(update_fields=("is_active", "is_verified", "verification_status", "updated_at"))
-        return Response({"message": "Customer number released and account access removed. Historical business records were preserved." if entity == "customers" else "Account access deleted. Historical business records were preserved."})
+            from accounts.account_retirement import retire_business_account
+            retire_business_account(user)
+        return Response({"message": "Mobile number released and account access removed. Historical business records were preserved."})
 
 
 class CustomerPortalDashboardView(APIView):

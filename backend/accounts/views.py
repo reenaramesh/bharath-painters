@@ -360,6 +360,8 @@ class CustomerRegistrationView(APIView):
         if len(password) < 8:
             return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
 
+        from quotations.customer_identity import release_deleted_customer_mobile
+        release_deleted_customer_mobile(normalized_mobile)
         customer_records = list(Customer.objects.select_related("portal_user").exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized_mobile))
 
         user = _find_user_by_mobile(mobile, BharathUser.objects.all())

@@ -1506,6 +1506,8 @@ class CustomerListCreateView(
         normalized = normalize_indian_mobile(request.data.get("mobile"))
         if not normalized:
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
+        from .customer_identity import release_deleted_customer_mobile
+        release_deleted_customer_mobile(normalized)
         existing = Customer.objects.select_for_update().exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
         if existing:
             return save_existing_customer_contact(request, existing)
@@ -3379,6 +3381,22 @@ class AdminOperationsDashboardView(APIView):
 
 def admin_only(user):
     return user.role == BharathUser.Roles.ADMIN or user.is_superuser
+
+
+class AdminReleaseDeletedCustomerMobilesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        if not admin_only(request.user):
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        from .customer_identity import release_all_deleted_customer_mobiles
+        customers, accounts = release_all_deleted_customer_mobiles()
+        return Response({
+            "message": f"Released numbers from {customers} deleted customer records and {accounts} suspended customer logins.",
+            "customers": customers,
+            "accounts": accounts,
+        })
 
 
 def next_bharath_id(role):

@@ -42,7 +42,7 @@ from .views import (
     CustomerPortalDashboardView,
     ContractorCrmDashboardView,
     AdminOperationsDashboardView,
-    AdminEntityListCreateView, AdminEntityDetailView, AdminPeopleExportView,
+    AdminEntityListCreateView, AdminEntityDetailView, AdminPeopleExportView, AdminReleaseDeletedCustomerMobilesView,
     MeasurementAccessAvailabilityView,
     MeasurementAccessContractorSearchView,
     MeasurementAccessListCreateView,
@@ -156,6 +156,7 @@ urlpatterns = [
 
     path("admin-dashboard/", AdminOperationsDashboardView.as_view(), name="admin-operations-dashboard"),
     path("admin-dashboard/export/", AdminPeopleExportView.as_view(), name="admin-people-export"),
+    path("admin-dashboard/release-deleted-customer-mobiles/", AdminReleaseDeletedCustomerMobilesView.as_view(), name="admin-release-deleted-customer-mobiles"),
     path("admin-dashboard/<str:entity>/", AdminEntityListCreateView.as_view(), name="admin-entity-create"),
     path("admin-dashboard/<str:entity>/<int:pk>/", AdminEntityDetailView.as_view(), name="admin-entity-detail"),
     path("properties/<int:pk>/measurements/pdf/", PropertyMeasurementPdfView.as_view(), name="property-measurement-pdf"),

@@ -93,6 +93,7 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(null);
   const [credentials, setCredentials] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [repairMessage, setRepairMessage] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -222,6 +223,21 @@ export default function AdminDashboard() {
     if (failed.length) setError(`${count - failed.length} of ${count} records removed. ${failed.length} could not be removed; those selections remain checked.`);
     setSaving(false);
   }
+  async function releaseDeletedCustomerNumbers() {
+    if (saving || !window.confirm("Release mobile numbers held by deleted customers? This keeps historical business records.")) return;
+    setSaving(true);
+    setError("");
+    setRepairMessage("");
+    try {
+      const { data: result } = await api.post("/quotations/admin-dashboard/release-deleted-customer-mobiles/");
+      setRepairMessage(result.message);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Deleted customer numbers could not be released.");
+    } finally {
+      setSaving(false);
+    }
+  }
   async function saveRecord(form) {
     setSaving(true);
     setError("");
@@ -317,6 +333,17 @@ export default function AdminDashboard() {
               <Download className="h-4 w-4" />
               Export all people
             </button>
+            {section === "customers" && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={releaseDeletedCustomerNumbers}
+                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Release deleted numbers
+              </button>
+            )}
             {editable && (
               <button
                 onClick={() => setEditing({})}
@@ -342,6 +369,9 @@ export default function AdminDashboard() {
       <MobileDashboardShortcuts />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+      )}
+      {repairMessage && (
+        <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{repairMessage}</p>
       )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {sections.map(({ key, label, icon }) => (

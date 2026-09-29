@@ -7,7 +7,7 @@ export default function Login() {
   const { user, login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobile, setMobile] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +68,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const signedInUser = await login(mobile.trim(), password);
+      const signedInUser = await login(identifier.trim(), password);
       navigate(location.state?.from?.pathname || (signedInUser.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard"), { replace: true });
     } catch (requestError) {
       const status = requestError.response?.status;
@@ -100,20 +100,20 @@ export default function Login() {
             <span className="font-bold text-slate-900">Bharath Painters</span>
           </div>
           <h2 className="text-3xl font-bold text-slate-950">Welcome back</h2>
-          <p className="text-slate-500 mt-2">Sign in with your registered mobile number.</p>
+          <p className="text-slate-500 mt-2">Sign in with your mobile number or verified email.</p>
           {location.state?.registered && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Registration successful. Your verified profile, Bharath ID and QR badge are ready. Sign in to continue.</p>}
           {location.state?.customerRegistered && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Customer account created. Sign in to open your messages.</p>}
           {location.state?.passwordReset && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Password reset successful. Sign in with your new password.</p>}
 
           {googleClientId && <div className="mt-8">
             <div ref={googleButtonRef} className="flex min-h-11 w-full justify-center" />
-            <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>or use mobile</span><span className="h-px flex-1 bg-slate-200" /></div>
+            <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>or use mobile / email</span><span className="h-px flex-1 bg-slate-200" /></div>
           </div>}
 
           <form onSubmit={handleSubmit} className={`${googleClientId ? "" : "mt-8"} space-y-5`}>
             <label className="block text-sm font-semibold text-slate-700">
-              Mobile number
-              <input required autoComplete="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Enter mobile number" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
+              Mobile number or verified email
+              <input required type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Mobile number or email" className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
             </label>
             <label className="block text-sm font-semibold text-slate-700">
               Password

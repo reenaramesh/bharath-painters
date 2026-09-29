@@ -374,7 +374,7 @@ export default function Sidebar({
         </nav>
 
         <div className="space-y-1 border-t border-slate-200 px-3 py-4">
-          {["CUSTOMER", "CONTRACTOR", "PAINTER"].includes(user?.role) && (
+          {["CUSTOMER", "CONTRACTOR", "PAINTER", "ADMIN"].includes(user?.role) && (
             <NavLink
               to="/account-security"
               onClick={closeMobile}

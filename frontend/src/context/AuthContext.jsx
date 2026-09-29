@@ -8,8 +8,8 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  async function login(mobile, password) {
-    const { data } = await api.post("/accounts/login/", { mobile, password });
+  async function login(identifier, password) {
+    const { data } = await api.post("/accounts/login/", { identifier, password });
     localStorage.setItem("bharath_access", data.access);
     localStorage.setItem("bharath_refresh", data.refresh);
     localStorage.setItem("bharath_user", JSON.stringify(data.user));

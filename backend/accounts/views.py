@@ -35,6 +35,7 @@ RECOVERY_ROLES = {
     BharathUser.Roles.CUSTOMER,
     BharathUser.Roles.CONTRACTOR,
     BharathUser.Roles.PAINTER,
+    BharathUser.Roles.ADMIN,
 }
 OTP_EXPIRY_MINUTES = 10
 OTP_RESEND_SECONDS = 60
@@ -444,22 +445,29 @@ class LoginView(APIView):
 
     def post(self, request):
 
-        mobile = request.data.get("mobile")
+        identifier = str(request.data.get("identifier") or request.data.get("mobile") or request.data.get("email") or "").strip()
         password = request.data.get("password")
 
-        if not mobile or not password:
+        if not identifier or not password:
             return Response(
                 {
-                    "error": "Mobile and password are required."
+                    "error": "Mobile number or verified email and password are required."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = _find_user_by_mobile(mobile, BharathUser.objects.all())
+        if "@" in identifier:
+            matches = list(BharathUser.objects.filter(
+                recovery_email__iexact=identifier,
+                recovery_email_verified=True,
+            )[:2])
+            user = matches[0] if len(matches) == 1 else None
+        else:
+            user = _find_user_by_mobile(identifier, BharathUser.objects.all())
         if not user:
             return Response(
                 {
-                    "error": "Invalid mobile number or password."
+                    "error": "Invalid login details or password."
                 },
                 status=status.HTTP_401_UNAUTHORIZED
             )
@@ -467,7 +475,7 @@ class LoginView(APIView):
         if not user.check_password(password):
             return Response(
                 {
-                    "error": "Invalid mobile number or password."
+                    "error": "Invalid login details or password."
                 },
                 status=status.HTTP_401_UNAUTHORIZED
             )
@@ -730,6 +738,8 @@ class RecoveryEmailVerifyView(APIView):
         if error:
             return Response({"otp": error}, status=status.HTTP_400_BAD_REQUEST)
         user = request.user
+        if BharathUser.objects.exclude(pk=user.pk).filter(recovery_email__iexact=challenge.target_email).exists():
+            return Response({"detail": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
         user.recovery_email = challenge.target_email.lower()
         user.recovery_email_verified = True
         user.recovery_email_verified_at = timezone.now()

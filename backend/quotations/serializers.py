@@ -292,7 +292,7 @@ class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSeriali
         normalized = normalize_indian_mobile(value)
         if not normalized:
             raise serializers.ValidationError("Enter a valid mobile number. Include + and the country code for international numbers.")
-        queryset = Customer.objects.filter(normalized_mobile=normalized)
+        queryset = Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():

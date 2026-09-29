@@ -310,7 +310,10 @@ class Customer(models.Model):
         return f"{self.name} - {self.bharath_id or self.mobile}"
 
     def save(self, *args, **kwargs):
-        self.normalized_mobile = normalize_indian_mobile(self.mobile)
+        # Cancelled records retain document references, but their former number
+        # must be available for a new customer account.
+        retired_mobile = f"D{self.pk}" if self.pk else None
+        self.normalized_mobile = retired_mobile if self.status == self.Status.CANCELLED and self.mobile == retired_mobile else normalize_indian_mobile(self.mobile)
         if not self.normalized_mobile:
             raise ValueError("Enter a valid Indian mobile number.")
         super().save(*args, **kwargs)

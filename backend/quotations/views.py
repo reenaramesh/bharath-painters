@@ -495,7 +495,7 @@ class CustomerMobileCheckView(APIView):
         normalized = normalize_indian_mobile(request.data.get("mobile"))
         if not normalized:
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
-        customer = Customer.objects.filter(normalized_mobile=normalized).first()
+        customer = Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
         if not customer:
             existing_account = find_user_by_normalized_mobile(normalized)
             if existing_account and existing_account.role != BharathUser.Roles.CUSTOMER:
@@ -520,7 +520,7 @@ class CustomerShareLinkCreateView(APIView):
         connection = ContractorCustomerConnection.objects.select_for_update().select_related("customer__portal_user").filter(
             customer_id=pk, contractor=request.user,
         ).first()
-        if not connection:
+        if not connection or connection.customer.status == Customer.Status.CANCELLED:
             return Response({"detail": "Customer contact not found."}, status=status.HTTP_404_NOT_FOUND)
         if connection.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
             purpose = CustomerShareLink.Purpose.CONNECTION
@@ -686,7 +686,7 @@ class ContractorCustomerConnectionRequestView(APIView):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
         normalized = normalize_indian_mobile(request.data.get("mobile"))
-        customer = Customer.objects.select_for_update().filter(normalized_mobile=normalized).first()
+        customer = Customer.objects.select_for_update().exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
         if not customer:
             return Response({"detail": "Customer account not found. Check the mobile number first."}, status=status.HTTP_404_NOT_FOUND)
         SavedCustomerContact.objects.get_or_create(
@@ -1497,7 +1497,7 @@ class CustomerListCreateView(
             scope |= models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.PENDING)
         if self.request.query_params.get("include_saved") == "1":
             scope |= models.Q(saved_contacts__contractor=self.request.user)
-        return Customer.objects.filter(scope).distinct().order_by("-updated_at")
+        return Customer.objects.filter(scope).exclude(status=Customer.Status.CANCELLED).distinct().order_by("-updated_at")
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -1506,7 +1506,7 @@ class CustomerListCreateView(
         normalized = normalize_indian_mobile(request.data.get("mobile"))
         if not normalized:
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
-        existing = Customer.objects.select_for_update().filter(normalized_mobile=normalized).first()
+        existing = Customer.objects.select_for_update().exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
         if existing:
             return save_existing_customer_contact(request, existing)
         existing_account = find_user_by_normalized_mobile(normalized)
@@ -1524,7 +1524,7 @@ class CustomerListCreateView(
             with transaction.atomic():
                 customer = serializer.save(contractor=request.user)
         except IntegrityError:
-            existing = Customer.objects.filter(normalized_mobile=normalized).first()
+            existing = Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
             if not existing:
                 raise
             return save_existing_customer_contact(request, existing)
@@ -3511,19 +3511,37 @@ class AdminEntityDetailView(APIView):
         if entity == "customers":
             item = Customer.objects.filter(pk=pk).first()
             if not item: return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-            item.status = Customer.Status.CANCELLED; item.save(update_fields=("status", "updated_at"))
+            item.status = Customer.Status.CANCELLED
+            item.mobile = f"D{item.pk}"
+            item.email = ""
+            item.whatsapp = ""
+            item.alternate_mobile = ""
+            item.save(update_fields=("status", "mobile", "normalized_mobile", "email", "whatsapp", "alternate_mobile", "updated_at"))
+            CustomerShareLink.objects.filter(connection__customer=item).delete()
+            for contact in SavedCustomerContact.objects.filter(customer=item):
+                details = dict(contact.details or {})
+                for key in ("mobile", "phone", "email", "whatsapp", "alternate_mobile"):
+                    details.pop(key, None)
+                contact.details = details
+                contact.save(update_fields=("details", "updated_at"))
             portal_user = item.portal_user
             if portal_user and not Customer.objects.filter(portal_user=portal_user).exclude(status=Customer.Status.CANCELLED).exists():
+                portal_user.mobile = f"D{portal_user.pk}"
+                portal_user.email = ""
+                portal_user.recovery_email = None
+                portal_user.recovery_email_verified = False
+                portal_user.google_email = ""
+                portal_user.google_subject = None
                 portal_user.is_active = False
                 portal_user.is_verified = False
                 portal_user.verification_status = BharathUser.VerificationStatus.SUSPENDED
-                portal_user.save(update_fields=("is_active", "is_verified", "verification_status", "updated_at"))
+                portal_user.save(update_fields=("mobile", "email", "recovery_email", "recovery_email_verified", "google_email", "google_subject", "is_active", "is_verified", "verification_status", "updated_at"))
         else:
             role = BharathUser.Roles.CONTRACTOR if entity == "contractors" else BharathUser.Roles.PAINTER if entity == "applicators" else None
             user = BharathUser.objects.filter(pk=pk, role=role).first() if role else None
             if not user: return Response({"detail": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
             user.is_active = False; user.is_verified = False; user.verification_status = BharathUser.VerificationStatus.SUSPENDED; user.save(update_fields=("is_active", "is_verified", "verification_status", "updated_at"))
-        return Response({"message": "Account access deleted. Historical business records were preserved."})
+        return Response({"message": "Customer number released and account access removed. Historical business records were preserved." if entity == "customers" else "Account access deleted. Historical business records were preserved."})
 
 
 class CustomerPortalDashboardView(APIView):

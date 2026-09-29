@@ -101,7 +101,7 @@ export default function ContractorSettings({ themeOnly = false }) {
   const update = (event) =>
     setForm((value) => ({ ...value, [event.target.name]: event.target.value }));
   const input =
-    "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
+    "mt-1.5 w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
   const selectedTemplate = pdfColorTemplates.find((template) => template.value === form.pdf_color_template);
   const [previewPrimary, previewAccent] = selectedTemplate?.colors || [form.pdf_custom_primary_color, form.pdf_custom_accent_color];
   const previewText = themeTextColor(previewPrimary);
@@ -172,9 +172,9 @@ export default function ContractorSettings({ themeOnly = false }) {
       </p>
     );
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-5 overflow-x-hidden sm:space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
         <p className="text-sm font-semibold text-amber-600">{themeOnly ? "Appearance settings" : "Account settings"}</p>
         <h1 className="mt-1 text-3xl font-bold">
           {themeOnly ? "Theme settings" : "Contractor and company details"}
@@ -183,14 +183,14 @@ export default function ContractorSettings({ themeOnly = false }) {
           {themeOnly ? "Choose colors and fonts for the app and downloaded documents." : "These details appear on your quotations and downloadable estimates."}
         </p>
         </div>
-        <Link to={themeOnly ? "/settings" : "/profile"} className="inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold">{themeOnly ? "Company details" : <><QrCode className="h-5 w-5" />View & share QR profile</>}</Link>
+        <Link to={themeOnly ? "/settings" : "/profile"} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 text-center text-sm font-semibold sm:w-auto">{themeOnly ? "Company details" : <><QrCode className="h-5 w-5 shrink-0" />View & share QR profile</>}</Link>
       </div>
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
-      {success && <div role="status" aria-live="polite" className="fixed right-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-5 py-4 text-sm font-semibold text-emerald-800 shadow-xl">✓ {success}</div>}
+      {success && <div role="status" aria-live="polite" className="fixed inset-x-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl sm:left-auto sm:px-5 sm:py-4">✓ {success}</div>}
       {!themeOnly && <section className="rounded-2xl border bg-white p-5" aria-label="Company profile completion">
         <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Company profile</h2><p className="mt-1 text-xs text-slate-500">Fill in your company details to complete your public profile.</p></div><strong className="text-2xl text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
@@ -198,7 +198,7 @@ export default function ContractorSettings({ themeOnly = false }) {
       </section>}
       <form
         onSubmit={submit}
-        className="grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
+        className="grid min-w-0 grid-cols-1 gap-5 rounded-2xl border bg-white p-4 sm:grid-cols-2 sm:p-6 [&>label]:min-w-0 [&>div]:min-w-0"
       >
         {!themeOnly && <>
         <div className="sm:col-span-2">
@@ -248,7 +248,7 @@ export default function ContractorSettings({ themeOnly = false }) {
                 <input
                   type="file"
                   accept="image/*"
-                  className="min-w-0"
+                  className="w-full min-w-0 text-sm"
                   onChange={(event) =>
                     setForm((value) => ({
                       ...value,
@@ -493,9 +493,9 @@ export default function ContractorSettings({ themeOnly = false }) {
         </label>
         <div className="sm:col-span-2">
           <p className="text-sm font-medium">Owner photo for digital card</p>
-          <div className="mt-2 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 p-4">
+          <div className="mt-2 flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center">
             {form.profile_photo_url ? <img src={form.profile_photo_url} alt="Owner" className="h-20 w-20 rounded-xl object-cover" /> : <span className="grid h-20 w-20 place-items-center rounded-xl bg-slate-100 text-xs text-slate-500">No photo</span>}
-            <input type="file" accept="image/*" onChange={(event) => setForm((current) => ({ ...current, profile_photo: event.target.files?.[0] || null }))} className="min-w-0 flex-1 text-sm" />
+            <input type="file" accept="image/*" onChange={(event) => setForm((current) => ({ ...current, profile_photo: event.target.files?.[0] || null }))} className="w-full min-w-0 text-sm sm:flex-1" />
           </div>
         </div>
         <div className="border-t pt-5 sm:col-span-2">
@@ -594,10 +594,10 @@ export default function ContractorSettings({ themeOnly = false }) {
           </span>
         </div>
         </>}
-        <div className="flex justify-end border-t pt-5 sm:col-span-2">
+        <div className="flex border-t pt-5 sm:col-span-2 sm:justify-end">
           <button
             disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:w-auto"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : themeOnly ? "Save theme settings" : "Save contractor details"}

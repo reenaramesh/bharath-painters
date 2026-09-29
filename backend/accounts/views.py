@@ -140,6 +140,11 @@ def _recovery_user(mobile, role):
 
 
 def _issue_email_otp(user, purpose, target_email):
+    if not settings.DEBUG and settings.EMAIL_BACKEND in {
+        "django.core.mail.backends.console.EmailBackend",
+        "django.core.mail.backends.locmem.EmailBackend",
+    }:
+        return None, "Email delivery is not configured. Please contact support to enable password recovery."
     recent_hour = PasswordResetOTP.objects.filter(
         user=user,
         purpose=purpose,

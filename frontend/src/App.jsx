@@ -11,6 +11,7 @@ const page = (name) => lazy(() => import(`./pages/${name}.jsx`));
 const Login = page("Login");
 const Register = page("Register");
 const CustomerRegister = page("CustomerRegister");
+const CustomerShareLink = page("CustomerShareLink");
 const ForgotPassword = page("ForgotPassword");
 const RecoveryEmailSettings = page("RecoveryEmailSettings");
 const Dashboard = page("Dashboard");
@@ -37,6 +38,7 @@ const ServiceRequests = page("ServiceRequests");
 const SupportTickets = page("SupportTickets");
 const CustomerDashboard = page("CustomerDashboard");
 const CustomerConnections = page("CustomerConnections");
+const CustomerProfile = page("CustomerProfile");
 const MeasurementAccess = page("MeasurementAccess");
 const CustomerQuotation = page("CustomerQuotation");
 const CustomerQuotations = page("CustomerQuotations");
@@ -74,6 +76,7 @@ const ContractorPackages = page("ContractorPackages");
 const ActivityLog = page("ActivityLog");
 const MeasurementTrial = page("MeasurementTrial");
 const WorkPhotos = page("WorkPhotos");
+const ColorsShades = page("ColorsShades");
 const Reports = page("Reports");
 const ProfileCard = page("ProfileCard");
 const CustomerContractorReviews = page("CustomerContractorReviews");
@@ -96,6 +99,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
+          <Route path="/customer-link/:token" element={<CustomerShareLink />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
             element={
@@ -108,6 +112,7 @@ function App() {
             <Route path="/applicator" element={<Dashboard />} />
             <Route path="/customer-dashboard" element={<CustomerDashboard />} />
             <Route path="/customer/connections" element={<CustomerConnections />} />
+            <Route path="/customer/profile" element={<CustomerProfile />} />
             <Route path="/customer/connection-requests" element={<Navigate to="/customer/connections" replace />} />
             <Route path="/profile" element={<ProfileCard />} />
             <Route path="/customer-reviews" element={<CustomerContractorReviews />} />
@@ -139,6 +144,7 @@ function App() {
             />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/messages" element={<Chat />} />
+            <Route path="/colors-shades" element={<ColorsShades />} />
             <Route path="/service-requests" element={<ServiceRequests />} />
             <Route path="/support-tickets" element={<SupportTickets />} />
             <Route path="/measurement-access" element={<MeasurementAccess />} />

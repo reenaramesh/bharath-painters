@@ -15,6 +15,8 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [verification, setVerification] = useState(null);
+  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
   const update = (event) =>
@@ -51,20 +53,50 @@ export default function Register() {
         terms_accepted: true,
         privacy_notice_acknowledged: true,
       };
-      await api.post(
+      const { data } = await api.post(
         `/accounts/register/${role.toLowerCase()}/`,
         role === "CONTRACTOR" ? contractor : painter,
         role === "CONTRACTOR"
           ? { headers: { "Content-Type": "multipart/form-data" } }
           : undefined,
       );
-      navigate("/login", { state: { registered: true } });
+      if (data.email_verification_pending) setVerification(data);
+      else navigate("/login", { state: { registered: true } });
     } catch (requestError) {
       setError(
         Object.values(requestError.response?.data || {})
           .flat()
           .join(" ") || "Registration failed.",
       );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resendOtp() {
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await api.post("/accounts/register/email/request/", { mobile: form.mobile, password: form.password });
+      setVerification(data);
+      setOtp("");
+      if (data.email_verification_error) setError(data.email_verification_error);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Verification code could not be sent.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function verifyOtp(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api.post("/accounts/register/email/verify/", { mobile: form.mobile, password: form.password, challenge_id: verification.challenge_id, otp });
+      navigate("/login", { state: { registered: true } });
+    } catch (requestError) {
+      setError(requestError.response?.data?.otp || requestError.response?.data?.detail || "Code could not be verified.");
     } finally {
       setSaving(false);
     }
@@ -102,6 +134,13 @@ export default function Register() {
               {error}
             </p>
           )}
+          {verification ? <form onSubmit={verifyOtp} className="mt-6 space-y-4">
+            <p className="text-sm text-slate-600">Verify your email to enable password recovery. We sent a 6-digit code to <strong>{verification.masked_email || form.email}</strong>.</p>
+            {verification.test_otp && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Development code: <strong>{verification.test_otp}</strong></p>}
+            <label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={input} /></label>
+            <button disabled={saving || otp.length !== 6 || !verification.challenge_id} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50">{saving ? "Verifying..." : "Verify email"}</button>
+            <button type="button" disabled={saving} onClick={resendOtp} className="text-sm font-semibold text-[#176b9b]">Resend code</button>
+          </form> : <>
           <form onSubmit={submit} className="mt-6 grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-medium sm:col-span-2">
               Name *
@@ -145,6 +184,7 @@ export default function Register() {
               {saving ? "Creating account..." : "Register"}
             </button>
           </form>
+          </>}
         </div>
       </div>
     </main>

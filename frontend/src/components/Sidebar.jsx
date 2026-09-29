@@ -97,6 +97,7 @@ const menuItems = [
     badge: "applicator_bookings",
   },
   { label: "Work Photos", icon: Camera, to: "/work-photos" },
+  { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
   { label: "Reports", icon: BarChart3, to: "/reports" },
   { label: "Activity Log", icon: Activity, to: "/activity-log" },
 ];
@@ -110,6 +111,7 @@ const painterMenuItems = [
   { label: "Ratings & Reviews", icon: Star, to: "/work-reviews" },
   { label: "My Assignments", icon: ClipboardList, to: "/painter-assignments" },
   { label: "Work Photos", icon: Camera, to: "/work-photos" },
+  { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
   { label: "Available Jobs", icon: BriefcaseBusiness, to: "/jobs" },
   { label: "Job Activity", icon: Activity, to: "/job-activity" },
   { label: "Post Job Seeking", icon: Users, to: "/painter-seeking" },
@@ -161,6 +163,8 @@ const adminMenuItems = [
 
 const customerMenuItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/customer-dashboard" },
+  { label: "My Profile", icon: UserRoundCheck, to: "/customer/profile" },
+  { label: "Appearance", icon: Palette, to: "/appearance" },
   { label: "My Contractors", icon: UserRoundCheck, to: "/customer/connections", badge: "connection_requests" },
   { label: "Activity Log", icon: Activity, to: "/activity-log" },
   { label: "My Quotations", icon: FileText, to: "/customer-quotations" },
@@ -168,6 +172,7 @@ const customerMenuItems = [
   { label: "Payments & Invoices", icon: FileText, to: "/customer-invoices" },
   { label: "My Properties", icon: Building2, to: "/customer-properties" },
   { label: "Work Photos", icon: Camera, to: "/work-photos" },
+  { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
   {
     label: "Work Schedule",
     icon: CalendarClock,
@@ -379,7 +384,7 @@ export default function Sidebar({
               <span className={collapsed ? "lg:hidden" : ""}>Account Security</span>
             </NavLink>
           )}
-          {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
+          {["CONTRACTOR", "PAINTER"].includes(user?.role) && (
             <NavLink
               to={user?.role === "CONTRACTOR" ? "/settings" : "/appearance"}
               onClick={closeMobile}
@@ -438,6 +443,7 @@ const routeGroups = {
     "/completed-work",
     "/completed-projects",
     "/work-photos",
+    "/colors-shades",
   ]),
   People: new Set([
     "/customers",

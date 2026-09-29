@@ -188,6 +188,8 @@ class PasswordResetOTP(models.Model):
     class Purpose(models.TextChoices):
         PASSWORD_RESET = "PASSWORD_RESET", "Password reset"
         RECOVERY_EMAIL = "RECOVERY_EMAIL", "Recovery email verification"
+        REGISTRATION_EMAIL = "REGISTRATION_EMAIL", "Registration email verification"
+        CUSTOMER_ACTIVATION = "CUSTOMER_ACTIVATION", "Customer activation email verification"
 
     user = models.ForeignKey(BharathUser, on_delete=models.CASCADE, related_name="password_reset_otps")
     purpose = models.CharField(max_length=30, choices=Purpose.choices, default=Purpose.PASSWORD_RESET)

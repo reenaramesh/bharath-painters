@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import api from "../api/client";
 import RegistrationConsent from "../components/RegistrationConsent";
 
 export default function CustomerRegister() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ name: "", mobile: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,7 +29,7 @@ export default function CustomerRegister() {
         terms_accepted: true,
         privacy_notice_acknowledged: true,
       });
-      navigate("/login", { replace: true, state: { customerRegistered: true } });
+      navigate("/login", { replace: true, state: { customerRegistered: true, ...(location.state?.returnTo ? { from: { pathname: location.state.returnTo } } : {}) } });
     } catch (requestError) {
       setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Customer account could not be created.");
     } finally {

@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -191,6 +191,20 @@ def _verify_otp(challenge, code):
     return None
 
 
+def _registration_email_response(user):
+    result, error = _issue_email_otp(user, PasswordResetOTP.Purpose.REGISTRATION_EMAIL, user.email.strip().lower())
+    if error:
+        return {"email_verification_pending": True, "email_verification_error": error}
+    challenge, code = result
+    response = {"email_verification_pending": True, "challenge_id": challenge.id, "masked_email": _masked_email(user.email)}
+    if settings.DEBUG and settings.EMAIL_BACKEND in {
+        "django.core.mail.backends.console.EmailBackend",
+        "django.core.mail.backends.locmem.EmailBackend",
+    }:
+        response["test_otp"] = code
+    return response
+
+
 class PainterRegistrationView(APIView):
 
     @transaction.atomic
@@ -217,6 +231,7 @@ class PainterRegistrationView(APIView):
                     "mobile": user.mobile,
                     "verification_status": user.verification_status,
                     "bharath_id": user.bharath_id,
+                    **_registration_email_response(user),
                 },
                 status=status.HTTP_201_CREATED
             )
@@ -253,6 +268,7 @@ class ContractorRegistrationView(APIView):
                     "mobile": user.mobile,
                     "verification_status": user.verification_status,
                     "bharath_id": user.bharath_id,
+                    **_registration_email_response(user),
                 },
                 status=status.HTTP_201_CREATED
             )
@@ -261,6 +277,61 @@ class ContractorRegistrationView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class RegistrationEmailRequestView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "recovery_request"
+
+    def post(self, request):
+        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER)))
+        if not user or not user.check_password(str(request.data.get("password") or "")):
+            return Response({"detail": "Account details are incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        if user.recovery_email_verified:
+            return Response({"detail": "Email already verified."}, status=status.HTTP_409_CONFLICT)
+        if not user.email:
+            return Response({"detail": "No registration email is available."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_registration_email_response(user))
+
+
+class RegistrationEmailVerifyView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "recovery_verify"
+
+    @transaction.atomic
+    def post(self, request):
+        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER)))
+        if not user or not user.check_password(str(request.data.get("password") or "")):
+            return Response({"detail": "Account details are incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            challenge_id = int(request.data.get("challenge_id"))
+        except (TypeError, ValueError):
+            return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+        challenge = PasswordResetOTP.objects.select_for_update().filter(
+            id=challenge_id, user=user,
+            purpose=PasswordResetOTP.Purpose.REGISTRATION_EMAIL, is_used=False,
+        ).first()
+        if not challenge or challenge.target_email.lower() != str(user.email or "").lower():
+            return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+        error = _verify_otp(challenge, str(request.data.get("otp") or "").strip())
+        if error:
+            return Response({"otp": error}, status=status.HTTP_400_BAD_REQUEST)
+        email = challenge.target_email.lower()
+        if BharathUser.objects.exclude(pk=user.pk).filter(recovery_email__iexact=email).exists():
+            return Response({"detail": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
+        user.recovery_email = email
+        user.recovery_email_verified = True
+        user.recovery_email_verified_at = timezone.now()
+        user.recovery_email_added_at = timezone.now()
+        user.recovery_email_added_by = user
+        user.save(update_fields=("recovery_email", "recovery_email_verified", "recovery_email_verified_at", "recovery_email_added_at", "recovery_email_added_by"))
+        challenge.is_used = True
+        challenge.save(update_fields=("is_used",))
+        return Response({"message": "Email verified. You can recover your password with an email code."})
 
 
 class CustomerRegistrationView(APIView):
@@ -585,6 +656,7 @@ class RecoveryEmailView(APIView):
             "has_recovery_email": bool(user.recovery_email),
             "verified": user.recovery_email_verified,
             "masked_email": _masked_email(user.recovery_email),
+            "registration_email": user.email or "",
             "verified_at": user.recovery_email_verified_at,
             "bharath_id": user.bharath_id,
             "masked_mobile": _masked_mobile(user.mobile),
@@ -612,6 +684,8 @@ class RecoveryEmailRequestView(APIView):
             return Response({"recovery_email": "Enter a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
         if BharathUser.objects.exclude(id=user.id).filter(recovery_email__iexact=email).exists():
             return Response({"recovery_email": "This recovery email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
+        if user.role == BharathUser.Roles.CUSTOMER and BharathUser.objects.exclude(id=user.id).filter(email__iexact=email).exists():
+            return Response({"recovery_email": "This email is already registered to another account."}, status=status.HTTP_400_BAD_REQUEST)
         result, error = _issue_email_otp(user, PasswordResetOTP.Purpose.RECOVERY_EMAIL, email)
         if error:
             response_status = status.HTTP_429_TOO_MANY_REQUESTS if error.startswith(("Please wait", "Too many")) else status.HTTP_503_SERVICE_UNAVAILABLE
@@ -660,7 +734,70 @@ class RecoveryEmailVerifyView(APIView):
         ))
         challenge.is_used = True
         challenge.save(update_fields=("is_used",))
-        return Response({"message": "Recovery Email Verified Successfully", "masked_email": _masked_email(user.recovery_email)})
+        if user.role == BharathUser.Roles.CUSTOMER:
+            from quotations.models import Customer
+            user.email = user.recovery_email
+            user.save(update_fields=("email",))
+            Customer.objects.filter(portal_user=user).update(email=user.email)
+        return Response({"message": "Email verified successfully.", "masked_email": _masked_email(user.recovery_email)})
+
+
+class CustomerProfileUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150, trim_whitespace=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    pincode = serializers.RegexField(r"^$|^[0-9]{6}$", required=False, allow_blank=True)
+    profile_photo = serializers.ImageField(required=False)
+
+
+class CustomerProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_customer(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return None
+        from quotations.models import Customer
+        return Customer.objects.filter(portal_user=request.user).first()
+
+    def representation(self, request, customer):
+        return {
+            "name": customer.name, "customer_id": customer.bharath_id,
+            "mobile": request.user.mobile, "email": request.user.email,
+            "address": customer.address, "city": customer.city, "pincode": customer.pincode,
+            "profile_photo": request.build_absolute_uri(request.user.profile_photo.url) if request.user.profile_photo else None,
+            "email_verified": request.user.recovery_email_verified and (request.user.recovery_email or "").lower() == (request.user.email or "").lower(),
+        }
+
+    def get(self, request):
+        customer = self.get_customer(request)
+        if not customer:
+            return Response({"detail": "Customer profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(self.representation(request, customer))
+
+    def patch(self, request):
+        customer = self.get_customer(request)
+        if not customer:
+            return Response({"detail": "Customer profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CustomerProfileUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        for field in ("name", "address", "city", "pincode"):
+            if field in values:
+                setattr(customer, field, values[field])
+        with transaction.atomic():
+            customer.save(update_fields=[field for field in ("name", "address", "city", "pincode") if field in values] + ["updated_at"])
+            user_fields = []
+            if "name" in values:
+                parts = values["name"].split(maxsplit=1)
+                request.user.first_name = parts[0]
+                request.user.last_name = parts[1] if len(parts) > 1 else ""
+                user_fields.extend(("first_name", "last_name"))
+            if "profile_photo" in values:
+                request.user.profile_photo = values["profile_photo"]
+                user_fields.append("profile_photo")
+            if user_fields:
+                request.user.save(update_fields=user_fields)
+        return Response(self.representation(request, customer))
 
 
 class CurrentUserView(APIView):
@@ -888,6 +1025,33 @@ class ProfileCardView(APIView):
             "pdf_url": request.build_absolute_uri(f"/api/accounts/profile-card/{user.bharath_id}/pdf/") if user.role == BharathUser.Roles.CONTRACTOR else None,
             "share_text": share_text,
         })
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_confirm"
+
+    @transaction.atomic
+    def post(self, request):
+        user = request.user
+        current_password = str(request.data.get("current_password") or "")
+        new_password = str(request.data.get("new_password") or "")
+        confirm_password = str(request.data.get("confirm_password") or "")
+        if not user.check_password(current_password):
+            return Response({"current_password": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        if new_password != confirm_password:
+            return Response({"confirm_password": "New passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+        if user.check_password(new_password):
+            return Response({"new_password": "Choose a password different from your current one."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as error:
+            return Response({"new_password": list(error.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save(update_fields=("password",))
+        PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+        return Response({"message": "Password changed. Sign in with your new password."})
 
 
 class ContractorCompletedProjectsView(APIView):

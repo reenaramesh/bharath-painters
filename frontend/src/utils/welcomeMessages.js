@@ -15,10 +15,8 @@ function contractorLines(contractor) {
 
 export function buildCustomerWelcomeMessage(customer, contractor, origin = window.location.origin) {
   const customerName = clean(customer?.name, "Customer");
-  const contractorName = clean(contractor?.display_name, "Your Contractor");
-  const invitationUrl = customer?.temporary_password
-    ? `${origin}/login`
-    : `${origin}/customer-register`;
+  const contractorName = clean(customer?.contractor_name || contractor?.display_name || contractor?.company_name || contractor?.name, "Your Contractor");
+  const invitationUrl = customer?.share_link ? `${origin}${customer.share_link}` : `${origin}/customer-register`;
   const services = Array.isArray(contractor?.services)
     ? contractor.services.map((item) => clean(item?.name || item)).filter(Boolean)
     : [];
@@ -29,12 +27,13 @@ export function buildCustomerWelcomeMessage(customer, contractor, origin = windo
   return [
     `Hello ${customerName},`,
     "",
-    `Thank you for connecting with *${contractorName}*.`,
+    customer?.link_purpose === "CONNECTION" ? `*${contractorName}* has sent you a connection request on Bharath Painters.` : `Thank you for connecting with *${contractorName}*.`,
+    customer?.link_purpose === "ACTIVATION" && (customer?.bharath_id || customer?.customer_id) ? `Customer ID: ${customer.bharath_id || customer.customer_id}` : "",
     "",
     "We offer:",
     serviceText,
     "",
-    "Use the secure link below to log in or create your customer account:",
+    customer?.link_purpose === "CONNECTION" ? "Open this secure link to review the request:" : "Open this secure link to activate your customer account:",
     invitationUrl,
     "",
     "Through your account, you can:",

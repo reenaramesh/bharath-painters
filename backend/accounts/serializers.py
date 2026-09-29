@@ -17,6 +17,13 @@ def validate_account_mobile(value, exclude_pk=None):
     return normalized
 
 
+def validate_registration_email(value):
+    email = value.strip().lower()
+    if BharathUser.objects.filter(recovery_email__iexact=email).exists():
+        raise serializers.ValidationError("This email is already linked to another account.")
+    return email
+
+
 class PainterRegistrationSerializer(serializers.ModelSerializer):
 
     mobile = serializers.CharField(max_length=32)
@@ -69,6 +76,9 @@ class PainterRegistrationSerializer(serializers.ModelSerializer):
     def validate_mobile(self, value):
         return validate_account_mobile(value)
 
+    def validate_email(self, value):
+        return validate_registration_email(value)
+
     def create(self, validated_data):
 
         name = validated_data.pop("name", "").strip()
@@ -110,6 +120,7 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
     mobile = serializers.CharField(max_length=32)
 
     password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(required=True)
 
     name = serializers.CharField(write_only=True, required=False)
     company_name = serializers.CharField(required=False, allow_blank=True)
@@ -143,6 +154,9 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_mobile(self, value):
         return validate_account_mobile(value)
+
+    def validate_email(self, value):
+        return validate_registration_email(value)
 
     def create(self, validated_data):
 

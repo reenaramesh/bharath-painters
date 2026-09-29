@@ -345,6 +345,7 @@ class ContractorCustomerConnection(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="contractor_connections")
     contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="customer_connections")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status_before_block = models.CharField(max_length=20, choices=Status.choices, blank=True)
     requested_at = models.DateTimeField(default=timezone.now)
     accepted_at = models.DateTimeField(null=True, blank=True)
     last_request_at = models.DateTimeField(null=True, blank=True)
@@ -393,6 +394,7 @@ class CustomerConnectionAudit(models.Model):
         REJECTED = "CONNECTION_REJECTED", "Connection rejected"
         DISCONNECTED = "CONNECTION_DISCONNECTED", "Connection disconnected"
         BLOCKED = "CONTRACTOR_BLOCKED", "Contractor blocked"
+        UNBLOCKED = "CONTRACTOR_UNBLOCKED", "Contractor unblocked"
         RESENT = "CONNECTION_REQUEST_RESENT", "Connection request resent"
 
     connection = models.ForeignKey(ContractorCustomerConnection, on_delete=models.CASCADE, related_name="audit_entries")
@@ -435,6 +437,12 @@ class ChatConversation(models.Model):
         return f"Chat - {self.customer.name if self.customer else self.painter}"
 
 
+class ColourComparisonDraft(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="colour_comparison_draft")
+    shade_ids = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class ChatMessage(models.Model):
     conversation = models.ForeignKey(
         ChatConversation,
@@ -455,6 +463,7 @@ class ChatMessage(models.Model):
     colour_name = models.CharField(max_length=120, blank=True)
     colour_code = models.CharField(max_length=32, blank=True)
     colour_hex = models.CharField(max_length=7, blank=True)
+    colour_comparison = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

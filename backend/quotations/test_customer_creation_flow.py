@@ -21,7 +21,7 @@ class CustomerCreationFlowTests(APITestCase):
         self.assertTrue(customer.bharath_id.startswith("BP-C-"))
         self.assertFalse(customer.portal_user.has_usable_password())
         self.assertNotIn("temporary_password", response.data)
-        self.assertEqual(response.data["activation_link"], "/customer-register")
+        self.assertTrue(response.data["share_link"].startswith("/customer-link/"))
         self.assertTrue(SavedCustomerContact.objects.filter(customer=customer, contractor=self.contractor).exists())
         self.assertEqual(ContractorCustomerConnection.objects.get(customer=customer).status, "CONNECTED")
         again = self.client.post(reverse("customer-list-create"), {"name": "New customer", "mobile": "+919000010099"}, format="json")

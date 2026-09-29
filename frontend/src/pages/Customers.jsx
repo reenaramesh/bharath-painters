@@ -98,7 +98,7 @@ export default function Customers() {
     try {
       const { data } = await api.post(`/quotations/customers/${customer.id}/activate-account/`);
       setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, ...data } : item));
-      if (data.temporary_password) setOnboarding(data);
+      if (data.share_link) setOnboarding(data);
     } catch (requestError) {
       setError(formatError(requestError.response?.data) || "Customer ID and login could not be created.");
     } finally {
@@ -215,6 +215,8 @@ export default function Customers() {
     if (data.is_saved_contact || data.already_saved) {
       await loadCustomers();
       setConnectionView(data.connection_status || "PENDING");
+      if (data.share_link) setOnboarding(data);
+      else navigate(`/customers/${data.id}`);
     } else {
       setCustomers((current) => [data, ...current.filter(item => item.id !== data.id)]);
       setOnboarding(data);
@@ -222,14 +224,34 @@ export default function Customers() {
     return data;
   }
 
+  async function regenerateCustomerLink() {
+    if (!onboarding?.id) return;
+    try {
+      const { data } = await api.post(`/quotations/customers/${onboarding.id}/share-link/`);
+      setOnboarding((current) => ({ ...current, ...data }));
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "A new link could not be created.");
+    }
+  }
+
   async function resendConnection(item) {
     setError("");
     try {
       await api.post("/quotations/contractor/customer-connections/request/", { mobile: item.customer?.mobile });
+      await shareConnection(item);
       await loadCustomers();
       setConnectionView("RECONNECT_PENDING");
     } catch (requestError) {
       setError(requestError.response?.data?.message || requestError.response?.data?.detail || "Request could not be resent.");
+    }
+  }
+
+  async function shareConnection(item) {
+    try {
+      const { data } = await api.post(`/quotations/customers/${item.customer.id}/share-link/`);
+      setOnboarding({ ...data, id: item.customer.id, name: data.customer_name, mobile: data.customer_mobile });
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "The connection link could not be created.");
     }
   }
 
@@ -369,7 +391,7 @@ export default function Customers() {
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
-        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{item.status === "REJECTED" && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
+        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{["PENDING", "RECONNECT_PENDING"].includes(item.status) && item.customer?.id && <button type="button" onClick={() => shareConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold">Share Link</button>}{item.status === "REJECTED" && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
         {!connections.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
@@ -500,7 +522,7 @@ export default function Customers() {
                         <FilePlus2 className="h-4 w-4" />
                         New quotation
                       </Link>
-                      {!customer.bharath_id && (
+                      {(!customer.bharath_id || customer.activation_pending) && (
                         <button
                           type="button"
                           disabled={activatingCustomerId === customer.id}
@@ -508,7 +530,7 @@ export default function Customers() {
                           className="col-span-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-800 disabled:opacity-50"
                         >
                           <KeyRound className="h-4 w-4" />
-                          {activatingCustomerId === customer.id ? "Creating login..." : "Create Customer ID & Login"}
+                          {activatingCustomerId === customer.id ? "Preparing link..." : "Share activation link"}
                         </button>
                       )}
                     </div>
@@ -654,7 +676,7 @@ export default function Customers() {
                           className={`${cellPadding} border-b border-slate-200/80 text-center`}
                         >
                           <div className="flex flex-col items-center gap-1.5">
-                            {!customer.bharath_id && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Creating..." : "Create ID"}</button>}
+                            {(!customer.bharath_id || customer.activation_pending) && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Preparing..." : "Share activation link"}</button>}
                             <Link
                               to={`/quotations/new?customer=${customer.id}`}
                               onClick={(event) => event.stopPropagation()}
@@ -802,14 +824,14 @@ export default function Customers() {
       />}
       {onboarding && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
         <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-          <h2 className="text-xl font-extrabold">Customer created</h2>
-          <p className="mt-2 text-sm text-slate-500">Send the welcome message so the customer can register free and continue securely.</p>
+          <h2 className="text-xl font-extrabold">{onboarding.link_purpose === "CONNECTION" ? "Connection request ready" : "Customer activation ready"}</h2>
+          <p className="mt-2 text-sm text-slate-500">Share this secure link with the customer. You will press Send in WhatsApp or SMS.</p>
           <div className="mt-5 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">{buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices })}</div>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => navigator.clipboard.writeText(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))} className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Copy className="h-4 w-4" />Copy</button>
-            <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />WhatsApp</a>
-            <a href={`sms:${onboarding.mobile}?body=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} className="col-span-2 flex items-center justify-center rounded-xl border px-4 py-3 font-bold">Send SMS</a>
-          </div>
+          {onboarding.share_link && <><p className="mt-3 text-xs text-slate-500">Expires {new Date(onboarding.link_expires_at).toLocaleString("en-IN")}</p><div className="mt-5 grid grid-cols-2 gap-3">
+            <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile || onboarding.customer_mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />Share on WhatsApp</a>
+            <button type="button" onClick={() => navigator.clipboard.writeText(`${window.location.origin}${onboarding.share_link}`)} className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Copy className="h-4 w-4" />Copy Link</button>
+            <a href={`sms:${onboarding.mobile || onboarding.customer_mobile}?body=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} className="flex items-center justify-center rounded-xl border px-4 py-3 font-bold">Share by SMS</a>
+          </div><button type="button" onClick={regenerateCustomerLink} className="mt-3 text-sm font-semibold text-[#176b9b]">Generate a new link</button></>}
           <button onClick={() => setOnboarding(null)} className="mt-3 w-full rounded-xl border px-4 py-3 font-bold">Done</button>
         </section>
       </div>}
@@ -909,7 +931,7 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
               <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
               <p className="hidden text-sm font-semibold text-slate-700 md:block">{customer.mobile || "—"}</p>
               <div className="flex items-center justify-end gap-2">
-                {!customer.bharath_id && !customer.is_pending_connection && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title={activatingCustomerId === customer.id ? "Creating Customer ID & Login..." : "Create Customer ID & Login"} aria-label={`Create ID for ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
+                {(!customer.bharath_id || customer.activation_pending) && !customer.is_pending_connection && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title="Share activation link" aria-label={`Share activation link with ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
                 <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
                 <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`}><MessageCircle className="h-4 w-4" /></a>
               </div>

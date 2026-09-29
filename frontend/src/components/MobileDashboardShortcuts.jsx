@@ -12,6 +12,7 @@ import {
   ListTodo,
   MessageCircle,
   Paintbrush,
+  Palette,
   QrCode,
   Ruler,
   Share2,
@@ -31,6 +32,7 @@ const shortcutsByRole = {
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
     { label: "Tasks", icon: ListTodo, to: "/tasks" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
+    { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
     { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
   ],
   PAINTER: [
@@ -40,6 +42,7 @@ const shortcutsByRole = {
     { label: "Availability", icon: UserRoundCheck, to: "/applicator-availability" },
     { label: "Earnings", icon: IndianRupee, to: "/in-house-earnings" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
+    { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
     { label: "Profile", icon: Paintbrush, to: "/applicator-profile" },
   ],
   CUSTOMER: [
@@ -48,6 +51,7 @@ const shortcutsByRole = {
     { label: "Payments", icon: Banknote, to: "/customer-invoices" },
     { label: "Schedule", icon: CalendarClock, to: "/work-schedules" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
+    { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
     { label: "Requests", icon: ClipboardList, to: "/service-requests" },
     { label: "My Contractors", icon: Users, to: "/customer/connections" },
   ],

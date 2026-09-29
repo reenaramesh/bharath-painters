@@ -227,6 +227,7 @@ class ConnectionScopedCustomerMixin:
             return representation
         representation["connection_status"] = connection.status
         representation["is_saved_contact"] = False
+        representation["activation_pending"] = not instance.portal_user_id or not instance.portal_user.has_usable_password()
         for public_name, connection_name in self.scoped_customer_fields.items():
             if public_name in representation:
                 representation[public_name] = getattr(connection, connection_name)

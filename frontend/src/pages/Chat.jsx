@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, MessageCircle, Palette, Paperclip, Pencil, Plus, Reply, Search, Send, ShieldBan, Trash2, X } from "lucide-react";
+import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Palette, Paperclip, Pencil, Plus, Reply, Search, Send, ShieldBan, ShieldCheck, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
@@ -19,6 +19,10 @@ export default function Chat() {
   const [reportReason, setReportReason] = useState("");
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [safetyNotice, setSafetyNotice] = useState("");
+  const [safetyDialogOpen, setSafetyDialogOpen] = useState(false);
+  const [safetyDialogFirstSend, setSafetyDialogFirstSend] = useState(false);
+  const [inactivityReminderDue, setInactivityReminderDue] = useState(false);
+  const pendingSafetyAction = useRef(null);
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [loadingContacts, setLoadingContacts] = useState(false);
@@ -34,6 +38,18 @@ export default function Chat() {
   const fileInputRef = useRef(null);
   const endRef = useRef(null);
   const messagesRef = useRef(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const visitKey = `bp-chat-last-visit-${user.id}`;
+    const dueKey = `bp-chat-safety-due-${user.id}`;
+    const now = Date.now();
+    const lastVisit = Number(localStorage.getItem(visitKey) || 0);
+    const hasBeenAwaySevenDays = lastVisit > 0 && now - lastVisit >= 7 * 24 * 60 * 60 * 1000;
+    if (hasBeenAwaySevenDays) localStorage.setItem(dueKey, "1");
+    setInactivityReminderDue(localStorage.getItem(dueKey) === "1");
+    localStorage.setItem(visitKey, String(now));
+  }, [user?.id]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -96,10 +112,42 @@ export default function Chat() {
     }
   }, [messages]);
   useEffect(() => {
+    setMessages([]);
     setReplyTo(null);
     setFiles([]);
     setColourPickerOpen(false);
+    setSafetyDialogOpen(false);
+    pendingSafetyAction.current = null;
   }, [selected?.id]);
+
+  function safetyKey(conversationId) {
+    return `bp-chat-safety-v1-${user?.id}-${conversationId}`;
+  }
+
+  function needsFirstSendNotice(conversationId) {
+    return inactivityReminderDue || (!localStorage.getItem(safetyKey(conversationId))
+      && (selected?.id !== conversationId || !messages.some((message) => message.is_mine)));
+  }
+
+  function requireSafetyNotice(conversationId, action) {
+    if (!needsFirstSendNotice(conversationId)) return false;
+    pendingSafetyAction.current = { conversationId, action };
+    setSafetyDialogFirstSend(true);
+    setSafetyDialogOpen(true);
+    return true;
+  }
+
+  function confirmSafetyNotice() {
+    const pending = pendingSafetyAction.current;
+    if (pending) localStorage.setItem(safetyKey(pending.conversationId), "1");
+    if (pending && user?.id) {
+      localStorage.removeItem(`bp-chat-safety-due-${user.id}`);
+      setInactivityReminderDue(false);
+    }
+    pendingSafetyAction.current = null;
+    setSafetyDialogOpen(false);
+    pending?.action();
+  }
 
   function chooseFiles(event) {
     const selectedFiles = Array.from(event.target.files || []);
@@ -113,8 +161,15 @@ export default function Chat() {
     event.target.value = "";
   }
 
-  async function send(event) {
+  function send(event) {
     event.preventDefault();
+    const message = text.trim();
+    if ((!message && !files.length) || !selected || sending) return;
+    if (requireSafetyNotice(selected.id, () => sendMessage())) return;
+    sendMessage();
+  }
+
+  async function sendMessage() {
     const message = text.trim();
     if ((!message && !files.length) || !selected || sending) return;
     setSending(true);
@@ -137,6 +192,7 @@ export default function Chat() {
 
   async function sendColour(colour) {
     if (!selected || sending) return;
+    if (requireSafetyNotice(selected.id, () => sendColour(colour))) return;
     setSending(true);
     setError("");
     try {
@@ -157,7 +213,7 @@ export default function Chat() {
   async function saveEdit(messageId) {
     const message = editingText.trim();
     const original = messages.find((item) => item.id === messageId);
-    if (!message && !original?.attachments?.length && !original?.contact && !original?.colour) return;
+    if (!message && !original?.attachments?.length && !original?.contact && !original?.colour && !original?.colour_comparison?.length) return;
     try {
       await api.patch(`/quotations/chat/messages/${messageId}/`, { text: message });
       setEditingId(null);
@@ -204,9 +260,17 @@ export default function Chat() {
     if (customers.length) return;
     setLoadingContacts(true);
     try {
-      if (user?.role === "PAINTER") {
-        const { data } = await api.get("/quotations/chat/contacts/");
-        setChatTargets(data);
+      if (user?.role === "PAINTER" || user?.role === "CUSTOMER") {
+        if (user?.role === "CUSTOMER") {
+          const { data } = await api.get("/quotations/customer/connection-requests/");
+          setChatTargets((data.results || []).filter((item) => item.status === "CONNECTED").map((item) => ({
+            type: "CONTRACTOR", id: item.contractor.id, connection: item.id,
+            name: item.contractor.business_name, subtitle: item.contractor.contractor_id || "Contractor",
+          })));
+        } else {
+          const { data } = await api.get("/quotations/chat/contacts/");
+          setChatTargets(data);
+        }
         return;
       }
       const { data } = await api.get("/quotations/customers/");
@@ -238,7 +302,20 @@ export default function Chat() {
         : user?.role === "CUSTOMER" ? { connection: target.connection }
           : target.type === "PAINTER" ? { painter: target.id } : { customer: target.id };
       const { data: conversation } = await api.post("/quotations/chat/conversations/", payload);
-      await api.post(`/quotations/chat/messages/${forwardingMessage.id}/forward/`, { conversation: conversation.id });
+      const messageId = forwardingMessage.id;
+      if (requireSafetyNotice(conversation.id, () => finishForward(target, conversation.id, messageId))) return;
+      await finishForward(target, conversation.id, messageId);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Message could not be forwarded.");
+    } finally {
+      setForwardBusy(false);
+    }
+  }
+
+  async function finishForward(target, conversationId, messageId) {
+    setForwardBusy(true);
+    try {
+      await api.post(`/quotations/chat/messages/${messageId}/forward/`, { conversation: conversationId });
       setForwardingMessage(null);
       setSafetyNotice(`Message forwarded to ${target.name}.`);
       setError("");
@@ -265,14 +342,15 @@ export default function Chat() {
 
   async function choosePainterContact(contractor) {
     try {
-      const { data } = await api.post("/quotations/chat/conversations/", { contractor: contractor.id });
+      const recipient = user?.role === "CUSTOMER" ? { connection: contractor.connection } : { contractor: contractor.id };
+      const { data } = await api.post("/quotations/chat/conversations/", recipient);
       setConversations((current) => [data, ...current.filter((item) => item.id !== data.id)]);
       setSelected(data);
       setPickerOpen(false);
       setCustomerSearch("");
       setError("");
     } catch (requestError) {
-      setError(requestError.response?.data?.contractor || "Contractor conversation could not be opened.");
+      setError(requestError.response?.data?.connection || requestError.response?.data?.contractor || "Contractor conversation could not be opened.");
     }
   }
 
@@ -329,9 +407,9 @@ export default function Chat() {
 
   return (
     <>
-    <div className="flex min-h-[calc(100vh-9rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <aside
-        className={`${selected ? "hidden md:block" : "block"} w-full border-r md:w-80`}
+        className={`${selected ? "hidden md:flex" : "flex"} min-h-0 w-full flex-col border-r md:w-80`}
       >
         <div className="border-b p-5">
           <div>
@@ -342,6 +420,7 @@ export default function Chat() {
           </div>
         </div>
         <p className="border-b bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500">Recent conversations</p>
+        <div className="min-h-0 flex-1 overflow-y-auto">
         {conversations.length ? (
           <div className="divide-y">
             {conversations.map((item) => {
@@ -393,9 +472,10 @@ export default function Chat() {
             No recent conversations.
           </div>
         )}
+        </div>
       </aside>
       <section
-        className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}
+        className={`${selected ? "flex" : "hidden md:flex"} min-h-0 min-w-0 flex-1 flex-col`}
       >
         {selected ? (
           <>
@@ -421,6 +501,7 @@ export default function Chat() {
                     : "Offline · messages will be delivered"}
                 </p>
               </div>
+              <button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogFirstSend(false); setSafetyDialogOpen(true); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-sky-200 text-[#176b9b] hover:bg-sky-50" aria-label="Message safety information" title="Message safety information"><Info className="h-4 w-4" /></button>
               <button type="button" onClick={() => { setReportOpen(true); setSafetyNotice(""); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-slate-600 hover:bg-slate-50" aria-label="Report conversation" title="Report conversation"><Flag className="h-4 w-4" /></button>
               <button type="button" onClick={() => changeConversationSafety(selected.blocked_by_me ? "unblock" : "block")} disabled={safetyBusy || (selected.is_blocked && !selected.blocked_by_me)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-red-700 hover:bg-red-50 disabled:opacity-40" aria-label={selected.blocked_by_me ? "Unblock conversation" : "Block conversation"} title={selected.blocked_by_me ? "Unblock conversation" : "Block conversation"}><ShieldBan className="h-4 w-4" /></button>
             </header>
@@ -433,7 +514,7 @@ export default function Chat() {
             )}
             <div
               ref={messagesRef}
-              className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-5"
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-5"
             >
               {messages.map((message) => (
                 <div
@@ -442,7 +523,7 @@ export default function Chat() {
                   className={`flex ${message.is_mine ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[90%] rounded-2xl px-4 py-3 sm:max-w-[78%] ${message.is_mine ? "bg-slate-950 text-white" : "border bg-white text-slate-800"}`}
+                    className={`${message.colour_comparison?.length ? "w-full max-w-[min(90%,520px)]" : "max-w-[90%] sm:max-w-[78%]"} rounded-2xl px-4 py-3 ${message.is_mine ? "bg-slate-950 text-white" : "border bg-white text-slate-800"}`}
                   >
                     {message.is_forwarded && !message.deleted_at && <span className="mb-2 flex items-center gap-1 text-[11px] opacity-70"><Forward className="h-3 w-3" /> Forwarded</span>}
                     {message.reply_to && <button type="button" onClick={() => document.getElementById(`chat-message-${message.reply_to.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} className={`mb-2 block w-full truncate rounded-lg border-l-2 px-2 py-1 text-left text-xs ${message.is_mine ? "border-white/60 bg-white/10" : "border-slate-400 bg-slate-100"}`}>Reply to: {message.reply_to.text}</button>}
@@ -451,12 +532,13 @@ export default function Chat() {
                         <textarea autoFocus value={editingText} onChange={(event) => setEditingText(event.target.value)} rows={3} maxLength={4000} className="w-full min-w-52 rounded-xl border border-white/20 bg-white px-3 py-2 text-sm text-slate-950 outline-none" />
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => { setEditingId(null); setEditingText(""); }} className="grid h-8 w-8 place-items-center rounded-lg border border-white/30" aria-label="Cancel editing"><X className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => saveEdit(message.id)} disabled={!editingText.trim() && !message.attachments?.length && !message.contact && !message.colour} className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 disabled:opacity-40" aria-label="Save message"><Check className="h-4 w-4" /></button>
+                          <button type="button" onClick={() => saveEdit(message.id)} disabled={!editingText.trim() && !message.attachments?.length && !message.contact && !message.colour && !message.colour_comparison?.length} className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 disabled:opacity-40" aria-label="Save message"><Check className="h-4 w-4" /></button>
                         </div>
                       </div>
                     ) : (
                       <>{message.text && <p className="whitespace-pre-wrap text-sm">{message.text}</p>}{message.contact && <div className={`mt-2 rounded-xl p-3 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><p className="flex items-center gap-2 text-sm font-semibold"><ContactRound className="h-4 w-4" />{message.contact.name}</p><a href={`tel:${message.contact.mobile}`} className="mt-1 block text-xs underline">{message.contact.mobile}</a></div>}{message.colour && <div className={`mt-2 flex min-w-0 items-center gap-3 rounded-xl p-2 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><span className="h-14 w-14 shrink-0 rounded-lg border border-black/10" style={{ backgroundColor: message.colour.hex }} /><span className="min-w-0"><b className="block break-words text-sm">{message.colour.name}</b><small className="block text-xs opacity-75">{message.colour.brand} · shade {message.colour.code}</small></span></div>}{message.attachments?.map((attachment) => <button key={attachment.id} type="button" onClick={() => downloadAttachment(attachment)} className={`mt-2 flex w-full items-center gap-2 rounded-xl p-2 text-left text-xs ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}>{attachment.content_type.startsWith("image/") ? <ChatImage attachment={attachment} /> : <FileText className="h-8 w-8 shrink-0" />}<span className="min-w-0 truncate">{attachment.name}</span></button>)}</>
                     )}
+                    {!message.deleted_at && message.colour_comparison?.length > 0 && <ChatColourComparison slots={message.colour_comparison} />}
                     <div className="mt-1 flex items-center justify-end gap-2">
                       <span className="text-[10px] text-slate-400">{new Date(message.created_at).toLocaleString()}</span>
                       {message.edited_at && !message.deleted_at && <span className="text-[10px] text-slate-400">Edited</span>}
@@ -470,6 +552,10 @@ export default function Chat() {
                   </div>
                 </div>
               ))}
+              {needsFirstSendNotice(selected.id) && <div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-slate-700 sm:text-sm" role="note">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#176b9b]" />
+                <p><strong className="text-slate-900">Keep your information safe.</strong> This messenger is not a private channel. Do not share OTPs, passwords, bank or payment details, identity documents, or other sensitive personal information. <button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogFirstSend(false); setSafetyDialogOpen(true); }} className="font-bold text-[#176b9b] underline">More info</button></p>
+              </div>}
               <div ref={endRef} />
             </div>
             {!selected.is_blocked && <form onSubmit={send} className="space-y-2 border-t p-3 sm:p-4">
@@ -494,7 +580,14 @@ export default function Chat() {
       </section>
     </div>
     {colourPickerOpen && selected && <ChatColourPicker onClose={() => setColourPickerOpen(false)} onSend={sendColour} sending={sending} />}
-    {(user?.role === "CONTRACTOR" || user?.role === "PAINTER") && !pickerOpen && <button type="button" onClick={openContacts} className={`${selected ? "hidden md:grid" : "grid"} fixed bottom-24 right-5 z-40 h-11 w-11 place-items-center rounded-full bg-slate-950 text-white shadow-xl hover:bg-slate-800 md:bottom-6 md:right-6`} aria-label={user?.role === "PAINTER" ? "Contractor contacts" : "Customer contacts"} title={user?.role === "PAINTER" ? "Contractor contacts" : "Customer contacts"}><Plus className="h-5 w-5" /></button>}
+    {safetyDialogOpen && <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-safety-title">
+      <section className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-slate-200 bg-sky-50 p-5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#176b9b]"><ShieldCheck className="h-5 w-5" /></span><div className="min-w-0 flex-1"><p className="text-[11px] font-bold uppercase tracking-widest text-[#176b9b]">Bharath Painters · Messages</p><h2 id="chat-safety-title" className="mt-1 text-lg font-bold text-slate-950">Keep your information safe</h2></div><button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogOpen(false); }} className="rounded-lg p-1 text-slate-500" aria-label="Close safety information"><X className="h-5 w-5" /></button></div>
+        <div className="space-y-3 p-5 text-sm leading-relaxed text-slate-700"><p>This messenger is not a private channel. Bharath Painters may review reported conversations for safety and support.</p><p>Do not share OTPs, passwords, bank or payment details, identity documents, or other sensitive personal information.</p><p>If someone asks for these details, use the <strong>Report conversation</strong> button at the top of the chat.</p></div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 p-4"><button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogOpen(false); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">{safetyDialogFirstSend ? "Cancel" : "Close"}</button>{safetyDialogFirstSend && <button type="button" onClick={confirmSafetyNotice} className="rounded-lg bg-[#176b9b] px-4 py-2 text-sm font-bold text-white">I understand · Send</button>}</div>
+      </section>
+    </div>}
+    {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && !pickerOpen && <button type="button" onClick={openContacts} className={`${selected ? "hidden md:grid" : "grid"} fixed bottom-24 right-5 z-40 h-11 w-11 place-items-center rounded-full bg-slate-950 text-white shadow-xl hover:bg-slate-800 md:bottom-6 md:right-6`} aria-label={user?.role === "CONTRACTOR" ? "Customer contacts" : "Contractor contacts"} title={user?.role === "CONTRACTOR" ? "Customer contacts" : "Contractor contacts"}><Plus className="h-5 w-5" /></button>}
     {reportOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-report-title">
       <form onSubmit={(event) => { event.preventDefault(); changeConversationSafety("report"); }} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
         <div className="flex items-center justify-between gap-3"><h2 id="chat-report-title" className="text-lg font-bold">Report conversation</h2><button type="button" onClick={() => setReportOpen(false)} aria-label="Close report"><X className="h-5 w-5" /></button></div>
@@ -506,17 +599,17 @@ export default function Chat() {
     </div>}
     {pickerOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-labelledby="customer-contact-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setPickerOpen(false); }}>
       <section className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b p-4 sm:p-5"><h2 id="customer-contact-title" className="text-xl font-bold">{user?.role === "PAINTER" ? "Contractor contacts" : "Customer contacts"}</h2><button type="button" onClick={() => setPickerOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border" aria-label="Close contacts"><X className="h-5 w-5" /></button></header>
-        <div className="border-b p-4"><label className="flex items-center gap-2 rounded-xl border bg-slate-50 px-3 py-3"><Search className="h-4 w-4 text-slate-400" /><input autoFocus value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder={user?.role === "PAINTER" ? "Search contractors" : "Search customer name or mobile"} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label></div>
+        <header className="flex items-center justify-between border-b p-4 sm:p-5"><h2 id="customer-contact-title" className="text-xl font-bold">{user?.role === "CONTRACTOR" ? "Customer contacts" : "Contractor contacts"}</h2><button type="button" onClick={() => setPickerOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border" aria-label="Close contacts"><X className="h-5 w-5" /></button></header>
+        <div className="border-b p-4"><label className="flex items-center gap-2 rounded-xl border bg-slate-50 px-3 py-3"><Search className="h-4 w-4 text-slate-400" /><input autoFocus value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder={user?.role === "CONTRACTOR" ? "Search customer name or mobile" : "Search contractors"} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label></div>
         <div className="flex-1 overflow-y-auto p-2">
-          {loadingContacts ? <p className="p-8 text-center text-sm text-slate-400">Loading...</p> : user?.role === "PAINTER" ? painterMatches.length ? painterMatches.map((contractor) => <button type="button" key={contractor.id} onClick={() => choosePainterContact(contractor)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{contractor.name?.charAt(0)?.toUpperCase() || "?"}</span><span className="min-w-0"><b className="block truncate text-sm text-slate-950">{contractor.name}</b><small className="block truncate text-slate-500">{contractor.subtitle}</small></span></button>) : <p className="p-8 text-center text-sm text-slate-400">No connected contractors found.</p> : customerMatches.length ? customerMatches.map((customer) => <button type="button" key={customer.id} onClick={() => chooseCustomer(customer)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{customer.name?.charAt(0)?.toUpperCase() || "?"}</span><span className="min-w-0"><b className="block truncate text-sm text-slate-950">{customer.name}</b><small className="block truncate text-slate-500">{[customer.mobile, customer.bharath_id].filter(Boolean).join(" - ")}</small></span></button>) : <p className="p-8 text-center text-sm text-slate-400">No matching customers.</p>}
+          {loadingContacts ? <p className="p-8 text-center text-sm text-slate-400">Loading...</p> : user?.role !== "CONTRACTOR" ? painterMatches.length ? painterMatches.map((contractor) => <button type="button" key={contractor.id} onClick={() => choosePainterContact(contractor)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{contractor.name?.charAt(0)?.toUpperCase() || "?"}</span><span className="min-w-0"><b className="block truncate text-sm text-slate-950">{contractor.name}</b><small className="block truncate text-slate-500">{contractor.subtitle}</small></span></button>) : <p className="p-8 text-center text-sm text-slate-400">No connected contractors found.</p> : customerMatches.length ? customerMatches.map((customer) => <button type="button" key={customer.id} onClick={() => chooseCustomer(customer)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{customer.name?.charAt(0)?.toUpperCase() || "?"}</span><span className="min-w-0"><b className="block truncate text-sm text-slate-950">{customer.name}</b><small className="block truncate text-slate-500">{[customer.mobile, customer.bharath_id].filter(Boolean).join(" - ")}</small></span></button>) : <p className="p-8 text-center text-sm text-slate-400">No matching customers.</p>}
         </div>
       </section>
     </div>}
     {forwardingMessage && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-labelledby="forward-message-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !forwardBusy) setForwardingMessage(null); }}>
       <section className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b p-4"><h2 id="forward-message-title" className="text-xl font-bold">Forward message</h2><button type="button" disabled={forwardBusy} onClick={() => setForwardingMessage(null)} className="grid h-10 w-10 place-items-center rounded-xl border" aria-label="Close forward"><X className="h-5 w-5" /></button></header>
-        <p className="truncate border-b px-4 py-3 text-sm text-slate-600">{forwardingMessage.text || forwardingMessage.colour?.name || forwardingMessage.contact?.name || forwardingMessage.attachments?.[0]?.name}</p>
+        <p className="truncate border-b px-4 py-3 text-sm text-slate-600">{forwardingMessage.text || (forwardingMessage.colour_comparison?.length ? "Colour comparison" : "") || forwardingMessage.colour?.name || forwardingMessage.contact?.name || forwardingMessage.attachments?.[0]?.name}</p>
         <div className="p-4"><label className="flex items-center gap-2 rounded-xl border bg-slate-50 px-3 py-3"><Search className="h-4 w-4 text-slate-400" /><input autoFocus value={forwardSearch} onChange={(event) => setForwardSearch(event.target.value)} placeholder="Search contacts" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label></div>
         {error && <p role="alert" className="mx-4 rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
         <div className="overflow-y-auto p-2">{forwardMatches.length ? forwardMatches.map((target) => <button type="button" key={`${target.type}-${target.id}`} disabled={forwardBusy} onClick={() => forwardTo(target)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-slate-50 disabled:opacity-50"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{target.name?.charAt(0)?.toUpperCase() || "?"}</span><span className="min-w-0"><b className="block truncate text-sm">{target.name}</b><small className="text-slate-500">{target.type === "PAINTER" ? "Painter" : target.type === "CUSTOMER" ? "Customer" : "Contractor"} · {target.subtitle}</small></span></button>) : <p className="p-8 text-center text-sm text-slate-500">No other connected contacts available.</p>}</div>
@@ -524,6 +617,17 @@ export default function Chat() {
     </div>}
     </>
   );
+}
+
+function ChatColourComparison({ slots }) {
+  const comparisons = slots[0]?.section
+    ? slots
+    : [0, 1, 2, 3].map((section) => ({ section: section + 1, colours: slots.slice(section * 2, section * 2 + 2).filter(Boolean) })).filter((section) => section.colours.length > 0);
+  return <div className="mt-2 space-y-2 rounded-xl bg-white p-2 text-slate-900">
+    <p className="px-1 text-xs font-bold">Colour comparison</p>
+    {comparisons.map((comparison) => <div key={comparison.section} className="rounded-lg border border-slate-200 p-2"><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Comparison {comparison.section}</p><div className={`grid gap-2 ${comparison.colours.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{comparison.colours.map((colour, index) => <div key={`${colour.code}-${index}`} className="min-w-0 overflow-hidden rounded-md border border-slate-200"><div className="h-12" style={{ backgroundColor: colour.hex }} /><div className="p-1.5"><b className="block truncate text-[11px]">{colour.name}</b><small className="block truncate text-[10px] text-slate-500">{colour.brand} · {colour.code}</small></div></div>)}</div></div>)}
+    <p className="px-1 text-[10px] text-slate-500">Confirm final shades with a physical fan deck.</p>
+  </div>;
 }
 
 function ChatImage({ attachment }) {

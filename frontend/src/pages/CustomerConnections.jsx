@@ -7,7 +7,7 @@ import ContractorConnectSearch from "../components/ContractorConnectSearch";
 const tabs = [
   ["PENDING", "Pending"],
   ["CONNECTED", "My contractors"],
-  ["HISTORY", "History"],
+  ["BLOCKED", "Blocked"],
 ];
 
 export default function CustomerConnections() {
@@ -30,19 +30,25 @@ export default function CustomerConnections() {
     } catch { setError("Connection requests could not be loaded."); }
   }, []);
   useEffect(() => { load(); }, [load]);
-  const visible = useMemo(() => items.filter((item) => tab === "HISTORY" ? ["REJECTED", "DISCONNECTED", "BLOCKED"].includes(item.status) : tab === "PENDING" ? ["PENDING", "RECONNECT_PENDING"].includes(item.status) : item.status === tab), [items, tab]);
+  const visible = useMemo(() => items.filter((item) => tab === "PENDING" ? ["PENDING", "RECONNECT_PENDING", "REJECTED"].includes(item.status) : item.status === tab), [items, tab]);
 
   async function act(item, action, payload = {}) {
     if (!window.confirm(confirmText(item, action))) return;
     setBusy(true);
     setError("");
     try {
-      await api.post(`/quotations/customer/connection-requests/${item.id}/${action}/`, payload);
+      const actionPath = ["block", "disconnect"].includes(action)
+        ? "contractors"
+        : "connection-requests";
+      await api.post(`/quotations/customer/${actionPath}/${item.id}/${action}/`, payload);
       setSelected(null);
       await load();
+      if (action === "block") setTab("BLOCKED");
+      if (action === "unblock") setTab(item.status_before_block === "CONNECTED" ? "CONNECTED" : "PENDING");
       window.dispatchEvent(new Event("portal-counts-changed"));
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "The connection could not be updated.");
+      const response = requestError.response?.data;
+      setError(response?.detail || response?.action || `The connection could not be updated${requestError.response?.status ? ` (HTTP ${requestError.response.status})` : ""}.`);
     } finally { setBusy(false); }
   }
 

@@ -1,7 +1,7 @@
 import useAuth from "../context/useAuth";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api/client";
 import GlobalTableSorting from "../components/GlobalTableSorting";
@@ -12,6 +12,7 @@ import "../pages/contractor-dashboard.css";
 
 export default function DashboardLayout() {
   const { user } = useAuth();
+  const messagesPage = useLocation().pathname === "/messages";
   const contractorWorkspace = user?.role === "CONTRACTOR";
   const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -30,7 +31,7 @@ export default function DashboardLayout() {
       });
     };
     if (contractorWorkspace) api.get("/accounts/contractor-profile/").then(({ data }) => updateColors(data)).catch(() => {});
-    else updateColors(user);
+    else api.get("/accounts/me/").then(({ data }) => updateColors(data)).catch(() => updateColors(user));
     const onThemeChange = (event) => updateColors(event.detail);
     window.addEventListener("bp-app-theme-changed", onThemeChange);
     return () => { active = false; window.removeEventListener("bp-app-theme-changed", onThemeChange); };
@@ -45,7 +46,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <GlobalTableSorting />
       <MobileTableDialogs />
       <CustomerConnectionPrompt />
@@ -56,13 +57,13 @@ export default function DashboardLayout() {
         closeMobile={() => setMobileNavOpen(false)}
       />
 
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${messagesPage ? "flex min-h-0 flex-col" : ""}`}>
         <Topbar
           openMenu={() => setMobileNavOpen(true)}
           toggleSidebar={toggleSidebar}
         />
 
-        <main className="mx-auto max-w-[1640px] px-3 pb-28 pt-4 sm:px-4 md:p-6 xl:p-8">
+        <main className={`mx-auto w-full max-w-[1640px] px-3 pb-28 pt-4 sm:px-4 md:p-6 xl:p-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
           <Outlet />
         </main>
       </div>

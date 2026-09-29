@@ -51,7 +51,7 @@ export default function CustomerDashboard() {
             one place.
           </p>
         </div>
-        <Link to="/appearance" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#176b9b] bg-white px-4 text-sm font-bold text-[#176b9b]"><Settings className="h-4 w-4" />Profile settings</Link>
+        <Link to="/customer/profile" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#176b9b] bg-white px-4 text-sm font-bold text-[#176b9b]"><Settings className="h-4 w-4" />Profile settings</Link>
       </header>
       <MobileDashboardShortcuts />
       <CustomerAds />

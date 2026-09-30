@@ -1,5 +1,7 @@
 from django.urls import path
 from .push_views import WebPushSubscriptionView
+from .support_views import SupportSearchView, SupportActionView, SupportAuditView
+from .integration_views import AdminGoogleMapsKeyView
 
 from .views import (
     AreaListCreateView,
@@ -42,7 +44,7 @@ from .views import (
     CustomerPortalDashboardView,
     ContractorCrmDashboardView,
     AdminOperationsDashboardView,
-    AdminEntityListCreateView, AdminEntityDetailView, AdminPeopleExportView, AdminReleaseDeletedCustomerMobilesView, AdminReleaseInactiveBusinessMobilesView,
+    AdminEntityListCreateView, AdminEntityDetailView, AdminPeopleExportView, AdminReleaseDeletedCustomerMobilesView, AdminReleaseInactiveBusinessMobilesView, AdminSupportStaffView, AdminSupportStaffDetailView,
     MeasurementAccessAvailabilityView,
     MeasurementAccessContractorSearchView,
     MeasurementAccessListCreateView,
@@ -158,6 +160,12 @@ urlpatterns = [
     path("admin-dashboard/export/", AdminPeopleExportView.as_view(), name="admin-people-export"),
     path("admin-dashboard/release-deleted-customer-mobiles/", AdminReleaseDeletedCustomerMobilesView.as_view(), name="admin-release-deleted-customer-mobiles"),
     path("admin-dashboard/release-inactive-business-mobiles/", AdminReleaseInactiveBusinessMobilesView.as_view(), name="admin-release-inactive-business-mobiles"),
+    path("support-staff/", AdminSupportStaffView.as_view(), name="support-staff"),
+    path("support-staff/<int:pk>/", AdminSupportStaffDetailView.as_view(), name="support-staff-detail"),
+    path("support-workspace/search/", SupportSearchView.as_view(), name="support-workspace-search"),
+    path("support-workspace/actions/", SupportActionView.as_view(), name="support-workspace-actions"),
+    path("support-workspace/audit/", SupportAuditView.as_view(), name="support-workspace-audit"),
+    path("admin-integrations/google-maps/", AdminGoogleMapsKeyView.as_view(), name="admin-google-maps-key"),
     path("admin-dashboard/<str:entity>/", AdminEntityListCreateView.as_view(), name="admin-entity-create"),
     path("admin-dashboard/<str:entity>/<int:pk>/", AdminEntityDetailView.as_view(), name="admin-entity-detail"),
     path("properties/<int:pk>/measurements/pdf/", PropertyMeasurementPdfView.as_view(), name="property-measurement-pdf"),

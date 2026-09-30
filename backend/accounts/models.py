@@ -71,6 +71,7 @@ class BharathUser(AbstractUser):
         CONTRACTOR = "CONTRACTOR", "Contractor"
         CUSTOMER = "CUSTOMER", "Customer"
         ADMIN = "ADMIN", "Admin"
+        SUPPORT = "SUPPORT", "Support staff"
 
     class VerificationStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -495,6 +496,7 @@ class ContractorCompletedProject(models.Model):
     title = models.CharField(max_length=160)
     apartment_community = models.CharField(max_length=160, blank=True)
     location = models.CharField(max_length=160, blank=True)
+    pincode = models.CharField(max_length=10, blank=True)
     address = models.TextField(blank=True)
     description = models.TextField(blank=True)
     work_completed = models.TextField(blank=True)

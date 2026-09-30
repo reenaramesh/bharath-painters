@@ -157,8 +157,15 @@ const adminMenuItems = [
     to: "/support-tickets",
     badge: "support_tickets",
   },
+  { label: "Support Staff", icon: Users, to: "/support-staff" },
+  { label: "API Settings", icon: Wrench, to: "/admin-integrations" },
   { label: "Reports", icon: BarChart3, to: "/reports" },
   { label: "Activity Log", icon: Activity, to: "/activity-log" },
+];
+
+const supportMenuItems = [
+  { label: "Support Desk", icon: CircleHelp, to: "/support-tickets", badge: "support_tickets" },
+  { label: "Recovery Center", icon: ShieldCheck, to: "/support-workspace" },
 ];
 
 const customerMenuItems = [
@@ -271,6 +278,8 @@ export default function Sidebar({
   const visibleItems =
     user?.role === "ADMIN"
       ? adminMenuItems
+      : user?.role === "SUPPORT"
+        ? supportMenuItems
       : user?.role === "CUSTOMER"
         ? customerMenuItems
         : user?.role === "PAINTER"
@@ -300,6 +309,8 @@ export default function Sidebar({
               <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                 {user?.role === "ADMIN"
                   ? "Admin Portal"
+                  : user?.role === "SUPPORT"
+                    ? "Support Portal"
                   : user?.role === "CUSTOMER"
                     ? "Customer Portal"
                     : user?.role === "PAINTER"
@@ -374,7 +385,7 @@ export default function Sidebar({
         </nav>
 
         <div className="space-y-1 border-t border-slate-200 px-3 py-4">
-          {["CUSTOMER", "CONTRACTOR", "PAINTER", "ADMIN"].includes(user?.role) && (
+          {["CUSTOMER", "CONTRACTOR", "PAINTER", "ADMIN", "SUPPORT"].includes(user?.role) && (
             <NavLink
               to="/account-security"
               onClick={closeMobile}
@@ -473,7 +484,7 @@ const routeGroups = {
     "/work-reviews",
     "/in-house-earnings",
   ]),
-  Support: new Set(["/messages", "/support-tickets"]),
+  Support: new Set(["/messages", "/support-tickets", "/support-workspace", "/support-staff"]),
   Administration: new Set([
     "/packages",
     "/billing",
@@ -481,6 +492,7 @@ const routeGroups = {
     "/master-services",
     "/reports",
     "/activity-log",
+    "/admin-integrations",
     "/my-packages",
   ]),
 };

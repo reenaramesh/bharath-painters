@@ -681,6 +681,11 @@ class SiteVisit(models.Model):
 
 class SupportTicket(models.Model):
     class Category(models.TextChoices):
+        ACCOUNT = "ACCOUNT", "Account and sign-in"
+        DATA = "DATA", "Data correction or recovery"
+        MEASUREMENT = "MEASUREMENT", "Area calculation"
+        INVOICE = "INVOICE", "Invoice or payment"
+        MESSAGES = "MESSAGES", "Messages and safety"
         SERVICE = "SERVICE", "Service Issue"
         QUOTATION = "QUOTATION", "Quotation"
         BILLING = "BILLING", "Billing"
@@ -697,6 +702,7 @@ class SupportTicket(models.Model):
     class Status(models.TextChoices):
         OPEN = "OPEN", "Open"
         IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        NEEDS_ADMIN = "NEEDS_ADMIN", "Needs administrator"
         RESOLVED = "RESOLVED", "Resolved"
         CLOSED = "CLOSED", "Closed"
 
@@ -710,6 +716,7 @@ class SupportTicket(models.Model):
         blank=True,
     )
     requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="raised_support_tickets", null=True, blank=True)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="assigned_support_tickets", null=True, blank=True)
     category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     subject = models.CharField(max_length=180)
@@ -734,6 +741,29 @@ class SupportTicketMessage(models.Model):
 
     class Meta:
         ordering = ("created_at",)
+
+
+class SupportActionLog(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="support_actions")
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.PROTECT, related_name="actions", null=True, blank=True)
+    action = models.CharField(max_length=60)
+    target_type = models.CharField(max_length=30)
+    target_id = models.PositiveIntegerField()
+    reason = models.TextField()
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+
+class PlatformIntegrationSecret(models.Model):
+    name = models.CharField(max_length=60, unique=True)
+    ciphertext = models.TextField()
+    key_hint = models.CharField(max_length=4, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class MeasurementAccessRequest(models.Model):
@@ -1212,6 +1242,9 @@ class Quotation(models.Model):
     )
 
     version_number = models.PositiveIntegerField(default=1)
+
+    # Draft deletion is reversible from the audited support workspace.
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     quotation_date = models.DateField(
         auto_now_add=True

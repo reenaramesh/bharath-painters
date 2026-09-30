@@ -13,6 +13,7 @@ import api from "../api/client";
 import useAuth from "../context/useAuth";
 import ContractorDashboard from "./ContractorDashboard";
 import AdminDashboard from "./AdminDashboard";
+import SupportWorkspace from "./SupportWorkspace";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 
 export default function Dashboard() {
@@ -53,6 +54,7 @@ export default function Dashboard() {
     load();
   }, [load]);
   if (user?.role === "ADMIN") return <AdminDashboard />;
+  if (user?.role === "SUPPORT") return <SupportWorkspace />;
   if (user?.role === "PAINTER")
     return loading ? (
       <p className="p-12 text-center text-slate-500">

@@ -161,6 +161,7 @@ def render_contractor_card_pdf(user, card, profile_url):
         for project in card["projects"]:
             fields = [("Apartment / gated community", project["apartment_community"]),
                       ("Address", project["address"]), ("Location", project["location"]),
+                      ("PIN code", project["pincode"]),
                       ("Project details", project["description"]), ("Work completed", project["work_completed"])]
             lines = []
             for label, value in fields:

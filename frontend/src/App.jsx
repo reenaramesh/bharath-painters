@@ -36,6 +36,9 @@ const Tasks = page("Tasks");
 const Chat = page("Chat");
 const ServiceRequests = page("ServiceRequests");
 const SupportTickets = page("SupportTickets");
+const SupportWorkspace = page("SupportWorkspace");
+const SupportStaff = page("SupportStaff");
+const AdminIntegrations = page("AdminIntegrations");
 const CustomerDashboard = page("CustomerDashboard");
 const CustomerConnections = page("CustomerConnections");
 const CustomerProfile = page("CustomerProfile");
@@ -147,6 +150,9 @@ function App() {
             <Route path="/colors-shades" element={<ColorsShades />} />
             <Route path="/service-requests" element={<ServiceRequests />} />
             <Route path="/support-tickets" element={<SupportTickets />} />
+            <Route path="/support-workspace" element={<SupportWorkspace />} />
+            <Route path="/support-staff" element={<SupportStaff />} />
+            <Route path="/admin-integrations" element={<AdminIntegrations />} />
             <Route path="/measurement-access" element={<MeasurementAccess />} />
             <Route
               path="/customer-quotations"

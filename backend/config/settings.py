@@ -128,6 +128,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://bharath-painters-chi.vercel.app",
 ]
 
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://bharath-painters-chi.vercel.app").rstrip("/")
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://bharath-painters-chi.vercel.app",
@@ -143,6 +145,9 @@ REST_FRAMEWORK = {
         "recovery_request": "5/hour",
         "recovery_verify": "15/hour",
         "password_confirm": "10/hour",
+        "support_search": "60/minute",
+        "support_action": "20/minute",
+        "maps_lookup": "10/hour",
     },
 }
 
@@ -281,6 +286,7 @@ BHARATH_PUBLIC_BACKEND_URL = os.environ.get(
 # Google Identity Services: only the public web Client ID is needed to verify
 # ID tokens. Never expose the OAuth Client Secret to the React frontend.
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
 
 # Development prints mail to the backend console. Production can switch to
 # SMTP entirely through environment variables without a code change.

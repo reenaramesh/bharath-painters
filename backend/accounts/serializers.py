@@ -280,7 +280,9 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
 
 
 class ContractorCompletedProjectSerializer(serializers.ModelSerializer):
+    pincode = serializers.RegexField(r"^$|^[0-9]{6}$", required=False, allow_blank=True)
+
     class Meta:
         model = ContractorCompletedProject
-        fields = ["id", "title", "apartment_community", "location", "address", "description", "work_completed", "photo", "created_at"]
+        fields = ["id", "title", "apartment_community", "location", "address", "pincode", "description", "work_completed", "photo", "created_at"]
         read_only_fields = ["id", "created_at"]

@@ -46,7 +46,7 @@ from .models import (
     Unit,
     Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, CustomerShareLink, normalize_indian_mobile,
     CustomerFollowUp,
-    CustomerWorkHistory, ChatConversation, ChatMessage, ChatAttachment, ColourComparisonDraft, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, MeasurementAccessRequest,
+    CustomerWorkHistory, ChatConversation, ChatMessage, ChatAttachment, ColourComparisonDraft, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, SupportActionLog, MeasurementAccessRequest,
     WorkPhoto,
     Property, ApartmentCommunity,
     Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoiceNumberSequence, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
@@ -234,12 +234,12 @@ class GlobalSearchView(APIView):
         if user.role == BharathUser.Roles.CONTRACTOR:
             customers = Customer.objects.filter(contractor_connections__contractor=user, contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED).filter(models.Q(name__icontains=query) | models.Q(mobile__icontains=query) | models.Q(bharath_id__icontains=query)).distinct()[:6]
             results += [{"type": "Customer", "title": x.name, "subtitle": x.mobile, "link": f"/customers/{x.id}"} for x in customers]
-            quotations = Quotation.objects.filter(contractor=user).filter(models.Q(quotation_number__icontains=query) | models.Q(customer__name__icontains=query) | models.Q(property__name__icontains=query))[:6]
+            quotations = Quotation.objects.filter(contractor=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(customer__name__icontains=query) | models.Q(property__name__icontains=query))[:6]
             results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.customer.name, "link": f"/quotations/{x.id}"} for x in quotations]
             properties = Property.objects.filter(contractor=user, connection__status=ContractorCustomerConnection.Status.CONNECTED).filter(models.Q(name__icontains=query) | models.Q(city__icontains=query) | models.Q(address__icontains=query))[:6]
             results += [{"type": "Property", "title": x.name or x.property_type, "subtitle": x.city, "link": f"/properties/{x.id}"} for x in properties]
         elif user.role == BharathUser.Roles.CUSTOMER:
-            quotations = Quotation.objects.filter(customer__portal_user=user).filter(models.Q(quotation_number__icontains=query) | models.Q(property__name__icontains=query))[:8]
+            quotations = Quotation.objects.filter(customer__portal_user=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(property__name__icontains=query))[:8]
             results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.property.name or x.property.property_type, "link": f"/customer-quotations/{x.id}"} for x in quotations]
         elif user.role == BharathUser.Roles.ADMIN:
             people = BharathUser.objects.filter(models.Q(mobile__icontains=query) | models.Q(first_name__icontains=query) | models.Q(bharath_id__icontains=query))[:10]
@@ -3072,6 +3072,8 @@ def ticket_data(ticket):
         "category": ticket.category, "priority": ticket.priority,
         "subject": ticket.subject, "description": ticket.description,
         "status": ticket.status, "contractor_response": ticket.contractor_response,
+        "assigned_to": ticket.assigned_to_id,
+        "assigned_to_name": ticket.assigned_to.get_full_name() if ticket.assigned_to_id else "",
         "message_count": ticket.messages.count(),
         "created_at": ticket.created_at, "updated_at": ticket.updated_at,
     }
@@ -3081,8 +3083,8 @@ class SupportTicketListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        tickets = SupportTicket.objects.select_related("requester", "customer", "customer__portal_user", "connection__contractor", "connection__contractor__contractor_profile", "customer__contractor", "customer__contractor__contractor_profile")
-        if request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser:
+        tickets = SupportTicket.objects.select_related("requester", "assigned_to", "customer", "customer__portal_user", "connection__contractor", "connection__contractor__contractor_profile", "customer__contractor", "customer__contractor__contractor_profile")
+        if request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser:
             pass
         elif request.user.role == BharathUser.Roles.CONTRACTOR:
             tickets = tickets.filter(
@@ -3117,8 +3119,8 @@ class SupportTicketListCreateView(APIView):
         return Response(data)
 
     def post(self, request):
-        if request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser:
-            return Response({"detail": "Administrators manage tickets and cannot raise one here."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser:
+            return Response({"detail": "Support handlers manage tickets and cannot raise one here."}, status=status.HTTP_403_FORBIDDEN)
         customer = None
         connection = None
         if request.user.role == BharathUser.Roles.CUSTOMER:
@@ -3150,7 +3152,7 @@ class SupportTicketListCreateView(APIView):
             priority=request.data.get("priority") if request.data.get("priority") in priorities else SupportTicket.Priority.MEDIUM,
             requester_seen_at=timezone.now(),
         )
-        for administrator in BharathUser.objects.filter(models.Q(role=BharathUser.Roles.ADMIN) | models.Q(is_superuser=True), is_active=True).distinct():
+        for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
             create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"{request.user.get_full_name() or request.user.mobile}: {subject}", "/support-tickets", request.user)
         return Response(ticket_data(ticket), status=status.HTTP_201_CREATED)
 
@@ -3159,11 +3161,11 @@ class SupportTicketDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_ticket(self, request, pk):
-        ticket = SupportTicket.objects.select_related("requester", "customer", "customer__portal_user", "connection__contractor", "customer__contractor").prefetch_related("messages__sender").filter(pk=pk).first()
+        ticket = SupportTicket.objects.select_related("requester", "assigned_to", "customer", "customer__portal_user", "connection__contractor", "customer__contractor").prefetch_related("messages__sender").filter(pk=pk).first()
         if not ticket:
             return None
         allowed = (
-            request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser
+            request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser
             or ticket.requester_id == request.user.id
             or (ticket.customer and ticket.customer.portal_user_id == request.user.id)
             or (ticket.connection_id and ticket.connection.status == ContractorCustomerConnection.Status.CONNECTED and ticket.connection.contractor_id == request.user.id)
@@ -3188,12 +3190,26 @@ class SupportTicketDetailView(APIView):
             "actor_role": item.sender.role, "status": item.status_snapshot,
             "is_mine": item.sender_id == request.user.id, "created_at": item.created_at,
         } for item in ticket.messages.all()]
+        if request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser:
+            data["internal_activities"] = [
+                {"action": item.action, "reason": item.reason, "actor": item.actor.get_full_name() or item.actor.mobile,
+                 "created_at": item.created_at, "target_type": item.target_type, "target_id": item.target_id}
+                for item in ticket.actions.select_related("actor").all()
+            ]
         return Response(data)
 
     def post(self, request, pk):
         ticket = self.get_ticket(request, pk)
         if not ticket:
             return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+        if request.data.get("internal_note") is not None:
+            if request.user.role not in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) and not request.user.is_superuser:
+                return Response({"detail": "Support access only."}, status=status.HTTP_403_FORBIDDEN)
+            note = str(request.data.get("internal_note") or "").strip()
+            if not note or len(note) > 4000:
+                return Response({"internal_note": "Enter a note of up to 4000 characters."}, status=status.HTTP_400_BAD_REQUEST)
+            item = SupportActionLog.objects.create(actor=request.user, ticket=ticket, action="INTERNAL_NOTE", target_type="TICKET", target_id=ticket.pk, reason=note)
+            return Response({"id": item.pk, "message": "Internal note saved."}, status=status.HTTP_201_CREATED)
         message = str(request.data.get("message") or "").strip()
         if not message:
             return Response({"message": "Enter a response."}, status=status.HTTP_400_BAD_REQUEST)
@@ -3201,7 +3217,7 @@ class SupportTicketDetailView(APIView):
             return Response({"message": "Response is too long."}, status=status.HTTP_400_BAD_REQUEST)
         item = SupportTicketMessage.objects.create(ticket=ticket, sender=request.user, message=message, status_snapshot=ticket.status)
         is_handler = (
-            request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser
+            request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser
             or (ticket.connection_id and ticket.connection.contractor_id == request.user.id and ticket.requester_id != request.user.id)
             or (not ticket.connection_id and ticket.customer and ticket.customer.contractor_id == request.user.id and ticket.requester_id != request.user.id)
         )
@@ -3216,14 +3232,14 @@ class SupportTicketDetailView(APIView):
             recipient = ticket.requester or (ticket.customer.portal_user if ticket.customer else None)
             create_notification(recipient, "SUPPORT_MESSAGE", "New support response", f"{ticket.subject}: {message[:120]}", "/support-tickets", request.user)
         else:
-            for administrator in BharathUser.objects.filter(models.Q(role=BharathUser.Roles.ADMIN) | models.Q(is_superuser=True), is_active=True).distinct():
+            for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
                 create_notification(administrator, "SUPPORT_MESSAGE", "New ticket reply", f"{ticket_data(ticket)['requester_name']}: {message[:120]}", "/support-tickets", request.user)
         return Response({"id": item.id, "message": item.message, "created_at": item.created_at}, status=status.HTTP_201_CREATED)
 
     def patch(self, request, pk):
         ticket = self.get_ticket(request, pk)
         can_manage = ticket and (
-            request.user.role == BharathUser.Roles.ADMIN
+            request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)
             or request.user.is_superuser
             or (ticket.connection_id and ticket.connection.status == ContractorCustomerConnection.Status.CONNECTED and ticket.connection.contractor_id == request.user.id)
             or (not ticket.connection_id and ticket.customer and ticket.customer.contractor_id == request.user.id)
@@ -3233,13 +3249,40 @@ class SupportTicketDetailView(APIView):
         status_value = str(request.data.get("status") or ticket.status).upper()
         if status_value not in {choice[0] for choice in SupportTicket.Status.choices}:
             return Response({"status": "Select a valid status."}, status=status.HTTP_400_BAD_REQUEST)
+        is_staff_handler = request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser
+        if status_value == SupportTicket.Status.NEEDS_ADMIN and not is_staff_handler:
+            return Response({"status": "Only support staff can escalate a ticket."}, status=status.HTTP_403_FORBIDDEN)
+        before = {"status": ticket.status, "priority": ticket.priority, "assigned_to": ticket.assigned_to_id}
+        if is_staff_handler:
+            priority = request.data.get("priority", ticket.priority)
+            if priority not in {choice[0] for choice in SupportTicket.Priority.choices}:
+                return Response({"priority": "Select a valid priority."}, status=status.HTTP_400_BAD_REQUEST)
+            ticket.priority = priority
+            if "assigned_to" in request.data:
+                assignee_id = request.data.get("assigned_to")
+                if assignee_id in (None, ""):
+                    ticket.assigned_to = None
+                else:
+                    assignee = BharathUser.objects.filter(pk=assignee_id, role=BharathUser.Roles.SUPPORT, is_active=True).first()
+                    if not assignee:
+                        return Response({"assigned_to": "Select an active support staff member."}, status=status.HTTP_400_BAD_REQUEST)
+                    ticket.assigned_to = assignee
         ticket.status = status_value
-        ticket.contractor_response = str(request.data.get("contractor_response", ticket.contractor_response) or "").strip()
+        new_response = str(request.data.get("contractor_response") or "").strip()
+        ticket.contractor_response = new_response
         ticket.handler_seen_at = timezone.now()
         ticket.requester_seen_at = None
-        ticket.save(update_fields=("status", "contractor_response", "handler_seen_at", "requester_seen_at", "updated_at"))
-        if ticket.contractor_response:
-            SupportTicketMessage.objects.create(ticket=ticket, sender=request.user, message=ticket.contractor_response, status_snapshot=ticket.status)
+        ticket.save(update_fields=("status", "priority", "assigned_to", "contractor_response", "handler_seen_at", "requester_seen_at", "updated_at"))
+        after = {"status": ticket.status, "priority": ticket.priority, "assigned_to": ticket.assigned_to_id}
+        if is_staff_handler and before != after:
+            SupportActionLog.objects.create(actor=request.user, ticket=ticket, action="TICKET_UPDATED", target_type="TICKET", target_id=ticket.pk, reason=str(request.data.get("reason") or "Ticket triage"), before=before, after=after)
+            if ticket.assigned_to_id and ticket.assigned_to_id != before["assigned_to"]:
+                create_notification(ticket.assigned_to, "SUPPORT_ASSIGNMENT", "Support ticket assigned", f"BP-TKT-{ticket.pk:06d}: {ticket.subject}", "/support-tickets", request.user)
+            if ticket.status == SupportTicket.Status.NEEDS_ADMIN and before["status"] != ticket.status:
+                for administrator in BharathUser.objects.filter(models.Q(role=BharathUser.Roles.ADMIN) | models.Q(is_superuser=True), is_active=True).distinct():
+                    create_notification(administrator, "SUPPORT_ESCALATION", "Support case needs administrator", f"BP-TKT-{ticket.pk:06d}: {ticket.subject}", "/support-tickets", request.user)
+        if new_response:
+            SupportTicketMessage.objects.create(ticket=ticket, sender=request.user, message=new_response, status_snapshot=ticket.status)
         recipient = ticket.requester or (ticket.customer.portal_user if ticket.customer else None)
         create_notification(recipient, "SUPPORT_UPDATE", "Support ticket updated", f"{ticket.subject}: {ticket.get_status_display()}", "/support-tickets", request.user)
         return Response(ticket_data(ticket))
@@ -3381,6 +3424,66 @@ class AdminOperationsDashboardView(APIView):
 
 def admin_only(user):
     return user.role == BharathUser.Roles.ADMIN or user.is_superuser
+
+
+class AdminSupportStaffView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not admin_only(request.user) and request.user.role != BharathUser.Roles.SUPPORT:
+            return Response({"detail": "Support access only."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == BharathUser.Roles.SUPPORT:
+            return Response([{"id": user.pk, "name": user.get_full_name()} for user in BharathUser.objects.filter(role=BharathUser.Roles.SUPPORT, is_active=True).order_by("first_name", "last_name")])
+        return Response([{
+            "id": user.pk, "name": user.get_full_name(), "mobile": user.mobile,
+            "email": user.email, "is_active": user.is_active, "created_at": user.date_joined,
+        } for user in BharathUser.objects.filter(role=BharathUser.Roles.SUPPORT).order_by("-date_joined")])
+
+    @transaction.atomic
+    def post(self, request):
+        if not admin_only(request.user):
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        name = str(request.data.get("name") or "").strip()
+        email = str(request.data.get("email") or "").strip().lower()
+        mobile = canonical_mobile(request.data.get("mobile"))
+        if not name or not email or not mobile:
+            return Response({"detail": "Name, valid mobile and email are required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_email(email)
+        except DjangoValidationError:
+            return Response({"email": "Enter a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+        if matching_mobile_users(mobile) or BharathUser.objects.filter(email__iexact=email).exists() or BharathUser.objects.filter(recovery_email__iexact=email).exists():
+            return Response({"detail": "The mobile or email is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+        password = secrets.token_urlsafe(12)
+        parts = name.split(maxsplit=1)
+        user = BharathUser.objects.create_user(
+            mobile=mobile, email=email, password=password,
+            first_name=parts[0], last_name=parts[1] if len(parts) > 1 else "",
+            role=BharathUser.Roles.SUPPORT, is_active=True,
+            is_verified=True, verification_status=BharathUser.VerificationStatus.VERIFIED,
+            verification_notes="Support staff account created by administrator.",
+        )
+        SupportActionLog.objects.create(actor=request.user, action="STAFF_CREATED", target_type="USER", target_id=user.pk, reason="Created support staff account", after={"role": user.role, "is_active": True})
+        return Response({"id": user.pk, "mobile": user.mobile, "temporary_password": password}, status=status.HTTP_201_CREATED)
+
+
+class AdminSupportStaffDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        if not admin_only(request.user):
+            return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        user = BharathUser.objects.select_for_update().filter(pk=pk, role=BharathUser.Roles.SUPPORT).first()
+        if not user:
+            return Response({"detail": "Support staff member not found."}, status=status.HTTP_404_NOT_FOUND)
+        if "is_active" not in request.data or not isinstance(request.data["is_active"], bool):
+            return Response({"is_active": "Choose whether this account is active."}, status=status.HTTP_400_BAD_REQUEST)
+        before = {"is_active": user.is_active}
+        user.is_active = request.data["is_active"]
+        user.save(update_fields=("is_active", "updated_at"))
+        SupportActionLog.objects.create(actor=request.user, action="STAFF_ACCESS_CHANGED", target_type="USER", target_id=user.pk, reason=str(request.data.get("reason") or "Staff access updated"), before=before, after={"is_active": user.is_active})
+        return Response({"id": user.pk, "is_active": user.is_active})
 
 
 class AdminReleaseDeletedCustomerMobilesView(APIView):
@@ -4054,7 +4157,7 @@ class PortalNotificationCountsView(APIView):
                 "service_requests": 0, "support_tickets": SupportTicket.objects.filter(requester=request.user, requester_seen_at__isnull=True).count(),
                 "tasks": 0, "measurement_access": 0, "work_updates": 0,
             })
-        if request.user.role == BharathUser.Roles.ADMIN or request.user.is_superuser:
+        if request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser:
             return Response({
                 "messages": 0,
                 "service_requests": 0,
@@ -4387,7 +4490,7 @@ class QuotationSubmitView(APIView):
     permission_classes = [IsAuthenticated, IsVerifiedContractor]
 
     def post(self, request, pk):
-        quotation = Quotation.objects.select_related("customer").filter(pk=pk, contractor=request.user).first()
+        quotation = Quotation.objects.select_related("customer").filter(pk=pk, contractor=request.user, deleted_at__isnull=True).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         if quotation.connection_id and quotation.connection.status != ContractorCustomerConnection.Status.CONNECTED:
@@ -4427,7 +4530,7 @@ class QuotationListCreateView(
 
     def get_queryset(self):
         queryset = Quotation.objects.filter(
-            contractor=self.request.user
+            contractor=self.request.user, deleted_at__isnull=True,
         )
         if self.request.query_params.get("include_converted") not in {"1", "true", "yes"}:
             queryset = queryset.exclude(status=Quotation.Status.CONVERTED)
@@ -4468,7 +4571,7 @@ class QuotationDetailView(
     def get_queryset(self):
 
         return Quotation.objects.filter(
-            contractor=self.request.user
+            contractor=self.request.user, deleted_at__isnull=True,
         )
 
     def perform_destroy(self, instance):
@@ -4476,14 +4579,21 @@ class QuotationDetailView(
             raise ValidationError({
                 "quotation": "Submitted quotation versions are preserved and cannot be deleted."
             })
-        instance.delete()
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=("deleted_at", "updated_at"))
+        SupportActionLog.objects.create(
+            actor=self.request.user, action="DRAFT_QUOTATION_DELETED",
+            target_type="QUOTATION", target_id=instance.pk,
+            reason="Deleted by the quotation owner.",
+            before={"deleted": False}, after={"deleted": True},
+        )
 
 
 class QuotationPdfView(APIView):
     permission_classes = [IsAuthenticated, IsVerifiedContractor]
 
     def get(self, request, pk):
-        quotation = Quotation.objects.select_related("customer", "property", "contractor", "contractor__contractor_profile").prefetch_related("items__service_type", "items__paint_type").filter(pk=pk, contractor=request.user).first()
+        quotation = Quotation.objects.select_related("customer", "property", "contractor", "contractor__contractor_profile").prefetch_related("items__service_type", "items__paint_type").filter(pk=pk, contractor=request.user, deleted_at__isnull=True).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         included_sections = None
@@ -4656,6 +4766,7 @@ class QuotationRoomSyncView(APIView):
         quotation = Quotation.objects.filter(
             id=quotation_id,
             contractor=request.user,
+            deleted_at__isnull=True,
         ).first()
         if not quotation:
             return Response(
@@ -5486,7 +5597,7 @@ class InvoiceListCreateView(APIView):
             invoice.save()
             return Response(invoice_payload(invoice), status=status.HTTP_201_CREATED)
         # Lock the quotation so repeated clicks cannot create two invoices for it.
-        quotation = Quotation.objects.select_for_update().select_related("customer", "property").prefetch_related("items__room", "items__service_category", "items__paint_type", "items__paint_brand", "items__unit").filter(pk=request.data.get("quotation"), contractor=request.user).first()
+        quotation = Quotation.objects.select_for_update().select_related("customer", "property").prefetch_related("items__room", "items__service_category", "items__paint_type", "items__paint_brand", "items__unit").filter(pk=request.data.get("quotation"), contractor=request.user, deleted_at__isnull=True).first()
         if not quotation: return Response({"quotation": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         invoice = ensure_invoice_for_quotation(
             quotation,

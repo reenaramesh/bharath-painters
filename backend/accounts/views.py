@@ -24,6 +24,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from .profile_card_pdf import render_contractor_card_pdf
 from .mobile import normalize_mobile, matching_mobile_users
+from .maps_lookup import MapLookupError, lookup_google_map_link
 
 from .serializers import (
     PainterRegistrationSerializer,
@@ -36,6 +37,7 @@ RECOVERY_ROLES = {
     BharathUser.Roles.CONTRACTOR,
     BharathUser.Roles.PAINTER,
     BharathUser.Roles.ADMIN,
+    BharathUser.Roles.SUPPORT,
 }
 OTP_EXPIRY_MINUTES = 10
 OTP_RESEND_SECONDS = 60
@@ -180,6 +182,18 @@ def _issue_email_otp(user, purpose, target_email):
     except Exception:
         challenge.delete()
         return None, "Verification email could not be sent. Please try again later."
+    # The notification is visible only to the account holder and never stores
+    # the code. Keeping the code in email preserves the separate verification step.
+    if user.is_active:
+        from quotations.models import PortalNotification
+
+        PortalNotification.objects.create(
+            recipient=user,
+            event_type="SECURITY_CODE_SENT",
+            title="Verification code requested",
+            message=f"A verification code was sent to {_masked_email(target_email)}. It expires in {OTP_EXPIRY_MINUTES} minutes. Never share the code with support staff.",
+            link="/account-security" if purpose == PasswordResetOTP.Purpose.RECOVERY_EMAIL else "",
+        )
     return (challenge, code), None
 
 
@@ -945,6 +959,7 @@ def _contractor_digital_card(user, request):
                 "title": project.title,
                 "apartment_community": project.apartment_community,
                 "location": project.location,
+                "pincode": project.pincode,
                 "address": project.address,
                 "description": project.description,
                 "work_completed": project.work_completed,
@@ -1069,6 +1084,21 @@ class ChangePasswordView(APIView):
         user.save(update_fields=("password",))
         PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
         return Response({"message": "Password changed. Sign in with your new password."})
+
+
+class ContractorProjectMapLookupView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "maps_lookup"
+
+    def post(self, request):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        link = str(request.data.get("url") or "").strip()
+        try:
+            return Response(lookup_google_map_link(link))
+        except MapLookupError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ContractorCompletedProjectsView(APIView):

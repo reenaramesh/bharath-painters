@@ -118,6 +118,34 @@ class SupportActionView(APIView):
         reason = str(request.data.get("reason") or "").strip()
         if len(reason) < 10 or len(reason) > 1000:
             return Response({"reason": "Describe the reason in 10 to 1000 characters."}, status=status.HTTP_400_BAD_REQUEST)
+        if action in ("SUSPEND_ACCOUNT", "DELETE_ACCOUNT"):
+            try:
+                target_id = int(request.data.get("target_id"))
+            except (TypeError, ValueError):
+                return Response({"detail": "Select an account."}, status=status.HTTP_400_BAD_REQUEST)
+            user = BharathUser.objects.select_for_update().filter(pk=target_id, role__in=(BharathUser.Roles.CUSTOMER, BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER)).first()
+            if not user or user.mobile.startswith("D"):
+                return Response({"detail": "This customer, contractor or painter account is unavailable."}, status=status.HTTP_404_NOT_FOUND)
+            ticket_id = request.data.get("ticket_id")
+            ticket = SupportTicket.objects.select_for_update().filter(pk=ticket_id).first() if ticket_id else None
+            if request.user.role == BharathUser.Roles.SUPPORT and not ticket:
+                return Response({"ticket_id": "Support staff must link this action to the account holder's ticket."}, status=status.HTTP_400_BAD_REQUEST)
+            if ticket and (ticket.requester_id != user.pk or ticket.status in (SupportTicket.Status.RESOLVED, SupportTicket.Status.CLOSED)):
+                return Response({"ticket_id": "Choose an open ticket raised by this account holder."}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.is_active and action == "SUSPEND_ACCOUNT":
+                return Response({"detail": "This account is already suspended."}, status=status.HTTP_400_BAD_REQUEST)
+            before = {"is_active": user.is_active, "verification_status": user.verification_status, "role": user.role}
+            if action == "SUSPEND_ACCOUNT":
+                user.is_active = False
+                user.verification_status = BharathUser.VerificationStatus.SUSPENDED
+                user.save(update_fields=("is_active", "verification_status", "updated_at"))
+                after = {"is_active": False, "verification_status": user.verification_status}
+            else:
+                from accounts.account_retirement import retire_business_account
+                retire_business_account(user)
+                after = {"is_active": False, "verification_status": user.verification_status, "identity_removed": True}
+            SupportActionLog.objects.create(actor=request.user, ticket=ticket, action=action, target_type="USER", target_id=user.pk, reason=reason, before=before, after=after)
+            return Response({"message": "Account suspended. Sign-in and notifications are disabled." if action == "SUSPEND_ACCOUNT" else "Account deleted and sign-in details removed. Historical business records are preserved."})
         try:
             ticket_id = int(request.data.get("ticket_id"))
             target_id = int(request.data.get("target_id"))

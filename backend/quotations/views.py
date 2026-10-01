@@ -28,6 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.exceptions import ValidationError
+from rest_framework.throttling import ScopedRateThrottle
 from accounts.models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP
 from accounts.mobile import normalize_mobile as canonical_mobile, matching_mobile_users
 from accounts.profile_completion import contractor_profile_completion
@@ -47,6 +48,7 @@ from .models import (
     Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, CustomerShareLink, normalize_indian_mobile,
     CustomerFollowUp,
     CustomerWorkHistory, ChatConversation, ChatMessage, ChatAttachment, ColourComparisonDraft, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, SupportActionLog, MeasurementAccessRequest,
+    MasterDataSortPreference,
     WorkPhoto,
     Property, ApartmentCommunity,
     Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoiceNumberSequence, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
@@ -236,7 +238,7 @@ class GlobalSearchView(APIView):
             results += [{"type": "Customer", "title": x.name, "subtitle": x.mobile, "link": f"/customers/{x.id}"} for x in customers]
             quotations = Quotation.objects.filter(contractor=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(customer__name__icontains=query) | models.Q(property__name__icontains=query))[:6]
             results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.customer.name, "link": f"/quotations/{x.id}"} for x in quotations]
-            properties = Property.objects.filter(contractor=user, connection__status=ContractorCustomerConnection.Status.CONNECTED).filter(models.Q(name__icontains=query) | models.Q(city__icontains=query) | models.Q(address__icontains=query))[:6]
+            properties = Property.objects.filter(contractor=user, connection__status=ContractorCustomerConnection.Status.CONNECTED, contractor_hidden_at__isnull=True).filter(models.Q(name__icontains=query) | models.Q(city__icontains=query) | models.Q(address__icontains=query))[:6]
             results += [{"type": "Property", "title": x.name or x.property_type, "subtitle": x.city, "link": f"/properties/{x.id}"} for x in properties]
         elif user.role == BharathUser.Roles.CUSTOMER:
             quotations = Quotation.objects.filter(customer__portal_user=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(property__name__icontains=query))[:8]
@@ -1014,7 +1016,9 @@ def apartment_data(item):
         "id": item.id, "name": item.name, "zone": item.zone,
         "locality": item.locality, "pincode": item.pincode,
         "is_active": item.is_active,
+        "sort_order": item.sort_order,
     }
+
 
 
 class ApartmentCommunityMasterView(APIView):
@@ -1023,7 +1027,12 @@ class ApartmentCommunityMasterView(APIView):
     def get(self, request):
         if request.user.role not in {BharathUser.Roles.ADMIN, BharathUser.Roles.CONTRACTOR}:
             return Response({"detail": "Admin or contractor access only."}, status=status.HTTP_403_FORBIDDEN)
-        items = ApartmentCommunity.objects.filter(is_active=True).order_by("name", "locality")
+        items = apply_user_sort_preferences(
+            ApartmentCommunity.objects.filter(is_active=True).order_by("sort_order", "name", "locality"),
+            request.user,
+            "apartments",
+        )
+
         return Response([apartment_data(item) for item in items])
 
     def post(self, request):
@@ -1044,8 +1053,10 @@ class ApartmentCommunityMasterView(APIView):
             existing.locality, existing.zone, existing.is_active = locality, zone, True
             existing.save(update_fields=["locality", "zone", "is_active", "updated_at"])
             return Response(apartment_data(existing))
-        item = ApartmentCommunity.objects.create(name=name, pincode=pincode, locality=locality, zone=zone)
+        top = ApartmentCommunity.objects.aggregate(top=models.Max("sort_order"))["top"] or 0
+        item = ApartmentCommunity.objects.create(name=name, pincode=pincode, locality=locality, zone=zone, sort_order=top + 10)
         return Response(apartment_data(item), status=status.HTTP_201_CREATED)
+
 
 
 class ApartmentCommunityMasterDetailView(APIView):
@@ -1065,8 +1076,16 @@ class ApartmentCommunityMasterDetailView(APIView):
             return Response({"name": "This apartment and PIN code already exist."}, status=status.HTTP_400_BAD_REQUEST)
         for field, value in values.items():
             setattr(item, field, value)
-        item.save(update_fields=[*values, "updated_at"])
+        changed = [*values]
+        if "is_active" in request.data:
+            item.is_active = bool(request.data.get("is_active"))
+            changed.append("is_active")
+        if "sort_order" in request.data:
+            item.sort_order = max(int(request.data.get("sort_order") or 0), 0)
+            changed.append("sort_order")
+        item.save(update_fields=[*changed, "updated_at"])
         return Response(apartment_data(item))
+
 
     def delete(self, request, pk):
         if request.user.role != BharathUser.Roles.ADMIN:
@@ -1224,13 +1243,124 @@ class ContractorOwnedCreateListView(
         if existing:
             serializer.instance = existing
             return
-        serializer.save(created_by=None if self.request.user.role == BharathUser.Roles.ADMIN else self.request.user)
+        model = serializer.Meta.model
+        serializer.save(
+            created_by=None if self.request.user.role == BharathUser.Roles.ADMIN else self.request.user,
+            sort_order=(model.objects.aggregate(top=models.Max("sort_order"))["top"] or 0) + 10,
+        )
 
-    def visible_master_data(self, model_class):
+    def visible_master_data(self, model_class, section=None):
         user = self.request.user
-        if user.role == BharathUser.Roles.ADMIN:
-            return model_class.objects.filter(models.Q(created_by__isnull=True) | models.Q(created_by__role=BharathUser.Roles.ADMIN), is_active=True)
-        return model_class.objects.filter(models.Q(created_by=user) | models.Q(created_by__isnull=True) | models.Q(created_by__role=BharathUser.Roles.ADMIN), is_active=True)
+        scope = models.Q(created_by__isnull=True) | models.Q(created_by__role=BharathUser.Roles.ADMIN)
+        if user.role != BharathUser.Roles.ADMIN:
+            scope |= models.Q(created_by=user)
+        queryset = model_class.objects.filter(scope, is_active=True).order_by("sort_order", "name")
+        return apply_user_sort_preferences(queryset, user, section or section_for_model(model_class))
+
+
+def section_for_model(model_class):
+    for section, model in MASTER_MODELS.items():
+        if model is model_class:
+            return section
+    if model_class is ServiceType:
+        return "service-types"
+    raise ValueError(f"No master data section registered for {model_class!r}")
+
+
+def user_sort_preferences(user, section):
+    if not section or user.is_anonymous:
+        return {}
+    return dict(
+        MasterDataSortPreference.objects.filter(user=user, section=section)
+        .values_list("entry_id", "position")
+    )
+
+
+def apply_user_sort_preferences(queryset, user, section):
+    """Overlay the caller's own order on the section's default order.
+
+    Ranked rows come first in the caller's sequence, then everything else in
+    the default sort_order/name order. The sort stays in SQL so callers keep a
+    queryset (WorkDescriptionListCreateView chains select_related on it).
+    """
+    preferences = user_sort_preferences(user, section)
+    if not preferences:
+        return queryset
+    rank = models.Case(
+        *[models.When(pk=entry_id, then=models.Value(position)) for entry_id, position in preferences.items()],
+        default=models.Value(0),
+        output_field=models.IntegerField(),
+    )
+    return queryset.annotate(
+        user_rank=models.Case(
+            models.When(pk__in=list(preferences), then=models.Value(1)),
+            default=models.Value(0),
+            output_field=models.IntegerField(),
+        ),
+        user_position=rank,
+    ).order_by("-user_rank", "user_position", "sort_order", "name")
+
+
+class MasterDataReorderView(APIView):
+    """Store the caller's private order for one master data section.
+
+    Accepts the full ordered id list so that a filtered view can never wipe the
+    ranks of rows it is not showing. Unknown or invisible ids are rejected
+    rather than silently dropping preferences.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, section):
+        if request.user.role not in {BharathUser.Roles.ADMIN, BharathUser.Roles.CONTRACTOR}:
+            raise ValidationError({"detail": "Admin or contractor access only."})
+        model_class = MASTER_MODELS.get(section)
+        if model_class is None:
+            raise ValidationError({"detail": "Unknown section."})
+
+        raw_ids = request.data.get("entry_ids", [])
+        if not isinstance(raw_ids, list):
+            raise ValidationError({"entry_ids": "Send a list of ids."})
+        try:
+            entry_ids = [int(value) for value in raw_ids]
+        except (TypeError, ValueError):
+            raise ValidationError({"entry_ids": "Ids must be integers."})
+        if len(set(entry_ids)) != len(entry_ids):
+            raise ValidationError({"entry_ids": "Duplicate ids in the order."})
+
+        section_key = section_for_model(model_class)
+
+        if not entry_ids:
+            MasterDataSortPreference.objects.filter(user=request.user, section=section_key).delete()
+            return Response({"section": section_key, "ordered_count": 0, "reset": True})
+
+        # Apartments have no created_by and are visible to every contractor,
+        # so the shared scope filter does not apply to them. Ownership is the
+        # only thing worth validating here: an entry the caller can see may be
+        # inactive, and a rank stored for it should not be rejected.
+        if model_class is ApartmentCommunity:
+            permitted = model_class.objects.all()
+        else:
+            scope = models.Q(created_by__isnull=True) | models.Q(created_by__role=BharathUser.Roles.ADMIN)
+            if request.user.role != BharathUser.Roles.ADMIN:
+                scope |= models.Q(created_by=request.user)
+            permitted = model_class.objects.filter(scope)
+        visible_ids = set(permitted.filter(pk__in=entry_ids).values_list("pk", flat=True))
+        unknown = [entry_id for entry_id in entry_ids if entry_id not in visible_ids]
+        if unknown:
+            raise ValidationError({"entry_ids": f"Not visible in this section: {unknown}"})
+
+        with transaction.atomic():
+            MasterDataSortPreference.objects.filter(user=request.user, section=section_key).delete()
+            MasterDataSortPreference.objects.bulk_create(
+                [
+                    MasterDataSortPreference(
+                        user=request.user, section=section_key, entry_id=entry_id, position=(index + 1) * 10
+                    )
+                    for index, entry_id in enumerate(entry_ids)
+                ]
+            )
+        return Response({"section": section_key, "ordered_count": len(entry_ids), "reset": False})
 
 
 class AreaListCreateView(
@@ -1606,7 +1736,7 @@ class PropertyListCreateView(
     serializer_class = PropertySerializer
 
     def get_queryset(self):
-        return Property.objects.filter(contractor_property_scope(self.request.user)).order_by("-created_at")
+        return Property.objects.filter(contractor_property_scope(self.request.user), contractor_hidden_at__isnull=True).distinct().order_by("-created_at")
 
     def perform_create(self, serializer):
         customer = serializer.validated_data["customer"]
@@ -1629,7 +1759,11 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PropertySerializer
 
     def get_queryset(self):
-        return Property.objects.filter(contractor_property_scope(self.request.user))
+        return Property.objects.filter(contractor_property_scope(self.request.user)).distinct()
+
+    def perform_destroy(self, instance):
+        instance.contractor_hidden_at = timezone.now()
+        instance.save(update_fields=("contractor_hidden_at",))
 
 
 class PropertyMeasurementPdfView(APIView):
@@ -3071,6 +3205,7 @@ def ticket_data(ticket):
         "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else ""),
         "category": ticket.category, "priority": ticket.priority,
         "subject": ticket.subject, "description": ticket.description,
+        "attachment": ticket.attachment.url if ticket.attachment else "",
         "status": ticket.status, "contractor_response": ticket.contractor_response,
         "assigned_to": ticket.assigned_to_id,
         "assigned_to_name": ticket.assigned_to.get_full_name() if ticket.assigned_to_id else "",
@@ -3146,8 +3281,12 @@ class SupportTicketListCreateView(APIView):
         priorities = {choice[0] for choice in SupportTicket.Priority.choices}
         if not subject or not description:
             return Response({"detail": "Subject and description are required."}, status=status.HTTP_400_BAD_REQUEST)
+        attachment = request.FILES.get("attachment")
+        if attachment and (attachment.size > 10 * 1024 * 1024 or not (attachment.content_type or "").startswith(("image/", "video/"))):
+            return Response({"attachment": "Attach an image or video smaller than 10 MB."}, status=status.HTTP_400_BAD_REQUEST)
         ticket = SupportTicket.objects.create(
             customer=customer, connection=connection, requester=request.user, subject=subject, description=description,
+            attachment=attachment,
             category=request.data.get("category") if request.data.get("category") in categories else SupportTicket.Category.OTHER,
             priority=request.data.get("priority") if request.data.get("priority") in priorities else SupportTicket.Priority.MEDIUM,
             requester_seen_at=timezone.now(),
@@ -3155,6 +3294,31 @@ class SupportTicketListCreateView(APIView):
         for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
             create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"{request.user.get_full_name() or request.user.mobile}: {subject}", "/support-tickets", request.user)
         return Response(ticket_data(ticket), status=status.HTTP_201_CREATED)
+
+
+class PublicSupportTicketView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "anon_support_ticket"
+
+    def post(self, request):
+        mobile = canonical_mobile(str(request.data.get("mobile") or ""))
+        matches = matching_mobile_users(mobile, BharathUser.objects.filter(is_active=True)) if mobile else []
+        if len(matches) != 1 or matches[0].role not in (BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER):
+            return Response({"detail": "Enter the registered mobile number for an active account."}, status=status.HTTP_400_BAD_REQUEST)
+        subject = str(request.data.get("subject") or "").strip()
+        description = str(request.data.get("description") or "").strip()
+        if not subject or not description or len(subject) > 180 or len(description) > 4000:
+            return Response({"detail": "Enter a subject and a description of up to 4,000 characters."}, status=status.HTTP_400_BAD_REQUEST)
+        attachment = request.FILES.get("attachment")
+        if attachment and (attachment.size > 10 * 1024 * 1024 or not (attachment.content_type or "").startswith(("image/", "video/"))):
+            return Response({"attachment": "Attach an image or video smaller than 10 MB."}, status=status.HTTP_400_BAD_REQUEST)
+        user = matches[0]
+        ticket = SupportTicket.objects.create(requester=user, subject=subject, description=description, attachment=attachment, category=SupportTicket.Category.OTHER, requester_seen_at=timezone.now())
+        for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
+            create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"{user.mobile}: {subject}", "/support-tickets", user)
+        return Response({"ticket_number": f"BP-TKT-{ticket.pk:06d}"}, status=status.HTTP_201_CREATED)
 
 
 class SupportTicketDetailView(APIView):
@@ -3184,8 +3348,9 @@ class SupportTicketDetailView(APIView):
             ticket.handler_seen_at = timezone.now()
             ticket.save(update_fields=("handler_seen_at",))
         data = ticket_data(ticket)
-        data["activities"] = [{"type": "CREATED", "message": "Ticket raised", "actor": data["requester_name"], "created_at": ticket.created_at}] + [{
+        data["activities"] = [{"type": "CREATED", "message": "Ticket raised", "attachment": ticket.attachment.url if ticket.attachment else "", "actor": data["requester_name"], "created_at": ticket.created_at}] + [{
             "id": item.id, "type": "MESSAGE", "message": item.message,
+            "attachment": item.attachment.url if item.attachment else "",
             "actor": item.sender.get_full_name() or item.sender.mobile,
             "actor_role": item.sender.role, "status": item.status_snapshot,
             "is_mine": item.sender_id == request.user.id, "created_at": item.created_at,
@@ -3211,11 +3376,14 @@ class SupportTicketDetailView(APIView):
             item = SupportActionLog.objects.create(actor=request.user, ticket=ticket, action="INTERNAL_NOTE", target_type="TICKET", target_id=ticket.pk, reason=note)
             return Response({"id": item.pk, "message": "Internal note saved."}, status=status.HTTP_201_CREATED)
         message = str(request.data.get("message") or "").strip()
-        if not message:
+        if not message and not request.FILES.get("attachment"):
             return Response({"message": "Enter a response."}, status=status.HTTP_400_BAD_REQUEST)
         if len(message) > 4000:
             return Response({"message": "Response is too long."}, status=status.HTTP_400_BAD_REQUEST)
-        item = SupportTicketMessage.objects.create(ticket=ticket, sender=request.user, message=message, status_snapshot=ticket.status)
+        attachment = request.FILES.get("attachment")
+        if attachment and (attachment.size > 10 * 1024 * 1024 or not (attachment.content_type or "").startswith(("image/", "video/"))):
+            return Response({"attachment": "Attach an image or video smaller than 10 MB."}, status=status.HTTP_400_BAD_REQUEST)
+        item = SupportTicketMessage.objects.create(ticket=ticket, sender=request.user, message=message, attachment=attachment, status_snapshot=ticket.status)
         is_handler = (
             request.user.role in (BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT) or request.user.is_superuser
             or (ticket.connection_id and ticket.connection.contractor_id == request.user.id and ticket.requester_id != request.user.id)
@@ -3234,7 +3402,7 @@ class SupportTicketDetailView(APIView):
         else:
             for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
                 create_notification(administrator, "SUPPORT_MESSAGE", "New ticket reply", f"{ticket_data(ticket)['requester_name']}: {message[:120]}", "/support-tickets", request.user)
-        return Response({"id": item.id, "message": item.message, "created_at": item.created_at}, status=status.HTTP_201_CREATED)
+        return Response({"id": item.id, "message": item.message, "attachment": item.attachment.url if item.attachment else "", "created_at": item.created_at}, status=status.HTTP_201_CREATED)
 
     def patch(self, request, pk):
         ticket = self.get_ticket(request, pk)
@@ -3670,6 +3838,9 @@ class AdminEntityDetailView(APIView):
 
     def delete(self, request, entity, pk):
         if not admin_only(request.user): return Response({"detail": "Administrator access only."}, status=status.HTTP_403_FORBIDDEN)
+        reason = str(request.data.get("reason") or "").strip()
+        if len(reason) < 10 or len(reason) > 1000:
+            return Response({"reason": "Provide a deletion justification of 10 to 1000 characters."}, status=status.HTTP_400_BAD_REQUEST)
         if entity == "customers":
             item = Customer.objects.filter(pk=pk).first()
             if not item: return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -3698,12 +3869,14 @@ class AdminEntityDetailView(APIView):
                 portal_user.is_verified = False
                 portal_user.verification_status = BharathUser.VerificationStatus.SUSPENDED
                 portal_user.save(update_fields=("mobile", "email", "recovery_email", "recovery_email_verified", "google_email", "google_subject", "is_active", "is_verified", "verification_status", "updated_at"))
+            SupportActionLog.objects.create(actor=request.user, action="ADMIN_DELETE_ACCOUNT", target_type="CUSTOMER", target_id=item.pk, reason=reason, before={"status": "ACTIVE"}, after={"status": "CANCELLED", "portal_access_removed": bool(portal_user)})
         else:
             role = BharathUser.Roles.CONTRACTOR if entity == "contractors" else BharathUser.Roles.PAINTER if entity == "applicators" else None
             user = BharathUser.objects.filter(pk=pk, role=role).first() if role else None
             if not user: return Response({"detail": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
             from accounts.account_retirement import retire_business_account
             retire_business_account(user)
+            SupportActionLog.objects.create(actor=request.user, action="ADMIN_DELETE_ACCOUNT", target_type="USER", target_id=user.pk, reason=reason, before={"is_active": True, "role": user.role}, after={"is_active": False, "identity_removed": True})
         return Response({"message": "Mobile number released and account access removed. Historical business records were preserved."})
 
 
@@ -3804,7 +3977,7 @@ class ContractorCrmDashboardView(APIView):
             "counts": {
                 "customers": customers.count(),
                 "active_leads": connected_customer_records.exclude(customer_status__in=(Customer.Status.WON, Customer.Status.LOST, Customer.Status.CANCELLED)).count(),
-                "properties": Property.objects.filter(contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED).count(),
+                "properties": Property.objects.filter(contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED, contractor_hidden_at__isnull=True).count(),
                 "quotations": quotations.count(),
                 "quotation_value": quotations.exclude(status__in=(Quotation.Status.REJECTED, Quotation.Status.CANCELLED, Quotation.Status.EXPIRED)).aggregate(total=models.Sum("grand_total"))["total"] or Decimal("0"),
                 "due_tasks": tasks.filter(next_follow_up__lte=now).count(),
@@ -4201,6 +4374,7 @@ class CustomerQuotationView(APIView):
             "product_details": consolidated_product_details(quotation),
             "customer_response_note": quotation.customer_response_note,
             "customer_responded_at": quotation.customer_responded_at,
+            "accepted_via_receipt_at": quotation.accepted_via_receipt_at,
             "items": [{
                 "id": item.id, "serial": index,
                 "room": item.room.name if item.room else "General",
@@ -4247,6 +4421,7 @@ class CustomerQuotationListView(APIView):
                 "id": item.id, "quotation_number": item.quotation_number,
                 "revision_of": item.revision_of_id, "version_number": item.version_number,
                 "status": item.status, "status_display": item.get_status_display(),
+                "accepted_via_receipt_at": item.accepted_via_receipt_at,
                 "grand_total": item.grand_total, "quotation_date": item.quotation_date,
                 "updated_at": item.updated_at,
                 "property_name": property_snapshot.get("name") or item.property.name or item.property.property_type,

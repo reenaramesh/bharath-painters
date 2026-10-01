@@ -25,6 +25,10 @@ class MasterDataBase(models.Model):
         default=True
     )
 
+    sort_order = models.PositiveIntegerField(
+        default=0
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
     )
@@ -87,7 +91,7 @@ class WorkDescription(MasterDataBase):
     service_category = models.ForeignKey(ServiceCategory, on_delete=models.CASCADE, related_name="product_descriptions", null=True, blank=True)
 
     class Meta:
-        ordering = ("service_type__name", "name")
+        ordering = ("service_type__name", "sort_order", "name")
 
 
 
@@ -111,6 +115,40 @@ class Unit(MasterDataBase):
 
     def __str__(self):
         return self.name
+
+
+class MasterDataSortPreference(models.Model):
+    """Per-user ordering for a master data section.
+
+    The section's sort_order column holds the admin-set default. These rows
+    hold the caller's own curated order on top of it, so reordering never
+    touches shared master data and never leaks into another user's lists.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="master_data_sort_preferences"
+    )
+
+    section = models.CharField(
+        max_length=64
+    )
+
+    entry_id = models.PositiveIntegerField()
+
+    position = models.PositiveIntegerField(
+        default=0
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("user", "section", "entry_id")]
+        ordering = ("position", "entry_id")
+
+    def __str__(self):
+        return f"{self.user_id}:{self.section}:{self.entry_id}={self.position}"
 
 
 class PaintColor(models.Model):
@@ -721,6 +759,7 @@ class SupportTicket(models.Model):
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     subject = models.CharField(max_length=180)
     description = models.TextField()
+    attachment = models.FileField(upload_to="support/tickets/", blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     contractor_response = models.TextField(blank=True)
     handler_seen_at = models.DateTimeField(null=True, blank=True)
@@ -736,6 +775,7 @@ class SupportTicketMessage(models.Model):
     ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="support_ticket_messages")
     message = models.TextField()
+    attachment = models.FileField(upload_to="support/messages/", blank=True)
     status_snapshot = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -964,11 +1004,12 @@ class ApartmentCommunity(models.Model):
     latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("name", "locality")
+        ordering = ("sort_order", "name", "locality")
         constraints = [
             models.UniqueConstraint(
                 fields=("name", "pincode"),
@@ -1053,6 +1094,11 @@ class Property(models.Model):
         blank=True
     )
 
+    google_maps_url = models.URLField(
+        max_length=2048,
+        blank=True
+    )
+
     city = models.CharField(
         max_length=100,
         blank=True
@@ -1069,6 +1115,8 @@ class Property(models.Model):
         null=True,
         blank=True
     )
+
+    contractor_hidden_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(
         auto_now_add=True
@@ -1336,6 +1384,8 @@ class Quotation(models.Model):
     customer_response_note = models.TextField(blank=True)
 
     customer_responded_at = models.DateTimeField(null=True, blank=True)
+
+    accepted_via_receipt_at = models.DateTimeField(null=True, blank=True)
 
     terms_conditions = models.TextField(
         blank=True

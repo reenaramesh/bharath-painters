@@ -139,13 +139,51 @@ def render_contractor_card_pdf(user, card, profile_url):
     _line(pdf, f"Mobile: {card['mobile']}", 48, 212, 240, 9, 12, MUTED, 1)
     if card["email"]:
         _line(pdf, f"Email: {card['email']}", 48, 197, 490, 9, 12, MUTED, 1)
-    _line(pdf, f"Profile: {profile_url}", 48, 178, width - 96, 8, 11, TEAL, 2)
-    pdf.setStrokeColor(LINE)
-    pdf.line(48, 151, width - 48, 151)
+
+    social_links = card.get("social_links") or []
+    profile_y = 178
+    if social_links:
+        pdf.setFillColor(MUTED)
+        pdf.setFont("Helvetica-Bold", 7)
+        pdf.drawString(48, 172, "FIND US")
+        chip = 18
+        right_edge = width - 48
+        row_bottom = 148
+        cursor_x = 48
+        for link in social_links:
+            label = str(link.get("label", ""))
+            short = str(link.get("short", ""))[:3]
+            pdf.setFont("Helvetica-Bold", 8)
+            item_width = chip + 5 + pdf.stringWidth(label, "Helvetica-Bold", 8) + 16
+            if cursor_x + item_width > right_edge and cursor_x > 48:
+                row_bottom -= 24
+                cursor_x = 48
+            try:
+                pdf.setFillColor(colors.HexColor(link["color"]))
+            except (ValueError, KeyError, TypeError):
+                pdf.setFillColor(TEAL)
+            pdf.roundRect(cursor_x, row_bottom, chip, chip, 4, fill=1, stroke=0)
+            pdf.setFillColor(colors.white)
+            pdf.setFont("Helvetica-Bold", 6 if len(short) > 2 else 8)
+            pdf.drawCentredString(cursor_x + chip / 2, row_bottom + chip / 2 - 2.5, short)
+            pdf.setFillColor(NAVY)
+            pdf.setFont("Helvetica-Bold", 8)
+            pdf.drawString(cursor_x + chip + 5, row_bottom + chip / 2 - 3, label)
+            cursor_x += item_width
+        profile_y = row_bottom - 14
+        pdf.setStrokeColor(LINE)
+        pdf.line(48, profile_y - 18, width - 48, profile_y - 18)
+        footer_y = profile_y - 34
+    else:
+        pdf.setStrokeColor(LINE)
+        pdf.line(48, 151, width - 48, 151)
+        footer_y = 134
+
+    _line(pdf, f"Profile: {profile_url}", 48, profile_y, width - 96, 8, 11, TEAL, 2)
     pdf.setFillColor(MUTED)
     pdf.setFont("Helvetica", 8)
-    pdf.drawString(48, 134, "Verified by Bharath Painters")
-    pdf.drawRightString(width - 48, 134, card["bharath_id"] or "")
+    pdf.drawString(48, footer_y, "Verified by Bharath Painters")
+    pdf.drawRightString(width - 48, footer_y, card["bharath_id"] or "")
     if card["projects"] or card["customer_reviews"]["items"]:
         pdf.showPage()
         pdf.setFillColor(colors.HexColor("#F8FBFC"))
@@ -159,7 +197,8 @@ def render_contractor_card_pdf(user, card, profile_url):
         pdf.drawString(48, height - 85, card["title"])
         y = height - 130
         for project in card["projects"]:
-            fields = [("Apartment / gated community", project["apartment_community"]),
+            fields = [("Completed on", project.get("completed_on_display")),
+                      ("Apartment / gated community", project["apartment_community"]),
                       ("Address", project["address"]), ("Location", project["location"]),
                       ("PIN code", project["pincode"]),
                       ("Project details", project["description"]), ("Work completed", project["work_completed"])]

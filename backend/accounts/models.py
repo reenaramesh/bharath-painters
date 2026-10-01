@@ -173,8 +173,6 @@ class BharathUser(AbstractUser):
 
     last_activity_at = models.DateTimeField(blank=True, null=True)
 
-    last_activity_at = models.DateTimeField(blank=True, null=True)
-
     objects = BharathUserManager()
 
     USERNAME_FIELD = "mobile"
@@ -474,8 +472,53 @@ class ContractorProfile(models.Model):
         blank=True
     )
 
+    bank_name = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    bank_branch = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
     upi_id = models.CharField(
         max_length=100,
+        blank=True
+    )
+
+    website = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    google_business_url = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    facebook_url = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    instagram_url = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    pinterest_url = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    whatsapp_number = models.CharField(
+        max_length=25,
+        blank=True
+    )
+
+    extra_social_links = models.JSONField(
+        default=list,
         blank=True
     )
 
@@ -500,6 +543,7 @@ class ContractorCompletedProject(models.Model):
     address = models.TextField(blank=True)
     description = models.TextField(blank=True)
     work_completed = models.TextField(blank=True)
+    completed_on = models.DateField(null=True, blank=True)
     photo = models.ImageField(upload_to="contractors/projects/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

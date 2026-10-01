@@ -52,6 +52,7 @@ def clone_quotation_revision(quotation, note, responded_at):
             "customer_response_note",
             "customer_responded_at",
             "revision_of",
+            "accepted_via_receipt_at",
             "version_number",
         },
     )

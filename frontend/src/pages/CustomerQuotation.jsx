@@ -219,6 +219,11 @@ export default function CustomerQuotation() {
         )}
       </section>
       <section className="quotation-customer-actions rounded-2xl border bg-white p-6">
+        {quotation.accepted_via_receipt_at && (
+          <p className="mb-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+            Your advance payment receipt has been recorded, so this quotation is accepted. The contractor will propose work dates for you to confirm.
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={downloadPdf}
@@ -229,11 +234,11 @@ export default function CustomerQuotation() {
           </button>
           {["ACCEPTED", "CONVERTED"].includes(quotation.status) && (
             <Link
-              to={`/work-schedules?quotation=${quotation.id}`}
+              to={quotation.accepted_via_receipt_at ? "/work-schedules" : `/work-schedules?quotation=${quotation.id}`}
               className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white"
             >
               <CalendarDays className="h-5 w-5" />
-              Continue to schedule
+              {quotation.accepted_via_receipt_at ? "View work dates" : "Continue to schedule"}
             </Link>
           )}
         </div>

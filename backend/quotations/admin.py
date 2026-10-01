@@ -194,6 +194,7 @@ class PropertyAdmin(admin.ModelAdmin):
         "property_type",
         "customer",
         "city",
+        "contractor_hidden_at",
         "approximate_area",
         "created_at",
     )
@@ -201,6 +202,7 @@ class PropertyAdmin(admin.ModelAdmin):
     list_filter = (
         "property_type",
         "city",
+        "contractor_hidden_at",
     )
 
     search_fields = (

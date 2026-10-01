@@ -5,6 +5,8 @@ import {
   Download,
   Edit3,
   Eye,
+  EyeOff,
+  MapPin,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -72,15 +74,13 @@ export default function PropertyDetail() {
   }
 
   async function deleteProperty() {
-    if (!window.confirm("Delete this property and all its Area Calculations?"))
+    if (!window.confirm("Remove this property from your board? The customer, admin and saved Area Calculations can still access it."))
       return;
     try {
       await api.delete(`/quotations/properties/${id}/`);
       navigate(backPath);
     } catch {
-      setError(
-        "This property cannot be deleted because it is used by a quotation.",
-      );
+      setError("Property could not be removed from your board.");
     }
   }
 
@@ -164,6 +164,7 @@ export default function PropertyDetail() {
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
+            {property.google_maps_url && <a href={property.google_maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><MapPin className="h-4 w-4" />Open in Google Maps</a>}
             <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}`} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Create Quotation</Link>
             <button
               type="button"
@@ -176,10 +177,11 @@ export default function PropertyDetail() {
             <button
               type="button"
               onClick={deleteProperty}
-              aria-label="Delete property"
-              className="rounded-xl border border-red-200 p-2.5 text-red-600"
+              aria-label="Remove property from my board"
+              title="Remove property from my board"
+              className="rounded-xl border border-slate-200 p-2.5 text-slate-600"
             >
-              <Trash2 className="h-4 w-4" />
+              <EyeOff className="h-4 w-4" />
             </button>
           </div>
         </div>

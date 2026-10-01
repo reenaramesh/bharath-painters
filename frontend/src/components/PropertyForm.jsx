@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Building2, MapPin, Search, X } from "lucide-react";
 import api from "../api/client";
 
-const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", city: "", pincode: "", approximate_area: "" };
+const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", google_maps_url: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
 
 export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, quotationTheme = false }) {
@@ -15,6 +15,10 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   const [searchingApartments, setSearchingApartments] = useState(false);
   const [apartmentSearchError, setApartmentSearchError] = useState("");
   const [apartmentSearchComplete, setApartmentSearchComplete] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState("");
+  const [mapSuccess, setMapSuccess] = useState("");
+  const lastLookupUrl = useRef("");
   useEffect(() => { setForm(initialValue ? { ...empty, ...initialValue } : { ...empty, customer: initialCustomer || "" }); }, [initialValue, initialCustomer]);
   useEffect(() => {
     const ownerId = initialValue?.customer || initialCustomer;
@@ -74,6 +78,28 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
     setApartmentMatches([]);
     setApartmentSearchComplete(false);
   }
+  async function fetchMapAddress(url = form.google_maps_url.trim(), force = false) {
+    if (!url || (!force && lastLookupUrl.current === url)) return;
+    lastLookupUrl.current = url;
+    setMapLoading(true);
+    setMapError("");
+    setMapSuccess("");
+    try {
+      const { data } = await api.post("/accounts/profile-card/projects/map-lookup/", { url });
+      setForm((value) => value.google_maps_url.trim() === url ? ({
+        ...value,
+        name: value.name || data.apartment_community || "",
+        address: data.address || value.address,
+        city: data.city || value.city,
+        pincode: data.pincode || value.pincode,
+      }) : value);
+      setMapSuccess("Location found. Check the details, then save the property.");
+    } catch (error) {
+      setMapError(Object.values(error.response?.data || {}).flat().join(" ") || "Could not find this place. You can enter the address manually.");
+    } finally {
+      setMapLoading(false);
+    }
+  }
   const update = (event) => setForm((value) => ({
     ...value,
     [event.target.name]: event.target.value,
@@ -110,6 +136,20 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         {!initialValue && ownerOpen && <div className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">{ownerMatches.length ? ownerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOwner(customer)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-amber-50"><b className="block text-sm text-slate-950">{customer.name}</b></button>) : <p className="px-3 py-4 text-sm text-slate-500">No matching customers found.</p>}</div>}
         {!initialValue && ownerSearch && !form.customer && <p className="mt-1 text-xs font-medium text-amber-700">Select a customer from the results or recent customers.</p>}
       </div>
+      <div className="sm:col-span-2">
+        <label className="text-sm font-medium">Google Maps place or pin link <span className="font-normal text-slate-400">(optional)</span>
+          <span className="relative mt-1.5 flex items-center">
+            <MapPin className="pointer-events-none absolute left-3.5 h-4 w-4 text-[#4285f4]" />
+            <input type="url" name="google_maps_url" value={form.google_maps_url || ""} onChange={update} onPaste={(event) => { const pasted = event.clipboardData.getData("text").trim(); if (pasted) fetchMapAddress(pasted); }} onBlur={() => fetchMapAddress()} placeholder="Paste a Google Maps place or dropped pin link" className={`${input} mt-0 pl-10`} />
+          </span>
+        </label>
+        <div className="mt-2 flex items-center gap-2">
+          <a href="https://www.google.com/maps/" target="_blank" rel="noreferrer" aria-label="Drop a pin in Google Maps" title="Drop a pin in Google Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border text-[#4285f4] hover:bg-blue-50"><MapPin className="h-5 w-5" /></a>
+          <button type="button" disabled={!form.google_maps_url.trim() || mapLoading} onClick={() => fetchMapAddress(form.google_maps_url.trim(), true)} className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-50">{mapLoading ? "Searching..." : "Search"}</button>
+        </div>
+        {mapError && <p role="alert" className="mt-2 text-xs text-red-700">{mapError}</p>}
+        {mapSuccess && <p role="status" className="mt-2 text-xs text-emerald-700">{mapSuccess}</p>}
+      </div>
       <div className="relative sm:col-span-2">
         <label className="text-sm font-medium">Apartment / gated community <span className="font-normal text-slate-400">(optional)</span>
           <span className="relative mt-1.5 flex items-center">
@@ -128,18 +168,18 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
           </div>
         )}
         {searchingApartments && <p className="mt-1 text-xs text-slate-400">Searching apartment directory...</p>}
-        {apartmentSearch.trim().length < 2 && <p className="mt-1 text-xs text-slate-500">Type at least 2 characters to search the apartment directory.</p>}
         {!searchingApartments && apartmentSearchError && <p role="alert" className="mt-1 text-xs text-red-700">{apartmentSearchError}</p>}
         {!searchingApartments && !apartmentSearchError && apartmentSearchComplete && apartmentMatches.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching apartments found. You can still enter the property details manually.</p>}
       </div>
+      <label className="text-sm font-medium sm:col-span-2">Project address *<textarea required name="address" value={form.address} onChange={update} rows="3" className={input} /></label>
+      <label className="text-sm font-medium">City<input name="city" value={form.city} onChange={update} className={input} /></label>
+      <label className="text-sm font-medium">Pincode<input name="pincode" value={form.pincode} onChange={update} className={input} /></label>
       <label className="text-sm font-medium">Project name *<input required name="name" value={form.name} onChange={update} placeholder="e.g. Brigade Cassia" className={input} /></label>
       <label className="text-sm font-medium">Type<select name="property_type" value={form.property_type} onChange={update} className={input}>{types.map((type) => <option key={type}>{type}</option>)}</select></label>
       <label className="text-sm font-medium">Area calculation type<select name="measurement_type" value={form.measurement_type} onChange={update} className={input}><option value="INTERIOR">Interior</option><option value="EXTERIOR">Exterior</option></select></label>
       <label className="text-sm font-medium">Area calculation input unit<select disabled={Boolean(initialValue?.has_measurements)} name="measurement_unit" value={form.measurement_unit} onChange={update} className={input}><option value="FEET">Feet (ft)</option><option value="METRES">Metres (m)</option></select>{initialValue?.has_measurements && <span className="mt-1 block text-xs font-normal text-amber-700">Locked because Area Calculations are saved.</span>}</label>
       <label className="text-sm font-medium">Flat number <span className="font-normal text-slate-400">(optional)</span><input name="flat_number" value={form.flat_number} onChange={update} placeholder="e.g. 1204" className={input} /></label>
       <label className="text-sm font-medium">Block / Tower <span className="font-normal text-slate-400">(optional)</span><input name="block_name" value={form.block_name} onChange={update} placeholder="e.g. Block B" className={input} /></label>
-      <label className="text-sm font-medium sm:col-span-2">Project address *<textarea required name="address" value={form.address} onChange={update} rows="3" className={input} /></label>
-      <label className="text-sm font-medium">City<input name="city" value={form.city} onChange={update} className={input} /></label><label className="text-sm font-medium">Pincode<input name="pincode" value={form.pincode} onChange={update} className={input} /></label>
       <div className="flex justify-end gap-3 border-t pt-5 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-xl border px-5 py-2.5 font-semibold">Cancel</button><button disabled={saving} className={`rounded-xl px-5 py-2.5 font-semibold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`}>{saving ? "Saving..." : "Save property"}</button></div>
     </form></div></div>;
 }

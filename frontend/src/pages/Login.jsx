@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff, Palette } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Palette, LifeBuoy, X } from "lucide-react";
 import useAuth from "../context/useAuth";
+import api from "../api/client";
 
 export default function Login() {
   const { user, login, googleLogin } = useAuth();
@@ -12,6 +13,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportForm, setSupportForm] = useState({ mobile: "", subject: "", description: "", attachment: null });
+  const [supportMessage, setSupportMessage] = useState("");
   const googleButtonRef = useRef(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -78,6 +82,21 @@ export default function Login() {
     }
   }
 
+  async function submitSupport(event) {
+    event.preventDefault(); setLoading(true); setSupportMessage("");
+    try {
+      const body = new FormData(); Object.entries(supportForm).forEach(([key, value]) => { if (value) body.append(key, value); });
+      const { data } = await api.post("/quotations/support-tickets/public/", body, { headers: { "Content-Type": "multipart/form-data" } });
+      setSupportMessage(`Ticket ${data.ticket_number} was submitted. Support will follow up.`);
+      setSupportForm({ mobile: "", subject: "", description: "", attachment: null });
+    } catch (e) {
+      const data = e.response?.data;
+      const detail = data?.detail || (data && Object.entries(data).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(" ") : value}`).join(" "));
+      setSupportMessage(detail || (e.response ? `Ticket submission failed (HTTP ${e.response.status}). Please try again.` : `Cannot reach the support server (${e.message}). Check that the backend is running and try again.`));
+    }
+    finally { setLoading(false); }
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 grid lg:grid-cols-2">
       <section className="hidden lg:flex p-14 flex-col justify-between text-white bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950">
@@ -132,8 +151,10 @@ export default function Login() {
           </form>
           <p className="mt-6 text-center text-sm text-slate-500">New to Bharath Painters? <Link to="/register" className="font-semibold text-slate-950">Create an account</Link></p>
           <p className="mt-3 text-center text-sm text-slate-500">Are you a customer? <Link to="/customer-register" className="font-semibold text-slate-950">Create customer login</Link></p>
+          <button type="button" onClick={() => { setSupportOpen(true); setSupportMessage(""); }} className="mx-auto mt-6 flex items-center gap-2 text-sm font-semibold text-[#176b9b]"><LifeBuoy className="h-4 w-4" />Support Desk</button>
         </div>
       </section>
+      {supportOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="support-title" className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"><header className="mb-5 flex items-center justify-between"><div><p className="text-sm font-semibold text-[#176b9b]">Bharath Painters</p><h2 id="support-title" className="text-2xl font-bold">Support Desk</h2></div><button type="button" onClick={() => setSupportOpen(false)} aria-label="Close support form" className="rounded-lg p-2 hover:bg-slate-100"><X /></button></header>{supportMessage && <p role="status" className="mb-4 rounded-xl bg-slate-50 p-3 text-sm">{supportMessage}</p>}<form onSubmit={submitSupport} className="space-y-4"><label className="block text-sm font-semibold">Registered mobile number<input required inputMode="tel" value={supportForm.mobile} onChange={e => setSupportForm({...supportForm,mobile:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3" /></label><label className="block text-sm font-semibold">Subject<input required maxLength={180} value={supportForm.subject} onChange={e => setSupportForm({...supportForm,subject:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3" /></label><label className="block text-sm font-semibold">How can we help?<textarea required maxLength={4000} rows={4} value={supportForm.description} onChange={e => setSupportForm({...supportForm,description:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3" /></label><label className="block text-sm font-semibold">Attach an image or video (up to 10 MB)<input type="file" accept="image/*,video/*" onChange={e => setSupportForm({...supportForm,attachment:e.target.files?.[0] || null})} className="mt-1.5 block w-full text-sm" /></label><button disabled={loading} className="w-full rounded-xl bg-slate-950 p-3 font-semibold text-white disabled:opacity-60">{loading ? "Submitting..." : "Submit ticket"}</button></form></section></div>}
     </main>
   );
 }

@@ -21,6 +21,8 @@ export default function RecoveryEmailSettings() {
   const [showChangePasswords, setShowChangePasswords] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState("");
+  const [accountActionError, setAccountActionError] = useState("");
+  const [accountActionBusy, setAccountActionBusy] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -53,6 +55,17 @@ export default function RecoveryEmailSettings() {
       await load();
     } catch (requestError) { setError(formatError(requestError.response?.data) || "Email could not be verified."); }
     finally { setSaving(false); }
+  }
+
+  async function accountAction(action) {
+    const warning = action === "delete"
+      ? "Delete your account permanently? This is your own choice. Your sign-in account will be permanently deleted, you will not receive any notifications, and you will need to register again to use Bharath Painters."
+      : "Temporarily deactivate your account? This is your own choice. You will be signed out and will not receive notifications while the account is inactive.";
+    if (!window.confirm(warning)) return;
+    setAccountActionBusy(true); setAccountActionError("");
+    try { await api.post("/accounts/account/lifecycle/", { action }); await logout(); navigate("/login", { replace: true }); }
+    catch (e) { setAccountActionError(e.response?.data?.detail || "The account action could not be completed."); }
+    finally { setAccountActionBusy(false); }
   }
 
   async function submitPasswordChange(event) {
@@ -107,6 +120,7 @@ export default function RecoveryEmailSettings() {
       <button type="button" onClick={() => { setChallenge(null); setOtp(""); setError(""); }} className="w-full text-sm font-semibold text-slate-600">Change email address</button>
     </form>}
     </>}
+    {["CUSTOMER", "CONTRACTOR", "PAINTER"].includes(user?.role) && <section className="space-y-4 rounded-2xl border border-red-200 bg-white p-5 sm:p-6"><div><h2 className="font-bold text-slate-900">Account status</h2><p className="mt-1 text-sm text-slate-600">These actions are your choice. Deactivation pauses access and notifications. Account deletion is permanent, removes your sign-in details, and stops all notifications.</p></div>{accountActionError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{accountActionError}</p>}<div className="flex flex-col gap-3 sm:flex-row"><button type="button" disabled={accountActionBusy} onClick={() => accountAction("deactivate")} className="rounded-xl border border-amber-300 px-4 py-3 text-sm font-semibold text-amber-800 disabled:opacity-50">Temporarily deactivate account</button><button type="button" disabled={accountActionBusy} onClick={() => accountAction("delete")} className="rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Permanently delete account</button></div></section>}
   </div>;
 }
 const input = "mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-100";

@@ -91,6 +91,10 @@ def import_master_rows(section, upload, user):
             "error_count": len(rows) - created - updated - skipped}
 
 
+def next_sort_order(model):
+    return (model.objects.aggregate(top=models.Max("sort_order"))["top"] or 0) + 1
+
+
 def import_master_row(model, row, user):
     name = row_value(row, "name", "apartment_name")
     limit = 200 if model is ApartmentCommunity else 150
@@ -108,7 +112,7 @@ def import_master_row(model, row, user):
             item.zone, item.locality, item.is_active = zone, locality, True
             item.save(update_fields=["zone", "locality", "is_active", "updated_at"])
             return "updated"
-        model.objects.create(name=name, pincode=pincode, zone=zone, locality=locality)
+        model.objects.create(name=name, pincode=pincode, zone=zone, locality=locality, sort_order=next_sort_order(model))
         return "created"
 
     category = None
@@ -150,5 +154,5 @@ def import_master_row(model, row, user):
         Q(created_by__isnull=True) | Q(created_by__role=BharathUser.Roles.ADMIN), **filters
     ).exists():
         return "skipped"
-    model.objects.create(created_by=None if user.role == BharathUser.Roles.ADMIN else user, **values)
+    model.objects.create(created_by=None if user.role == BharathUser.Roles.ADMIN else user, sort_order=next_sort_order(model), **values)
     return "created"

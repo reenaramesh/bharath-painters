@@ -352,7 +352,7 @@ export default function QuotationDetail() {
       )}
       {quotation.status === "ACCEPTED" && (
         <section className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="font-bold text-emerald-950">Customer accepted this quotation</p><p className="mt-1 text-sm text-emerald-800">Next: propose work dates. After both parties confirm, collect the advance, assign Paint Applicators, start work, and complete the project.</p></div>
+          <div><p className="font-bold text-emerald-950">{quotation.accepted_via_receipt_at ? "Quotation accepted through payment receipt" : "Customer accepted this quotation"}</p><p className="mt-1 text-sm text-emerald-800">Next: propose work dates for the customer to confirm. {quotation.accepted_via_receipt_at ? "The advance is already recorded." : "Then record any advance, assign Paint Applicators, start work, and complete the project."}</p></div>
           <Link to={`/work-schedules?quotation=${quotation.id}`} className="shrink-0 rounded-xl bg-emerald-700 px-5 py-3 text-center text-sm font-semibold text-white">Propose work dates</Link>
         </section>
       )}

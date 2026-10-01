@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, QrCode, Save, Upload } from "lucide-react";
+import { Award, Check, Eye, EyeOff, FileText, Plus, QrCode, Save, Trash2, Upload, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
 
@@ -34,6 +34,29 @@ function themeTextColor(hex) {
   return luminance[0] * 0.2126 + luminance[1] * 0.7152 + luminance[2] * 0.0722 > 0.4 ? "#172033" : "#ffffff";
 }
 
+const socialPlatforms = [
+  { field: "google_business_url", label: "Google Business", short: "G", color: "#4285F4", placeholder: "https://maps.app.goo.gl/…" },
+  { field: "facebook_url", label: "Facebook", short: "f", color: "#1877F2", placeholder: "https://facebook.com/…" },
+  { field: "instagram_url", label: "Instagram", short: "ig", color: "#E1306C", placeholder: "https://instagram.com/…" },
+  { field: "pinterest_url", label: "Pinterest", short: "p", color: "#BD081C", placeholder: "https://pinterest.com/…" },
+];
+
+function PlatformBadge({ short, color, className = "h-9 w-9" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`grid shrink-0 place-items-center rounded-lg text-xs font-bold text-white ${className}`}
+      style={{ background: color }}
+    >
+      {short}
+    </span>
+  );
+}
+
+function SectionTitle({ children }) {
+  return <h2 className="font-bold">{children}</h2>;
+}
+
 const blank = {
   mobile: "",
   email: "",
@@ -60,6 +83,23 @@ const blank = {
   years_in_business: 0,
   number_of_painters: 0,
   default_measurement_unit: "FEET",
+  bank_account_name: "",
+  bank_account_number: "",
+  bank_name: "",
+  bank_branch: "",
+  bank_ifsc: "",
+  upi_id: "",
+  website: "",
+  google_business_url: "",
+  facebook_url: "",
+  instagram_url: "",
+  pinterest_url: "",
+  whatsapp_number: "",
+  extra_social_links: [],
+  gst_document: null,
+  gst_document_url: "",
+  business_document: null,
+  business_document_url: "",
   quotation_terms_conditions: "",
   quotation_prepared_by: "",
   quotation_inspected_by: "",
@@ -77,6 +117,31 @@ export default function ContractorSettings({ themeOnly = false }) {
   const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [previewDocument, setPreviewDocument] = useState("QUOTATION");
+  const [socialModal, setSocialModal] = useState(null);
+  const [socialDraft, setSocialDraft] = useState("");
+  const [extraDraft, setExtraDraft] = useState({ label: "", url: "" });
+  const openSocialModal = (platform) => {
+    setSocialModal(platform);
+    setSocialDraft(platform.field ? form[platform.field] || "" : "");
+    setExtraDraft(platform.extraIndex === undefined ? { label: platform.label || "", url: "" } : form.extra_social_links?.[platform.extraIndex] || { label: "", url: "" });
+  };
+  const commitSocialModal = () => {
+    if (!socialModal) return;
+    if (socialModal.field) {
+      setForm((value) => ({ ...value, [socialModal.field]: socialDraft.trim() }));
+    } else if (socialModal.extraIndex === undefined) {
+      const url = extraDraft.url.trim();
+      if (url) setForm((value) => ({ ...value, extra_social_links: [...(value.extra_social_links || []), { label: extraDraft.label.trim() || "Website", url }] }));
+    } else {
+      setForm((value) => ({
+        ...value,
+        extra_social_links: (value.extra_social_links || []).map((entry, index) => (index === socialModal.extraIndex ? { label: extraDraft.label.trim() || entry.label, url: extraDraft.url.trim() } : entry)),
+      }));
+    }
+    setSocialModal(null);
+  };
+  const removeExtraSocial = (index) =>
+    setForm((value) => ({ ...value, extra_social_links: (value.extra_social_links || []).filter((_, i) => i !== index) }));
   useEffect(() => {
     api
       .get("/accounts/contractor-profile/")
@@ -88,6 +153,12 @@ export default function ContractorSettings({ themeOnly = false }) {
           company_logo_url: data.company_logo || "",
           profile_photo: null,
           profile_photo_url: data.profile_photo || "",
+          gst_document: null,
+          gst_document_url: data.gst_document || "",
+          business_document: null,
+          business_document_url: data.business_document || "",
+          clear_gst_document: false,
+          clear_business_document: false,
         }),
       )
       .catch(() => setError("Contractor details could not be loaded."))
@@ -136,10 +207,27 @@ export default function ContractorSettings({ themeOnly = false }) {
         "years_in_business",
         "number_of_painters",
         "default_measurement_unit",
+        "bank_account_name",
+        "bank_account_number",
+        "bank_name",
+        "bank_branch",
+        "bank_ifsc",
+        "upi_id",
+        "website",
+        "google_business_url",
+        "facebook_url",
+        "instagram_url",
+        "pinterest_url",
+        "whatsapp_number",
       ]).forEach((field) => payload.append(field, form[field] ?? ""));
+      if (!themeOnly) payload.append("extra_social_links", JSON.stringify(form.extra_social_links ?? []));
       if (!themeOnly && form.password) payload.append("password", form.password);
       if (!themeOnly && form.company_logo) payload.append("company_logo", form.company_logo);
       if (!themeOnly && form.profile_photo) payload.append("profile_photo", form.profile_photo);
+      if (!themeOnly && form.gst_document) payload.append("gst_document", form.gst_document);
+      if (!themeOnly && form.business_document) payload.append("business_document", form.business_document);
+      if (!themeOnly && form.clear_gst_document) payload.append("clear_gst_document", "1");
+      if (!themeOnly && form.clear_business_document) payload.append("clear_business_document", "1");
       const { data } = await api.patch(
         "/accounts/contractor-profile/",
         payload,
@@ -153,6 +241,12 @@ export default function ContractorSettings({ themeOnly = false }) {
         company_logo_url: data.company_logo || value.company_logo_url,
         profile_photo: null,
         profile_photo_url: data.profile_photo || value.profile_photo_url,
+        gst_document: null,
+        gst_document_url: data.gst_document || "",
+        business_document: null,
+        business_document_url: data.business_document || "",
+        clear_gst_document: false,
+        clear_business_document: false,
       }));
       window.dispatchEvent(new CustomEvent("bp-app-theme-changed", { detail: data }));
       setSuccess(themeOnly ? "Theme settings saved successfully." : "Contractor and company details saved successfully.");
@@ -572,6 +666,133 @@ export default function ContractorSettings({ themeOnly = false }) {
           </select>
           <span className="mt-1 block font-normal text-slate-500">New properties use this unit. Quotations remain in square feet.</span>
         </label>
+        <div className="border-t pt-5 sm:col-span-2">
+          <SectionTitle>Payment details</SectionTitle>
+        </div>
+        <label className="text-sm font-medium">
+          Account name
+          <input name="bank_account_name" value={form.bank_account_name} onChange={update} className={input} />
+        </label>
+        <label className="text-sm font-medium">
+          Account number
+          <input name="bank_account_number" value={form.bank_account_number} onChange={update} className={input} />
+        </label>
+        <label className="text-sm font-medium">
+          Bank name
+          <input name="bank_name" value={form.bank_name} onChange={update} className={input} />
+        </label>
+        <label className="text-sm font-medium">
+          Branch
+          <input name="bank_branch" value={form.bank_branch} onChange={update} className={input} />
+        </label>
+        <label className="text-sm font-medium">
+          IFSC code
+          <input name="bank_ifsc" maxLength="20" value={form.bank_ifsc} onChange={update} placeholder="HDFC0001234" className={`${input} font-mono uppercase`} />
+        </label>
+        <label className="text-sm font-medium">
+          UPI ID
+          <input name="upi_id" value={form.upi_id} onChange={update} placeholder="yourname@okhdfcbank" className={input} />
+        </label>
+
+        <div className="border-t pt-5 sm:col-span-2">
+          <SectionTitle>Online presence</SectionTitle>
+        </div>
+        <div className="sm:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { field: "website", label: "Website", short: "www", color: "#0F172A" },
+              ...socialPlatforms,
+            ].map((platform) => {
+              const value = form[platform.field];
+              return (
+                <button
+                  key={platform.field}
+                  type="button"
+                  onClick={() => openSocialModal(platform)}
+                  className={`flex items-center gap-2 rounded-xl border p-2 pr-3 text-sm font-medium transition ${value ? "border-slate-900 bg-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}
+                >
+                  <PlatformBadge short={platform.short} color={platform.color} className="h-7 w-7 text-[11px]" />
+                  <span className="max-w-28 truncate">{platform.label}</span>
+                  {value && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => openSocialModal({ label: "", field: null, extraIndex: undefined })}
+              className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 p-2 pr-3 text-sm font-medium text-slate-600 hover:border-slate-400"
+            >
+              <Plus className="h-4 w-4" />
+              Add link
+            </button>
+          </div>
+          {form.extra_social_links?.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {form.extra_social_links.map((entry, index) => (
+                <li key={`${entry.url}-${index}`} className="flex items-center gap-3 rounded-xl border border-slate-200 p-2.5">
+                  <PlatformBadge short={(entry.label || "L").slice(0, 2).toUpperCase()} color="#64748B" className="h-7 w-7 text-[10px]" />
+                  <span className="min-w-0 flex-1">
+                    <b className="block truncate text-sm">{entry.label}</b>
+                    <small className="block truncate text-xs text-slate-500">{entry.url}</small>
+                  </span>
+                  <button type="button" onClick={() => openSocialModal({ extraIndex: index })} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold">Edit</button>
+                  <button type="button" onClick={() => removeExtraSocial(index)} aria-label={`Remove ${entry.label}`} className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="border-t pt-5 sm:col-span-2">
+          <SectionTitle>Certificates</SectionTitle>
+        </div>
+        <div className="sm:col-span-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { field: "gst_document", label: "GST certificate", accept: "application/pdf,image/*" },
+              { field: "business_document", label: "Business licence", accept: "application/pdf,image/*" },
+            ].map((slot) => {
+              const pending = form[slot.field];
+              const existing = !pending && form[`${slot.field}_url`];
+              return (
+                <div key={slot.field} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="text-sm font-medium">{slot.label}</span>
+                  </div>
+                  {pending ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-slate-50 p-2">
+                      <FileText className="h-4 w-4 shrink-0 text-slate-500" />
+                      <span className="min-w-0 flex-1 truncate text-xs">{pending.name}</span>
+                      <button type="button" aria-label={`Clear ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null }))} className="shrink-0 text-slate-500 hover:text-red-600">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : existing ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2">
+                      <FileText className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <span className="min-w-0 flex-1 truncate text-xs text-emerald-900">{form[`${slot.field}_url`].split("/").pop()}</span>
+                      <button type="button" aria-label={`Remove ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null, [`${slot.field}_url`]: "", [`clear_${slot.field}`]: true }))} className="shrink-0 text-emerald-700 hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-slate-300 p-2 text-center text-xs text-slate-500">Not uploaded</p>
+                  )}
+                  <input
+                    type="file"
+                    accept={slot.accept}
+                    onChange={(event) => setForm((value) => ({ ...value, [slot.field]: event.target.files?.[0] || null, [`clear_${slot.field}`]: false }))}
+                    className="w-full min-w-0 text-xs"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="text-sm font-medium sm:col-span-2">
           <label htmlFor="contractor-new-password">New password</label>{" "}
           <span className="font-normal text-slate-400">
@@ -604,6 +825,89 @@ export default function ContractorSettings({ themeOnly = false }) {
           </button>
         </div>
       </form>
+    {socialModal && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={socialModal.field ? socialModal.label : "Add link"}
+        className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/50 p-4"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSocialModal(null);
+        }}
+      >
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+          <div className="flex items-center gap-3">
+            {socialModal.field ? (
+              <PlatformBadge short={socialModal.short} color={socialModal.color} />
+            ) : (
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100">
+                <Plus className="h-5 w-5 text-slate-600" />
+              </span>
+            )}
+            <h3 className="min-w-0 flex-1 truncate text-base font-bold">
+              {socialModal.field ? socialModal.label : socialModal.extraIndex === undefined ? "Add link" : "Edit link"}
+            </h3>
+            <button type="button" onClick={() => setSocialModal(null)} aria-label="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {socialModal.field ? (
+            <input
+              autoFocus
+              value={socialDraft}
+              onChange={(event) => setSocialDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitSocialModal();
+                }
+              }}
+              placeholder={socialModal.placeholder || "https://…"}
+              className="mt-4 w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+            />
+          ) : (
+            <div className="mt-4 grid gap-3">
+              <input
+                autoFocus
+                value={extraDraft.label}
+                onChange={(event) => setExtraDraft((value) => ({ ...value, label: event.target.value }))}
+                placeholder="Label, such as LinkedIn"
+                maxLength="60"
+                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+              />
+              <input
+                value={extraDraft.url}
+                onChange={(event) => setExtraDraft((value) => ({ ...value, url: event.target.value }))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitSocialModal();
+                  }
+                }}
+                placeholder="https://…"
+                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+              />
+            </div>
+          )}
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSocialModal(null)}
+              className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={commitSocialModal}
+              className="min-h-11 flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Save link
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

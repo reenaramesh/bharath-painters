@@ -12,13 +12,18 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { useLanguage } from "../i18n/LanguageContext";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
 import MobilePageBack from "../components/MobilePageBack";
+import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import {
+  APPLICATOR_AVAILABILITY_PATH,
+  paintingSkillOptions as skillOptions,
+} from "../constants/workNetwork";
 
 const empty = {
   title: "",
@@ -41,17 +46,12 @@ const empty = {
   start_date: "",
   estimated_days: 1,
 };
-const skillOptions = [
-  "Brush Painting", "Roller Painting", "Spray Painting", "Wall Putty", "Primer",
-  "Interior Painting", "Exterior Painting", "Wall Texture", "Wood Polish",
-  "Enamel Painting", "Waterproofing", "Scaffolding",
-];
-
 export default function Jobs() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const contractor = user?.role === "CONTRACTOR";
   const [jobs, setJobs] = useState([]);
   const [search, setSearch] = useState("");
@@ -60,16 +60,46 @@ export default function Jobs() {
   const [locating, setLocating] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [showForm, setShowForm] = useState(searchParams.get("post") === "1");
+  const [showForm, setShowForm] = useState(contractor && searchParams.get("post") === "1");
   const [form, setForm] = useState(empty);
   const [applications, setApplications] = useState({});
   const [detailJob, setDetailJob] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [availabilityCount, setAvailabilityCount] = useState(null);
 
   useEffect(() => {
-    if (contractor && searchParams.get("post") === "1") setShowForm(true);
-  }, [contractor, searchParams]);
+    if (contractor) {
+      if (searchParams.get("post") === "1") setShowForm(true);
+      return;
+    }
+    setShowForm(false);
+    if (searchParams.get("post")) {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete("post");
+        return next;
+      }, { replace: true });
+    }
+  }, [contractor, searchParams, setSearchParams]);
+
+  const closeForm = useCallback(() => {
+    setShowForm(false);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("post");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const openForm = useCallback(() => {
+    setShowForm(true);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("post", "1");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const load = useCallback(async () => {
     try {
@@ -110,6 +140,22 @@ export default function Jobs() {
     return () => clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/jobs/seeking/", { params: { page_size: 1 } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setAvailabilityCount(Array.isArray(data) ? data.length : data?.count ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailabilityCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function createJob(event) {
     event.preventDefault();
     setSaving(true);
@@ -123,7 +169,7 @@ export default function Jobs() {
         weekly_wage:
           form.job_type === "WEEKLY" ? form.weekly_wage || null : null,
       });
-      setShowForm(false);
+      closeForm();
       setForm(empty);
       await load();
     } catch (err) {
@@ -229,6 +275,35 @@ export default function Jobs() {
     }
   }
 
+  async function respondToTransfer(jobId, transferId, action) {
+    setSaving(true);
+    try {
+      await api.post(`/jobs/transfers/${transferId}/respond/`, { action });
+      await refreshApplications(jobId);
+    } catch (err) {
+      setError(readError(err, "Transfer request could not be answered."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestReassign(jobId, applicationId, targetJobId) {
+    const reason = prompt("Reason for transferring this Paint Applicator:", "Available for the other requirement");
+    if (reason === null) return;
+    setSaving(true);
+    try {
+      await api.post(`/jobs/applications/${applicationId}/reassign/`, {
+        target_job_id: Number(targetJobId),
+        reason,
+      });
+      await refreshApplications(jobId);
+    } catch (err) {
+      setError(readError(err, "Transfer request could not be sent."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function openConversation(params) {
     try {
       let conversation;
@@ -248,14 +323,19 @@ export default function Jobs() {
     }
   }
 
+  const transferTargets = jobs
+    .filter(
+      (job) =>
+        ["OPEN", "PARTIALLY_FILLED"].includes(job.status) && job.id !== detailJob?.id,
+    )
+    .map((job) => ({ id: job.id, label: `${job.title} · ${job.start_date || "No start date"}` }));
+
   return (
     <div className="space-y-6">
       <MobilePageBack />
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Location-based workforce
-          </p>
+          <p className="text-sm font-semibold text-amber-600">Work Network</p>
           <h1 className="mt-1 text-3xl font-bold">
             {t(contractor ? "Job requirements" : "Available Jobs")}
           </h1>
@@ -266,18 +346,16 @@ export default function Jobs() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {contractor && (
-            <Link
-              to="/painter-seeking"
-              className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
-            >
-              <Users className="h-4 w-4" />
-              {t("Find Paint Applicators")}
-            </Link>
-          )}
+          <Link
+            to={APPLICATOR_AVAILABILITY_PATH}
+            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+          >
+            <Users className="h-4 w-4" />
+            {t(contractor ? "Find Paint Applicators" : "Post my availability")}
+          </Link>
           {contractor && (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={openForm}
               className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
             >
               <Plus className="h-4 w-4" />
@@ -286,6 +364,13 @@ export default function Jobs() {
           )}
         </div>
       </header>
+      <WorkNetworkTabs
+        pathname={pathname}
+        contractor={contractor}
+        requirementsCount={jobs.length}
+        availabilityCount={availabilityCount}
+      />
+
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
@@ -398,17 +483,38 @@ export default function Jobs() {
             ))}
           </div>
         ) : (
-          <p className="p-14 text-center text-slate-400">
-            No jobs match this location.
-          </p>
+          <div className="p-14 text-center">
+            <p className="text-slate-400">
+              {contractor
+                ? "No work requirements match these filters."
+                : "No available jobs match these filters."}
+            </p>
+            {contractor ? (
+              <button
+                onClick={openForm}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              >
+                <Plus className="h-4 w-4" />
+                {t("Post requirement")}
+              </button>
+            ) : (
+              <Link
+                to={APPLICATOR_AVAILABILITY_PATH}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold"
+              >
+                <Users className="h-4 w-4" />
+                {t("Post my availability")}
+              </Link>
+            )}
+          </div>
         )}
       </section>
-      {showForm && (
+      {showForm && contractor && (
         <JobForm
           form={form}
           setForm={setForm}
           saving={saving}
-          onClose={() => setShowForm(false)}
+          onClose={closeForm}
           onSubmit={createJob}
         />
       )}
@@ -429,13 +535,16 @@ export default function Jobs() {
           onKeep={(id) => keepAssignment(detailJob.id, id)}
           onPainterMessage={(painterId) => openConversation({ painter_id: painterId })}
           onRate={(id) => rateApplication(detailJob.id, id)}
+          onTransferResponse={(transferId, action) => respondToTransfer(detailJob.id, transferId, action)}
+          onReassign={(applicationId, targetJobId) => requestReassign(detailJob.id, applicationId, targetJobId)}
+          transferTargets={transferTargets}
         />
       )}
     </div>
   );
 }
 
-function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate }) {
+function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate, onTransferResponse, onReassign, transferTargets }) {
   const wage = job.job_type === "DAILY" ? job.daily_wage : job.weekly_wage;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -465,7 +574,7 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
             {job.description && <p className="mt-3 text-sm leading-6 text-slate-600">{job.description}</p>}
           </div>
           {contractor ? (
-            <ApplicationList items={applications} saving={saving} onDecide={onDecide} onCancel={onCancel} onKeep={onKeep} onMessage={onPainterMessage} onRate={onRate} />
+            <ApplicationList items={applications} saving={saving} onDecide={onDecide} onCancel={onCancel} onKeep={onKeep} onMessage={onPainterMessage} onRate={onRate} onTransferResponse={onTransferResponse} onReassign={onReassign} transferTargets={transferTargets} />
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <button type="button" onClick={onCall} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold"><Phone className="h-4 w-4" /> Call</button>
@@ -483,9 +592,9 @@ function Detail({ label, value }) {
   return <div className="rounded-2xl border bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-bold text-slate-800">{value}</p></div>;
 }
 
-function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage, onRate }) {
+function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage, onRate, onTransferResponse, onReassign, transferTargets }) {
   const [targets, setTargets] = useState({});
-  const targetJobs = [];
+  const selectableTargets = transferTargets || [];
   return (
     <div className="mt-5 rounded-xl bg-slate-50 p-4">
       <h3 className="font-bold">Paint Applicator applications</h3>
@@ -537,10 +646,10 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
               )}
               {item.status === "ACCEPTED" && !item.transfer_request && (
                 <div className="flex flex-wrap items-center gap-2">
-                  {targetJobs.length > 0 && <>
+                  {selectableTargets.length > 0 && <>
                     <select value={targets[item.application_id] || ""} onChange={(event) => setTargets((old) => ({ ...old, [item.application_id]: event.target.value }))} className="rounded-lg border bg-white px-3 py-2 text-sm">
                       <option value="">Request transfer to job</option>
-                      {targetJobs.map((job) => <option key={job.id} value={job.id}>{job.title} · {job.start_date}</option>)}
+                      {selectableTargets.map((job) => <option key={job.id} value={job.id}>{job.label}</option>)}
                     </select>
                     <button disabled={saving || !targets[item.application_id]} onClick={() => onReassign(item.application_id, targets[item.application_id])} className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40">Send request</button>
                   </>}
@@ -592,7 +701,7 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               {t("Post requirement")}
             </h2>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose} aria-label="Close post requirement form">
             <X />
           </button>
         </div>

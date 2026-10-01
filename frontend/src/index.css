@@ -299,6 +299,45 @@ svg {
 .bp-state-error strong {
   color: #d92d20;
 }
+/* Route crash detail: keeps the reported error text available to the
+   support desk without turning it into a stack trace. */
+.bp-crash-detail {
+  max-width: 560px;
+  overflow-wrap: anywhere;
+  border-radius: 0.6rem;
+  background: #fef3f2;
+  padding: 0.5rem 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  text-align: left;
+  color: #b42318;
+}
+.bp-crash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+/* Route/lazy loading indicator used by the Suspense fallback. */
+.bp-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e9f2;
+  border-top-color: var(--bp-brand);
+  border-radius: 50%;
+  animation: bp-spin 0.8s linear infinite;
+}
+@keyframes bp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-spinner {
+    animation-duration: 2.4s;
+  }
+}
 .bp-button {
   display: inline-flex;
   min-height: 42px;

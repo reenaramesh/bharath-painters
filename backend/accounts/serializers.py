@@ -219,15 +219,61 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             "company_logo", "company_logo_shape", "pdf_color_template", "pdf_font_template",
             "pdf_custom_primary_color", "pdf_custom_accent_color", "pdf_custom_text_color",
             "app_primary_color", "app_accent_color",
-            "office_address", "service_areas", "work_skills", "gst_number",
+"office_address", "service_areas", "work_skills", "gst_number",
             "pan_number", "years_in_business", "number_of_painters",
             "default_measurement_unit",
+            "bank_account_name", "bank_account_number", "bank_ifsc",
+            "bank_name", "bank_branch", "upi_id",
+            "website", "google_business_url", "facebook_url",
+            "instagram_url", "pinterest_url", "whatsapp_number",
+            "extra_social_links", "gst_document", "business_document",
             "quotation_terms_conditions", "quotation_prepared_by",
             "quotation_inspected_by", "quotation_work_duration",
             "quotation_payment_terms", "quotation_product_details",
             "quotation_work_procedures",
         ]
         read_only_fields = ["profile_completion"]
+
+    url_fields = [
+        "website",
+        "google_business_url",
+        "facebook_url",
+        "instagram_url",
+        "pinterest_url",
+    ]
+
+    def validate_extra_social_links(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Enter a list of social links.")
+        cleaned = []
+        for entry in value[:12]:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError("Each social link must be a name and URL.")
+            label = str(entry.get("label", "")).strip()
+            url = self._normalize_url(str(entry.get("url", "")).strip())
+            if not label or not url:
+                continue
+            cleaned.append({"label": label[:60], "url": url})
+        return cleaned
+
+    def validate(self, attrs):
+        for field in self.url_fields:
+            if field in attrs:
+                attrs[field] = self._normalize_url(attrs[field])
+        return attrs
+
+    @staticmethod
+    def _normalize_url(value):
+        value = (value or "").strip()
+        if not value:
+            return ""
+        if value.startswith(("http://", "https://")):
+            return value
+        if "." not in value.split("/")[0]:
+            raise serializers.ValidationError("Enter a full link, such as https://facebook.com/yourpage.")
+        return f"https://{value}"
 
     def get_profile_completion(self, instance):
         from .profile_completion import contractor_profile_completion
@@ -284,5 +330,5 @@ class ContractorCompletedProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContractorCompletedProject
-        fields = ["id", "title", "apartment_community", "location", "address", "pincode", "description", "work_completed", "photo", "created_at"]
+        fields = ["id", "title", "apartment_community", "location", "address", "pincode", "description", "work_completed", "completed_on", "photo", "created_at"]
         read_only_fields = ["id", "created_at"]

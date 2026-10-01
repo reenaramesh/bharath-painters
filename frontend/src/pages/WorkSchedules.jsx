@@ -85,7 +85,7 @@ export default function WorkSchedules() {
       setItems(responses[0].data);
       setQuotations(
         (responses[1].data.results || responses[1].data).filter(
-          (q) => q.status === "ACCEPTED",
+          (q) => q.status === "ACCEPTED" && !(user.role === "CUSTOMER" && q.accepted_via_receipt_at),
         ),
       );
       if (responses[2]) setPainters(responses[2].data);
@@ -347,8 +347,11 @@ export default function WorkSchedules() {
   }
   async function downloadAdvanceReceipt(item) {
     try {
+      const url = item.project_receipt_id
+        ? `/billing/${user.role === "CUSTOMER" ? "customer-finance" : "contractor-revenue"}/receipts/${item.project_receipt_id}/pdf/`
+        : `/jobs/work-schedules/${item.id}/advance-receipt/`;
       const response = await api.get(
-        `/jobs/work-schedules/${item.id}/advance-receipt/`,
+        url,
         { responseType: "blob" },
       );
       previewPdf(

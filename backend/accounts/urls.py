@@ -18,6 +18,7 @@ from .views import (
     LoginView,
     GoogleLoginView,
     CurrentUserView,
+    AccountLifecycleView,
     CustomerProfileView,
     ProfileCardView,
     ContractorCompletedProjectsView,
@@ -65,6 +66,7 @@ urlpatterns = [
     path("recovery-email/verify/", RecoveryEmailVerifyView.as_view(), name="recovery-email-verify"),
 
     path("me/", CurrentUserView.as_view(), name="current-user"),
+    path("account/lifecycle/", AccountLifecycleView.as_view(), name="account-lifecycle"),
     path("customer-profile/", CustomerProfileView.as_view(), name="customer-profile"),
     path("profile-card/", ProfileCardView.as_view(), name="profile-card"),
     path("profile-card/projects/", ContractorCompletedProjectsView.as_view(), name="profile-card-projects"),

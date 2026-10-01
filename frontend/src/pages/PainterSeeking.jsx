@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
+  BriefcaseBusiness,
   CalendarDays,
   Crosshair,
   Eye,
@@ -15,6 +17,11 @@ import api from "../api/client";
 import useAuth from "../context/useAuth";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
+import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import {
+  paintingSkillOptions as skillOptions,
+  WORK_REQUIREMENTS_PATH,
+} from "../constants/workNetwork";
 
 const workTypes = [
   "Paint Applicator",
@@ -23,18 +30,6 @@ const workTypes = [
   "Wall Texture Applicator",
   "Wood Polish Applicator",
   "Waterproofing Applicator",
-];
-const skillOptions = [
-  "Brush Painting",
-  "Roller Painting",
-  "Spray Painting",
-  "Wall Putty",
-  "Primer",
-  "Wall Texture",
-  "Wood Polish",
-  "Enamel Painting",
-  "Waterproofing",
-  "Scaffolding",
 ];
 const empty = {
   title: "",
@@ -67,6 +62,7 @@ export default function PainterSeeking() {
   const { user } = useAuth();
   const [items, setItems] = useState([]),
     [search, setSearch] = useState(""),
+    [pinFilter, setPinFilter] = useState(""),
     [dateFrom, setDateFrom] = useState(""),
     [dateTo, setDateTo] = useState(""),
     [searchGeo, setSearchGeo] = useState({ latitude: null, longitude: null, radius_km: 10 }),
@@ -77,8 +73,19 @@ export default function PainterSeeking() {
     [bookingError, setBookingError] = useState(""),
     [form, setForm] = useState(empty),
     [error, setError] = useState(""),
+    [requirementsCount, setRequirementsCount] = useState(null),
     [saving, setSaving] = useState(false);
   const isPainter = user?.role === "PAINTER";
+  const { pathname } = useLocation();
+  const visibleItems = useMemo(() => {
+    const needle = pinFilter.trim();
+    if (!needle) return items;
+    return items.filter((item) =>
+      `${item.pincode || ""} ${item.preferred_location || ""}`
+        .toLowerCase()
+        .includes(needle.toLowerCase()),
+    );
+  }, [items, pinFilter]);
   const load = useCallback(async () => {
     try {
       const { data } = await api.get("/jobs/seeking/", {
@@ -117,6 +124,21 @@ export default function PainterSeeking() {
     const timer = setTimeout(load, 250);
     return () => clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/jobs/list/", { params: { page_size: 1 } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRequirementsCount(data?.count ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setRequirementsCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   function open(item = null) {
     setEditing(item || "NEW");
     setForm(
@@ -191,41 +213,63 @@ export default function PainterSeeking() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Paint Applicator opportunities
-          </p>
+          <p className="text-sm font-semibold text-amber-600">Work Network</p>
           <h1 className="mt-1 text-3xl font-bold">
             {isPainter
               ? "My job-seeking posts"
               : "Paint Applicators seeking work"}
           </h1>
+          <p className="mt-2 text-slate-500">
+            {isPainter
+              ? "Select your work, skills, PIN-code locations and available dates."
+              : "Browse availability, compare skills and PIN codes, then send a booking request."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={WORK_REQUIREMENTS_PATH}
+            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+          >
+            <BriefcaseBusiness className="h-4 w-4" />
+            {isPainter ? "Find available jobs" : "Go to work requirements"}
+          </Link>
           {isPainter && (
-            <p className="mt-2 text-slate-500">
-              Select your work, skills, PIN-code locations and available dates.
-            </p>
+            <button
+              onClick={() => open()}
+              className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Post availability
+            </button>
           )}
         </div>
-        {isPainter && (
-          <button
-            onClick={() => open()}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Post availability
-          </button>
-        )}
       </header>
+      <WorkNetworkTabs
+        pathname={pathname}
+        contractor={!isPainter}
+        requirementsCount={requirementsCount}
+        availabilityCount={visibleItems.length}
+      />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
       <section className="overflow-hidden rounded-2xl border bg-white">
-        <div className="grid gap-3 border-b p-4 md:grid-cols-3">
+        <div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search work, skill, PIN code or applicator"
+              placeholder="Search work, skill or applicator"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
+            <MapPin className="h-4 w-4 text-slate-400" />
+            <input
+              value={pinFilter}
+              onChange={(event) => setPinFilter(event.target.value)}
+              placeholder="PIN code or area"
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
@@ -249,7 +293,7 @@ export default function PainterSeeking() {
             />
           </label>
           {!isPainter && (
-            <div className="flex flex-wrap gap-2 md:col-span-3">
+            <div className="flex flex-wrap gap-2 md:col-span-4">
               <button type="button" onClick={useNearbyApplicators} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
                 <Crosshair className="h-4 w-4" />{locating ? "Finding..." : "Applicators near my mobile location"}
               </button>
@@ -260,9 +304,9 @@ export default function PainterSeeking() {
             </div>
           )}
         </div>
-        {items.length ? (
+        {visibleItems.length ? (
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article
                 key={item.id}
                 onClick={() => !isPainter && setDetail(item)}
@@ -341,9 +385,30 @@ export default function PainterSeeking() {
             ))}
           </div>
         ) : (
-          <p className="p-12 text-center text-slate-400">
-            No available Paint Applicators match the selected dates.
-          </p>
+          <div className="p-12 text-center">
+            <p className="text-slate-400">
+              {isPainter
+                ? "You have not posted any availability yet."
+                : "No Paint Applicators match these filters."}
+            </p>
+            {isPainter ? (
+              <button
+                onClick={() => open()}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              >
+                <Plus className="h-4 w-4" />
+                Post availability
+              </button>
+            ) : (
+              <Link
+                to={WORK_REQUIREMENTS_PATH}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold"
+              >
+                <BriefcaseBusiness className="h-4 w-4" />
+                Post a work requirement instead
+              </Link>
+            )}
+          </div>
         )}
       </section>
       {editing !== null && isPainter && (

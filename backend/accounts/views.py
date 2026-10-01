@@ -15,6 +15,7 @@ from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.utils import timezone
 from datetime import timedelta
+from urllib.parse import quote
 import secrets
 
 from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent
@@ -831,6 +832,37 @@ class CustomerProfileView(APIView):
         return Response(self.representation(request, customer))
 
 
+class AccountLifecycleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.db import transaction
+        action = str(request.data.get("action") or "").lower()
+        if action not in {"deactivate", "delete"}:
+            return Response({"detail": "Choose deactivate or delete."}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user.role not in {BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER}:
+            return Response({"detail": "This account action is not available for this role."}, status=status.HTTP_403_FORBIDDEN)
+        with transaction.atomic():
+            user = BharathUser.objects.select_for_update().get(pk=request.user.pk)
+            user.is_active = False
+            user.verification_status = BharathUser.VerificationStatus.SUSPENDED
+            if action == "delete":
+                user.mobile = f"D{user.pk}"
+                user.email = ""
+                user.recovery_email = None
+                user.recovery_email_verified = False
+                user.google_email = ""
+                user.google_subject = None
+                user.first_name = "Deleted"
+                user.last_name = "Account"
+                user.is_verified = False
+                user.set_unusable_password()
+                user.save(update_fields=("mobile", "email", "recovery_email", "recovery_email_verified", "google_email", "google_subject", "first_name", "last_name", "is_verified", "is_active", "verification_status", "password", "updated_at"))
+            else:
+                user.save(update_fields=("is_active", "verification_status", "updated_at"))
+        return Response({"detail": "Account deactivated." if action == "deactivate" else "Account deleted. Personal sign-in details were removed."})
+
+
 class CurrentUserView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -900,6 +932,17 @@ class ContractorProfileView(APIView):
         profile = self.get_profile(request)
         if not profile:
             return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        for flag, field in (
+            ("clear_gst_document", "gst_document"),
+            ("clear_business_document", "business_document"),
+        ):
+            if request.data.get(flag):
+                request.data.pop(flag, None)
+                current = getattr(profile, field)
+                if current:
+                    current.delete(save=False)
+                setattr(profile, field, None)
+                profile.save(update_fields=[field])
         serializer = ContractorProfileSerializer(profile, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -935,6 +978,75 @@ def _customer_review_data(profile):
     }
 
 
+SOCIAL_PLATFORMS = (
+    ("whatsapp", "WhatsApp", "W", "#25D366"),
+    ("facebook", "Facebook", "f", "#1877F2"),
+    ("instagram", "Instagram", "ig", "#E1306C"),
+    ("google_business", "Google Business", "G", "#4285F4"),
+    ("website", "Website", "www", "#0F172A"),
+    ("pinterest", "Pinterest", "p", "#BD081C"),
+)
+
+SOCIAL_URL_FIELDS = {
+    "facebook": "facebook_url",
+    "instagram": "instagram_url",
+    "google_business": "google_business_url",
+    "website": "website",
+    "pinterest": "pinterest_url",
+}
+
+SOCIAL_DOMAIN_HINTS = (
+    ("linkedin.com", "LinkedIn", "in", "#0A66C2"),
+    ("youtube.com", "YouTube", "yt", "#FF0000"),
+    ("youtu.be", "YouTube", "yt", "#FF0000"),
+    ("twitter.com", "X", "X", "#111111"),
+    ("x.com", "X", "X", "#111111"),
+    ("wa.me", "WhatsApp", "W", "#25D366"),
+    ("whatsapp.com", "WhatsApp", "W", "#25D366"),
+    ("t.me", "Telegram", "tg", "#229ED9"),
+    ("telegram.me", "Telegram", "tg", "#229ED9"),
+    ("threads.net", "Threads", "@", "#111111"),
+)
+
+
+def _social_link(label, url, short, color, key=""):
+    url = str(url or "").strip()
+    if not url:
+        return None
+    return {"key": key or label.lower().replace(" ", "-"), "label": label, "short": short, "color": color, "url": url}
+
+
+def _contractor_social_links(profile):
+    links = []
+    digits = "".join(character for character in str(profile.whatsapp_number or "") if character.isdigit())
+    for key, label, short, color in SOCIAL_PLATFORMS:
+        if key == "whatsapp":
+            if not digits:
+                continue
+            message = quote(f"Hello {profile.company_name or 'there'}, I found you on Bharath Painters.")
+            link = _social_link(label, f"https://wa.me/{digits}?text={message}", short, color, key)
+        else:
+            link = _social_link(label, getattr(profile, SOCIAL_URL_FIELDS[key]), short, color, key)
+        if link:
+            links.append(link)
+
+    for entry in (profile.extra_social_links or []):
+        url = str(entry.get("url", "")).strip()
+        if not url:
+            continue
+        label = str(entry.get("label", "")).strip() or "Website"
+        short, color = label[:2].upper(), "#64748B"
+        lowered = url.lower()
+        for domain, hint_label, hint_short, hint_color in SOCIAL_DOMAIN_HINTS:
+            if domain in lowered:
+                label, short, color = hint_label, hint_short, hint_color
+                break
+        link = _social_link(label, url, short, color)
+        if link and link["url"] not in {existing["url"] for existing in links}:
+            links.append(link)
+    return links
+
+
 def _contractor_digital_card(user, request):
     profile = getattr(user, "contractor_profile", None)
     if not profile:
@@ -950,8 +1062,9 @@ def _contractor_digital_card(user, request):
         "email": user.email,
         "years_in_business": profile.years_in_business or None,
         "workers": profile.number_of_painters or None,
-        "service_areas": _profile_list(profile.service_areas),
+"service_areas": _profile_list(profile.service_areas),
         "work_skills": _profile_list(profile.work_skills),
+        "social_links": _contractor_social_links(profile),
         "customer_reviews": _customer_review_data(profile),
         "projects": [
             {
@@ -963,6 +1076,8 @@ def _contractor_digital_card(user, request):
                 "address": project.address,
                 "description": project.description,
                 "work_completed": project.work_completed,
+                "completed_on": project.completed_on.isoformat() if project.completed_on else None,
+                "completed_on_display": project.completed_on.strftime("%d %b %Y") if project.completed_on else "",
                 "photo": _profile_image_url(request, project.photo),
             }
             for project in profile.completed_projects.all()

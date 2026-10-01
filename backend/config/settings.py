@@ -110,6 +110,7 @@ if RENDER_EXTERNAL_HOSTNAME:
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
+    "https://bharath-painters-chi.vercel.app",
 ]
 
 if RENDER_EXTERNAL_HOSTNAME:
@@ -125,15 +126,13 @@ CSRF_TRUSTED_ORIGINS.extend(
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
     "https://bharath-painters-chi.vercel.app",
 ]
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://bharath-painters-chi.vercel.app").rstrip("/")
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "https://bharath-painters-chi.vercel.app",
-]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -147,6 +146,7 @@ REST_FRAMEWORK = {
         "password_confirm": "10/hour",
         "support_search": "60/minute",
         "support_action": "20/minute",
+        "anon_support_ticket": "5/hour",
         "maps_lookup": "10/hour",
     },
 }

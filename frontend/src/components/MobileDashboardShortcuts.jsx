@@ -11,24 +11,25 @@ import {
   IndianRupee,
   ListTodo,
   MessageCircle,
+  Network,
   Paintbrush,
   Palette,
   QrCode,
   Ruler,
-  Share2,
   UserRoundCheck,
   Users,
   Wrench,
   X,
 } from "lucide-react";
 import useAuth from "../context/useAuth";
+import ShareAppButton from "./ShareAppButton";
 
 const shortcutsByRole = {
   CONTRACTOR: [
     { label: "Customers", icon: Users, to: "/customers" },
     { label: "Properties", icon: Building2, to: "/properties" },
     { label: "Quotations", icon: FileText, to: "/quotations" },
-    { label: "Post Job", icon: BriefcaseBusiness, to: "/jobs?post=1" },
+    { label: "Work Network", icon: Network, to: "/jobs?post=1" },
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
     { label: "Tasks", icon: ListTodo, to: "/tasks" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
@@ -36,7 +37,7 @@ const shortcutsByRole = {
     { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
   ],
   PAINTER: [
-    { label: "Jobs", icon: BriefcaseBusiness, to: "/jobs" },
+    { label: "Work Network", icon: Network, to: "/jobs" },
     { label: "Assignments", icon: ClipboardList, to: "/painter-assignments" },
     { label: "Bookings", icon: CalendarClock, to: "/applicator-bookings" },
     { label: "Availability", icon: UserRoundCheck, to: "/applicator-availability" },
@@ -69,28 +70,7 @@ const shortcutsByRole = {
 export default function MobileDashboardShortcuts() {
   const { user } = useAuth();
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [appMessage, setAppMessage] = useState("");
   const shortcuts = shortcutsByRole[user?.role] || [];
-  const appUrl = window.location.origin;
-  const shareText = `Join Bharath Painters as a contractor or paint applicator. Open this link on your phone and install the app: ${appUrl}`;
-
-  async function shareApp() {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Bharath Painters",
-          text: "Join Bharath Painters as a contractor or paint applicator. Open this link on your phone and install the app.",
-          url: appUrl,
-        });
-        return;
-      }
-      await navigator.clipboard?.writeText(shareText);
-      setAppMessage("Application link copied. You can paste it in any app.");
-    } catch (shareError) {
-      if (shareError?.name !== "AbortError") setAppMessage("The application link could not be shared. Please try WhatsApp.");
-    }
-  }
-
   if (!shortcuts.length) return null;
   return (
     <>
@@ -109,6 +89,7 @@ export default function MobileDashboardShortcuts() {
                 Scan QR
               </span>
             </button>
+            <ShareAppButton shortcut />
             {shortcuts.map(({ label, icon: Icon, to }) => (
               <Link key={`${label}-${to}`} to={to} className="w-[72px] shrink-0 snap-start text-center">
                 <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 shadow-sm transition active:scale-95">
@@ -119,27 +100,11 @@ export default function MobileDashboardShortcuts() {
                 </span>
               </Link>
             ))}
-            <button type="button" onClick={shareApp} className="w-[72px] shrink-0 snap-start text-center">
-              <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm transition active:scale-95">
-                <Share2 className="h-7 w-7" strokeWidth={1.8} />
-              </span>
-              <span className="mt-2 block min-h-8 text-[11px] font-medium leading-4 text-slate-700">Share App</span>
-            </button>
           </div>
         </div>
       </section>
       {scannerOpen && <QrScanner close={() => setScannerOpen(false)} />}
-      {appMessage && (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true">
-          <div className="w-full rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-sm sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4">
-              <div><h2 className="font-bold">Bharath Painters App</h2><p className="mt-2 text-sm leading-6 text-slate-600">{appMessage}</p></div>
-              <button type="button" onClick={() => setAppMessage("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100" aria-label="Close"><X className="h-4 w-4" /></button>
-            </div>
-            <button type="button" onClick={() => setAppMessage("")} className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Done</button>
-          </div>
-        </div>
-      )}
+
     </>
   );
 }

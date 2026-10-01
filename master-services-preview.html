@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bharath Painters — Master Data redesign preview</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bp-brand:#176b9b; --bp-brand-dark:#245b75; --bp-ink:#172033; --bp-muted:#667085;
+  --bp-line:#e5e9f2; --bp-canvas:#f4f6fa; --bp-card:#fff;
+  --violet:#7c3aed; --violet-soft:#f5f3ff; --violet-line:#ddd6fe;
+  --ok:#047857; --warn:#b45309;
+}
+body{margin:0;background:var(--bp-canvas);color:var(--bp-ink);
+  font:14px/1.5 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1320px;margin:22px auto;padding:0 18px}
+.eyebrow{margin:0 0 4px;color:var(--bp-brand);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:800}
+h1{margin:0 0 4px;font-size:25px}
+.sub{margin:0;color:var(--bp-muted);max-width:70ch}
+.sub b{color:var(--bp-ink)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+button{font:inherit;cursor:pointer}
+.chip{border:1px solid var(--bp-line);background:#fff;border-radius:9px;padding:7px 13px;color:var(--bp-muted);font-weight:700}
+.chip:hover{background:var(--bp-canvas);color:var(--bp-ink)}
+.chip.active{background:var(--bp-brand);border-color:var(--bp-brand);color:#fff}
+.chip.ghost{border-style:dashed;color:var(--bp-brand)}
+.hint{margin:6px 0 0;color:#8a93a6;font-size:12px}
+.hint code{background:#eef2f7;padding:1px 5px;border-radius:4px}
+
+/* app shell */
+.shell{display:grid;grid-template-columns:230px 1fr;gap:18px;margin-top:16px;align-items:start}
+.rail{background:var(--bp-card);border:1px solid var(--bp-line);border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(23,32,51,.06)}
+.rail-head{padding:15px 16px;border-bottom:1px solid var(--bp-line);display:flex;align-items:center;gap:11px}
+.rail-logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(to bottom right,#176b9b,#3b82f6,#a855f7);color:#fff}
+.rail-name{font-weight:800;font-size:14.5px}
+.rail-sub{font-size:11px;color:var(--bp-muted);text-transform:uppercase;letter-spacing:.05em}
+.rail-body{padding:10px}
+.rail-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;border-radius:10px;
+  padding:9px 11px;color:var(--bp-ink);font-weight:600;text-align:left;font-size:13px}
+.rail-item:hover{background:var(--bp-canvas)}
+.rail-item.active{background:#eaf3f8;color:var(--bp-brand-dark);font-weight:800}
+.rail-item svg{width:17px;height:17px;flex:none;opacity:.75}
+.rail-item.active svg{opacity:1}
+.rail-item .n{margin-left:auto;font-size:11px;font-weight:800;color:var(--bp-muted);
+  background:var(--bp-canvas);border-radius:999px;padding:1px 8px}
+.rail-item.active .n{background:#fff;color:var(--bp-brand-dark)}
+.rail-sep{margin:12px 4px 6px;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#9aa3b5}
+.rail-foot{border-top:1px solid var(--bp-line);padding:9px}
+.rail-foot button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;border-radius:10px;
+  padding:9px 11px;font:inherit;font-size:13px;font-weight:600;color:var(--bp-muted);text-align:left}
+.rail-foot button:hover{background:var(--bp-canvas);color:var(--bp-ink)}
+.rail-foot svg{width:18px;height:18px}
+
+/* main */
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.page-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between}
+.page-head h2{margin:0;font-size:19px}
+.page-head p{margin:3px 0 0;color:var(--bp-muted);font-size:13px}
+.btn{border:1px solid var(--bp-line);background:#fff;border-radius:11px;padding:10px 14px;font-weight:700;color:var(--bp-ink)}
+.btn:hover{background:var(--bp-canvas)}
+.btn.primary{background:var(--bp-brand);border-color:var(--bp-brand);color:#fff}
+.btn.primary:hover{background:var(--bp-brand-dark)}
+.btn.ghost{border-style:dashed;color:var(--bp-brand)}
+.btn svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px}
+
+.card{background:var(--bp-card);border:1px solid var(--bp-line);border-radius:16px;box-shadow:0 8px 24px rgba(23,32,51,.05);overflow:hidden}
+.card-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--bp-line)}
+.card-head h3{margin:0;font-size:16px;display:flex;align-items:center;gap:9px}
+.count{background:var(--bp-canvas);color:var(--bp-muted);border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:800}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.search{display:flex;align-items:center;gap:8px;background:var(--bp-canvas);border:1px solid transparent;border-radius:10px;padding:8px 11px}
+.search:focus-within{border-color:var(--bp-brand);background:#fff}
+.search svg{width:16px;height:16px;color:#9aa3b5;flex:none}
+.search input{border:0;background:none;outline:none;font:inherit;width:190px;color:var(--bp-ink)}
+select.sel{border:1px solid var(--bp-line);background:#fff;border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;font-weight:600;color:var(--bp-ink)}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:12px 16px;border-bottom:1px solid var(--bp-line);background:#fbfcfe}
+.fchip{border:1px solid var(--bp-line);background:#fff;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--bp-muted)}
+.fchip.on{background:var(--violet-soft);border-color:var(--violet-line);color:#5b21b6}
+.fchip .x{opacity:.6;margin-left:5px}
+
+table{width:100%;border-collapse:collapse}
+th{background:#fbfcfe;text-align:left;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--bp-muted);padding:10px 16px;border-bottom:1px solid var(--bp-line)}
+td{padding:12px 16px;border-bottom:1px solid #f1f4f9;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fbfcfe}
+.nm{font-weight:700}
+.sub2{color:var(--bp-muted);font-size:12px;margin-top:2px}
+.cat{display:inline-block;background:var(--violet-soft);color:#5b21b6;border:1px solid var(--violet-line);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700}
+.owner{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--bp-muted);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.mine{background:#10b981}
+.dot.shared{background:#cbd5e1}
+.dot.def{background:#f59e0b}
+.acts{display:flex;gap:6px;justify-content:flex-end}
+.iconbtn{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--bp-line);background:#fff;border-radius:9px;color:var(--bp-muted)}
+.iconbtn:hover{background:var(--bp-canvas);color:var(--bp-ink)}
+.iconbtn.del{border-color:#f3d3d3;color:#dc2626}
+.iconbtn.del:hover{background:#fef2f2}
+.iconbtn svg{width:15px;height:15px}
+.price{font-weight:800;color:var(--ok);font-size:12.5px}
+
+/* activate / deactivate segmented radio */
+.seg{display:inline-flex;border:1px solid var(--bp-line);border-radius:999px;overflow:hidden;background:#fff;flex:none}
+.seg button{border:0;background:none;padding:5px 12px;font-size:11.5px;font-weight:700;color:var(--bp-muted);display:flex;align-items:center;gap:5px}
+.seg button:hover{background:var(--bp-canvas)}
+.seg button .rd{width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor;flex:none}
+.seg button.on{background:#e7f7ef;color:#047857}
+.seg button.on .rd{background:#10b981;border-color:#10b981}
+.seg button.on.off{background:#f1f4f9;color:#64748b}
+.seg button.on.off .rd{background:#94a3b8;border-color:#94a3b8}
+tr.off{background:#fafbfc}
+tr.off .nm{color:var(--bp-muted)}
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800}
+.pill.off{background:#f1f4f9;color:#64748b}
+.lock{color:#c3cad6;display:inline-flex}
+.lock svg{width:15px;height:15px}
+
+.panel{border-bottom:1px solid var(--bp-line);padding:16px;background:#fbfcfe}
+.panel h4{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--bp-muted)}
+.frow{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:6px;flex:1;min-width:170px}
+.fld label{font-size:12px;font-weight:700;color:var(--bp-muted)}
+.fld input,.fld select,.fld textarea{border:1px solid var(--bp-line);border-radius:10px;padding:11px 12px;font:inherit;background:#fff;color:var(--bp-ink)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--bp-brand);box-shadow:0 0 0 3px #e3eef5}
+.fld.grow{flex:2}
+.empty{padding:44px 20px;text-align:center;color:var(--bp-muted)}
+.empty b{display:block;color:var(--bp-ink);font-size:15px;margin-bottom:4px}
+.note{margin:14px 0 0;font-size:12px;color:#8a93a5}
+.callout{background:#fff;border:1px solid var(--violet-line);border-left:4px solid var(--violet);border-radius:12px;padding:12px 15px;margin-top:14px}
+.callout b{color:#5b21b6}
+.callout p{margin:4px 0 0;font-size:13px;color:var(--bp-muted)}
+@media(max-width:1000px){.shell{grid-template-columns:1fr}.rail{order:2}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Bharath Painters — Quotation configuration</p>
+  <h1>Master Data — simpler layout</h1>
+  <p class="sub">Same eight lists and same endpoints as <b>pages/MasterServices.jsx</b>. The three-column tile grid, the always-open add form, the permanent upload card and the category-card drill-down are replaced by a <b>section rail with counts</b>, an <b>on-demand add form</b>, a <b>tucked-away import</b> and <b>one flat list</b> for every section.</p>
+
+  <div class="toolbar" id="roleBar"></div>
+  <p class="hint">Try it: switch sections, search, filter by service type, open <code>Add entry</code>, open <code>Import CSV</code>, collapse the rail.</p>
+
+  <div class="shell">
+    <aside class="rail">
+      <div class="rail-head">
+        <div class="rail-logo">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13.5" cy="6.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".6" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".6" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".6" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.5-.7-.5-1.1 0-.9.8-1.7 1.7-1.7h2c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2z"/></svg>
+        </div>
+        <div><div class="rail-name">Bharath Painters</div><div class="rail-sub">Contractor Portal</div></div>
+      </div>
+      <nav class="rail-body" id="railBody"></nav>
+      <div class="rail-foot" id="railFoot"></div>
+    </aside>
+
+    <section class="main">
+      <div class="page-head">
+        <div>
+          <h2 id="secTitle">Rooms / Areas</h2>
+          <p id="secHint">Pick a room once and reuse it in every quotation.</p>
+        </div>
+        <div class="tools">
+          <button class="btn ghost" id="importBtn">Import CSV</button>
+          <button class="btn" id="termsBtn">Terms &amp; Conditions</button>
+          <button class="btn primary" id="addBtn">+ Add entry</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3><span id="listTitle">Saved Rooms / Areas</span><span class="count" id="listCount">0</span></h3>
+          <div class="tools">
+            <label class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="search" placeholder="Search entries">
+            </label>
+            <select class="sel" id="sort">
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+              <option value="new">Newest first</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chips" id="chips" hidden></div>
+        <div id="addPanel" class="panel" hidden></div>
+        <div id="importPanel" class="panel" hidden></div>
+        <div id="list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="callout">
+    <b>What changed and why</b>
+    <p><b>1.</b> Section tiles (3×3 grid, 9 items, ~590px before any work) became a sticky rail with live counts — every section and its size visible at once. <b>2.</b> The add form was permanently expanded above the list; it is now behind <em>Add entry</em>. <b>3.</b> The upload card always occupied a full panel; it is now behind <em>Import CSV</em>. <b>4.</b> Product Types and Work Descriptions drilled Section → category card → modal → card. They now use the same flat list as every other section, with service type as a chip filter. <b>5.</b> The repeated violet “Your entry / Shared master” line on every row became a small coloured dot. <b>6.</b> Terms and Conditions left the section list — it is not a list of entries. <b>7.</b> Added <em>Active / Inactive</em> per row, with All / Active / Inactive chips so switched-off entries stay findable.</p>
+  </div>
+  <div class="callout" style="border-left-color:#b45309;background:#fffdf5;border-color:#fde68a">
+    <b style="color:#b45309">Backend note — the toggle itself already works, but listing inactive rows does not</b>
+    <p><code>is_active</code> already exists on all eight models (<code>MasterDataBase</code>) and is writable through the current PATCH, so no migration is needed. Two gaps block this UI: the list endpoints filter <code>is_active=True</code>, so a deactivated entry disappears and can never be switched back on — that needs an <code>?include_inactive=1</code> (or <code>?status=</code>) filter on <code>visible_master_data()</code>. And the apartments endpoint has no serializer; its PATCH only whitelists name, pincode, locality and zone, so <code>is_active</code> must be added there. Apartments are admin-only, hence the disabled control and padlock.</p>
+  </div>
+  <p class="note">Preview only. No application file was changed.</p>
+</main>
+
+<script>
+const S = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+const I = {
+  bed: S('<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><circle cx="7" cy="12" r="2"/>'),
+  ruler: S('<path d="M3 15 15 3l6 6L9 21z"/><path d="m7 11 2 2"/><path d="m11 7 2 2"/>'),
+  layers: S('<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>'),
+  box: S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>'),
+  file: S('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/>'),
+  tag: S('<path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/>'),
+  home: S('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>'),
+  gear: S('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'),
+  out: S('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'),
+  pencil: S('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+  trash: S('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>'),
+  plus: S('<path d="M12 5v14M5 12h14"/>'),
+  up: S('<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>'),
+  search: S('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+  lock: S('<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+};
+
+const SECTIONS = [
+  { key: "rooms", label: "Rooms / Areas", icon: "bed", hint: "Pick a room once and reuse it in every quotation.",
+    items: ["Master Bedroom","Kitchen","Living Room","Bathroom","Balcony","Pooja Room","Study","Dining Area","Passage"].map((n,i)=>({name:n, mine:i%3===0})) },
+  { key: "surfaces", label: "Surface Types", icon: "ruler", hint: "How each surface is measured, e.g. texture wall.",
+    items: ["Texture wall","Plain wall","Wooden door","Metal grill","MS fabricated","Tiles","Wooden window","Aluminium section","Pop false ceiling","Grout","Skirting","Plywood"].map((n,i)=>({name:n, mine:i%4===0})) },
+  { key: "categories", label: "Service Types", icon: "layers", hint: "The services you sell. Used to group products.",
+    items: ["Interior Painting","Exterior Painting","Waterproofing","Wood Polish"].map((n,i)=>({name:n, mine:i===0, cat:"—" })) },
+  { key: "products", label: "Product Types", icon: "box", grouped: true, hint: "Paint and coating types, grouped by the service they belong to.",
+    items: Array.from({length:14},(_,i)=>({ name:["Premium Emulsion","Weatherproof Coating","Wood Primer","Ceiling White","Metal Paint","Texture Paint"][i%6]+" "+(i+1),
+      mine:i%3===0, cat:["Interior Painting","Exterior Painting","Waterproofing","Wood Polish"][i%4], price:28+i, feat:"Stain resistant, smooth finish" })) },
+  { key: "descriptions", label: "Work Descriptions", icon: "file", grouped: true, hint: "Standard scope lines that appear on quotations.",
+    items: Array.from({length:11},(_,i)=>({ name:["Apply one primer and two finish coats","Putty, dry and sand walls","Seal all edges and joints","Repair cracks with filler"][i%4]+" #"+(i+1),
+      mine:i%2===0, cat:["Interior Painting","Exterior Painting","Waterproofing","Wood Polish"][i%4] })) },
+  { key: "brands", label: "Brands", icon: "tag", hint: "Paint brands you work with.",
+    items: ["Asian Paints","Berger","Nippon","Kaveri","Dulux","Jotun"].map((n,i)=>({name:n, mine:i===0||i===3})) },
+  { key: "units", label: "Units", icon: "ruler", hint: "Units used while measuring. Shown as MOU in the old dropdown.",
+    items: ["Sq ft","Sq m","Running ft","Each"].map((n,i)=>({name:n, mine:i<2})) },
+  { key: "apartments", label: "Apartments", icon: "home", shared: true, hint: "Shared across every contractor. Only an admin can edit it.",
+    items: ["Skyline Bagmane Champagne Hills","Prestige Sunrise Park","Sobha Garden Residency","Purva Skywood","Brigade Lakefront","Mantri Serene","Adarsh Palm Retreat","Salarpuria Greenage"].map((n,i)=>({name:n, mine:false, addr:["Whitefield, 560066","Sarjapur, 560102","Yelahanka, 560064","HSR Layout, 560102"][i%4]})) },
+];
+const state = { key: "rooms", q: "", cat: "ALL", status: "all", sort: "az", add: false, imp: false, rail: true };
+
+/* a realistic mix: most entries active, a few switched off */
+SECTIONS.forEach((s) => s.items.forEach((it, i) => {
+  if (it.isActive === undefined) it.isActive = (i + s.key.length) % 7 !== 3;
+}));
+
+const sec = () => SECTIONS.find(s => s.key === state.key);
+const catsOf = (s) => [...new Set(s.items.map(i => i.cat).filter(c => c && c !== "—"))];
+
+function visible(s) {
+  let rows = s.items.filter(i => !state.q || i.name.toLowerCase().includes(state.q.toLowerCase()));
+  if (s.grouped && state.cat !== "ALL") rows = rows.filter(i => i.cat === state.cat);
+  if (state.status === "active") rows = rows.filter(i => i.isActive);
+  if (state.status === "inactive") rows = rows.filter(i => !i.isActive);
+  const sorted = [...rows];
+  if (state.sort === "az") sorted.sort((a,b) => a.name.localeCompare(b.name));
+  if (state.sort === "za") sorted.sort((a,b) => b.name.localeCompare(a.name));
+  return sorted;
+}
+
+function renderRail() {
+  document.getElementById("railBody").innerHTML =
+    '<p class="rail-sep">Lists</p>' + SECTIONS.map(s =>
+      '<button class="rail-item' + (s.key === state.key ? " active" : "") + '" data-sec="' + s.key + '">' +
+      I[s.icon] + '<span>' + s.label + '</span><span class="n">' + s.items.length + '</span></button>'
+    ).join('') +
+    '<p class="rail-sep">Quotation</p>' +
+    '<button class="rail-item" data-noop="1">' + I.file + '<span>Terms &amp; Conditions</span></button>';
+  document.getElementById("railFoot").innerHTML =
+    '<button>' + I.gear + '<span>Settings</span></button>' +
+    '<button>' + I.out + '<span>Logout</span></button>';
+}
+
+function ownerDot(i, s) {
+  if (s.shared) return '<span class="owner"><span class="dot def"></span>Shared</span>';
+  if (i.mine) return '<span class="owner"><span class="dot mine"></span>Yours</span>';
+  return '<span class="owner"><span class="dot shared"></span>Shared</span>';
+}
+
+function renderList() {
+  const s = sec();
+  const rows = visible(s);
+  document.getElementById("listTitle").textContent = "Saved " + s.label;
+  document.getElementById("listCount").textContent = rows.length;
+  document.getElementById("secTitle").textContent = s.label;
+  document.getElementById("secHint").textContent = s.hint;
+
+  const chipRow = document.getElementById("chips");
+  const offCount = s.items.filter(i => !i.isActive).length;
+  const statusChips =
+    '<button class="fchip' + (state.status === "all" ? " on" : "") + '" data-status="all">All · ' + s.items.length + '</button>' +
+    '<button class="fchip' + (state.status === "active" ? " on" : "") + '" data-status="active">Active · ' + (s.items.length - offCount) + '</button>' +
+    '<button class="fchip' + (state.status === "inactive" ? " on" : "") + '" data-status="inactive">Inactive · ' + offCount + '</button>';
+  if (s.grouped) {
+    const cs = catsOf(s);
+    chipRow.hidden = false;
+    chipRow.innerHTML = statusChips +
+      '<span style="width:1px;background:var(--bp-line);margin:2px 3px"></span>' +
+      '<button class="fchip' + (state.cat === "ALL" ? " on" : "") + '" data-cat="ALL">All types</button>' +
+      cs.map(c => {
+        const n = s.items.filter(i => i.cat === c).length;
+        return '<button class="fchip' + (state.cat === c ? " on" : "") + '" data-cat="' + c + '">' + c + ' · ' + n + '</button>';
+      }).join("");
+  } else {
+    chipRow.hidden = false;
+    chipRow.innerHTML = statusChips;
+  }
+
+  if (!rows.length) {
+    document.getElementById("list").innerHTML =
+      '<div class="empty"><b>Nothing matches “' + (state.q || state.cat !== "ALL" ? state.cat : state.status) + '”</b>Clear the filters, or add a new entry.</div>';
+    return;
+  }
+
+  const showCat = s.grouped, showPrice = s.key === "products", showAddr = s.key === "apartments";
+  document.getElementById("list").innerHTML =
+    '<table><thead><tr><th style="width:46px">#</th><th>' + s.label.replace(/\s*\/\s*/g," / ") + '</th>' +
+    (showCat ? '<th style="width:190px">Service Type</th>' : '') +
+    (showPrice ? '<th style="width:104px">Default rate</th>' : '') +
+    '<th style="width:120px">Scope</th>' +
+    '<th style="width:170px">Availability</th><th style="width:96px"></th></tr></thead><tbody>' +
+    rows.map((i, n) =>
+      '<tr class="' + (i.isActive ? "" : "off") + '"><td style="color:#9aa3b5;font-weight:700">' + (n + 1) + '</td>' +
+      '<td><div class="nm">' + i.name + '</div>' +
+      (i.feat ? '<div class="sub2">' + i.feat + '</div>' : '') +
+      (showAddr && i.addr ? '<div class="sub2">' + i.addr + '</div>' : '') +
+      (i.isActive ? '' : '<span class="pill off">Inactive — hidden from quotation dropdowns</span>') + '</td>' +
+      (showCat ? '<td>' + (i.cat ? '<span class="cat">' + i.cat + '</span>' : '<span class="sub2">Not assigned</span>') + '</td>' : '') +
+      (showPrice ? '<td><span class="price">₹' + i.price + '</span></td>' : '') +
+      '<td>' + ownerDot(i, s) + '</td>' +
+      '<td>' + availability(i, s) + '</td>' +
+      '<td><div class="acts">' +
+      (s.shared ? '' :
+        '<button class="iconbtn" aria-label="Edit ' + i.name + '">' + I.pencil + '</button>' +
+        '<button class="iconbtn del" aria-label="Remove ' + i.name + '">' + I.trash + '</button>') +
+      '</div></td></tr>'
+    ).join('') + '</tbody></table>';
+}
+
+function availability(i, s) {
+  if (s.shared) {
+    return '<span class="seg" style="opacity:.55"><button class="on' + (i.isActive ? "" : " off") + '" disabled>' +
+      '<span class="rd"></span>' + (i.isActive ? "Active" : "Inactive") + '</button></span>' +
+      '<span class="lock" title="Only an admin can change this">' + I.lock + '</span>';
+  }
+  return '<span class="seg">' +
+    '<button class="' + (i.isActive ? "on" : "") + '" data-toggle="on" data-id="' + i.name + '"><span class="rd"></span>Active</button>' +
+    '<button class="' + (i.isActive ? "" : "on off") + '" data-toggle="off" data-id="' + i.name + '"><span class="rd"></span>Inactive</button>' +
+    '</span>';
+}
+
+function renderAdd() {
+  const s = sec(), p = document.getElementById("addPanel");
+  p.hidden = !state.add;
+  if (!state.add) { p.innerHTML = ""; return; }
+  p.innerHTML = '<h4>New ' + (s.label.replace(/s$/,"").toLowerCase()) + '</h4><div class="frow">' +
+    '<div class="fld grow"><label>Name</label><input placeholder="e.g. ' + ({rooms:"Master Bedroom",products:"Premium Emulsion",brands:"Asian Paints",apartments:"Skyline Bagmane Champagne Hills"}[s.key] || "Enter name") + '"></div>' +
+    (s.grouped ? '<div class="fld"><label>Service Type</label><select><option>Select…</option>' + catsOf(s).map(c => '<option>' + c + '</option>').join('') + '</select></div>' : '') +
+    (s.key === "products" ? '<div class="fld" style="max-width:140px"><label>Default rate</label><input placeholder="28.00"></div>' : '') +
+    (s.key === "apartments" ? '<div class="fld"><label>Locality</label><input placeholder="Whitefield"></div><div class="fld" style="max-width:120px"><label>PIN code</label><input placeholder="560066"></div>' : '') +
+    '<div class="fld" style="flex:0 0 auto"><label>Availability</label>' +
+      '<span class="seg" style="height:44px"><button class="on" data-new="active"><span class="rd"></span>Active</button>' +
+      '<button data-new="inactive"><span class="rd"></span>Inactive</button></span></div>' +
+    '<div class="fld" style="flex:0 0 auto"><button class="btn primary">' + I.plus + 'Save entry</button></div>' +
+    '</div>';
+}
+
+function renderImport() {
+  const p = document.getElementById("importPanel");
+  p.hidden = !state.imp;
+  if (!state.imp) { p.innerHTML = ""; return; }
+  p.innerHTML = '<h4>Bulk import · ' + sec().label + '</h4>' +
+    '<div class="frow"><div class="fld"><label>CSV or Excel file</label><input type="file" accept=".csv,.xlsx"></div>' +
+    '<div class="fld" style="flex:0 0 auto"><button class="btn primary">' + I.up + 'Upload</button></div>' +
+    '<div class="fld" style="flex:0 0 auto"><button class="btn">Download template</button></div></div>' +
+    '<p class="sub2" style="margin:10px 0 0">Matching entries are updated, new ones are added. Max 5 MB / 5,000 rows.' +
+    (sec().grouped ? ' The Service Type column must match an existing service type name.' : '') + '</p>';
+}
+
+function render() { renderRail(); renderList(); renderAdd(); renderImport(); }
+
+document.addEventListener("click", (e) => {
+  const secBtn = e.target.closest("[data-sec]");
+  const catBtn = e.target.closest("[data-cat]");
+  const statusBtn = e.target.closest("[data-status]");
+  const toggle = e.target.closest("[data-toggle]");
+  if (toggle) {
+    const s = sec();
+    const item = s.items.find(i => i.name === toggle.dataset.id);
+    if (item) item.isActive = toggle.dataset.toggle === "on";
+    renderList();
+    return;
+  }
+  if (secBtn) { state.key = secBtn.dataset.sec; state.q = ""; state.cat = "ALL"; state.status = "all"; state.add = false; state.imp = false; document.getElementById("search").value = ""; }
+  else if (catBtn) { state.cat = catBtn.dataset.cat; }
+  else if (statusBtn) { state.status = statusBtn.dataset.status; }
+  else if (e.target.closest("#addBtn")) { state.add = !state.add; state.imp = false; }
+  else if (e.target.closest("#importBtn")) { state.imp = !state.imp; state.add = false; }
+  else if (!e.target.closest("#sort")) return;
+  render();
+});
+document.getElementById("search").addEventListener("input", (e) => { state.q = e.target.value; renderList(); });
+document.getElementById("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderList(); });
+
+render();
+</script>
+</body>
+</html>

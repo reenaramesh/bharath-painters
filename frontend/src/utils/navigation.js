@@ -44,6 +44,9 @@ export const MODULE_FALLBACKS = {
   // Leads
   "/leads/:id": "/leads",
 
+  // Sales opportunities
+  "/opportunities/:id": "/opportunities",
+
   // People
   "/find-painter": "/dashboard",
   "/painters/:id": "/painters",
@@ -97,6 +100,7 @@ const PATTERN_RULES = [
   [/^\/work-schedules\/\d+$/, "/work-schedules"],
   [/^\/work-reschedules\/\d+$/, "/work-reschedules"],
   [/^\/leads\/\d+$/, "/leads"],
+  [/^\/opportunities\/\d+$/, "/opportunities"],
   [/^\/painters\/\d+$/, "/painters"],
   [/^\/contractors\/\d+$/, "/contractors"],
   [/^\/in-house-applicators\/\d+$/, "/in-house-applicators"],

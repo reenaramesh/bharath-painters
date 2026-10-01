@@ -5,6 +5,7 @@ env/
 __pycache__/
 *.py[cod]
 *.log
+.runtime-logs/
 
 # Django
 db.sqlite3

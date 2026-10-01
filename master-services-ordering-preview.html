@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bharath Painters — Private ordering preview</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bp-brand:#176b9b; --bp-brand-dark:#245b75; --bp-ink:#172033; --bp-muted:#667085;
+  --bp-line:#e5e9f2; --bp-canvas:#f4f6fa; --bp-card:#fff;
+  --ok:#047857; --warn:#b45309; --violet:#7c3aed; --violet-soft:#f5f3ff; --violet-line:#ddd6fe;
+}
+body{margin:0;background:var(--bp-canvas);color:var(--bp-ink);font:14px/1.5 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1400px;margin:22px auto;padding:0 18px}
+.eyebrow{margin:0 0 4px;color:var(--bp-brand);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:800}
+h1{margin:0 0 4px;font-size:25px}
+.sub{margin:0;color:var(--bp-muted);max-width:74ch}
+.sub b{color:var(--bp-ink)}
+button{font:inherit;cursor:pointer}
+
+/* who am I */
+.who{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 6px;padding:12px 14px;background:var(--bp-card);border:1px solid var(--bp-line);border-radius:14px}
+.who-lbl{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9aa3b5;margin-right:4px}
+.who button{border:1px solid var(--bp-line);background:#fff;border-radius:999px;padding:7px 14px;font-weight:700;color:var(--bp-muted);display:flex;align-items:center;gap:8px}
+.who button:hover{background:var(--bp-canvas)}
+.who button.on{background:var(--bp-brand);border-color:var(--bp-brand);color:#fff}
+.who .av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;flex:none}
+
+/* section tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 0}
+.tabs button{border:1px solid var(--bp-line);background:#fff;border-radius:999px;padding:8px 15px;font-weight:700;color:var(--bp-muted);display:flex;align-items:center;gap:8px}
+.tabs button:hover{background:#fff;color:var(--bp-ink)}
+.tabs button.on{background:var(--bp-brand);border-color:var(--bp-brand);color:#fff}
+.tabs button svg{width:15px;height:15px;opacity:.75}
+.tabs button.on svg{opacity:1}
+.tabs .n{background:var(--bp-canvas);color:var(--bp-muted);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800}
+.tabs button.on .n{background:rgba(255,255,255,.22);color:#fff}
+
+.grid{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-top:16px;align-items:start}
+@media(max-width:1080px){.grid{grid-template-columns:1fr}}
+
+.card{background:var(--bp-card);border:1px solid var(--bp-line);border-radius:16px;box-shadow:0 8px 24px rgba(23,32,51,.05);overflow:hidden}
+.card-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--bp-line)}
+.card-head h3{margin:0;font-size:16px;display:flex;align-items:center;gap:9px}
+.count{background:var(--bp-canvas);color:var(--bp-muted);border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:800}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--bp-line);background:#fff;border-radius:11px;padding:9px 13px;font-weight:700;color:var(--bp-ink)}
+.btn:hover{background:var(--bp-canvas)}
+.btn.warn{border-color:#fde68a;background:#fffdf5;color:var(--warn)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn svg{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
+.search{display:flex;align-items:center;gap:8px;background:var(--bp-canvas);border:1px solid transparent;border-radius:10px;padding:8px 11px}
+.search:focus-within{border-color:var(--bp-brand);background:#fff}
+.search svg{width:16px;height:16px;color:#9aa3b5;flex:none}
+.search input{border:0;background:none;outline:none;font:inherit;width:170px;color:var(--bp-ink)}
+select.sel{border:1px solid var(--bp-line);background:#fff;border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;font-weight:600;color:var(--bp-ink)}
+
+.hintbar{margin:0;padding:10px 16px;background:var(--violet-soft);border-bottom:1px solid var(--violet-line);color:#5b21b6;font-size:12.5px;font-weight:600;display:flex;gap:8px;align-items:flex-start}
+.hintbar svg{width:15px;height:15px;flex:none;margin-top:1px}
+
+table{width:100%;border-collapse:collapse}
+th{background:#fbfcfe;text-align:left;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--bp-muted);padding:10px 16px;border-bottom:1px solid var(--bp-line)}
+td{padding:11px 16px;border-bottom:1px solid #f1f4f9;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fbfcfe}
+tr.ghost{opacity:.34}
+tr.dragging{background:#eaf3f8!important;box-shadow:inset 0 0 0 2px var(--bp-brand)}
+tr.drop-above td{border-top:2px solid var(--bp-brand)}
+tr.drop-below td{border-bottom:2px solid var(--bp-brand)}
+.nm{font-weight:700}
+.sub2{color:var(--bp-muted);font-size:12px;margin-top:2px}
+.cat{display:inline-block;background:var(--violet-soft);color:#5b21b6;border:1px solid var(--violet-line);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.dot.mine{background:#10b981}
+.dot.shared{background:#cbd5e1}
+.owner{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--bp-muted);font-weight:600}
+.pin{background:#f5f3ff;color:#5b21b6;border:1px solid #ddd6fe;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:800;margin-left:7px;vertical-align:1px}
+.basebadge{background:#f1f4f9;color:#64748b;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:800;margin-left:7px}
+.grip{width:26px;color:#c3cad6;cursor:grab;display:grid;place-items:center}
+.grip svg{width:16px;height:16px}
+tr.pinned .grip{color:var(--bp-brand)}
+.acts{display:flex;gap:4px;justify-content:flex-end}
+.iconbtn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--bp-line);background:#fff;border-radius:8px;color:var(--bp-muted)}
+.iconbtn:hover:not(:disabled){background:var(--bp-canvas);color:var(--bp-ink)}
+.iconbtn:disabled{opacity:.3;cursor:not-allowed}
+.iconbtn svg{width:14px;height:14px}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:11px 16px;border-bottom:1px solid var(--bp-line);background:#fbfcfe}
+.fchip{border:1px solid var(--bp-line);background:#fff;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--bp-muted)}
+.fchip.on{background:var(--violet-soft);border-color:var(--violet-line);color:#5b21b6}
+.empty{padding:40px 20px;text-align:center;color:var(--bp-muted)}
+
+/* side */
+.side{display:flex;flex-direction:column;gap:14px;position:sticky;top:14px}
+.mini{padding:14px 16px}
+.mini h4{margin:0 0 4px;font-size:13px;display:flex;align-items:center;gap:7px}
+.mini p{margin:0;font-size:12px;color:var(--bp-muted)}
+ol.opts{margin:11px 0 0;padding-left:0;list-style:none;counter-reset:o}
+ol.opts li{counter-increment:o;display:flex;gap:9px;align-items:baseline;padding:6px 8px;border-radius:8px;font-size:13px}
+ol.opts li:nth-child(1){background:#f5f3ff;font-weight:800}
+ol.opts li::before{content:counter(o);color:#9aa3b5;font-size:11px;font-weight:800;width:14px;flex:none}
+ol.opts li.top::after{content:"first pick";margin-left:auto;background:var(--ok);color:#fff;border-radius:999px;padding:0 7px;font-size:10px;font-weight:800}
+.net{margin-top:11px;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:11px 12px;font:11.5px/1.55 Consolas,Monaco,monospace;overflow-x:auto}
+.net .m{color:#7dd3fc;font-weight:700}
+.net .u{color:#c4b5fd}
+.net .k{color:#94a3b8}
+.mus{font-size:12px;color:var(--bp-muted);margin:0 0 9px}
+.mus b{color:var(--bp-ink)}
+.iso{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-top:11px}
+.iso .who2{font-size:12px;font-weight:700;color:var(--bp-muted)}
+.iso .ordr{font-size:11.5px;color:#8a93a6;line-height:1.4}
+.iso .ordr b{color:var(--bp-ink)}
+.callout{background:#fff;border:1px solid var(--violet-line);border-left:4px solid var(--violet);border-radius:12px;padding:12px 15px;margin-top:16px}
+.callout b{color:#5b21b6}
+.callout p{margin:5px 0 0;font-size:13px;color:var(--bp-muted)}
+.callout p+p{margin-top:7px}
+code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12px}
+.note{margin:14px 0 0;font-size:12px;color:#8a93a5}
+.reset-note{font-size:11.5px;color:var(--ok);font-weight:700;margin-top:8px;display:flex;gap:6px;align-items:center}
+.reset-note svg{width:13px;height:13px;flex:none}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Bharath Painters — Master Data</p>
+  <h1>Every contractor gets their own order</h1>
+  <p class="sub">Drag or nudge any entry — including the <b>shared</b> ones — and it reorders <b>only your</b> quotation dropdowns. Switch users below and the order stays exactly as each of them left it. Saved order is private, so nobody can reshuffle anybody else's list.</p>
+
+  <div class="who" id="whoBar"></div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h3><span id="secTitle">Brands</span><span class="count" id="listCount">0</span></h3>
+        <div class="tools">
+          <label class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="search" placeholder="Search entries">
+          </label>
+          <button class="btn warn" id="resetBtn" disabled>Reset to default order</button>
+        </div>
+      </div>
+
+      <p class="hintbar" id="hintbar"></p>
+      <div class="chips" id="chips"></div>
+      <div id="list"></div>
+    </section>
+
+    <aside class="side">
+      <div class="card mini">
+        <h4>Quotation dropdown · Brand</h4>
+        <p class="mus">Live preview of <b>what the contractor picks from</b> when they build a quotation.</p>
+        <ol class="opts" id="opts"></ol>
+      </div>
+
+      <div class="card mini">
+        <h4>Request sent</h4>
+        <p class="mus">One call per reorder. No per-row PATCH storm.</p>
+        <div class="net" id="net"><span class="k">// move something to see the call</span></div>
+      </div>
+
+      <div class="card mini">
+        <h4>Order held by each user</h4>
+        <p class="mus">The isolation guarantee, live.</p>
+        <div class="iso" id="iso"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="callout">
+    <b>What this preview commits to</b>
+    <p><b>1.</b> Any entry is movable, shared ones included. Curated order is stored per user in a new <code>MasterDataSortPreference(user, section, entry_id, position)</code> table, so reordering writes to <em>your</em> preferences and never to the shared master row.</p>
+    <p><b>2.</b> The existing <code>sort_order</code> column keeps its job as the <b>default</b> order for anyone who has not ranked a section, and as the fallback tail under your ranked rows. Nothing is backfilled into the new table — an untouched section behaves exactly as today.</p>
+    <p><b>3.</b> Arrows and drag both call a single <code>commitOrder</code>, which POSTs the <b>full unfiltered</b> id list. This matters: the list can be filtered by search text or a service-type chip, and sending only the visible subset would silently wipe the ranks of every hidden row. Backend upserts by id and never deletes omitted rows, so even a bad payload degrades instead of corrupting.</p>
+    <p><b>4.</b> Arrow disabled states read the index in the <b>full</b> list, not the filtered view — the current build disables the wrong rows whenever a filter is on.</p>
+    <p><b>5.</b> Ordering is applied in SQL via <code>Case</code>/<code>When</code> inside <code>visible_master_data()</code>, so all ~11 dropdown consumers (quotations, invoices, measurements, work changes) pick it up with no change to them. It stays a queryset, which <code>WorkDescriptionListCreateView</code> requires because it chains <code>.select_related("service_type")</code>.</p>
+    <p><b>6.</b> <b>Reset to default order</b> posts an empty list and deletes your preferences for that section, returning you to the admin-set order.</p>
+  </div>
+  <p class="note">Preview only — no application file was changed. Drag needs a mouse; the arrows cover touch and Firefox.</p>
+</main>
+
+<script>
+const S = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+const I = {
+  grip: S('<circle cx="9" cy="6" r="1.3" fill="currentColor"/><circle cx="15" cy="6" r="1.3" fill="currentColor"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="15" cy="12" r="1.3" fill="currentColor"/><circle cx="9" cy="18" r="1.3" fill="currentColor"/><circle cx="15" cy="18" r="1.3" fill="currentColor"/>'),
+  up: S('<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>'),
+  down: S('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>'),
+  reset: S('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>'),
+  check: S('<path d="m20 6-11 11-5-5"/>'),
+  info: S('<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>'),
+  tag: S('<path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 1 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/>'),
+  box: S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>'),
+  file: S('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/>'),
+  home: S('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>'),
+  bed: S('<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><circle cx="7" cy="12" r="2"/>'),
+  layers: S('<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>'),
+  ruler: S('<path d="M3 15 15 3l6 6L9 21z"/><path d="m7 11 2 2"/><path d="m11 7 2 2"/>'),
+};
+
+/* admin-set default order = the order rows arrive in (simulates sort_order) */
+const SECTIONS = [
+  { key: "brands", label: "Brands", icon: "tag", dd: "Brand", hint: "Paint brands you work with.",
+    items: ["Asian Paints","Berger","Kaveri","Nippon","Dulux","Jotun","Sheenlac","Popular"].map((n,i)=>({id:"b"+i,name:n,mine:i===0||i===4,sort:i*10})) },
+  { key: "products", label: "Product Types", icon: "box", dd: "Product Type", grouped: true, hint: "Paint and coating types, grouped by the service they belong to.",
+    items: Array.from({length:12},(_,i)=>({ id:"p"+i, mine:i%3===0, sort:i*10, cat:["Interior Painting","Exterior Painting","Waterproofing","Wood Polish"][i%4], price:28+i,
+      name:["Premium Emulsion","Weatherproof Coating","Wood Primer","Ceiling White","Metal Paint","Texture Paint","Terracotta Finish","Anti-Termite Coat"][i%8]+" "+(i+1) })) },
+  { key: "apartments", label: "Apartments", icon: "home", dd: "Apartment", hint: "Shared across every contractor. Ordering is private even though editing is admin-only.",
+    items: ["Skyline Bagmane Champagne Hills","Prestige Sunrise Park","Sobha Garden Residency","Purva Skywood","Brigade Lakefront","Mantri Serene"].map((n,i)=>({id:"a"+i,name:n,mine:false,sort:i*10,addr:["Whitefield, 560066","Sarjapur, 560102","Yelahanka, 560064","HSR Layout, 560102"][i%4]})) },
+  { key: "descriptions", label: "Work Descriptions", icon: "file", dd: "Work Description", grouped: true, hint: "Ordering applies within each Type of Service.",
+    items: Array.from({length:8},(_,i)=>({ id:"w"+i, mine:i%2===0, sort:i*10, cat:["Interior Painting","Exterior Painting","Waterproofing","Wood Polish"][i%4],
+      name:["Apply one primer and two finish coats","Putty, dry and sand walls","Seal all edges and joints","Repair cracks with filler"][i%4]+" #"+(i+1) })) },
+];
+
+const USERS = [
+  { id: "u1", name: "Ramesh", role: "CONTRACTOR", avatar: "#0ea5e9" },
+  { id: "u2", name: "Suresh", role: "CONTRACTOR", avatar: "#8b5cf6" },
+  { id: "u3", name: "Anita",  role: "ADMIN",      avatar: "#f59e0b" },
+];
+const state = { user: "u1", sec: "brands", q: "", cat: "ALL", prefs: {}, drag: null };
+/* prefs[userId][sectionKey] = [id, ...]  -> the caller's private rank */
+state.prefs = { u1: {}, u2: {}, u3: {} };
+
+const sec = () => SECTIONS.find(s => s.key === state.sec);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* exactly mirrors the planned SQL: ranked rows first in your order, then default order */
+function ordered(section) {
+  const byId = {}; section.items.forEach(i => (byId[i.id] = i));
+  const mine = (state.prefs[state.user][section.key] || []).map(id => byId[id]).filter(Boolean);
+  const seen = {}; mine.forEach(i => (seen[i.id] = 1));
+  const tail = section.items.filter(i => !seen[i.id]).sort((a,b) => a.sort - b.sort);
+  return { full: [...mine, ...tail], rankedIds: mine.map(i => i.id) };
+}
+const filtered = (full, s) => full.filter(i =>
+  (!state.q || i.name.toLowerCase().includes(state.q.toLowerCase())) &&
+  (!s.grouped || state.cat === "ALL" || i.cat === state.cat));
+
+function renderWho() {
+  document.getElementById("whoBar").innerHTML = '<span class="who-lbl">Signed in as</span>' +
+    USERS.map(u => '<button class="' + (u.id === state.user ? "on" : "") + '" data-user="' + u.id + '">' +
+      '<span class="av" style="background:' + u.avatar + '">' + u.name[0] + '</span>' + u.name +
+      ' <span style="opacity:.7;font-weight:600">' + u.role.toLowerCase() + '</span></button>').join("");
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = SECTIONS.map(s =>
+    '<button class="' + (s.key === state.sec ? "on" : "") + '" data-sec="' + s.key + '">' +
+    I[s.icon] + s.label + '<span class="n">' + s.items.length + '</span></button>').join("");
+}
+
+function renderList() {
+  const s = sec(), o = ordered(s), rows = filtered(o.full, s), ranked = new Set(o.rankedIds);
+  document.getElementById("secTitle").textContent = s.label;
+  document.getElementById("listCount").textContent = rows.length;
+  document.getElementById("resetBtn").disabled = !(state.prefs[state.user][s.key] || []).length;
+
+  document.getElementById("hintbar").innerHTML = I.info +
+    '<span>Drag a row, or use the arrows, to change the order used in <b>your</b> quotation dropdowns. ' +
+    'Nothing here affects any other contractor. Pinned rows are yours; the rest stay in the default order.</span>';
+
+  document.getElementById("chips").innerHTML = (s.grouped
+    ? '<button class="fchip ' + (state.cat === "ALL" ? "on" : "") + '" data-cat="ALL">All types</button>' +
+      [...new Set(s.items.map(i => i.cat))].map(c =>
+        '<button class="fchip ' + (state.cat === c ? "on" : "") + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>').join("")
+    : '<span class="sub2" style="padding:2px 0">Drag needs a mouse — the arrows work on touch and in Firefox too.</span>');
+
+  if (!rows.length) { document.getElementById("list").innerHTML = '<div class="empty">Nothing matches.</div>'; return; }
+
+  const showCat = s.grouped;
+  document.getElementById("list").innerHTML =
+    '<table><thead><tr><th style="width:34px"></th><th>' + esc(s.label) + '</th>' +
+    (showCat ? '<th style="width:180px">Service Type</th>' : '') +
+    '<th style="width:110px">Scope</th><th style="width:96px"></th></tr></thead><tbody>' +
+    rows.map(i => {
+      const fi = o.full.findIndex(x => x.id === i.id);              // index in the FULL list
+      const isRanked = ranked.has(i.id);
+      return '<tr data-id="' + i.id + '" draggable="true"' +
+        ' class="' + (state.drag === i.id ? "dragging" : "") + '">' +
+        '<td><span class="grip">' + I.grip + '</span></td>' +
+        '<td><div class="nm">' + esc(i.name) +
+          (isRanked ? '<span class="pin">pinned</span>' : '<span class="basebadge">default</span>') + '</div>' +
+          (i.addr ? '<div class="sub2">' + esc(i.addr) + '</div>' : '') + '</td>' +
+        (showCat ? '<td>' + (i.cat ? '<span class="cat">' + esc(i.cat) + '</span>' : '') + '</td>' : '') +
+        '<td><span class="owner"><span class="dot ' + (i.mine ? "mine" : "shared") + '"></span>' + (i.mine ? "Yours" : "Shared") + '</span></td>' +
+        '<td><div class="acts">' +
+          '<button class="iconbtn" data-mv="up" data-id="' + i.id + '"' + (fi === 0 ? " disabled" : "") + ' title="Move up" aria-label="Move up">' + I.up + '</button>' +
+          '<button class="iconbtn" data-mv="down" data-id="' + i.id + '"' + (fi === o.full.length - 1 ? " disabled" : "") + ' title="Move down" aria-label="Move down">' + I.down + '</button>' +
+        '</div></td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function renderSide() {
+  const s = sec(), o = ordered(s);
+  document.getElementById("opts").innerHTML = o.full.slice(0, 8).map((i, n) =>
+    '<li class="' + (n === 0 ? "top" : "") + '">' + esc(i.name) + '</li>').join("");
+
+  document.getElementById("iso").innerHTML = USERS.map(u => {
+    const p = state.prefs[u.id][s.key] || [];
+    const head = p.length ? p.slice(0, 3).map(esc).join(" → ") + (p.length > 3 ? " → …" : "") : "<i>default order</i>";
+    return '<div class="who2">' + u.name + '</div><div class="ordr">' + head + '</div>';
+  }).join("");
+}
+
+function commit(nextFull, verb) {
+  const s = sec();
+  const ids = nextFull.map(i => i.id);
+  state.prefs[state.user][s.key] = ids;
+  document.getElementById("net").innerHTML =
+    '<span class="m">POST</span> <span class="u">/quotations/master-data/' + s.key + '/reorder/</span><br>' +
+    '<span class="k">// ' + esc(verb) + ' — full list, ' + ids.length + ' ids, one call</span><br>' +
+    '<span class="k">entry_ids</span> = [' + ids.slice(0, 5).map(esc).join(", ") + (ids.length > 5 ? ", …" : "") + ']';
+  render();
+}
+
+function move(id, dir) {
+  const o = ordered(sec()), full = [...o.full];
+  const i = full.findIndex(x => x.id === id), j = i + (dir === "up" ? -1 : 1);
+  if (i < 0 || j < 0 || j >= full.length) return;
+  [full[i], full[j]] = [full[j], full[i]];
+  commit(full, (dir === "up" ? "moved up" : "moved down"));
+}
+
+function resetOrder() {
+  state.prefs[state.user][state.sec] = [];
+  document.getElementById("net").innerHTML =
+    '<span class="m">POST</span> <span class="u">/quotations/master-data/' + state.sec + '/reorder/</span><br>' +
+    '<span class="k">// reset — empty list deletes your prefs for this section</span><br><span class="k">entry_ids</span> = []';
+  render();
+}
+
+document.addEventListener("click", e => {
+  const mv = e.target.closest("[data-mv]");
+  const u = e.target.closest("[data-user]");
+  const s = e.target.closest("[data-sec]");
+  const c = e.target.closest("[data-cat]");
+  if (mv) { move(mv.dataset.id, mv.dataset.mv); return; }
+  if (u) { state.user = u.dataset.user; render(); return; }
+  if (s) { state.sec = s.dataset.sec; state.q = ""; state.cat = "ALL"; document.getElementById("search").value = ""; render(); return; }
+  if (c) { state.cat = c.dataset.cat; renderList(); renderSide(); return; }
+  if (e.target.closest("#resetBtn")) { resetOrder(); return; }
+});
+
+document.getElementById("search").addEventListener("input", e => { state.q = e.target.value; renderList(); });
+
+/* drag: reorder within the full list, ignore filter changes while dragging */
+document.addEventListener("dragstart", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+  state.drag = tr.dataset.id; e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", tr.dataset.id); } catch (_) {}
+  tr.classList.add("dragging");
+});
+document.addEventListener("dragover", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr || !state.drag) return;
+  e.preventDefault();
+  document.querySelectorAll("tr.drop-above,tr.drop-below").forEach(x => x.classList.remove("drop-above", "drop-below"));
+  const box = tr.getBoundingClientRect();
+  tr.classList.add(e.clientY < box.top + box.height / 2 ? "drop-above" : "drop-below");
+});
+document.addEventListener("drop", e => {
+  const tr = e.target.closest("tr[data-id]");
+  if (!tr) return;
+  e.preventDefault();
+  // read the id off the dataTransfer first, matching MasterServices.jsx
+  const sourceId = e.dataTransfer.getData("text/plain") || state.drag;
+  if (!sourceId) return;
+  state.drag = sourceId;
+  const full = [...ordered(sec()).full];
+  const from = full.findIndex(x => x.id === sourceId);
+  if (from < 0) { state.drag = null; return; }
+  const [moved] = full.splice(from, 1);
+  // findIndex is already in post-removal coordinates, so the target's index is
+  // used as-is; the lower half of the row means insert after it.
+  const box = tr.getBoundingClientRect();
+  const placeAfter = e.clientY >= box.top + box.height / 2;
+  let to = full.findIndex(x => x.id === tr.dataset.id);
+  if (to < 0) to = full.length;
+  full.splice(placeAfter ? to + 1 : to, 0, moved);
+  state.drag = null;
+  commit(full, "dragged");
+});
+document.addEventListener("dragend", () => {
+  state.drag = null;
+  document.querySelectorAll("tr.dragging,tr.drop-above,tr.drop-below").forEach(x => x.classList.remove("dragging", "drop-above", "drop-below"));
+  renderList();
+});
+
+function render() { renderWho(); renderTabs(); renderList(); renderSide(); }
+render();
+</script>
+</body>
+</html>

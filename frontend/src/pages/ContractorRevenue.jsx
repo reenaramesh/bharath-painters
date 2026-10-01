@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import {
   Download,
   FileText,
@@ -48,6 +48,7 @@ export default function ContractorRevenue() {
   const [busy, setBusy] = useState("");
   const [showReceiptForm, setShowReceiptForm] = useState(false);
   const [savingReceipt, setSavingReceipt] = useState(false);
+  const [createdReceipt, setCreatedReceipt] = useState(null);
   const [receiptForm, setReceiptForm] = useState({
     document_type: "QUOTATION",
     quotation: "",
@@ -127,7 +128,7 @@ export default function ContractorRevenue() {
     setSavingReceipt(true);
     setError("");
     try {
-      await api.post("/billing/contractor-revenue/receipts/", {
+      const { data: created } = await api.post("/billing/contractor-revenue/receipts/", {
         ...receiptForm,
         quotation:
           receiptForm.document_type === "QUOTATION"
@@ -138,6 +139,7 @@ export default function ContractorRevenue() {
             ? Number(receiptForm.invoice)
             : undefined,
       });
+      setCreatedReceipt(created);
       setReceiptForm({
         document_type: "QUOTATION",
         quotation: "",
@@ -195,6 +197,18 @@ export default function ContractorRevenue() {
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
+      {createdReceipt && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+          <div>
+            <p className="font-bold">Receipt {createdReceipt.receipt_number} generated</p>
+            {createdReceipt.quotation_accepted && <p>The payment accepted this quotation. Propose work dates for the customer to confirm.</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => downloadReceipt(createdReceipt)} disabled={busy === createdReceipt.id} className="rounded-lg border border-emerald-300 px-3 py-2 font-semibold">Preview receipt</button>
+            {createdReceipt.schedule_url && <Link to={createdReceipt.schedule_url} className="rounded-lg bg-emerald-700 px-3 py-2 font-semibold text-white">Propose work dates</Link>}
+          </div>
+        </section>
+      )}
       {showReceiptForm && (
         <form
           onSubmit={createReceipt}
@@ -209,7 +223,7 @@ export default function ContractorRevenue() {
                 Record customer payment
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Raise a receipt against an active quotation or a final invoice.
+                Record an advance against a quotation or a payment against a final invoice. A receipt for a draft or pending quotation accepts it, and the customer then confirms proposed work dates.
               </p>
             </div>
             <button
@@ -253,7 +267,7 @@ export default function ContractorRevenue() {
                   <option value="">Select quotation</option>
                   {(data?.quotations || []).map((quotation) => (
                     <option key={quotation.id} value={quotation.id}>
-                      {quotation.number} · {quotation.customer} · Balance{" "}
+                      {quotation.number} - {quotation.customer} - {label(quotation.status)} - Balance{" "}
                       {money(quotation.balance)}
                     </option>
                   ))}

@@ -31,12 +31,15 @@ import {
   UserPlus,
   Calculator,
   ShieldCheck,
+  Network,
+  ChevronRight,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
 import { useLanguage } from "../i18n/LanguageContext";
+import ShareAppButton from "./ShareAppButton";
 
 const menuItems = [
   { label: "CRM Dashboard", icon: LayoutDashboard, to: "/dashboard" },
@@ -60,7 +63,7 @@ const menuItems = [
   { label: "Subscription", icon: CreditCard, to: "/my-packages" },
   { label: "Invoices", icon: IndianRupee, to: "/invoices" },
   { label: "Revenue & Receipts", icon: ReceiptText, to: "/contractor-revenue" },
-  { label: "Post Job", icon: BriefcaseBusiness, to: "/jobs?post=1" },
+  { label: "Work Network", icon: Network, to: "/jobs", activePaths: ["/jobs", "/painter-seeking"] },
   {
     label: "Requests",
     icon: ClipboardList,
@@ -89,7 +92,6 @@ const menuItems = [
   },
   { label: "Completed Work", icon: CalendarCheck, to: "/completed-work" },
   { label: "Completed Projects", icon: BriefcaseBusiness, to: "/completed-projects" },
-  { label: "Applicator Availability", icon: Users, to: "/painter-seeking" },
   {
     label: "Book Applicator",
     icon: CalendarClock,
@@ -112,9 +114,8 @@ const painterMenuItems = [
   { label: "My Assignments", icon: ClipboardList, to: "/painter-assignments" },
   { label: "Work Photos", icon: Camera, to: "/work-photos" },
   { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
-  { label: "Available Jobs", icon: BriefcaseBusiness, to: "/jobs" },
+  { label: "Work Network", icon: Network, to: "/jobs", activePaths: ["/jobs", "/painter-seeking"] },
   { label: "Job Activity", icon: Activity, to: "/job-activity" },
-  { label: "Post Job Seeking", icon: Users, to: "/painter-seeking" },
   { label: "My Profile", icon: Palette, to: "/applicator-profile" },
   {
     label: "My Availability",
@@ -271,6 +272,24 @@ export default function Sidebar({
     "/applicator-bookings",
   ]);
   const employmentOnly = new Set(["/in-house-applicators"]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    setSettingsOpen(false);
+  }, [user?.role, collapsed]);
+  const settingsLinks = [];
+  if (["CUSTOMER", "CONTRACTOR", "PAINTER", "ADMIN", "SUPPORT"].includes(user?.role)) {
+    settingsLinks.push({ label: "Account Security", to: "/account-security" });
+  }
+  if (["CONTRACTOR", "PAINTER"].includes(user?.role)) {
+    settingsLinks.push(
+      user?.role === "CONTRACTOR"
+        ? { label: "Company Details", to: "/settings" }
+        : { label: "Settings", to: "/appearance" },
+    );
+  }
+  if (user?.role === "CONTRACTOR") {
+    settingsLinks.push({ label: "Theme Settings", to: "/contractor-theme" });
+  }
   const painterItems =
     isInHouse !== false
       ? painterMenuItems.filter((item) => !hiddenForInHouse.has(item.to))
@@ -346,6 +365,8 @@ export default function Sidebar({
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const count = item.badge ? counts[item.badge] || 0 : 0;
+                  const isActive = (match) =>
+                    match || (item.activePaths || []).includes(location.pathname);
 
                   return (
                     <NavLink
@@ -353,9 +374,9 @@ export default function Sidebar({
                       to={item.to}
                       title={collapsed ? t(item.label) : undefined}
                       onClick={closeMobile}
-                      className={({ isActive }) =>
+                      className={({ isActive: matched }) =>
                         `group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
-                          isActive
+                          isActive(matched)
                             ? "bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 shadow-sm before:absolute before:left-0 before:top-1/2 before:h-5 before:-translate-y-1/2 before:w-1 before:rounded-r-full before:bg-gradient-to-b before:from-indigo-500 before:to-violet-500"
                             : count > 0
                               ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -385,36 +406,60 @@ export default function Sidebar({
         </nav>
 
         <div className="space-y-1 border-t border-slate-200 px-3 py-4">
-          {["CUSTOMER", "CONTRACTOR", "PAINTER", "ADMIN", "SUPPORT"].includes(user?.role) && (
-            <NavLink
-              to="/account-security"
-              onClick={closeMobile}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            >
-              <ShieldCheck className="h-5 w-5" />
-              <span className={collapsed ? "lg:hidden" : ""}>Account Security</span>
-            </NavLink>
-          )}
-          {["CONTRACTOR", "PAINTER"].includes(user?.role) && (
-            <NavLink
-              to={user?.role === "CONTRACTOR" ? "/settings" : "/appearance"}
-              onClick={closeMobile}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            >
-              <Settings className="w-5 h-5" />
-              <span className={collapsed ? "lg:hidden" : ""}>{user?.role === "CONTRACTOR" ? "Company Details" : "Settings"}</span>
-            </NavLink>
-          )}
-          {user?.role === "CONTRACTOR" && (
-            <NavLink
-              to="/contractor-theme"
-              onClick={closeMobile}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            >
-              <Palette className="h-5 w-5" />
-              <span className={collapsed ? "lg:hidden" : ""}>Theme Settings</span>
-            </NavLink>
-          )}
+          <ShareAppButton collapsed={collapsed} />
+          {settingsLinks.length > 0 &&
+            (collapsed || settingsLinks.length === 1 ? (
+              <NavLink
+                to={
+                  collapsed
+                    ? settingsLinks.find((link) => link.to === "/settings")?.to ||
+                      settingsLinks[0].to
+                    : settingsLinks[0].to
+                }
+                onClick={closeMobile}
+                title={collapsed ? t("Settings") : undefined}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+              >
+                <Settings className="h-5 w-5" />
+                <span className={collapsed ? "lg:hidden" : ""}>Settings</span>
+              </NavLink>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((open) => !open)}
+                  aria-expanded={settingsOpen}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors ${
+                    settingsOpen
+                      ? "bg-slate-100 text-slate-950"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                  }`}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
+                  <ChevronRight
+                    className={`ml-auto h-4 w-4 opacity-50 transition-transform duration-200 ${
+                      settingsOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                {settingsOpen && (
+                  <div className="ml-3.5 border-l-2 border-slate-200 pl-2.5">
+                    {settingsLinks.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        onClick={closeMobile}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-[12.5px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                      >
+                        <Settings className="h-[15px] w-[15px] shrink-0" />
+                        <span className="truncate">{link.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </>
+            ))}
 
           <button
             onClick={onToggle}
@@ -449,6 +494,7 @@ const routeGroups = {
     "/tasks",
     "/service-requests",
     "/jobs",
+    "/painter-seeking",
     "/painter-assignments",
     "/work-schedules",
     "/completed-work",
@@ -475,9 +521,7 @@ const routeGroups = {
     "/measurement-access",
   ]),
   "Painter Network": new Set([
-    "/jobs?post=1",
     "/applicator-team",
-    "/painter-seeking",
     "/applicator-bookings",
     "/applicator-profile",
     "/applicator-availability",

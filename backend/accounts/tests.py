@@ -384,6 +384,43 @@ class ProfileCardTests(APITestCase):
         response = self.client.get(reverse("profile-card"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def _social_contractor(self, mobile, bharath_id, **profile_fields):
+        user = BharathUser.objects.create_user(
+            mobile=mobile, email="social@example.com", password="test-password",
+            role=BharathUser.Roles.CONTRACTOR, first_name="Owner", is_verified=True,
+            verification_status=BharathUser.VerificationStatus.VERIFIED, bharath_id=bharath_id,
+        )
+        ContractorProfile.objects.create(user=user, company_name="Colour Works", owner_name="Owner", **profile_fields)
+        return user
+
+    def test_profile_card_exposes_normalised_social_links(self):
+        user = self._social_contractor(
+            "9000000064", "BP-C-999964",
+            whatsapp_number="+91 98450 12345", facebook_url="https://facebook.com/colourworks",
+            instagram_url="https://instagram.com/colourworks", website="https://colourworks.in",
+            extra_social_links=[{"label": "LinkedIn", "url": "https://linkedin.com/company/colourworks"}],
+        )
+        self.client.force_authenticate(user)
+        links = self.client.get(reverse("profile-card")).data["digital_card"]["social_links"]
+        by_key = {link["key"]: link for link in links}
+        self.assertEqual([link["key"] for link in links], ["whatsapp", "facebook", "instagram", "website", "linkedin"])
+        self.assertEqual(by_key["whatsapp"]["url"], "https://wa.me/919845012345?text=Hello%20Colour%20Works%2C%20I%20found%20you%20on%20Bharath%20Painters.")
+        self.assertEqual(by_key["linkedin"]["short"], "in")
+        for link in links:
+            self.assertRegex(link["color"], r"^#[0-9A-Fa-f]{6}$")
+            self.assertTrue(link["url"].startswith("http"))
+
+    def test_profile_card_social_links_skip_blank_fields(self):
+        user = self._social_contractor("9000000065", "BP-C-999965", website="https://colourworks.in")
+        self.client.force_authenticate(user)
+        links = self.client.get(reverse("profile-card")).data["digital_card"]["social_links"]
+        self.assertEqual([link["key"] for link in links], ["website"])
+
+    def test_profile_card_social_links_hidden_when_nothing_is_saved(self):
+        user = self._social_contractor("9000000066", "BP-C-999966")
+        self.client.force_authenticate(user)
+        self.assertEqual(self.client.get(reverse("profile-card")).data["digital_card"]["social_links"], [])
+
 # Create your tests here.
 
 

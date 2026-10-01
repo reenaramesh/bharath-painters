@@ -8,7 +8,8 @@ from quotations.integration_secrets import get_google_maps_key
 
 
 SHORT_HOSTS = {"maps.app.goo.gl", "goo.gl"}
-MAP_HOSTS = {"google.com", "www.google.com", "maps.google.com", "maps.app.goo.gl"}
+MAP_HOSTS = {"google.com", "www.google.com", "maps.google.com", "maps.app.goo.gl", "goo.gl"}
+COORDINATE_PAIR = r"(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)"
 
 
 class MapLookupError(Exception):
@@ -43,6 +44,62 @@ def _parsed_map_url(value):
     return parsed
 
 
+def _pin_coordinates(parsed, place_query):
+    """Find a dropped pin in common Google Maps share URL formats."""
+    candidates = [place_query]
+    if "/maps/place/" in parsed.path:
+        candidates.append(unquote(parsed.path.split("/maps/place/", 1)[1].split("/", 1)[0]).replace("+", " "))
+    for candidate in candidates:
+        match = re.fullmatch(COORDINATE_PAIR, candidate.strip())
+        if match:
+            break
+    else:
+        match = re.search(r"@" + COORDINATE_PAIR, parsed.path) or re.search(
+            r"!3d(-?\d{1,2}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)", parsed.path
+        )
+    if not match:
+        return None
+    latitude, longitude = map(float, match.groups())
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        raise MapLookupError("The Google Maps pin has invalid coordinates.")
+    return latitude, longitude
+
+
+def _reverse_geocode_pin(coordinates, api_key):
+    response = requests.get(
+        "https://maps.googleapis.com/maps/api/geocode/json",
+        params={"latlng": f"{coordinates[0]},{coordinates[1]}", "key": api_key},
+        timeout=6,
+    )
+    if not response.ok:
+        if response.status_code in (401, 403):
+            raise MapLookupError("Google rejected the API key. Enable Geocoding API and billing in Google Cloud.")
+        raise _google_error(response)
+    payload = response.json()
+    if payload.get("status") == "REQUEST_DENIED":
+        raise MapLookupError("Google rejected the pin lookup. Enable Geocoding API for the saved key.")
+    if payload.get("status") == "OVER_QUERY_LIMIT":
+        raise MapLookupError("Google Maps quota has been reached. Check the project's quota and billing in Google Cloud.")
+    results = payload.get("results") or []
+    if not results:
+        raise MapLookupError("Google Maps could not find an address for this pin. Enter the address manually.")
+    result = next(
+        (item for item in results if any(
+            "postal_code" in component.get("types", [])
+            for component in item.get("address_components", [])
+        )),
+        results[0],
+    )
+    return {
+        "displayName": {"text": ""},
+        "formattedAddress": result.get("formatted_address", ""),
+        "addressComponents": [
+            {"longText": item.get("long_name", ""), "types": item.get("types", [])}
+            for item in result.get("address_components", [])
+        ],
+    }
+
+
 def lookup_google_map_link(value):
     if len(value) > 2048:
         raise MapLookupError("The Maps link is too long.")
@@ -68,15 +125,21 @@ def lookup_google_map_link(value):
     place_query = (params.get("query") or params.get("q") or [""])[0].strip()
     if not place_query and "/maps/place/" in parsed.path:
         place_query = unquote(parsed.path.split("/maps/place/", 1)[1].split("/", 1)[0]).replace("+", " ").strip()
-    if not place_query and not place_id:
-        raise MapLookupError("This Maps link has no place name. Open the place in Google Maps and copy its Share link.")
+    coordinates = _pin_coordinates(parsed, place_query)
+    if not place_query and not place_id and not coordinates:
+        raise MapLookupError("This Maps link has no place or pin. Drop a pin in Google Maps and copy its Share link.")
 
     api_key = get_google_maps_key()
     if not api_key:
         raise MapLookupError("Maps address lookup is not configured yet. Enter the address, city and PIN manually.")
     headers = {"X-Goog-Api-Key": api_key}
     try:
-        if place_id:
+        if coordinates and not place_id and (
+            not place_query or re.fullmatch(COORDINATE_PAIR, place_query)
+            or place_query.lower() in {"dropped pin", "pin"}
+        ):
+            place = _reverse_geocode_pin(coordinates, api_key)
+        elif place_id:
             response = requests.get(
                 f"https://places.googleapis.com/v1/places/{place_id}",
                 headers={**headers, "X-Goog-FieldMask": "displayName,formattedAddress,addressComponents"},

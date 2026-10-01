@@ -483,7 +483,8 @@ class ContractorRevenueView(APIView):
 def contractor_receipt_quotations(contractor):
     quotations = Quotation.objects.filter(
         contractor=contractor,
-        status__in=(Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED),
+        deleted_at__isnull=True,
+        status__in=(Quotation.Status.DRAFT, Quotation.Status.SENT, Quotation.Status.VIEWED, Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED),
     ).select_related("customer", "property").prefetch_related("project_receipts")
     rows = []
     for quotation in quotations.order_by("-updated_at"):
@@ -491,8 +492,13 @@ def contractor_receipt_quotations(contractor):
         schedule = getattr(quotation, "work_schedule", None)
         if schedule and schedule.payment_status == WorkSchedule.PaymentStatus.CONFIRMED:
             received += schedule.advance_amount or Decimal("0")
+        if quotation.grand_total <= received:
+            continue
+        root_id = quotation.revision_of_id or quotation.id
+        if Quotation.objects.filter(Q(pk=root_id) | Q(revision_of_id=root_id), version_number__gt=quotation.version_number).exists():
+            continue
         rows.append({
-            "id": quotation.id, "number": quotation.quotation_number, "customer": quotation.customer.name,
+            "id": quotation.id, "number": quotation.quotation_number, "customer": quotation.customer.name, "status": quotation.status,
             "project": quotation.property.name or quotation.property.property_type,
             "total": quotation.grand_total, "received": received,
             "balance": max(quotation.grand_total - received, Decimal("0")),
@@ -517,11 +523,14 @@ class ContractorProjectReceiptView(APIView):
                 return Response({"invoice": "Select an active final invoice."}, status=status.HTTP_400_BAD_REQUEST)
             return record_invoice_receipt(request, invoice)
         quotation = Quotation.objects.select_for_update().select_related("customer", "property").filter(
-            pk=request.data.get("quotation"), contractor=request.user,
-            status__in=(Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED),
+            pk=request.data.get("quotation"), contractor=request.user, deleted_at__isnull=True,
+            status__in=(Quotation.Status.DRAFT, Quotation.Status.SENT, Quotation.Status.VIEWED, Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED),
         ).first()
         if not quotation:
             return Response({"quotation": "Select an active quotation."}, status=status.HTTP_400_BAD_REQUEST)
+        root_id = quotation.revision_of_id or quotation.id
+        if Quotation.objects.filter(Q(pk=root_id) | Q(revision_of_id=root_id), version_number__gt=quotation.version_number).exists():
+            return Response({"quotation": "Select the latest quotation version."}, status=status.HTTP_400_BAD_REQUEST)
         schedule = getattr(quotation, "work_schedule", None)
         if hasattr(quotation, "invoice") and schedule and schedule.status == WorkSchedule.Status.COMPLETED:
             return Response({"quotation": "The final invoice already exists. Record this payment inside the invoice."}, status=status.HTTP_400_BAD_REQUEST)
@@ -552,10 +561,22 @@ class ContractorProjectReceiptView(APIView):
         )
         receipt.receipt_number = f"PR-{received_date:%Y%m%d}-{receipt.id:05d}"
         receipt.save(update_fields=("receipt_number", "updated_at"))
+        newly_accepted = quotation.status in (Quotation.Status.DRAFT, Quotation.Status.SENT, Quotation.Status.VIEWED)
+        if newly_accepted:
+            quotation.status = Quotation.Status.ACCEPTED
+            quotation.accepted_via_receipt_at = timezone.now()
+            quotation.save(update_fields=("status", "accepted_via_receipt_at", "updated_at"))
+        if schedule and schedule.payment_status != WorkSchedule.PaymentStatus.CONFIRMED:
+            schedule.advance_amount = Decimal("0")
+            schedule.payment_status = WorkSchedule.PaymentStatus.CONFIRMED
+            schedule.payment_confirmed_at = timezone.now()
+            schedule.payment_note = f"Advance recorded in {receipt.receipt_number}"
+            schedule.save(update_fields=("advance_amount", "payment_status", "payment_confirmed_at", "payment_note", "updated_at"))
         customer_user = quotation.customer.portal_user
         if customer_user:
-            PortalNotification.objects.create(recipient=customer_user, actor=request.user, event_type="PAYMENT", title="Payment receipt generated", message=f"{receipt.receipt_number}: {quotation.quotation_number} payment received.", link="/work-schedules")
-        return Response({"id": receipt.id, "receipt_number": receipt.receipt_number}, status=status.HTTP_201_CREATED)
+            message = f"{receipt.receipt_number}: {quotation.quotation_number} payment received. The quotation is accepted from this receipt; please confirm proposed work dates." if newly_accepted else f"{receipt.receipt_number}: {quotation.quotation_number} payment received."
+            PortalNotification.objects.create(recipient=customer_user, actor=request.user, event_type="PAYMENT", title="Payment receipt generated", message=message, link="/work-schedules")
+        return Response({"id": receipt.id, "receipt_number": receipt.receipt_number, "download_url": f"/billing/contractor-revenue/receipts/{receipt.id}/pdf/", "quotation_id": quotation.id, "quotation_accepted": newly_accepted, "schedule_url": f"/work-schedules?quotation={quotation.id}" if quotation.status == Quotation.Status.ACCEPTED else None}, status=status.HTTP_201_CREATED)
 
 
 def record_invoice_receipt(request, invoice):
@@ -609,6 +630,7 @@ class CustomerProjectFinanceView(APIView):
         advances = WorkSchedule.objects.filter(
             quotation__customer__portal_user=request.user,
             payment_status=WorkSchedule.PaymentStatus.CONFIRMED,
+            advance_amount__gt=0,
         ).select_related("quotation", "quotation__property", "quotation__contractor")
         quotation_receipts = ProjectReceipt.objects.filter(
             quotation__customer__portal_user=request.user,

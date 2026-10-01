@@ -18,6 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import api from "../api/client";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 import {
@@ -99,6 +100,7 @@ export default function AdminDashboard() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [supportQueries, setSupportQueries] = useState([]);
   const load = useCallback(async () => {
     try {
       const { data: response } = await api.get("/quotations/admin-dashboard/");
@@ -142,6 +144,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    api.get("/quotations/support-tickets/")
+      .then(({ data: tickets }) => setSupportQueries(tickets.slice(0, 5)))
+      .catch(() => setSupportQueries([]));
+  }, []);
   useEffect(() => {
     setFilter("ALL");
     setSelectedIds([]);
@@ -210,12 +217,14 @@ export default function AdminDashboard() {
   async function deleteSelected() {
     if (!selectedIds.length || saving) return;
     const count = selectedIds.length;
-    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}?\n\nTheir mobile numbers will be released for new registrations. Related business records will be preserved.`)) return;
+    const reason = window.prompt("Why are you deleting account access? This reason is saved to the audit history (10 to 1000 characters).");
+    if (!reason || reason.trim().length < 10 || reason.trim().length > 1000) { if (reason !== null) window.alert("Enter a justification between 10 and 1000 characters."); return; }
+    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}? Related business records will be preserved.`)) return;
     setSaving(true);
     const failed = [];
     for (const id of selectedIds) {
       try {
-        await api.delete(`/quotations/admin-dashboard/${section}/${id}/`);
+        await api.delete(`/quotations/admin-dashboard/${section}/${id}/`, { data: { reason: reason.trim() } });
       } catch {
         failed.push(id);
       }
@@ -300,15 +309,12 @@ export default function AdminDashboard() {
     }
   }
   async function deleteAccess(row) {
-    if (
-      !confirm(
-        `Delete access for ${row.name || row.company}?\n\nThe mobile number will be released for a new registration. Quotations, invoices, projects, payments and audit history will be preserved.`,
-      )
-    )
-      return;
+    const reason = window.prompt(`Why are you deleting access for ${row.name || row.company}? This reason is saved to the audit history.`);
+    if (!reason || reason.trim().length < 10 || reason.trim().length > 1000) { if (reason !== null) window.alert("Enter a justification between 10 and 1000 characters."); return; }
+    if (!window.confirm(`Delete access for ${row.name || row.company}? Related business records will be preserved.`)) return;
     setSaving(true);
     try {
-      await api.delete(`/quotations/admin-dashboard/${section}/${row.id}/`);
+      await api.delete(`/quotations/admin-dashboard/${section}/${row.id}/`, { data: { reason: reason.trim() } });
       await load();
       setSelectedIds((current) => current.filter((id) => id !== row.id));
     } catch (err) {
@@ -320,6 +326,18 @@ export default function AdminDashboard() {
     } finally {
       setSaving(false);
     }
+  }
+  async function suspendAccess(row) {
+    const reason = window.prompt(`Why are you suspending ${row.name || row.company}'s account? This justification is saved to the audit history.`);
+    if (!reason || reason.trim().length < 10 || reason.trim().length > 1000) { if (reason !== null) window.alert("Enter a justification between 10 and 1000 characters."); return; }
+    if (!window.confirm(`Suspend ${row.name || row.company}'s sign-in and notifications?`)) return;
+    setSaving(true); setError("");
+    try {
+      await api.post("/quotations/support-workspace/actions/", { action: "SUSPEND_ACCOUNT", target_id: row.id, reason: reason.trim() });
+      await load();
+      setRepairMessage("Account suspended. The reason was added to the support audit.");
+    } catch (err) { setError(err.response?.data?.detail || err.response?.data?.reason || "Account could not be suspended."); }
+    finally { setSaving(false); }
   }
   async function exportAll() {
     try {
@@ -417,6 +435,7 @@ export default function AdminDashboard() {
       {repairMessage && (
         <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{repairMessage}</p>
       )}
+      <section className="rounded-xl border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Recent support conversations</h2><p className="mt-1 text-sm text-slate-500">Open a query to review its full message history and reply.</p></div><Link to="/support-tickets" className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]">All support queries</Link></div><div className="mt-3 divide-y">{supportQueries.length ? supportQueries.map((ticket) => <Link key={ticket.id} to={`/support-tickets?ticket=${ticket.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-slate-50"><span className="min-w-0"><strong className="text-sm">{ticket.subject}</strong><span className="ml-2 text-xs text-slate-500">{ticket.ticket_number} · {ticket.requester_name}</span><span className="mt-1 block truncate text-xs text-slate-500">{ticket.description}</span></span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{ticket.status?.replaceAll("_", " ")}</span></Link>) : <p className="py-3 text-sm text-slate-500">No support queries found.</p>}</div></section>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {sections.map(({ key, label, icon }) => (
           <button
@@ -488,6 +507,7 @@ export default function AdminDashboard() {
           editable={editable}
           onEdit={setEditing}
           onDelete={deleteAccess}
+          onSuspend={suspendAccess}
           saving={saving}
           selectedIds={selectedIds}
           onToggleSelected={toggleSelected}
@@ -689,6 +709,7 @@ function DataTable({
   editable,
   onEdit,
   onDelete,
+  onSuspend,
   saving,
   selectedIds,
   onToggleSelected,
@@ -742,6 +763,13 @@ function DataTable({
                 ))}
                 {editable && (
                   <td className="whitespace-nowrap px-2 py-2 align-top sm:px-3">
+                    {section !== "customers" && <button
+                      disabled={saving}
+                      onClick={() => onSuspend(row)}
+                      className="mr-1 inline-flex items-center justify-center rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50"
+                      title="Suspend account access with justification"
+                      aria-label={`Suspend access for ${row.name || row.company}`}
+                    ><EyeOff className="h-4 w-4" /></button>}
                     <button
                       onClick={() => onEdit(row)}
                       className="mr-1 rounded-lg border p-2 hover:bg-slate-50"

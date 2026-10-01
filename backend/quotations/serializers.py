@@ -213,7 +213,7 @@ class ConnectionScopedCustomerMixin:
                         "bharath_id",
                         f"BP-C-******{raw_customer_id[-3:]}" if raw_customer_id else "BP-C-*********",
                     )
-                    properties = instance.properties.filter(contractor=request.user, connection=pending).order_by("-updated_at")
+                    properties = instance.properties.filter(contractor=request.user, connection=pending, contractor_hidden_at__isnull=True).order_by("-updated_at")
                     quotations = instance.quotations.filter(contractor=request.user, connection=pending).order_by("-updated_at")
                     representation["properties"] = PropertySerializer(
                         properties, many=True, context=self.context,
@@ -241,7 +241,7 @@ class ConnectionScopedCustomerMixin:
             properties = instance.properties.filter(
                 models.Q(connection=connection)
                 | models.Q(connection__isnull=True, contractor=request.user)
-            )
+            ).filter(contractor_hidden_at__isnull=True)
             representation["properties"] = PropertySerializer(properties, many=True, context=self.context).data
         if "quotations" in representation:
             quotations = instance.quotations.filter(
@@ -316,6 +316,7 @@ class PropertySerializer(serializers.ModelSerializer):
         read_only_fields = (
             "contractor",
             "connection",
+            "contractor_hidden_at",
             "created_at",
             "updated_at",
         )
@@ -1293,6 +1294,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "customer_responded_at",
 
             "subtotal",
+            "accepted_via_receipt_at",
 
             "discount",
             "discount_type",
@@ -1339,6 +1341,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "customer_responded_at",
 
             "subtotal",
+            "accepted_via_receipt_at",
             "discount",
             "gst_amount",
             "grand_total",

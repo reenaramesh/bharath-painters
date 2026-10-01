@@ -1,8 +1,9 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import VerifiedContractorRoute from "./components/VerifiedContractorRoute";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import PdfPreviewHost from "./components/PdfPreview";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import WhatsAppAppChooser from "./components/WhatsAppAppChooser";
@@ -84,21 +85,45 @@ const Reports = page("Reports");
 const ProfileCard = page("ProfileCard");
 const CustomerContractorReviews = page("CustomerContractorReviews");
 
+// Bharath Apps multi-trade + outsourcing preview.
+// Gated on import.meta.env.DEV so the whole branch is dropped from production
+// builds. It sits outside ProtectedRoute and outside DashboardLayout, so it
+// cannot affect real navigation or bypass auth for any application route.
+const BharathAppsPreview = import.meta.env.DEV
+  ? lazy(() => import("./preview/bharathApps/PreviewApp.jsx"))
+  : null;
+
 function App() {
   return (
     <BrowserRouter>
       <PdfPreviewHost />
       <PwaInstallPrompt />
       <WhatsAppAppChooser />
+      <AppRoutes />
+    </BrowserRouter>
+  );
+}
+
+// The boundary sits outside Suspense so a failed lazy import is caught too.
+// Keying it on the pathname remounts it on navigation, which clears a
+// captured failure without an extra render pass.
+function AppRoutes() {
+  const location = useLocation();
+
+  return (
+    <RouteErrorBoundary key={location.pathname}>
       <Suspense
         fallback={
-          <div className="bp-page-state min-h-screen">
+          <div className="bp-state min-h-screen">
             <span className="bp-spinner" />
             <p>Loading workspace…</p>
           </div>
         }
       >
         <Routes>
+          {BharathAppsPreview && (
+            <Route path="/preview/bharath-apps" element={<BharathAppsPreview />} />
+          )}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
@@ -304,7 +329,7 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
-    </BrowserRouter>
+    </RouteErrorBoundary>
   );
 }
 

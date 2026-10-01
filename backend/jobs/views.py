@@ -204,6 +204,8 @@ def complete_job_transfer(source, target, actor):
 
 def schedule_data(item):
     quotation = item.quotation
+    receipt_advance_total = quotation.project_receipts.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+    project_receipt = quotation.project_receipts.order_by("-received_date", "-id").first()
     today = timezone.localdate()
     needs_reschedule = (
         item.status == WorkSchedule.Status.PENDING and item.proposed_start_date < today
@@ -217,11 +219,13 @@ def schedule_data(item):
         "start_date": item.proposed_start_date, "end_date": item.proposed_end_date,
         "previous_start_date": item.previous_start_date, "previous_end_date": item.previous_end_date,
         "reschedule_reason": item.reschedule_reason,
-        "advance_amount": item.advance_amount, "payment_status": item.payment_status,
+        "advance_amount": (item.advance_amount or Decimal("0")) + receipt_advance_total,
+        "receipt_advance_total": receipt_advance_total, "payment_status": item.payment_status,
         "payment_mode": item.payment_mode, "payment_reference": item.payment_reference,
         "payment_note": item.payment_note, "payment_submitted_at": item.payment_submitted_at,
         "payment_confirmed_at": item.payment_confirmed_at, "cancellation_reason": item.cancellation_reason,
-        "advance_receipt_number": item.advance_receipt_number or "",
+        "advance_receipt_number": item.advance_receipt_number or (project_receipt.receipt_number if project_receipt else ""),
+        "project_receipt_id": project_receipt.id if project_receipt and not item.advance_receipt_number else None,
         "work_started_at": item.work_started_at, "work_completed_at": item.work_completed_at,
         "proposed_by": item.proposed_by.role, "customer_accepted": item.customer_accepted,
         "contractor_accepted": item.contractor_accepted, "status": item.status,
@@ -421,6 +425,8 @@ class WorkScheduleListCreateView(APIView):
             return Response({"start_date": "Work cannot be scheduled for a past date."}, status=status.HTTP_400_BAD_REQUEST)
         is_customer = request.user.role == BharathUser.Roles.CUSTOMER
         existing = WorkSchedule.objects.filter(quotation=quotation).first()
+        if is_customer and quotation.accepted_via_receipt_at and not existing:
+            return Response({"quotation": "The contractor will propose work dates for you to confirm."}, status=status.HTTP_400_BAD_REQUEST)
         if existing and is_customer:
             return Response({"detail": "Only the contractor can reschedule existing work dates."}, status=status.HTTP_403_FORBIDDEN)
         reason = str(request.data.get("reason") or "").strip()
@@ -435,10 +441,13 @@ class WorkScheduleListCreateView(APIView):
             "customer_accepted": is_customer, "contractor_accepted": not is_customer, "status": WorkSchedule.Status.PENDING,
         }
         if not existing:
+            receipt_total = quotation.project_receipts.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
             schedule_defaults.update({
-                "advance_amount": None, "payment_status": WorkSchedule.PaymentStatus.NOT_REQUESTED,
-                "payment_mode": "", "payment_reference": "", "payment_note": "",
-                "payment_submitted_at": None, "payment_confirmed_at": None,
+                "advance_amount": Decimal("0") if receipt_total else None,
+                "payment_status": WorkSchedule.PaymentStatus.CONFIRMED if receipt_total else WorkSchedule.PaymentStatus.NOT_REQUESTED,
+                "payment_mode": "", "payment_reference": "",
+                "payment_note": "Advance recorded in quotation receipt" if receipt_total else "",
+                "payment_submitted_at": None, "payment_confirmed_at": timezone.now() if receipt_total else None,
             })
         item, _ = WorkSchedule.objects.update_or_create(quotation=quotation, defaults=schedule_defaults)
         # A changed date range requires fresh mutual approval and fresh painter availability checks.
@@ -2383,6 +2392,8 @@ class ContractorApplicationListView(APIView):
                     "cancellation_reason": application.cancellation_reason,
                     "contractor_rating": application.contractor_rating,
                     "painter_rating": application.painter_rating,
+                    "transfer_request": pending_transfer_data(application, request.user),
+                    "available_transfer_jobs": available_transfer_jobs(application),
                     "applied_at":
                         application.applied_at,
                 }

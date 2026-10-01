@@ -5,7 +5,15 @@ import AuthContext from "./auth-context";
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("bharath_user");
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch {
+      localStorage.removeItem("bharath_user");
+      localStorage.removeItem("bharath_access");
+      localStorage.removeItem("bharath_refresh");
+      return null;
+    }
   });
 
   async function login(identifier, password) {

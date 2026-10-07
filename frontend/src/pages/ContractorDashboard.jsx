@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Building2, CalendarClock, CheckCircle2, ClipboardList, FileText, MessageCircle, Phone, Plus, RefreshCw, UserRoundPlus, Users } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, ClipboardList, FileText, MessageCircle, Phone, Plus, RefreshCw, UserRoundPlus, Users } from "lucide-react";
 import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const tools = [
   [UserRoundPlus, "Add customer", "Connect with a customer", "/customers"],
   [FileText, "Create quotation", "Prepare an estimate", "/quotations/new"],
-  [CalendarClock, "Schedule visit", "Plan a call or site visit", "/tasks"],
+  [CalendarClock, "Site visits", "Scheduled site visits", "/site-visits"],
+  [CalendarDays, "Follow-ups", "Customer follow-ups", "/tasks"],
   [ClipboardList, "Manage work", "Review your work schedules", "/work-schedules"],
 ];
 
@@ -76,6 +77,9 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
           <span className="contractor-timeline-dot" aria-hidden="true" /><div className="contractor-task-content"><div className="contractor-task-top"><span className="contractor-task-date"><DateLabel value={task.next_follow_up} /></span>{task.overdue && <StatusBadge status="OVERDUE" label="Overdue" />}</div><Link to={`/customers/${task.customer}`}><strong>{task.customer_name}</strong></Link><p>{task.comment || task.type?.replaceAll("_", " ")}</p>{task.customer_mobile && <a className="contractor-call" href={`tel:${task.customer_mobile}`} aria-label={`Call ${task.customer_name} at ${task.customer_mobile}`}><Phone size={15} aria-hidden="true" />{task.customer_mobile}</a>}</div>
         </article>) : <EmptyState title="All caught up" description="There are no pending customer follow-ups." />}
       </SectionCard>
+      <SectionCard title="Site visits" action={<PanelLink to="/site-visits">View all</PanelLink>} className="contractor-panel" bodyClassName="contractor-timeline">
+        {data.site_visits?.length ? data.site_visits.map((visit) => <Link key={visit.id} to={visit.customer_id ? `/customers/${visit.customer_id}` : "/site-visits"} className="contractor-task"><span className="contractor-icon"><CalendarDays size={20} aria-hidden="true" /></span><span className="contractor-task-content"><strong>{visit.customer_name}</strong><span className="block">{visit.property_name || visit.opportunity_title}</span><span className="contractor-task-date">{visit.scheduled_date}{visit.scheduled_time ? ` ? ${visit.scheduled_time.slice(0, 5)}` : ""}</span></span><StatusBadge status={visit.status} /></Link>) : <EmptyState title="No scheduled site visits" />}
+      </SectionCard>
     </div>
 
     <div className="contractor-workspace contractor-lower">
@@ -86,7 +90,7 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
       </SectionCard>
 
       <SectionCard title="Communication & requests" description="Messages and service requests to review" className="contractor-panel" bodyClassName="contractor-communication">
-        {[[MessageCircle, "Unread messages", c.unread_messages, "/messages"], [FileText, "New service requests", c.new_requests, "/service-requests"], [CalendarClock, "Due follow-ups", c.due_tasks, "/tasks"]].map(([Icon, label, value, to]) => <Link key={label} to={to}>
+        {[[MessageCircle, "Unread messages", c.unread_messages, "/messages"], [FileText, "New service requests", c.new_requests, "/service-requests"], [CalendarClock, "Due follow-ups", c.due_tasks, "/tasks"], [CalendarDays, "Site visits", c.site_visits, "/site-visits"]].map(([Icon, label, value, to]) => <Link key={label} to={to}>
           <span className="contractor-icon"><Icon size={19} aria-hidden="true" /></span><span>{label}</span><strong>{value ?? 0}</strong><ArrowRight size={16} aria-hidden="true" />
         </Link>)}
         {data.new_requests?.length > 0 && <div className="contractor-request-list"><h3>Latest new requests</h3>{data.new_requests.map((request) => <Link key={request.id} to="/service-requests"><span><strong>{request.title}</strong><span>{request.customer}</span></span><StatusBadge status={request.status} /></Link>)}</div>}

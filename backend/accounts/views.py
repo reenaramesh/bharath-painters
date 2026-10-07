@@ -1090,7 +1090,8 @@ class ContractorProfileView(APIView):
 
 
 def _profile_image_url(request, image):
-    return request.build_absolute_uri(image.url) if image else None
+    from .profile_images import public_profile_image_url
+    return public_profile_image_url(request, image)
 
 
 def _profile_list(value):

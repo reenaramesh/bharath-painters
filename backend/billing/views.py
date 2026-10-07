@@ -223,6 +223,17 @@ class PackageAssignmentView(APIView):
         return Response({"message": f"{plan.name} subscription updated.", "subscription_id": subscription.id})
 
 
+def notify_subscription_admins(item, *, payment=False):
+    name = item.user.get_full_name() or item.user.mobile
+    action = "submitted payment for" if payment else "requested"
+    for admin in BharathUser.objects.filter(role=BharathUser.Roles.ADMIN, is_active=True):
+        PortalNotification.objects.create(recipient=admin, actor=item.user,
+            event_type="SUBSCRIPTION_PAYMENT" if payment else "SUBSCRIPTION_REQUEST",
+            title="Subscription payment submitted" if payment else "New subscription request",
+            message=f"{name} ({item.user.mobile}) {action} {item.plan.name}. Reference: {item.invoice_number}.",
+            link=f"/billing?request={item.id}")
+
+
 class ContractorPackageView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -260,6 +271,7 @@ class ContractorPackageView(APIView):
         if plan.billing_cycle == BillingPlan.Cycle.FREE and plan.price == 0:
             activate_request(item)
             return Response({"message": f"{plan.name} is now active.", "status": item.status}, status=status.HTTP_201_CREATED)
+        notify_subscription_admins(item)
         if paid:
             return Response({"message": "Package selected. Submit payment details for admin confirmation.", "status": item.status, "request": request_data(item)}, status=status.HTTP_201_CREATED)
         return Response({"message": "Package registration sent to admin for approval.", "status": item.status, "request": request_data(item)}, status=status.HTTP_201_CREATED)
@@ -268,6 +280,7 @@ class ContractorPackageView(APIView):
 class PackagePaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pk):
         item = PackageRequest.objects.filter(pk=pk, user=request.user, status__in=[PackageRequest.Status.AWAITING_PAYMENT, PackageRequest.Status.PAYMENT_SUBMITTED]).first()
         if not item:
@@ -278,6 +291,7 @@ class PackagePaymentView(APIView):
         if mode != "CASH" and not reference:
             return Response({"payment_reference": "Payment reference is required."}, status=status.HTTP_400_BAD_REQUEST)
         item.payment_mode = mode; item.payment_reference = reference; item.payment_note = str(request.data.get("payment_note") or "").strip(); item.payment_status = PackageRequest.PaymentStatus.SUBMITTED; item.status = PackageRequest.Status.PAYMENT_SUBMITTED; item.payment_submitted_at = timezone.now(); item.save()
+        notify_subscription_admins(item, payment=True)
         BillingNotification.objects.create(user=request.user, title="Payment submitted", message=f"Payment for {item.plan.name} is waiting for admin confirmation.")
         return Response({"message": "Payment submitted for confirmation.", "request": request_data(item)})
 

@@ -261,6 +261,15 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(required=False)
     profile_completion = serializers.SerializerMethodField()
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request:
+            from .profile_images import public_profile_image_url
+            data["profile_photo"] = public_profile_image_url(request, instance.user.profile_photo)
+            data["company_logo"] = public_profile_image_url(request, instance.company_logo)
+        return data
+
     class Meta:
         model = ContractorProfile
         fields = [
@@ -387,6 +396,14 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
 
 class ContractorCompletedProjectSerializer(serializers.ModelSerializer):
     pincode = serializers.RegexField(r"^$|^[0-9]{6}$", required=False, allow_blank=True)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request:
+            from .profile_images import public_profile_image_url
+            data["photo"] = public_profile_image_url(request, instance.photo)
+        return data
 
     class Meta:
         model = ContractorCompletedProject

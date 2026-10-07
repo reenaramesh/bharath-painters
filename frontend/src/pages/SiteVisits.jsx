@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, MapPin, Phone, Plus, RefreshCw } from "lucide-react";
 import api from "../api/client";
+import { siteVisitFollowups } from "../utils/siteVisitFollowups";
 import { stageLabel } from "../utils/opportunityOptions";
 
 const STATUS_STYLES = {
@@ -35,8 +36,9 @@ export default function SiteVisits() {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (dateFilter) params.set("date", dateFilter);
-      const { data } = await api.get(`/quotations/site-visits/?${params}`);
-      setVisits(data);
+      const [{ data }, { data: tasks }] = await Promise.all([api.get(`/quotations/site-visits/?${params}`), api.get("/quotations/tasks/?completed=all")]);
+      const followups = siteVisitFollowups(tasks.results || tasks, { status: statusFilter, date: dateFilter });
+      setVisits([...(data.results || data), ...followups]);
     } catch (requestError) {
       setVisits([]);
       setError(
@@ -54,6 +56,11 @@ export default function SiteVisits() {
     setBusyId(visit.id);
     setError("");
     try {
+      if (visit.followup_id) {
+        await api.patch(`/quotations/tasks/${visit.followup_id}/`, { is_completed: status === "COMPLETED" });
+        await load();
+        return;
+      }
       const { data } = await api.patch(`/quotations/site-visits/${visit.id}/`, {
         status,
       });
@@ -245,7 +252,7 @@ export default function SiteVisits() {
                     onChange={(event) => updateStatus(visit, event.target.value)}
                     className={`${input} disabled:opacity-50`}
                   >
-                    {STATUS_OPTIONS.map((value) => (
+                    {(visit.followup_id ? ["SCHEDULED", "COMPLETED"] : STATUS_OPTIONS).map((value) => (
                       <option key={value} value={value}>
                         Mark: {stageLabel(value)}
                       </option>

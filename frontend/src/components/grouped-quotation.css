@@ -295,3 +295,52 @@
 
 .gq-surface-table tfoot { background: var(--gq-accent-soft); color: var(--gq-accent-dark); font-weight: 700; }
 .gq-surface-table tfoot th, .gq-surface-table tfoot td { border-top: 2px solid var(--gq-line); padding-block: 12px; }
+
+/* Compact measurement typography; preserve full values and touch targets. */
+.gq-surface-table { font-size: 13px; line-height: 1.4; }
+.gq-workspace .gq-room-name { font-size: inherit; max-width: 100%; overflow-wrap: anywhere; }
+.gq-measurement-table-card h4 { font-size: 14px; }
+.gq-measurement-dialog .gq-heading { flex-wrap: nowrap; align-items: flex-start; }
+.gq-measurement-dialog .gq-heading h2 { min-width: 0; font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.gq-measurement-dialog .gq-heading .gq-icon { flex-shrink: 0; }
+.gq-measurement-dialog .gq-room-records { font-size: 13px; line-height: 1.5; }
+.gq-measurement-dialog .gq-surface-record h3 { font-size: 14px; }
+.gq-measurement-dialog .gq-record-values > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gq-space-2); }
+.gq-measurement-dialog .gq-record-values dt,
+.gq-measurement-dialog .gq-record-values dd { min-width: 0; overflow-wrap: anywhere; }
+.gq-measurement-dialog .gq-opening-records > div { font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+  .gq-surface-table { font-size: 12px; }
+  .gq-surface-table thead th { font-size: 11px; }
+  .gq-surface-table small { font-size: 10px; }
+  .gq-workspace .gq-measurement-view { font-size: 11px; }
+  .gq-surface-tables section > h3 { font-size: 14px; }
+  .gq-measurement-table-card h4 { font-size: 13px; padding: var(--gq-space-3); }
+  .gq-measurement-dialog .gq-heading h2 { font-size: 16px; }
+  .gq-measurement-dialog .special-wall-header p { font-size: 12px; }
+  .gq-measurement-dialog .gq-surface-record { padding: var(--gq-space-3); }
+  .gq-measurement-dialog .gq-record-values { gap: var(--gq-space-2); }
+}
+
+/* Override the shell's uppercase, spaced headings in measurement tables. */
+.minimia-shell main .gq-workspace .gq-surface-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.35;
+}
+.gq-surface-table thead th:nth-child(4) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+@media (max-width: 639px) {
+  .minimia-shell main .gq-workspace .gq-surface-table thead th {
+    font-size: 10px;
+  }
+}
+
+/* Only Room / Area displays a sorting arrow in measurement tables. */
+.gq-surface-table thead th.bp-global-sortable:not(:first-child)::after {
+  content: none;
+}

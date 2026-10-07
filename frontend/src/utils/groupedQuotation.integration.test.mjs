@@ -66,17 +66,17 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Measurements").length, 1);
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Services & Product").length, 1);
     assert.equal(view.root.findAllByType("button").filter((node) => /Assign Products|Add Special Wall/.test(text(node))).length, 0);
-    assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Deducted Surfaces").length, 1);
+    assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Deducted Surfaces").length, 0);
+    // Preserve the room tables and their full detail actions on mobile.
+    for (const table of view.root.findAllByType("table")) {
+      assert.equal(table.props["data-mobile-table"], "keep");
+    }
     const wallsTable = view.root.findAllByType("table")[0];
     const totals = wallsTable.findByType("tfoot");
     assert.deepEqual(totals.findAllByType("td").slice(0, 2).map(text), ["2,270", "670"]);
     const bedroom = wallsTable.findAllByType("tr").find((node) => text(node).startsWith("Bedroom 1"));
     assert.deepEqual(bedroom.findAllByType("td").slice(0, 3).map(text), ["470", "130", "27"]);
     assert.match(text(view.root.findAllByType("table")[1]), /Door.*Window.*Other/);
-    const deductions = view.root.findAllByType("section").find((node) => node.props["aria-labelledby"] === "gq-deductions-title");
-    assert.match(text(deductions), /Bedroom 1Entry door21 sqft/);
-    assert.match(text(deductions), /Bedroom 1Window A6 sqft/);
-    assert.doesNotMatch(text(deductions), /Ignored door|Added window/);
     await act(async () => view.root.findByProps({ "aria-label": "View original measurement records for Bedroom 1" }).props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Wall 4/);
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Gross area \(before deduction\)147 sqft/);
@@ -88,16 +88,16 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Front wall/);
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Net area100 sqft/);
     await click("Close");
-    await click("Create Paint Group");
+    await click("Create Paint Areas");
     await click("Select all");
     await click("Continue");
     assert.equal(label("Type of service").findByType("select").props.value, 101);
     assert.equal(label("Notes"), undefined);
     assert.equal(label("Finish"), undefined);
-    await act(async () => label("Group Name").findByType("input").props.onChange({ target: { value: "Basic Painting" } }));
+    await act(async () => label("Area Name").findByType("input").props.onChange({ target: { value: "Basic Painting" } }));
     await act(async () => label("Product").findByType("select").props.onChange({ target: { value: "201" } }));
     await act(async () => view.root.findByProps({ "aria-label": "Assignment rate" }).props.onChange({ target: { value: "10" } }));
-    await click("Save Paint Group");
+    await click("Save Paint Areas");
     assert.equal(state.groups[0].spec.service_category, 101);
     assert.equal(state.groups[0].spec.paint_type, 201);
     const items = assignmentQuotationItems(measurement, state, realMasters);
@@ -114,7 +114,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     await act(async () => view.root.findByProps({ "aria-label": "Edit Basic Painting" }).props.onClick());
     await click("Continue");
     await act(async () => view.root.findByProps({ "aria-label": "Assignment rate" }).props.onChange({ target: { value: "12" } }));
-    await click("Save Paint Group");
+    await click("Save Paint Areas");
     assert.match(text(view.root), /30,840/);
     assert.equal(apiCalls, 0);
   } finally {

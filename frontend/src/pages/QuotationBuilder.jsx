@@ -789,7 +789,7 @@ export default function QuotationBuilder() {
     if (step === 0 && !form.property) return "Select a property.";
     if (step === 0 && useMeasurements && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
     if (step === 0 && useMeasurements && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
-    if (step === 1 && groupedMode && !activeItems.length) return "Create a paint group or add a general service before continuing.";
+    if (step === 1 && groupedMode && !activeItems.length) return "Create paint areas or add a general service before continuing.";
     if (step === 1 && activeItems.some((item) => !item.service_category && !item.custom_service_category)) return "Select a type of service for every selected measured area.";
     if (step === 1 && activeItems.some((item) => {
       if (item.is_additional_service) return false;

@@ -59,3 +59,38 @@ class BillingLifecycleTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["plan"]["billing_cycle"], BillingPlan.Cycle.FREE)
         self.assertFalse(Subscription.objects.get(user=self.contractor, plan=self.plan).is_active)
+
+    def test_subscription_request_notifies_active_admins_with_direct_link(self):
+        from quotations.models import PortalNotification
+        second_admin = BharathUser.objects.create_user(mobile="8111111112", password="test", role="ADMIN")
+        inactive_admin = BharathUser.objects.create_user(mobile="8111111113", password="test", role="ADMIN", is_active=False)
+        self.client.force_authenticate(self.contractor)
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            response = self.client.post("/api/billing/contractor-packages/", {"plan_id": self.plan.id}, format="json")
+        self.assertEqual(len(callbacks), 2)
+        self.assertEqual(response.status_code, 201)
+        request_id = response.data["request"]["id"]
+        notices = PortalNotification.objects.filter(event_type="SUBSCRIPTION_REQUEST")
+        self.assertEqual(set(notices.values_list("recipient_id", flat=True)), {self.admin.id, second_admin.id})
+        self.assertFalse(notices.filter(recipient=inactive_admin).exists())
+        self.assertEqual(notices.first().link, f"/billing?request={request_id}")
+        self.assertEqual(notices.first().actor_id, self.contractor.id)
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/quotations/notifications/")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(response.data["unread_count"], 0)
+        self.assertTrue(any(item["link"] == f"/billing?request={request_id}" for item in response.data["results"]))
+
+    def test_payment_submission_notifies_admin_but_duplicate_request_does_not(self):
+        from quotations.models import PortalNotification
+        self.client.force_authenticate(self.contractor)
+        response = self.client.post("/api/billing/contractor-packages/", {"plan_id": self.plan.id}, format="json")
+        request_id = response.data["request"]["id"]
+        repeat = self.client.post("/api/billing/contractor-packages/", {"plan_id": self.plan.id}, format="json")
+        self.assertEqual(repeat.status_code, 400)
+        self.assertEqual(PortalNotification.objects.filter(event_type="SUBSCRIPTION_REQUEST").count(), 1)
+        response = self.client.post(f"/api/billing/package-requests/{request_id}/payment/", {"payment_mode": "UPI", "payment_reference": "TEST-UPI"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        notice = PortalNotification.objects.get(event_type="SUBSCRIPTION_PAYMENT")
+        self.assertEqual(notice.recipient_id, self.admin.id)
+        self.assertEqual(notice.link, f"/billing?request={request_id}")

@@ -253,3 +253,6 @@
   .contractor-dashboard .contractor-tools-grid .contractor-icon { width: 36px; height: 36px; }
   .contractor-dashboard .contractor-tools-grid strong { font-size: 13px; }
 }
+
+.contractor-dashboard .contractor-tools-grid strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+@media (max-width: 639px) { .contractor-dashboard .contractor-tools-grid strong { font-size: clamp(10px, 2.7vw, 12px); } }

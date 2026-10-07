@@ -1,3 +1,4 @@
+from .profile_images import profile_image
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -36,6 +37,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("profile-images/<str:kind>/<int:object_id>/", profile_image, name="profile-image"),
     path("legal/registration/", RegistrationLegalDocumentView.as_view(), name="registration-legal-document"),
     path(
         "register/painter/",

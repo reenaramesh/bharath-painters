@@ -301,9 +301,9 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             </div>
 
             <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-slate-900">{name}</p>
+              <p className="max-w-40 truncate whitespace-nowrap text-xs font-semibold text-slate-900" title={name}>{name}</p>
 
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="whitespace-nowrap text-[10px] font-medium uppercase tracking-normal text-slate-500">
                 {user?.role?.toLowerCase() || "Member"} portal
               </p>
             </div>

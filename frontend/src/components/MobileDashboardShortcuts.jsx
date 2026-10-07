@@ -31,7 +31,8 @@ const shortcutsByRole = {
     { label: "Quotations", icon: FileText, to: "/quotations" },
     { label: "Work Network", icon: Network, to: "/jobs?post=1" },
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
-    { label: "Tasks", icon: ListTodo, to: "/tasks" },
+    { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
+    { label: "Site Visits", icon: CalendarClock, to: "/site-visits" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
     { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
     { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
@@ -85,7 +86,7 @@ export default function MobileDashboardShortcuts() {
               <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-white shadow-sm transition active:scale-95">
                 <QrCode className="h-7 w-7" strokeWidth={1.8} />
               </span>
-              <span className="mt-2 block min-h-8 text-[11px] font-semibold leading-4 text-slate-800">
+              <span className="mt-2 block min-h-4 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-800">
                 Scan QR
               </span>
             </button>
@@ -95,7 +96,7 @@ export default function MobileDashboardShortcuts() {
                 <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 shadow-sm transition active:scale-95">
                   <Icon className="h-7 w-7" strokeWidth={1.8} />
                 </span>
-                <span className="mt-2 block min-h-8 text-[11px] font-medium leading-4 text-slate-700">
+                <span className="mt-2 block min-h-4 whitespace-nowrap text-[10px] font-medium leading-4 text-slate-700">
                   {label}
                 </span>
               </Link>

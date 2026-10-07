@@ -4798,6 +4798,9 @@ class ContractorCrmDashboardView(APIView):
             is_completed=False,
             next_follow_up__isnull=False,
         ).select_related("customer").order_by("next_follow_up")
+        visit_followups = tasks.filter(follow_up_type=CustomerFollowUp.FollowUpType.SITE_VISIT)
+        tasks = tasks.exclude(follow_up_type=CustomerFollowUp.FollowUpType.SITE_VISIT)
+        visits = SiteVisit.objects.filter(contractor=request.user, status__in=(SiteVisit.Status.SCHEDULED, SiteVisit.Status.RESCHEDULED)).select_related("customer", "property", "opportunity").order_by("scheduled_date", "scheduled_time")
         requests = ServiceRequest.objects.filter(
             models.Q(connection__contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED)
             | models.Q(connection__isnull=True, customer__contractor=request.user)
@@ -4825,6 +4828,7 @@ class ContractorCrmDashboardView(APIView):
                 "properties": Property.objects.filter(contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED, contractor_hidden_at__isnull=True).count(),
                 "quotations": quotations.count(),
                 "quotation_value": quotations.exclude(status__in=(Quotation.Status.REJECTED, Quotation.Status.CANCELLED, Quotation.Status.EXPIRED)).aggregate(total=models.Sum("grand_total"))["total"] or Decimal("0"),
+                "site_visits": visits.count() + visit_followups.count(),
                 "due_tasks": tasks.filter(next_follow_up__lte=now).count(),
                 "new_requests": requests.filter(status=ServiceRequest.Status.NEW).count(),
                 "unread_messages": ChatMessage.objects.filter(conversation__in=conversations, read_at__isnull=True).exclude(sender=request.user).count(),
@@ -4843,6 +4847,7 @@ class ContractorCrmDashboardView(APIView):
                 "comment": item.comment, "next_follow_up": item.next_follow_up,
                 "overdue": item.next_follow_up <= now,
             } for item in tasks[:6]],
+            "site_visits": [{"id": visit.id, "customer_name": visit.customer.name, "property_name": visit.property.name if visit.property else "", "opportunity_title": visit.opportunity.title, "scheduled_date": visit.scheduled_date, "scheduled_time": visit.scheduled_time, "status": visit.status} for visit in visits[:6]] + [{"id": f"followup-{visit.id}", "customer_name": visit.customer.name, "customer_id": visit.customer_id, "property_name": "", "opportunity_title": visit.comment, "scheduled_date": timezone.localtime(visit.next_follow_up).date(), "scheduled_time": timezone.localtime(visit.next_follow_up).time(), "status": "SCHEDULED"} for visit in visit_followups[:6]],
             "recent_customers": [{
                 "id": item.id, "bharath_id": item.bharath_id, "name": item.name, "mobile": item.mobile,
                 "status": item.status, "city": item.city, "updated_at": item.updated_at,

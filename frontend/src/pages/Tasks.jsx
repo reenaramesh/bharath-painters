@@ -22,7 +22,7 @@ export default function Tasks() {
     setLoading(true);
     try {
       const { data } = await api.get("/quotations/tasks/");
-      setTasks(data.results || data);
+      setTasks((data.results || data).filter((task) => task.follow_up_type !== "SITE_VISIT"));
       setError("");
     } catch (requestError) {
       setError(requestError.response?.status === 401

@@ -543,7 +543,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
           <textarea name="work_skills" value={form.work_skills} onChange={update} rows="2" placeholder="Other skills or service notes outside the structured service catalogue" className={input} />
           <span className="mt-1 block text-xs font-normal text-slate-500">Separate skills with commas.</span>
         </label>
-        <div className="sm:col-span-2"><ProfileImageControl className="contractor-profile-image" label="Owner photo for digital card" file={form.profile_photo} existingUrl={form.profile_photo_url} position={form.profile_photo_position} shape="rounded" onFileChange={(profile_photo) => setForm((current) => ({ ...current, profile_photo }))} onPositionChange={(profile_photo_position) => setForm((current) => ({ ...current, profile_photo_position }))} /></div>
+        <div className="sm:col-span-2"><ProfileImageControl className="contractor-profile-image" label="Owner photo for digital profile" file={form.profile_photo} existingUrl={form.profile_photo_url} position={form.profile_photo_position} shape="rounded" onFileChange={(profile_photo) => setForm((current) => ({ ...current, profile_photo }))} onPositionChange={(profile_photo_position) => setForm((current) => ({ ...current, profile_photo_position }))} /></div>
         <div className="border-t pt-5 sm:col-span-2">
           <h2 className="font-bold">Contact and tax details</h2>
         </div>

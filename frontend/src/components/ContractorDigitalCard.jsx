@@ -31,7 +31,7 @@ export default function ContractorDigitalCard({ data }) {
     try {
       const response = await api.get(data.pdf_url, { responseType: "blob" });
       const file = new File([response.data], `${card.bharath_id}-profile.pdf`, { type: "application/pdf" });
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: `${card.title} digital card` });
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: `${card.title} digital profile` });
       else { downloadBlob(response.data, file.name); notify("PDF downloaded. Attach it to your message to share."); }
     } catch (error) {
       if (error.name !== "AbortError") notify("PDF could not be shared. Try Download PDF.");
@@ -42,7 +42,7 @@ export default function ContractorDigitalCard({ data }) {
     downloadBlob(new Blob([vcard], { type: "text/vcard" }), `${card.title.replace(/[^a-z0-9-]+/gi, "-")}.vcf`);
   }
   return <div className="mx-auto w-full min-w-0 max-w-5xl space-y-4 overflow-x-hidden pb-8">
-    <div className="flex min-w-0 flex-wrap items-end justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital identity</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">My digital card</h1></div><p className="text-xs text-slate-500">Share the verified card or its matching PDF.</p></div>
+    <div className="flex min-w-0 flex-wrap items-end justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital identity</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">My digital profile</h1></div><p className="text-xs text-slate-500">Share the verified card or its matching PDF.</p></div>
     <article className="overflow-hidden rounded-2xl border border-[#d7e4ea] bg-white shadow-lg">
       <div className="relative flex h-32 min-w-0 items-start justify-between bg-gradient-to-r from-[#14374a] via-[#1d5773] to-[#508398] px-4 py-4 text-white sm:h-[180px] sm:px-7 sm:py-6">
         <span className="flex h-[72px] w-36 max-w-full shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-2 shadow sm:h-24 sm:w-64">{card.logo ? <img src={card.logo} alt={`${card.title} logo`} className="block h-full w-full min-h-0 min-w-0 object-contain" style={profileImageStyle(card.logo_position)} /> : <b className="truncate text-sm text-[#1d5773]">{card.title}</b>}</span>

@@ -74,7 +74,7 @@ export const NAVIGATION = [
   item("colors", "Colors & Shades", "/colors-shades", Palette, "Business Setup", [...C, ...E, ...U]),
   item("activity", "Activity Log", "/activity-log", Activity, "Business Setup", [...C, ...E, ...U, ...A]),
   item("appearance", "Appearance", "/appearance", Palette, "Business Setup", [...E, ...U, ...A, ...S]),
-  item("profile", "Profile & QR", "/profile", UserRound, "Account", [...C, ...E, ...A, ...S]),
+  item("profile", "Digital Profile", "/profile", UserRound, "Account", [...C, ...E, ...A, ...S]),
   item("customer-profile", "My Profile", "/customer/profile", UserRound, "Account", U),
   item("security", "Account Security", "/account-security", ShieldCheck, "Account", all),
 ].map((entry, order) => ({ ...entry, order }));

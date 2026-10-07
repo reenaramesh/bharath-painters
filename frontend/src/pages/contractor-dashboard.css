@@ -40,6 +40,7 @@
 .contractor-tools-grid strong { font-size: 15px; }
 .contractor-action-hint { color: #596579; font-size: 13px; line-height: 1.35; }
 .contractor-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 12px; background: var(--app-soft); color: var(--app-primary); }
+.contractor-workspace-column { display: flex; min-width: 0; flex-direction: column; gap: 20px; }
 .contractor-workspace { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); gap: 20px; align-items: start; }
 .contractor-panel.bp-section-card { min-width: 0; overflow: hidden; border-radius: 14px; }
 .contractor-panel.bp-section-card > header { min-height: 76px; align-items: center; gap: 12px; }
@@ -101,7 +102,7 @@
   .contractor-priority-item > .contractor-panel-link { width: 100%; justify-content: flex-start; }
   .contractor-overview { gap: 10px; }
   .contractor-stat-link .bp-stat-card { min-height: 130px; padding: 14px; }
-  .contractor-stat-link .bp-stat-card p { font-size: 13px; }
+  .contractor-stat-link .bp-stat-card p { font-size: 11px; }
   .contractor-stat-link .bp-stat-card small { font-size: 12px; }
   .contractor-tools-grid { gap: 10px; }
   .contractor-tools-grid > a { min-height: 90px; gap: 9px; padding: 11px; }
@@ -256,3 +257,6 @@
 
 .contractor-dashboard .contractor-tools-grid strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 @media (max-width: 639px) { .contractor-dashboard .contractor-tools-grid strong { font-size: clamp(10px, 2.7vw, 12px); } }
+
+.contractor-dashboard .contractor-tools-grid strong { font-size: 11px; }
+@media (max-width: 639px) { .contractor-dashboard .contractor-tools-grid strong { font-size: 10px; } }

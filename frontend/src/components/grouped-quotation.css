@@ -344,3 +344,21 @@
 .gq-surface-table thead th.bp-global-sortable:not(:first-child)::after {
   content: none;
 }
+
+/* One read-only card for all saved surfaces in a room. */
+.gq-room-record-card { border: 1px solid var(--gq-line); border-radius: 12px; overflow: hidden; width: 100%; }
+.gq-room-record-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; line-height: 1.4; }
+.gq-room-record-table th, .gq-room-record-table td { padding: 12px 6px; text-align: right; border-bottom: 1px solid var(--gq-line); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.gq-room-record-table th:first-child { width: 25%; text-align: left; }
+.gq-room-record-table thead { background: var(--gq-accent-soft); }
+.gq-room-record-table small { display: block; font-size: 10px; font-weight: 400; }
+.minimia-shell main .gq-room-record-table th, .gq-room-record-table th { font-size: inherit; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.gq-room-record-table tbody th { color: var(--gq-accent); }
+.gq-room-record-table tbody td:last-child { font-weight: 700; }
+.gq-room-record-table tbody tr:last-child > * { border-bottom: 0; }
+@media (max-width: 639px) {
+  .gq-measurement-dialog .gq-dialog-body { padding-inline: max(12px, env(safe-area-inset-left)); }
+  .gq-room-record-table { font-size: 11px; }
+  .gq-room-record-table th, .gq-room-record-table td { padding: 10px 3px; }
+  .minimia-shell main .gq-room-record-table thead th, .gq-room-record-table thead th { font-size: 9px; }
+}

@@ -1,0 +1,87 @@
+[
+  {
+    "name": "responsive-design",
+    "repository": "planetabhi/skills",
+    "commit": "600bc1aeaa7dd0953c996c90166a9f1780b10784",
+    "source_directory": "skills/responsive-design",
+    "files": [
+      "skills/responsive-design/SKILL.md",
+      "skills/responsive-design/reference/breakpoints.md",
+      "skills/responsive-design/reference/checklist.md",
+      "skills/responsive-design/reference/container-queries.md",
+      "skills/responsive-design/reference/foundation.md",
+      "skills/responsive-design/reference/images.md",
+      "skills/responsive-design/reference/input-methods.md",
+      "skills/responsive-design/reference/layout-patterns.md",
+      "skills/responsive-design/reference/layout-tools.md",
+      "skills/responsive-design/reference/safe-areas.md",
+      "skills/responsive-design/reference/strategies.md",
+      "skills/responsive-design/reference/typography.md",
+      "skills/responsive-design/reference/user-preferences.md"
+    ]
+  },
+  {
+    "name": "playwright",
+    "repository": "openai/skills",
+    "commit": "49f948faa9258a0c61caceaf225e179651397431",
+    "source_directory": "skills/.curated/playwright",
+    "files": [
+      "skills/.curated/playwright/LICENSE.txt",
+      "skills/.curated/playwright/NOTICE.txt",
+      "skills/.curated/playwright/SKILL.md",
+      "skills/.curated/playwright/agents/openai.yaml",
+      "skills/.curated/playwright/assets/playwright-small.svg",
+      "skills/.curated/playwright/assets/playwright.png",
+      "skills/.curated/playwright/references/cli.md",
+      "skills/.curated/playwright/references/workflows.md",
+      "skills/.curated/playwright/scripts/playwright_cli.sh"
+    ]
+  },
+  {
+    "name": "playwright-interactive",
+    "repository": "openai/skills",
+    "commit": "49f948faa9258a0c61caceaf225e179651397431",
+    "source_directory": "skills/.curated/playwright-interactive",
+    "files": [
+      "skills/.curated/playwright-interactive/LICENSE.txt",
+      "skills/.curated/playwright-interactive/NOTICE.txt",
+      "skills/.curated/playwright-interactive/SKILL.md",
+      "skills/.curated/playwright-interactive/agents/openai.yaml",
+      "skills/.curated/playwright-interactive/assets/playwright-small.svg",
+      "skills/.curated/playwright-interactive/assets/playwright.png"
+    ]
+  },
+  {
+    "name": "ui-test",
+    "repository": "browserbase/skills",
+    "commit": "6811ca31163332d9d60309cff48e77f09de37a17",
+    "source_directory": "skills/ui-test",
+    "files": [
+      "skills/ui-test/EXAMPLES.md",
+      "skills/ui-test/LICENSE.txt",
+      "skills/ui-test/README.md",
+      "skills/ui-test/SKILL.md",
+      "skills/ui-test/references/adversarial-patterns.md",
+      "skills/ui-test/references/browser-recipes.md",
+      "skills/ui-test/references/design-consistency.md",
+      "skills/ui-test/references/design-system.example.md",
+      "skills/ui-test/references/exploratory-testing.md",
+      "skills/ui-test/references/parallel-testing.md",
+      "skills/ui-test/references/report-template.html",
+      "skills/ui-test/references/ux-heuristics.md"
+    ]
+  },
+  {
+    "name": "frontend-design-review",
+    "repository": "microsoft/skills",
+    "commit": "354361d83247c76a1c21e802e0d4887c4d8323a3",
+    "source_directory": ".github/skills/frontend-design-review",
+    "files": [
+      ".github/skills/frontend-design-review/SKILL.md",
+      ".github/skills/frontend-design-review/references/pattern-examples.md",
+      ".github/skills/frontend-design-review/references/quick-checklist.md",
+      ".github/skills/frontend-design-review/references/review-output-format.md",
+      ".github/skills/frontend-design-review/references/review-type-modifiers.md"
+    ]
+  }
+]

@@ -131,7 +131,7 @@ export default function SubcontractWorkOrderDetail() {
         )}
 
         <dl className="mt-4 grid gap-3 border-t pt-4 text-sm sm:grid-cols-4">
-          <HeaderFigure label="Agreed value" value={rupees(workOrder.agreed_amount)} strong />
+          <HeaderFigure label="Pricing" value={Number(workOrder.agreed_amount) > 0 ? rupees(workOrder.agreed_amount) : "Awaiting subcontractor quote"} strong />
           <HeaderFigure label="Scopes shared" value={(workOrder.scopes || []).length} />
           <HeaderFigure label="Required from" value={prettyDate(workOrder.required_start_date)} />
           <HeaderFigure label="Required by" value={prettyDate(workOrder.required_end_date)} />
@@ -266,7 +266,6 @@ function ScopeSnapshot({ scopes }) {
             <th className="py-2 pr-3">Scope</th>
             <th className="py-2 pr-3">Service</th>
             <th className="py-2 pr-3">Qty</th>
-            <th className="py-2 pr-3 text-right">Rate</th>
             <th className="py-2 text-right">Included</th>
           </tr>
         </thead>
@@ -285,7 +284,6 @@ function ScopeSnapshot({ scopes }) {
               <td className="py-3 pr-3">
                 {scope.quantity} {scope.unit_name_snapshot}
               </td>
-              <td className="py-3 pr-3 text-right">{rupees(scope.unit_rate)}</td>
               <td className="py-3 text-right font-semibold">
                 {scope.is_included ? "Yes" : "No"}
               </td>

@@ -1,0 +1,17 @@
+{
+  "name": "bharath-local",
+  "plugins": [
+    {
+      "name": "bharath-ui-qa",
+      "source": {
+        "source": "local",
+        "path": "./plugins/bharath-ui-qa"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

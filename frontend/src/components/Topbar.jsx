@@ -8,20 +8,19 @@ import {
   Search,
   Settings,
   UserRound,
-  Languages,
 } from "lucide-react";
 import useAuth from "../context/useAuth";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import PushAlertControl from "./PushAlertControl";
-import { languages, useLanguage } from "../i18n/LanguageContext";
+import { useLanguage } from "../i18n/LanguageContext";
 import { ScriptKnownText } from '../i18n/ScriptText';
 import { resolveBackTarget } from "../utils/navigation";
 
 export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = false, menuButtonRef, mobileMenuOpen = false }) {
-  const { user, logout, refreshUser } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { user, logout } = useAuth();
+  const { language, t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -39,15 +38,6 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
     breakpoint.addEventListener("change", sync);
     return () => breakpoint.removeEventListener("change", sync);
   }, []);
-  async function chooseLanguage(value) {
-    setLanguage(value);
-    try {
-      await api.patch("/accounts/me/", { preferred_language: value });
-      await refreshUser();
-    } catch {
-      /* local preference remains available if the account update is temporarily offline */
-    }
-  }
   const loadNotifications = useCallback(async () => {
     try {
       const { data } = await api.get("/quotations/notifications/", { params: { display_script: language } });
@@ -218,12 +208,6 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
-        <label className="bp-topbar-language flex min-w-0 items-center gap-2 border bg-[var(--bp-card)] px-2 text-[var(--bp-muted)]" title={t("Language")}>
-          <Languages className="h-4 w-4 shrink-0" />
-          <select value={language} onChange={(event) => chooseLanguage(event.target.value)} aria-label={t("Language")} className="max-w-24 bg-transparent text-xs font-semibold text-[var(--bp-ink)] outline-none sm:max-w-32">
-            {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
-          </select>
-        </label>
         <div className="relative shrink-0">
           <button
             type="button"

@@ -49,7 +49,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
   function Harness({ phase }) {
     const [value, setValue] = useState({ groups: [], specials: [], services: [], rates: {} });
     state = value;
-    const measured = { ...measurement, surfaces: measurement.surfaces.map((surface, index) => index ? surface : { ...surface, gross_area: "147.00", net_area: "120.00", deduction_area: "27.00", addition_area: "0.00", openings: [
+    const measured = { ...measurement, surfaces: measurement.surfaces.map((surface, index) => index ? surface : { ...surface, length: "12.00", breadth: "10.00", gross_area: "147.00", net_area: "120.00", deduction_area: "27.00", addition_area: "0.00", openings: [
       { id: 801, opening_type: "DOOR", effect: "DEDUCT", name: "Entry door", effective_deduction: "21.00", area: "42.00" },
       { id: 802, opening_type: "WINDOW", effect: "DEDUCT", name: "Window A", effective_deduction: "6.00", area: "12.00" },
       { id: 803, opening_type: "DOOR", effect: "DEDUCT", name: "Ignored door", effective_deduction: "0.00" },
@@ -75,18 +75,22 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     const totals = wallsTable.findByType("tfoot");
     assert.deepEqual(totals.findAllByType("td").slice(0, 2).map(text), ["2,270", "670"]);
     const bedroom = wallsTable.findAllByType("tr").find((node) => text(node).startsWith("Bedroom 1"));
-    assert.deepEqual(bedroom.findAllByType("td").slice(0, 3).map(text), ["470", "130", "27"]);
+    assert.deepEqual(bedroom.findAllByType("td").slice(0, 3).map(text), ["470", "130"]);
     assert.match(text(view.root.findAllByType("table")[1]), /Door.*Window.*Other/);
-    await act(async () => view.root.findByProps({ "aria-label": "View original measurement records for Bedroom 1" }).props.onClick());
+    assert.equal(wallsTable.findAllByType("button").some((node) => text(node) === "View"), false);
+    assert.equal(text(wallsTable.findByType("thead")).includes("Deduction"), false);
+    await act(async () => bedroom.findByType("button").props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Wall 4/);
-    assert.match(text(view.root.findByProps({ role: "dialog" })), /Gross area \(before deduction\)147 sqft/);
-    assert.match(text(view.root.findByProps({ role: "dialog" })), /After deduction120 sqft/);
-    assert.match(text(view.root.findByProps({ role: "dialog" })), /Net area120 sqft/);
+    const records = view.root.findByProps({ role: "dialog" }).findByType("table");
+    assert.equal(records.props["data-mobile-table"], "keep");
+    assert.deepEqual(records.findByType("thead").findAllByType("th").map((node) => node.children[0]), ["Surface", "L", "W / H", "Deduction", "Addition", "Total"]);
+    assert.deepEqual(records.findByType("tbody").findAllByType("tr")[0].findAllByType("td").map(text), ["12", "10", "27", "0", "120"]);
+    assert.equal(view.root.findByProps({ role: "dialog" }).findAllByType("article").length, 0);
     await click("Close");
     for (const title of ["Balconies", "Utility Areas", "Exterior Measurements"]) assert.equal(view.root.findAllByType("section").filter((node) => node.props["aria-label"] === title).length, 1);
     await act(async () => view.root.findAllByType("button").find((node) => text(node) === "Front elevation").props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Front wall/);
-    assert.match(text(view.root.findByProps({ role: "dialog" })), /Net area100 sqft/);
+    assert.equal(text(view.root.findByProps({ role: "dialog" }).findByType("tbody").findAllByType("td").at(-1)), "100");
     await click("Close");
     await click("Create Paint Areas");
     await click("Select all");

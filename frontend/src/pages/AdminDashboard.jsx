@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
+import AdminMenuVisibility from "../components/AdminMenuVisibility";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 import {
   ErrorState,
@@ -430,6 +431,7 @@ export default function AdminDashboard() {
         }
       />
       <MobileDashboardShortcuts />
+      <AdminMenuVisibility />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}

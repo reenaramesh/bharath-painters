@@ -1,12 +1,14 @@
 import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { ChevronDown, Languages, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { menuEnabled } from "../utils/menuVisibility";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
 import { useLanguage } from "../i18n/LanguageContext";
 import { GROUPS, activeNavigation, visibleNavigation } from "../config/navigation";
 import ShareAppButton from "./ShareAppButton";
+import LanguageSelector from "./LanguageSelector";
 import "./sidebar.css";
 
 function readGroups(key) {
@@ -15,7 +17,7 @@ function readGroups(key) {
 }
 
 export default function Sidebar({ collapsed = false, onToggle = () => {}, mobileOpen = false, closeMobile, backgroundRef, openerRef, employmentStatus = "loading" }) {
-  const { user, logout } = useAuth();
+  const { user, logout, menuVisibility } = useAuth();
   const { t } = useLanguage();
   const location = useLocation();
   const [counts, setCounts] = useState({});
@@ -26,7 +28,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
   const preferenceKey = `bp-sidebar-groups-${user?.id || "guest"}-${user?.role || "unknown"}`;
   const [groupPreferences, setGroupPreferences] = useState(() => ({ key: preferenceKey, closed: readGroups(preferenceKey) }));
   const closed = groupPreferences.key === preferenceKey ? groupPreferences.closed : readGroups(preferenceKey);
-  const entries = visibleNavigation(user?.role, employmentStatus);
+  const entries = visibleNavigation(user?.role, employmentStatus).filter((entry) => menuEnabled(user?.role, menuVisibility, entry.id));
   const active = activeNavigation(entries, `${location.pathname}${location.search}`);
   const searchWords = menuSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const searching = searchWords.length > 0;
@@ -159,6 +161,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
         })}
       </nav>
       <footer className="ws-nav-account">
+        {rail ? <button type="button" className="ws-nav-link ws-nav-icon" onClick={toggleRail} aria-label={t("Language")}><Languages size={20} aria-hidden="true" /><span className="ws-nav-tooltip">{t("Language")}</span></button> : <div className="ws-nav-language"><LanguageSelector /></div>}
         {account.map((entry) => renderLink(entry, rail))}
         <ShareAppButton collapsed={rail} sidebar />
         <button type="button" className={`ws-nav-link ws-nav-logout ${rail ? "ws-nav-icon" : ""}`} aria-label={t("Logout")} onClick={logout}><LogOut size={19} aria-hidden="true" /><span className={rail ? "ws-nav-tooltip" : "ws-nav-label"}>{t("Logout")}</span></button>

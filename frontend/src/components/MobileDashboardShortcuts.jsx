@@ -21,6 +21,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import { menuRouteEnabled } from "../utils/menuVisibility";
 import useAuth from "../context/useAuth";
 import ShareAppButton from "./ShareAppButton";
 
@@ -69,9 +70,9 @@ const shortcutsByRole = {
 };
 
 export default function MobileDashboardShortcuts() {
-  const { user } = useAuth();
+  const { user, menuVisibility } = useAuth();
   const [scannerOpen, setScannerOpen] = useState(false);
-  const shortcuts = shortcutsByRole[user?.role] || [];
+  const shortcuts = (shortcutsByRole[user?.role] || []).filter((entry) => menuRouteEnabled(user?.role, menuVisibility, entry.to));
   if (!shortcuts.length) return null;
   return (
     <>
@@ -86,7 +87,7 @@ export default function MobileDashboardShortcuts() {
               <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-white shadow-sm transition active:scale-95">
                 <QrCode className="h-7 w-7" strokeWidth={1.8} />
               </span>
-              <span className="mt-2 block min-h-4 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-800">
+              <span className="mt-2 block min-h-4 whitespace-nowrap text-[9px] font-semibold leading-4 text-slate-800">
                 Scan QR
               </span>
             </button>

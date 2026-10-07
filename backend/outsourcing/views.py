@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -12,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import BharathUser
-from quotations.models import ContractorConnection, ProjectScope
+from quotations.models import ContractorConnection, ProjectScope, QuotationItem
 
 from . import workflow
 from .models import (
@@ -70,6 +71,7 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
         context["viewer"] = self.request.user
         return context
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         require_role(request.user, BharathUser.Roles.CONTRACTOR, BharathUser.Roles.ADMIN)
         serializer = self.get_serializer(data=request.data)
@@ -79,11 +81,27 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
         if request.user.role != BharathUser.Roles.ADMIN and quotation.contractor_id != request.user.id:
             raise ValidationError({"quotation": "That quotation is not yours."})
 
+        items = None
+        if "quotation_item_ids" in request.data:
+            item_ids = request.data["quotation_item_ids"]
+            if not isinstance(item_ids, list) or not item_ids or any(type(pk) is not int or pk <= 0 for pk in item_ids):
+                raise ValidationError({"quotation_item_ids": "Select at least one quotation service."})
+            if request.data.get("project_scope_ids"):
+                raise ValidationError({"quotation_item_ids": "Choose quotation services or project scopes, not both."})
+            items = list(QuotationItem.objects.filter(quotation=quotation, id__in=item_ids).select_related("service_category", "unit", "service_type").order_by("id"))
+            if len(items) != len(set(item_ids)):
+                raise ValidationError({"quotation_item_ids": "Some services are not part of this quotation."})
+            # This is a scope request. The subcontractor prices it separately.
+            serializer.validated_data["agreed_amount"] = Decimal("0")
+
         receiving = serializer.validated_data.get("receiving_contractor")
         if receiving and receiving.id == quotation.contractor_id:
             raise ValidationError({"receiving_contractor": "You cannot send work to yourself."})
 
         connection = serializer.validated_data.get("connection")
+        if connection and (connection.status != ContractorConnection.Status.CONNECTED or
+                           {connection.requester_id, connection.recipient_id} != {quotation.contractor_id, receiving.id if receiving else None}):
+            raise ValidationError({"connection": "Choose a connected relationship with the receiving contractor."})
         if receiving and not connection:
             connection = ContractorConnection.objects.filter(
                 Q(requester=quotation.contractor, recipient=receiving)
@@ -117,6 +135,8 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
             if len(scopes) != len(set(scope_ids)):
                 raise ValidationError({"project_scope_ids": "Some scopes are not part of this quotation."})
             workflow.share_scopes(work_order, scopes)
+        if items is not None:
+            workflow.share_quotation_items(work_order, items)
 
         return Response(
             self.get_serializer(work_order).data,
@@ -305,7 +325,7 @@ class WorkOrderQuoteView(APIView):
         payload["work_order"] = work_order.pk
         serializer = SubcontractQuoteSerializer(data=payload, context={"viewer": request.user})
         serializer.is_valid(raise_exception=True)
-        quote = serializer.save(created_by=request.user)
+        quote = serializer.save(created_by=request.user, status=SubcontractQuote.Status.DRAFT)
         return Response(
             SubcontractQuoteSerializer(quote, context={"viewer": request.user}).data,
             status=status.HTTP_201_CREATED,

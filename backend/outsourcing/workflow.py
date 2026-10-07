@@ -249,6 +249,7 @@ def record_payment(user, invoice, amount, payment_mode, reference="", notes=""):
     return invoice
 
 
+@transaction.atomic
 def share_scopes(work_order, project_scopes):
     """Snapshot the chosen project scopes onto the work order."""
     SubcontractWorkOrderScope.objects.filter(work_order=work_order).delete()
@@ -268,6 +269,35 @@ def share_scopes(work_order, project_scopes):
                 sort_order=(index + 1) * 10,
             )
         )
+    return SubcontractWorkOrderScope.objects.bulk_create(rows)
+
+
+@transaction.atomic
+def share_quotation_items(work_order, items):
+    """Copy selected quotation work without copying customer commercial terms."""
+    rows = []
+    long_descriptions = []
+    for index, item in enumerate(items):
+        if len(item.description) > 200:
+            long_descriptions.append(item.description)
+        rows.append(SubcontractWorkOrderScope(
+            work_order=work_order,
+            category=item.service_category,
+            title_snapshot=(item.description or item.service_name_snapshot or "Service")[:200],
+            category_name_snapshot=item.service_category_name_snapshot or item.custom_service_category or (item.service_category.name if item.service_category else ""),
+            work_description_snapshot=(item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else ""))[:200],
+            unit_name_snapshot=item.unit_name_snapshot or item.custom_unit or (item.unit.name if item.unit else ""),
+            quantity=item.quantity,
+            unit_rate=Decimal("0"),
+            sort_order=(index + 1) * 10,
+        ))
+    if long_descriptions:
+        # Keep full quotation wording without widening existing snapshot columns.
+        work_order.agreed_scope_summary = "\n\n".join(filter(None, [
+            work_order.agreed_scope_summary,
+            "Full service descriptions:\n" + "\n".join(long_descriptions),
+        ]))
+        work_order.save(update_fields=["agreed_scope_summary", "updated_at"])
     return SubcontractWorkOrderScope.objects.bulk_create(rows)
 
 

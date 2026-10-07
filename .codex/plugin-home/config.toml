@@ -1,0 +1,5 @@
+[projects."d:\\projects\\bharath painters application"]
+trust_level = "trusted"
+
+[plugins."bharath-ui-qa@bharath-local"]
+enabled = true

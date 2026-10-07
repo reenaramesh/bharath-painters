@@ -22,7 +22,6 @@ export const NAVIGATION = [
   item("customers", "Customers", "/customers", Users, "Customers & Sales", C),
   item("properties", "Properties & Measurements", "/properties", Building2, "Customers & Sales", C, { aliases: ["/measurement-trial"], description: "Measurements and area calculator stay inside each property; no duplicate sidebar destination." }),
   item("leads", "Leads", "/leads", Target, "Customers & Sales", C),
-  item("opportunities", "Opportunities", "/opportunities", Target, "Customers & Sales", C),
   item("site-visits", "Site Visits", "/site-visits", CalendarCheck, "Customers & Sales", C),
   item("quotations", "Quotations", "/quotations", FileText, "Customers & Sales", C, { verified: true }),
   item("customer-properties", "My Properties", "/customer-properties", Building2, "Customers & Sales", U),

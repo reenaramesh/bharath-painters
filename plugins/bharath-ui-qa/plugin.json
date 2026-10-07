@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "bharath-ui-qa",
+  "version": "1.0.0",
+  "description": "Repository-local responsive UI design, browser testing, and frontend review skills."
+}

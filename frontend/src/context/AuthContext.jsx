@@ -3,6 +3,7 @@ import api from "../api/client";
 import AuthContext from "./auth-context";
 
 export function AuthProvider({ children }) {
+  const [menuVisibility, setMenuVisibility] = useState({});
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("bharath_user");
     if (!saved) return null;
@@ -74,6 +75,16 @@ export function AuthProvider({ children }) {
     if (localStorage.getItem("bharath_access")) refreshUser().catch(() => {});
   }, [refreshUser]);
 
-  const value = useMemo(() => ({ user, login, googleLogin, acceptSession, logout, refreshUser }), [user, googleLogin, acceptSession, refreshUser]);
+  useEffect(() => {
+    if (!user?.id) { setMenuVisibility({}); return; }
+    let active = true;
+    const load = () => api.get("/accounts/menu-visibility/").then(({ data }) => { if (active) setMenuVisibility(data); }).catch(() => {});
+    load();
+    const timer = window.setInterval(load, 60000);
+    window.addEventListener("focus", load);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", load); };
+  }, [user?.id]);
+
+  const value = useMemo(() => ({ user, menuVisibility, setMenuVisibility, login, googleLogin, acceptSession, logout, refreshUser }), [user, menuVisibility, googleLogin, acceptSession, refreshUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

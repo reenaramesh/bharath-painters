@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { HardHat, Network, Plus } from "lucide-react";
+import { Network, Plus } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { StatusBadge } from "../components/ui";
-import { apiErrorMessage, connectionCounterparty, prettyDate, rupees } from "../utils/subcontract";
+import { apiErrorMessage, prettyDate, rupees } from "../utils/subcontract";
+import CreateSubcontractOffer from "../components/CreateSubcontractOffer";
 
 const FILTERS = [
   { value: "ALL", label: "All" },
@@ -21,11 +22,9 @@ export default function SubcontractWorkOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
-  // A scope on the quotation screen links straight into this form, so the modal
-  // opens on arrival with the project and scope already chosen.
+  // Quotation links open the offer picker; the sender chooses the service lines.
   const [creating, setCreating] = useState(Boolean(searchParams.get("quotation")));
   const presetQuotation = searchParams.get("quotation") || "";
-  const presetScope = searchParams.get("scope") || "";
 
   const closeCreate = () => {
     setCreating(false);
@@ -143,9 +142,8 @@ export default function SubcontractWorkOrders() {
       )}
 
       {creating && (
-        <CreateWorkOrder
+        <CreateSubcontractOffer
           initialQuotation={presetQuotation}
-          presetScope={presetScope}
           onClose={closeCreate}
           onCreated={() => {
             closeCreate();
@@ -198,8 +196,8 @@ function WorkOrderCard({ row }) {
 
       <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-400">Agreed</dt>
-          <dd className="font-bold">{rupees(row.agreed_amount)}</dd>
+          <dt className="text-xs uppercase tracking-wide text-slate-400">Pricing</dt>
+          <dd className="font-bold">{Number(row.agreed_amount) > 0 ? rupees(row.agreed_amount) : "Awaiting quote"}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-slate-400">Scopes</dt>
@@ -217,293 +215,5 @@ function WorkOrderCard({ row }) {
         </p>
       )}
     </Link>
-  );
-}
-
-function CreateWorkOrder({ initialQuotation = "", presetScope = "", onClose, onCreated }) {
-  const [quotations, setQuotations] = useState([]);
-  const [connections, setConnections] = useState([]);
-  const [form, setForm] = useState({
-    quotation: initialQuotation,
-    receiving_contractor: "",
-    project_title: "",
-    agreed_scope_summary: "",
-    agreed_amount: "",
-    required_start_date: "",
-    required_end_date: "",
-  });
-  const [scopeChoices, setScopeChoices] = useState([]);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    // Only live projects can be outsourced, so filter out drafts and cancelled
-    // quotations here rather than sending a status filter the API ignores.
-    api
-      .get("/quotations/")
-      .then(({ data }) => {
-        const all = Array.isArray(data) ? data : data?.results || [];
-        setQuotations(
-          all.filter((row) => ["ACCEPTED", "SCHEDULED", "IN_PROGRESS"].includes(row.status)),
-        );
-      })
-      .catch(() => setQuotations([]));
-    api
-      .get("/quotations/contractor-connections/", { params: { status: "CONNECTED" } })
-      .then(({ data }) => setConnections(Array.isArray(data) ? data : []))
-      .catch(() => setConnections([]));
-  }, []);
-
-  // Only scopes belonging to the selected project can be shared, so the picker
-  // refetches whenever the quotation changes. A scope linked from the quotation
-  // screen arrives pre-selected.
-  useEffect(() => {
-    if (!form.quotation) {
-      setScopeChoices([]);
-      return;
-    }
-    api
-      .get("/quotations/project-scopes/", { params: { quotation: form.quotation } })
-      .then(({ data }) => {
-        const rows = Array.isArray(data) ? data : [];
-        const preset = presetScope ? rows.find((scope) => String(scope.id) === String(presetScope)) : null;
-        if (preset) {
-          // Carry the scope's own wording across so the contractor sees the same
-          // line the main contractor priced.
-          setForm((current) => ({
-            ...current,
-            project_title: current.project_title || preset.title,
-            agreed_scope_summary:
-              current.agreed_scope_summary ||
-              [preset.work_description_name, preset.category_name].filter(Boolean).join(" · "),
-            agreed_amount: current.agreed_amount || String(preset.amount || ""),
-            required_start_date: current.required_start_date || preset.target_start_date || "",
-            required_end_date: current.required_end_date || preset.target_end_date || "",
-          }));
-        }
-        setScopeChoices(
-          rows.map((scope) => ({
-            ...scope,
-            checked: presetScope ? String(scope.id) === String(presetScope) : false,
-          })),
-        );
-      })
-      .catch(() => setScopeChoices([]));
-  }, [form.quotation, presetScope]);
-
-  const selectedConnection = connections.find(
-    (row) => String(connectionCounterparty(row).id) === String(form.receiving_contractor),
-  );
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setSaving(true);
-    try {
-      await api.post("/outsourcing/work-orders/", {
-        quotation: Number(form.quotation),
-        receiving_contractor: form.receiving_contractor
-          ? Number(form.receiving_contractor)
-          : null,
-        project_title: form.project_title,
-        agreed_scope_summary: form.agreed_scope_summary,
-        agreed_amount: form.agreed_amount || "0",
-        required_start_date: form.required_start_date || null,
-        required_end_date: form.required_end_date || null,
-        project_scope_ids: scopeChoices.filter((scope) => scope.checked).map((scope) => scope.id),
-      });
-      onCreated();
-    } catch (err) {
-      setError(apiErrorMessage(err, "The work order could not be created."));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form
-        onSubmit={submit}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6"
-      >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">Send work to a contractor</h2>
-            
-          </div>
-          <button type="button" onClick={onClose} className="text-2xl leading-none text-slate-400">
-            ×
-          </button>
-        </div>
-
-        {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-
-        <div className="space-y-4">
-          <Field label="Project (quotation)">
-            <select
-              required
-              value={form.quotation}
-              onChange={(event) => setForm({ ...form, quotation: event.target.value })}
-            >
-              <option value="">Choose a project</option>
-              {quotations.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.quotation_number || `#${row.id}`} · {row.status}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Receiving contractor">
-            <select
-              required
-              value={form.receiving_contractor}
-              onChange={(event) =>
-                setForm({ ...form, receiving_contractor: event.target.value })
-              }
-            >
-              <option value="">Choose a connected contractor</option>
-              {connections.map((row) => {
-                const other = connectionCounterparty(row);
-                return (
-                  <option key={row.id} value={other.id}>
-                    {other.label}
-                  </option>
-                );
-              })}
-            </select>
-          </Field>
-
-          {connections.length === 0 && (
-            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              You have no connected contractors yet. Open the Contractor Network to request a
-              connection first.
-            </p>
-          )}
-
-          {selectedConnection && (
-            <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-              Work will be linked to your connection with {selectedConnection ? connectionCounterparty(selectedConnection).label : "this contractor"} so both
-              sides keep the history.
-            </p>
-          )}
-
-          <Field label="Work title">
-            <input
-              required
-              value={form.project_title}
-              onChange={(event) => setForm({ ...form, project_title: event.target.value })}
-              placeholder="Interior wall painting, second floor"
-            />
-          </Field>
-
-          <Field label="Scope shared with the contractor">
-            <textarea
-              rows={3}
-              value={form.agreed_scope_summary}
-              onChange={(event) =>
-                setForm({ ...form, agreed_scope_summary: event.target.value })
-              }
-              placeholder="What is included, what is excluded, who supplies what."
-            />
-          </Field>
-
-          {form.quotation && (
-            <fieldset className="rounded-xl border p-4">
-              <legend className="px-2 text-sm font-semibold">Project scopes to share</legend>
-              {scopeChoices.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  This project has no scopes yet, so nothing will be attached.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {scopeChoices.map((scope) => (
-                    <label key={scope.id} className="flex items-start gap-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(scope.checked)}
-                        onChange={(event) =>
-                          setScopeChoices((current) =>
-                            current.map((item) =>
-                              item.id === scope.id
-                                ? { ...item, checked: event.target.checked }
-                                : item,
-                            ),
-                          )
-                        }
-                        className="mt-1"
-                      />
-                      <span>
-                        <b>{scope.title}</b>
-                        <span className="block text-xs text-slate-500">
-                          {scope.work_description_name || scope.category_name} ·{" "}
-                          {scope.quantity} {scope.unit_name} · {rupees(scope.amount)}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </fieldset>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Agreed amount (optional)">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.agreed_amount}
-                onChange={(event) => setForm({ ...form, agreed_amount: event.target.value })}
-              />
-            </Field>
-            <Field label="Required from">
-              <input
-                type="date"
-                value={form.required_start_date}
-                onChange={(event) =>
-                  setForm({ ...form, required_start_date: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="Required by">
-              <input
-                type="date"
-                value={form.required_end_date}
-                onChange={(event) =>
-                  setForm({ ...form, required_end_date: event.target.value })
-                }
-              />
-            </Field>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={saving || !connections.length}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
-          >
-            <HardHat className="h-4 w-4" />
-            {saving ? "Creating…" : "Create work order"}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block font-semibold">{label}</span>
-      {children}
-    </label>
   );
 }

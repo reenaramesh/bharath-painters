@@ -38,8 +38,8 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
         <form onSubmit={submit} className="min-h-0 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
           <div className="grid gap-5 sm:grid-cols-2">
-            <label className="text-sm font-medium text-slate-700">Full name *<input required name="name" value={form.name} onChange={update} className={inputClass} /></label>
-            <label className="text-sm font-medium text-slate-700">Mobile *<input required inputMode="tel" name="mobile" value={form.mobile} onChange={update} placeholder="10-digit Indian mobile number" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Mobile *<input required inputMode="tel" name="mobile" value={form.mobile} onChange={update} placeholder="10-digit Indian mobile number" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Full name *<input required name="name" value={form.name} onChange={update} className={inputClass} /></label>
             {editing && <>
             <label className="text-sm font-medium text-slate-700">Email<input type="email" name="email" value={form.email} onChange={update} className={inputClass} /></label>
             <label className="text-sm font-medium text-slate-700">GSTIN (optional)<input name="gst_number" value={form.gst_number} onChange={update} maxLength="30" placeholder="Customer GST number" className={inputClass} /></label>

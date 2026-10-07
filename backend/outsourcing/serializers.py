@@ -25,6 +25,14 @@ def user_label(user):
 
 
 class SubcontractWorkOrderScopeSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        viewer = self.context.get("viewer")
+        if not viewer or (viewer.id != instance.work_order.main_contractor_id and
+                          viewer.role != BharathUser.Roles.ADMIN and not viewer.is_superuser):
+            data.pop("unit_rate", None)
+        return data
+
     class Meta:
         model = SubcontractWorkOrderScope
         fields = [
@@ -224,6 +232,7 @@ class SubcontractQuoteSerializer(serializers.ModelSerializer):
             "id",
             "reference",
             "supersedes",
+            "status",
             "subtotal",
             "total",
             "is_current",
@@ -400,6 +409,18 @@ class WorkOrderEventSerializer(serializers.ModelSerializer):
 
 
 class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        viewer = self.context.get("viewer")
+        owner_or_admin = viewer and (viewer.id == instance.main_contractor_id or
+                                    viewer.role == BharathUser.Roles.ADMIN or viewer.is_superuser)
+        # Older offers could have copied customer totals into this field.
+        # Reveal it to recipients only once the subcontract price is confirmed.
+        if not owner_or_admin:
+            accepted = instance.quotes.filter(status=SubcontractQuote.Status.ACCEPTED, is_current=True).first()
+            data["agreed_amount"] = self.fields["agreed_amount"].to_representation(accepted.total) if accepted else None
+        return data
+
     scopes = SubcontractWorkOrderScopeSerializer(many=True, read_only=True)
     assignments = WorkOrderAssignmentSerializer(many=True, read_only=True)
     completions = WorkOrderCompletionSerializer(many=True, read_only=True)
@@ -496,7 +517,7 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
         return user_label(obj.receiving_contractor)
 
     def get_quotation_reference(self, obj):
-        return obj.quotation.reference_number if hasattr(obj.quotation, "reference_number") else str(obj.quotation_id)
+        return obj.quotation.quotation_number or str(obj.quotation_id)
 
     def get_viewer_authority(self, obj):
         from .workflow import authority_for

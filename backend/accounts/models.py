@@ -795,3 +795,8 @@ class ProviderServiceClaim(models.Model):
             raise ValidationError(
                 {"work_description": "The sub-service does not belong to this service category."}
             )
+
+
+class RoleMenuVisibility(models.Model):
+    role = models.CharField(max_length=20, unique=True, choices=[("CONTRACTOR", "Contractor"), ("PAINTER", "Painter")])
+    disabled = models.JSONField(default=list, blank=True)

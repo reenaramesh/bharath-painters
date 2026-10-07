@@ -694,9 +694,7 @@ export default function RoomMeasurementForm({
                     </button>
                   ))}
                   {!filteredRoomTypes.length && (
-                    <p className="px-3 py-3 text-sm text-slate-500">
-                      New room type. Tick below to save it for future use.
-                    </p>
+                    null
                   )}
                 </div>
               )}

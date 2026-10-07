@@ -368,7 +368,7 @@ export default function CustomerPropertyDetail() {
       </SectionCard>
       </> : <section className="rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="measurements-access-title">
         <h2 id="measurements-access-title" className="font-bold text-slate-950">Area Calculation details aren’t included in your access</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Ask the primary property contact to update your access to include measurements.</p>
+        
       </section>}
 
       {property.can_view_measurements && <SectionCard

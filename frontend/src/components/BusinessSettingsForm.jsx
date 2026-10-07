@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Building2, Check, FileText, ImagePlus, Layers, Palette, Plus, QrCode, RotateCcw, Save, Trash2, Upload, X } from "lucide-react";
@@ -62,15 +63,14 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
   useEffect(() => {
     if (!qrOpen) return undefined;
     const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockBodyScroll();
     qrRef.current?.querySelector("button")?.focus();
     const handleKey = (event) => {
       if (event.key === "Escape") setQrOpen(false);
       if (event.key === "Tab") { event.preventDefault(); qrRef.current?.querySelector("button")?.focus(); }
     };
     document.addEventListener("keydown", handleKey);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", handleKey); previousFocus?.focus(); };
+    return () => { releaseScrollLock(); document.removeEventListener("keydown", handleKey); previousFocus?.focus(); };
   }, [qrOpen]);
 
   const update = (key, value) => { setForm((current) => ({ ...current, [key]: value })); setNotice(""); };

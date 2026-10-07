@@ -72,10 +72,7 @@ export default function AdminRevenue() {
         <div>
           <p className="text-sm font-semibold text-amber-600">Admin billing</p>
           <h1 className="mt-1 text-3xl font-bold">Subscription revenue</h1>
-          <p className="mt-2 text-slate-500">
-            Only Bharath Apps package payments received from contractors and
-            employees.
-          </p>
+          
         </div>
         <button
           onClick={load}
@@ -197,10 +194,7 @@ export default function AdminRevenue() {
         <header className="flex items-center justify-between border-b p-5">
           <div>
             <h2 className="font-bold">Package payment details</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Customer project receipts and contractor invoices are not included
-              here.
-            </p>
+            
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold">
             {rows.length}

@@ -355,9 +355,7 @@ function BonusForm({ value, setValue, onSubmit, bonuses, month, setMonth }) {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold">Add employee bonus</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Enter the payment date, amount and reason.
-                </p>
+                
               </div>
               <button
                 type="button"

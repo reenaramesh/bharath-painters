@@ -603,7 +603,7 @@ export default function Chat() {
                 <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Type a message" maxLength={4000} className="min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm outline-none focus:border-slate-900" />
                 <Button type="submit" loading={sending} disabled={!text.trim() && !files.length} className="chat-send-action h-11 w-11 shrink-0 !p-0" aria-label="Send message"><Send className="h-5 w-5" aria-hidden="true" /></Button>
               </div>
-              <p className="text-[11px] text-slate-500">PDFs, photos, catalogues and contact cards · up to 5 files, 10 MB each. Edit or delete your messages within 10 minutes.</p>
+              
             </form>}
           </>
         ) : (
@@ -626,7 +626,7 @@ export default function Chat() {
     {reportOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-report-title">
       <form onSubmit={(event) => { event.preventDefault(); changeConversationSafety("report"); }} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
         <div className="flex items-center justify-between gap-3"><h2 id="chat-report-title" className="text-lg font-bold">Report conversation</h2><button type="button" onClick={() => setReportOpen(false)} aria-label="Close report"><X className="h-5 w-5" /></button></div>
-        <p className="text-sm text-slate-600">Tell the safety team what happened. A short excerpt of recent messages will be included privately.</p>
+        
         {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
         <label className="block text-sm font-semibold">What happened?<textarea required minLength={10} maxLength={1000} value={reportReason} onChange={(event) => setReportReason(event.target.value)} rows={4} className="mt-2 w-full rounded-xl border p-3 font-normal outline-none focus:border-slate-700" placeholder="Describe the concern" /></label>
         <div className="flex justify-end gap-2"><button type="button" onClick={() => setReportOpen(false)} className="rounded-xl border px-4 py-2 text-sm">Cancel</button><button type="submit" disabled={safetyBusy || reportReason.trim().length < 10} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Submit report</button></div>
@@ -694,7 +694,7 @@ function ChatColourComparison({ slots, onSelectShade }) {
   return <div className="mt-2 space-y-2 rounded-xl bg-white p-2 text-slate-900">
     <p className="px-1 text-xs font-bold">Colour comparison</p>
     {comparisons.map((comparison) => <div key={comparison.section} className="rounded-lg border border-slate-200 p-2"><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Comparison {comparison.section}</p><div className={`grid gap-2 ${comparison.colours.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>{comparison.colours.map((colour, index) => <button type="button" onClick={() => onSelectShade?.(colour)} key={`${colour.code}-${index}`} className="min-w-0 overflow-hidden rounded-md border border-slate-200 text-left transition hover:border-sky-500 hover:ring-2 hover:ring-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-500" aria-label={`Zoom ${colour.name}, ${colour.brand}, shade ${colour.code}`} title="Tap to view shade"><span className="block h-12" style={{ backgroundColor: colour.hex }} /><span className="block p-1.5"><b className="block truncate text-[11px]">{colour.name}</b><small className="block truncate text-[10px] text-slate-500">{colour.brand} · {colour.code}</small></span></button>)}</div></div>)}
-    <p className="px-1 text-[10px] text-slate-500">Confirm final shades with a physical fan deck.</p>
+    
   </div>;
 }
 

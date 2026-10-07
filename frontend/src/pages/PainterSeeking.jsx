@@ -541,9 +541,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 ? "Post job-seeking availability"
                 : "Edit availability"}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Tap the options. Type only the six-digit PIN codes.
-            </p>
+            
           </div>
           <button type="button" onClick={onClose}>
             <X />
@@ -605,10 +603,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Add multiple PIN codes from anywhere in India. Tap a PIN code to
-              remove it.
-            </p>
+            
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Available from">

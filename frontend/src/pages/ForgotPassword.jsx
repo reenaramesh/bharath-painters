@@ -88,7 +88,7 @@ export default function ForgotPassword() {
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
         <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400"><KeyRound /></span>
         <h1 className="mt-5 text-3xl font-bold">Forgot password</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">Reset access using the verified recovery email linked to your account.</p>
+        
 
         {step === "LOOKUP" && <form onSubmit={lookup} className="mt-6 space-y-4">
           <Field label="Account type"><select value={role} onChange={(event) => setRole(event.target.value)} className={input}>{roles.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></Field>
@@ -111,7 +111,7 @@ export default function ForgotPassword() {
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
             <MailCheck className="h-6 w-6 text-amber-700" />
             <h2 className="mt-3 text-lg font-bold">No Recovery Email Added</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">Add and verify an email address to enable account recovery.</p>
+            
             <p className="mt-3 text-xs font-semibold text-slate-500">{account?.bharath_id || "Account"} · {account?.masked_mobile}</p>
           </div>
           <Link to="/login" state={{ securitySetup: true }} className={button}>Sign in to add recovery email</Link>

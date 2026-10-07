@@ -71,7 +71,7 @@ export default function ContractorInvitation({ user }) {
     <button type="button" onClick={prepare} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Share2 className="h-4 w-4" />Share invitation</button>
     {open && <section aria-label="Contractor invitation" className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div><h3 className="font-bold text-slate-900">Invite a contractor</h3><p className="mt-1 text-sm text-slate-600">Share your profile and invite them to find B2B work on Bharath Apps.</p></div>
+        <div><h3 className="font-bold text-slate-900">Invite a contractor</h3></div>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close invitation" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg hover:bg-white"><X className="h-4 w-4" /></button>
       </div>
       {loading && <p role="status" className="mt-3 text-sm text-slate-600">Preparing your invitation…</p>}

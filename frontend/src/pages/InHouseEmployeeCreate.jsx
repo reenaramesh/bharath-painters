@@ -51,10 +51,7 @@ export default function InHouseEmployeeCreate() {
           ← Employees
         </Link>
         <h1 className="mt-3 text-3xl font-bold">Create in-house employee</h1>
-        <p className="mt-2 text-slate-500">
-          Create the employment profile once. Later changes happen inside the
-          employee profile.
-        </p>
+        
       </header>
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>

@@ -49,13 +49,14 @@ test("production workspace uses provided master IDs, edits rates and opens read-
   function Harness({ phase }) {
     const [value, setValue] = useState({ groups: [], specials: [], services: [], rates: {} });
     state = value;
-    const measured = { ...measurement, surfaces: measurement.surfaces.map((surface, index) => index ? surface : { ...surface, deduction_area: "27.00", openings: [
+    const measured = { ...measurement, surfaces: measurement.surfaces.map((surface, index) => index ? surface : { ...surface, gross_area: "147.00", net_area: "120.00", deduction_area: "27.00", addition_area: "0.00", openings: [
       { id: 801, opening_type: "DOOR", effect: "DEDUCT", name: "Entry door", effective_deduction: "21.00", area: "42.00" },
       { id: 802, opening_type: "WINDOW", effect: "DEDUCT", name: "Window A", effective_deduction: "6.00", area: "12.00" },
       { id: 803, opening_type: "DOOR", effect: "DEDUCT", name: "Ignored door", effective_deduction: "0.00" },
       { id: 804, opening_type: "WINDOW", effect: "ADD", name: "Added window", effective_deduction: "10.00" },
     ] }) };
-    return React.createElement(Workspace, { phase, measurement: measured, masters: realMasters, state: value, onChange: setValue });
+    const displayMeasurement = { ...measured, rooms: [...measured.rooms, { id: 8001, name: "Balcony" }, { id: 8002, name: "Utility Area" }], surfaces: [...measured.surfaces, { id: 9001, room: 8001, work_area: "INTERIOR", surface_type: "WALL", name: "Balcony wall", net_area: "50", gross_area: "60", deduction_area: "10" }, { id: 9002, room: 8002, work_area: "INTERIOR", surface_type: "CEILING", name: "Utility ceiling", net_area: "20" }, { id: 9003, room: null, work_area: "EXTERIOR", surface_type: "WALL", area_group_name: "Front elevation", name: "Front wall", gross_area: "110", net_area: "100", deduction_area: "10" }] };
+    return React.createElement(Workspace, { phase, measurement: measured, displayMeasurement, masters: realMasters, state: value, onChange: setValue });
   }
   let view;
   try {
@@ -66,15 +67,26 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Services & Product").length, 1);
     assert.equal(view.root.findAllByType("button").filter((node) => /Assign Products|Add Special Wall/.test(text(node))).length, 0);
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Deducted Surfaces").length, 1);
-    const bedroom = view.root.findAllByType("article").find((node) => text(node).startsWith("Bedroom 1"));
-    assert.match(text(bedroom), /Deduction27 sqft/);
-    assert.match(text(bedroom), /All Walls470 sqft/);
+    const wallsTable = view.root.findAllByType("table")[0];
+    const totals = wallsTable.findByType("tfoot");
+    assert.deepEqual(totals.findAllByType("td").slice(0, 2).map(text), ["2,270", "670"]);
+    const bedroom = wallsTable.findAllByType("tr").find((node) => text(node).startsWith("Bedroom 1"));
+    assert.deepEqual(bedroom.findAllByType("td").slice(0, 3).map(text), ["470", "130", "27"]);
+    assert.match(text(view.root.findAllByType("table")[1]), /Door.*Window.*Other/);
     const deductions = view.root.findAllByType("section").find((node) => node.props["aria-labelledby"] === "gq-deductions-title");
     assert.match(text(deductions), /Bedroom 1Entry door21 sqft/);
     assert.match(text(deductions), /Bedroom 1Window A6 sqft/);
     assert.doesNotMatch(text(deductions), /Ignored door|Added window/);
     await act(async () => view.root.findByProps({ "aria-label": "View original measurement records for Bedroom 1" }).props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Wall 4/);
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /Gross area \(before deduction\)147 sqft/);
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /After deduction120 sqft/);
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /Net area120 sqft/);
+    await click("Close");
+    for (const title of ["Balconies", "Utility Areas", "Exterior Measurements"]) assert.equal(view.root.findAllByType("section").filter((node) => node.props["aria-label"] === title).length, 1);
+    await act(async () => view.root.findAllByType("button").find((node) => text(node) === "Front elevation").props.onClick());
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /Front wall/);
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /Net area100 sqft/);
     await click("Close");
     await click("Create Paint Group");
     await click("Select all");

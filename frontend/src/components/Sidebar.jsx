@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
@@ -72,11 +73,10 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
+    const releaseScrollLock = lockBodyScroll();
     const background = backgroundRef.current;
     const opener = openerRef.current;
     const previousInert = background.inert;
-    document.body.style.overflow = "hidden";
     background.inert = true;
     drawerRef.current.querySelector("button")?.focus();
     const trapFocus = (event) => {
@@ -94,7 +94,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
     breakpoint.addEventListener("change", onResize);
     return () => {
       background.inert = previousInert;
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       document.removeEventListener("keydown", trapFocus);
       breakpoint.removeEventListener("change", onResize);
       opener?.focus();

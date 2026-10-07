@@ -109,9 +109,7 @@ export default function Register() {
         </Link>
         <div className="mt-6 rounded-2xl border bg-white p-6 sm:p-8">
           <h1 className="text-3xl font-bold">Create your account</h1>
-          <p className="mt-2 text-slate-500">
-            Choose how you will use Bharath Apps.
-          </p>
+          
           <div className="mt-6 grid grid-cols-2 gap-3">
             {[
               ["CONTRACTOR", BriefcaseBusiness],

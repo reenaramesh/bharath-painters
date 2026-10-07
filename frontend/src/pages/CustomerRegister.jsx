@@ -63,7 +63,7 @@ export default function CustomerRegister() {
         <Field label="Name" name="name" value={form.name} onChange={update} />
         <div>
           <Field label="Mobile number" name="mobile" inputMode="tel" value={form.mobile} onChange={update} />
-          <p className="mt-1 text-xs text-slate-500">Use 9876543210, 09876543210, or +91 9876543210. For other countries, include + and the country code.</p>
+          
         </div>
          <Field label={invitation?.requires_email ? "Email address (required for invitation)" : "Email (optional)"} name="email" type="email" autoComplete="email" required={Boolean(invitation?.requires_email)} value={form.email} onChange={update} />
         <Field label="Create password" name="password" type="password" minLength="8" value={form.password} onChange={update} />

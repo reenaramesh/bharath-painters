@@ -109,7 +109,7 @@ export default function Login() {
         <div className="max-w-xl">
           <p className="text-amber-400 font-semibold tracking-wide uppercase text-sm">Business workspace</p>
           <h1 className="text-5xl font-bold leading-tight mt-4">Manage every service project from lead to finish.</h1>
-          <p className="text-slate-300 text-lg mt-6">Create accurate quotations, organize customers, coordinate employees and keep work moving.</p>
+          
         </div>
         <p className="text-sm text-slate-500">Bharath Apps Business Workspace</p>
       </section>

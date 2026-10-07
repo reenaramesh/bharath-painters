@@ -301,7 +301,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
       )}
       {success && <div role="status" aria-live="polite" className="fixed inset-x-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl sm:left-auto sm:px-5 sm:py-4">✓ {success}</div>}
       {!themeOnly && <section className="contractor-profile-completion rounded-2xl border bg-white p-5" aria-label="Company profile completion">
-        <div className="flex items-center justify-between gap-3"><div><h2 id="company-profile-completion-title" className="font-bold">Company profile</h2><p className="mt-1 text-sm text-slate-600">Fill in your company details to complete your public profile.</p></div><strong className="text-2xl tabular-nums text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
+        <div className="flex items-center justify-between gap-3"><div><h2 id="company-profile-completion-title" className="font-bold">Company profile</h2></div><strong className="text-2xl tabular-nums text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-labelledby="company-profile-completion-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow={form.profile_completion?.percent ?? 0}><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
         {form.profile_completion?.missing?.length > 0 && <p className="mt-2 text-xs text-slate-500">Still to add: {form.profile_completion.missing.map((field) => field.replaceAll("_", " ")).join(", ")}.</p>}
       </section>}
@@ -341,7 +341,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
         {themeOnly && <>
         <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
           <h2 className="text-lg font-bold">App theme</h2>
-           {!fieldsOnly && <p className="mt-1 text-xs text-slate-500">Choose the colors used across your contractor workspace. PDF colors are set separately below.</p>}
+           {!fieldsOnly && null}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#176b9b] ring-2 ring-[#e8f3f8]" : "border-slate-200"}`}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
           </div>
@@ -352,7 +352,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
         </div>
         <div className={`sm:col-span-2 ${fieldsOnly ? "msp-appearance-card" : ""}`}>
           <p className="text-sm font-medium">Quotation and invoice PDF style</p>
-           {!fieldsOnly && <p className="mt-1 text-xs text-slate-500">Choose the theme, text color, and font used on both downloaded documents.</p>}
+           {!fieldsOnly && null}
           <div className="mt-3 grid gap-2 sm:grid-cols-4">
             {pdfColorTemplates.map((template) => (
               <button
@@ -513,7 +513,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                 </div>
               </div>
             </div>
-             {!fieldsOnly && <p className="mt-3 text-xs text-slate-500">Sample content shows the selected style. Save to use it on downloaded quotations, invoices, and area calculation reports.</p>}
+             {!fieldsOnly && null}
           </div>
         </div>
         </>}

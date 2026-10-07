@@ -77,7 +77,7 @@ export default function MobileDashboardShortcuts() {
       <section className="md:hidden" aria-label="Quick access">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-800">Quick access</h2>
-          <span className="text-[11px] text-slate-400">Swipe for more</span>
+          
         </div>
         <div className="overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max snap-x snap-mandatory gap-3">
@@ -212,7 +212,7 @@ function QrScanner({ close }) {
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div>
             <h2 className="text-lg font-bold">Scan QR</h2>
-            <p className="text-xs text-slate-500">Scan a Bharath Apps profile or document QR.</p>
+            
           </div>
           <button type="button" onClick={() => { stopCamera(); close(); }} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100" aria-label="Close scanner">
             <X className="h-5 w-5" />

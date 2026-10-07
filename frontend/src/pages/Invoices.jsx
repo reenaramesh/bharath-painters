@@ -513,7 +513,7 @@ export default function Invoices() {
             <div className={tab === "items" ? "" : "hidden"}>
             <section className="mt-2 overflow-hidden rounded-xl border">
               <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div><h3 className="font-bold">Final area adjustments</h3><p className="mt-1 text-sm text-slate-500">Add or remove wall and ceiling areas before the final invoice. Saved property Area Calculations are not changed.</p></div>
+                <div><h3 className="font-bold">Final area adjustments</h3></div>
                 <button type="button" onClick={() => setEditing((current) => ({ ...current, measurement_adjustments: [...current.measurement_adjustments, { ...blankAdjustment, id: `new-${Date.now()}` }] }))} className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Add area adjustment</button>
               </div>
               <div className="divide-y">
@@ -535,7 +535,7 @@ export default function Invoices() {
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold">Invoice line items</h3>
-                <p className="text-sm text-slate-500">Edit existing lines or add any extra service before saving.</p>
+                
               </div>
               <button
                 type="button"

@@ -127,9 +127,7 @@ export default function ApplicatorProfile({ embedded = false }) {
           <h2 className={embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold"}>
             Personal details
           </h2>
-          <p className="mt-2 text-slate-500">
-            Keep the basic information contractors need.
-          </p>
+          
         </div>
         {embedded ? null : (
         <div className="flex flex-wrap gap-2">

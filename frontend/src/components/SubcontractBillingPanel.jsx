@@ -48,9 +48,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           <h2 className="flex items-center gap-2 text-lg font-bold">
             <ReceiptIndianRupee className="h-5 w-5" /> Bill to {isMain ? "your contractor" : "you"}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            This is what you pay each other, kept apart from customer billing and employee wages.
-          </p>
+          
         </div>
         {invoice && <StatusBadge status={invoice.status} />}
       </div>

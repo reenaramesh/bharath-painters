@@ -63,9 +63,7 @@ export default function ProfileCard() {
           Digital identity
         </p>
         <h1 className="mt-1 text-3xl font-bold">My Bharath Profile</h1>
-        <p className="mt-2 text-slate-500">
-          Scan or share your verified Bharath Apps identity.
-        </p>
+        
       </header>
       <section className="overflow-hidden rounded-3xl border bg-white shadow-sm">
         <div className="bg-gradient-to-r from-slate-950 to-violet-950 p-6 text-white sm:p-8">
@@ -112,9 +110,7 @@ export default function ProfileCard() {
                 className="mx-auto aspect-square w-full max-w-[240px]"
               />
             </div>
-            <p className="mt-3 text-center text-xs text-slate-500">
-              Scanning verifies the identity and current account status.
-            </p>
+            
           </div>
           <div>
             <h3 className="text-lg font-bold">Profile details</h3>

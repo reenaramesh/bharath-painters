@@ -41,7 +41,7 @@ export default function CompletedWork() {
       {customerView ? (
         <PageHeader eyebrow="Your projects" title="Completed projects" description="See the work your contractor has marked complete." />
       ) : (
-        <header><p className="text-sm font-semibold text-amber-600">Project planning</p><h1 className="mt-1 text-3xl font-bold">Completed work</h1><p className="mt-2 text-slate-500">Finished projects, work dates and assigned Paint Applicators.</p></header>
+        <header><p className="text-sm font-semibold text-amber-600">Project planning</p><h1 className="mt-1 text-3xl font-bold">Completed work</h1></header>
       )}
       {customerView && <section className="customer-completed-pulse" aria-label="Completed project summary">
         <div><span>Completed projects</span><strong>{items.length}</strong><small>Marked complete by your contractor</small></div>

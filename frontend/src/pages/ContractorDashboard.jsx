@@ -38,12 +38,12 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
     {(dueTasks > 0 || data.profile_completion?.percent < 100) && <section className="contractor-priority" aria-label="Priority attention">
       {dueTasks > 0 && <div className="contractor-priority-item contractor-priority-urgent">
         <span className="contractor-priority-icon"><CalendarClock size={20} aria-hidden="true" /></span>
-        <div><StatusBadge status="OVERDUE" label="Needs attention" /><h2>{dueTasks} follow-up{dueTasks === 1 ? "" : "s"} overdue</h2><p>Review customer commitments and follow up today.</p></div>
+        <div><StatusBadge status="OVERDUE" label="Needs attention" /><h2>{dueTasks} follow-up{dueTasks === 1 ? "" : "s"} overdue</h2></div>
         <PanelLink to="/tasks">Review follow-ups</PanelLink>
       </div>}
       {data.profile_completion?.percent < 100 && <Link to="/settings" className="contractor-priority-item contractor-profile-prompt">
         <span className="contractor-priority-icon"><Users size={20} aria-hidden="true" /></span>
-        <div><span className="contractor-priority-label">Company profile</span><h2>{data.profile_completion.percent}% complete</h2><p>Add company details so customers can see your full profile.</p></div>
+        <div><span className="contractor-priority-label">Company profile</span><h2>{data.profile_completion.percent}% complete</h2></div>
         <ArrowRight size={18} aria-hidden="true" />
       </Link>}
     </section>}
@@ -57,9 +57,9 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
     </section>
 
     <section className="contractor-quick-actions" aria-labelledby="contractor-actions-title">
-      <div className="contractor-section-heading"><div><h2 id="contractor-actions-title">Quick actions</h2><p>Move the next customer commitment forward.</p></div></div>
+      <div className="contractor-section-heading"><div><h2 id="contractor-actions-title">Quick actions</h2></div></div>
       <div className="contractor-tools-grid">{tools.map(([Icon, label, hint, to]) => <Link key={label} to={to} aria-label={`${label}: ${hint}`}>
-        <span className="contractor-icon"><Icon size={21} aria-hidden="true" /></span><span><strong>{label}</strong><span className="contractor-action-hint">{hint}</span></span><ArrowRight size={17} aria-hidden="true" />
+        <span className="contractor-icon"><Icon size={21} aria-hidden="true" /></span><span><strong>{label}</strong></span><ArrowRight size={17} aria-hidden="true" />
       </Link>)}</div>
     </section>
 

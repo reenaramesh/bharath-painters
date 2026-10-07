@@ -102,10 +102,7 @@ export default function ContractorNetwork() {
         <div>
           <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
           <h1 className="mt-1 text-3xl font-bold">Contractor Network</h1>
-          <p className="mt-2 max-w-2xl text-slate-500">
-            Other contractors you can hand work to. Both sides agree before any work is shared, and
-            money stays in its own ledger.
-          </p>
+          
         </div>
         {isContractor && (
           <button
@@ -341,9 +338,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
         <div className="flex shrink-0 items-start justify-between gap-4 border-b px-4 py-4 sm:px-6">
           <div>
             <h2 id="connection-dialog-title" className="text-xl font-bold">Request a connection</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              They have to accept before you can share any work or money.
-            </p>
+            
           </div>
           <button type="button" onClick={onClose} aria-label="Close connection window" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border text-slate-500 hover:bg-slate-50">
             <X className="h-5 w-5" />
@@ -402,7 +397,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
         </div>
         </form>
         <div className="mt-4 rounded-2xl border border-slate-200 p-4">
-          <p className="mb-3 text-sm text-slate-600">Can’t find the contractor? Invite them to join Bharath Apps.</p>
+          
           <ContractorInvitation user={user} />
         </div>
         <p className="mt-3 text-sm text-slate-500" role="status">{directoryLoading ? "Loading contractors…" : searchingDistance ? (distanceLoading ? "Checking distances…" : "Choose a starting location to find nearby contractors.") : `${matches.length} contractors found`}</p>
@@ -466,7 +461,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">Message</span>
-            <p className="mb-2 text-xs text-slate-500">Your message and contractor profile will appear in their internal inbox with Accept and Decline options.</p>
+            
             <textarea
               rows={3}
               maxLength={2000}

@@ -63,9 +63,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
       <h2 className="flex items-center gap-2 text-lg font-bold">
         <Users className="h-5 w-5" /> Your team
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Only you can see who you put on this job and what you owe them for it.
-      </p>
+      
 
       {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
@@ -153,9 +151,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
           </h3>
           <p className="text-sm font-bold">{rupees(totalWages)}</p>
         </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Private to your company. Payroll is still run from your employee ledger.
-        </p>
+        
 
         {team.length > 0 && (
           <form

@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download,
@@ -62,14 +63,13 @@ export default function PdfPreviewHost() {
 
   useEffect(() => {
     if (!preview) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockBodyScroll();
     const closeOnEscape = (event) => {
       if (event.key === "Escape") close();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [preview, close]);
@@ -201,7 +201,7 @@ export default function PdfPreviewHost() {
           <select id="preview-pdf-language" value={preview.language} disabled={changingLanguage} onChange={(event) => changePdfLanguage(event.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-sm">
             {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
           </select>
-          <p className="text-xs text-slate-600">English words displayed in your selected script. This PDF selection does not change your dashboard.</p>
+          
           <span role="status" className="text-sm text-slate-600">{changingLanguage ? t("saving") : ""}</span>
         </div>}
         {notice && (
@@ -293,9 +293,7 @@ function MobilePdfPreview({ blob }) {
       {error && (
         <div className="mx-auto mt-8 max-w-sm rounded-2xl bg-white p-5 text-center shadow">
           <p className="font-bold text-slate-900">{error}</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Use the download button above to open it in your phone's PDF app.
-          </p>
+          
         </div>
       )}
       {documentProxy && width > 0 && (

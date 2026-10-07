@@ -293,10 +293,7 @@ function ScopeSnapshot({ scopes }) {
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-slate-400">
-        Names are a snapshot taken when the work was sent, so later master data edits cannot
-        change this contract.
-      </p>
+      
     </div>
   );
 }

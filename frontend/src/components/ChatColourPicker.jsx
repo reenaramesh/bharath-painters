@@ -63,7 +63,7 @@ export default function ChatColourPicker({ onClose, onSend, sending }) {
     <div className="chat-colour-picker fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="chat-colour-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b p-4">
-          <div><h2 id="chat-colour-title" className="text-xl font-bold text-slate-900">Paint colours</h2><p className="mt-1 text-xs text-slate-500">Search by colour name or brand shade code</p></div>
+          <div><h2 id="chat-colour-title" className="text-xl font-bold text-slate-900">Paint colours</h2></div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100" aria-label="Close colour picker"><X className="h-5 w-5" /></button>
         </header>
         <div className="border-b p-3 sm:p-4">
@@ -80,7 +80,7 @@ export default function ChatColourPicker({ onClose, onSend, sending }) {
         </div>
         <footer className="border-t p-3 sm:p-4">
           <div className="flex items-center gap-3"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-black/10" style={{ backgroundColor: selected?.hex || "#f1f5f9" }}>{!selected && <Palette className="h-5 w-5 text-slate-400" />}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{selected?.name || "Select a colour"}</b><small className="block truncate text-xs text-slate-500">{selected ? `${selected.brand} · ${selected.code}` : "Preview before sending"}</small></span><button type="button" onClick={() => selected && onSend(selected)} disabled={!selected || sending} className="shrink-0 rounded-xl bg-[#176b9b] px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">{sending ? "Sending…" : "Send colour"}</button></div>
-          <p className="mt-2 text-[11px] text-slate-500">Screen colours are approximate. Confirm the final shade with a physical fan deck.</p>
+          
         </footer>
       </div>
     </div>

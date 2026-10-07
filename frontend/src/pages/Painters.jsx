@@ -25,7 +25,7 @@ export default function Painters() {
   useEffect(() => { if (safePage !== page) setPage(safePage); }, [page, safePage]);
 
   return <div className="space-y-6">
-     <header><p className="text-sm font-semibold text-amber-600">Verified workforce</p><h1 className="mt-1 text-3xl font-bold">Employees</h1><p className="mt-2 text-slate-500">View and manage all verified employee profiles across service trades.</p></header>
+     <header><p className="text-sm font-semibold text-amber-600">Verified workforce</p><h1 className="mt-1 text-3xl font-bold">Employees</h1></header>
     <section className="overflow-hidden rounded-2xl border bg-white">
       <div className="flex flex-col gap-3 border-b p-4 md:flex-row"><label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, mobile, ID, skill or location" className="w-full bg-transparent text-sm outline-none" /></label><select value={availability} onChange={(event) => setAvailability(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm"><option value="ALL">All availability</option><option value="AVAILABLE">Available</option><option value="BUSY">Busy</option><option value="OFFLINE">Offline</option></select></div>
       {error && <p className="p-6 text-red-700">{error}</p>}

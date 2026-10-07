@@ -30,12 +30,12 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true">
-      <div className="h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5">
-          <div><h2 className="text-xl font-bold text-slate-900">{editing ? "Edit customer" : "Add customer"}</h2><p className="text-sm text-slate-500">{editing ? "Customer contact and billing details" : "Only name and mobile are required now. Add other details later."}</p></div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
+      <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="min-w-0"><h2 className="text-base font-bold text-slate-900">{editing ? "Edit customer" : "Add customer"}</h2></div>
+          <button onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
-        <form onSubmit={submit} className="space-y-6 p-6">
+        <form onSubmit={submit} className="min-h-0 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-medium text-slate-700">Full name *<input required name="name" value={form.name} onChange={update} className={inputClass} /></label>

@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./special-wall-sheet.css";
@@ -14,8 +15,7 @@ export default function SpecialWallSheet({ parent, wall, walls, masters, onClose
   const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
   useEffect(() => {
     const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockBodyScroll();
     dialog.current.querySelector("input")?.focus();
     function onKey(event) {
       if (event.key === "Escape") close.current();
@@ -26,7 +26,7 @@ export default function SpecialWallSheet({ parent, wall, walls, masters, onClose
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
     document.addEventListener("keydown", onKey);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", onKey); previousFocus?.focus(); };
+    return () => { releaseScrollLock(); document.removeEventListener("keydown", onKey); previousFocus?.focus(); };
   }, []);
   return createPortal(<div className="special-wall-backdrop" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <form ref={dialog} className="special-wall-sheet" role="dialog" aria-modal="true" aria-labelledby="special-wall-title" onSubmit={(event) => { event.preventDefault(); if (valid) onSave({ ...draft, name: draft.name.trim(), quantity: area }); }}>

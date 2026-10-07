@@ -1148,7 +1148,7 @@ export default function QuotationBuilder() {
       <section className="min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6">
         {step === 0 && (
           <div className="grid gap-5 md:grid-cols-2">
-            <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2><p className="mt-1 text-sm text-slate-500">Select the customer and the site for this quotation.</p></div>
+            <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2></div>
             <label className="text-sm font-medium">
               <span className="flex items-center justify-between gap-2"><span>Customer *</span><button type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
               <span className="mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
@@ -1200,19 +1200,19 @@ export default function QuotationBuilder() {
         {step === 0 && (
           <div className="mt-6 border-t border-[#dce7ed] pt-6">
             <h2 className="text-lg font-extrabold text-[#193750]">Quotation type</h2>
-            <p className="mt-1 text-sm text-slate-500">Choose how to calculate the work.</p>
+            
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
               <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
           </div>
         )}
-        {step === 1 && (groupedMode ? <GroupedQuotationWorkspace key={selectedMeasurementId} measurement={assignmentMeasurement} masters={masters} state={groupAssignments} onChange={setGroupAssignments} /> :
+        {step === 1 && (groupedMode ? <GroupedQuotationWorkspace key={selectedMeasurementId} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} /> :
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-bold">Select Area Calculation fields &amp; coats</h2>
-                <p className="mt-1 text-xs text-slate-500">Select required areas. Doors and windows are already deducted from net walls.</p>
+                
               </div>
               <div className="flex gap-2">
                 <button
@@ -1278,7 +1278,7 @@ export default function QuotationBuilder() {
                 </button>
               </div>
             </div>
-            {groupedMode && <GroupedQuotationWorkspace measurement={assignmentMeasurement} masters={masters} state={groupAssignments} onChange={setGroupAssignments} phase="final" requestedEditor={openingGroupRequest} onEditorRequestHandled={() => setOpeningGroupRequest(null)} />}
+            {groupedMode && <GroupedQuotationWorkspace measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} phase="final" requestedEditor={openingGroupRequest} onEditorRequestHandled={() => setOpeningGroupRequest(null)} />}
             <div className="hidden">
               <table className="w-full min-w-[1480px] border-collapse text-xs">
                 <thead>
@@ -1511,9 +1511,7 @@ export default function QuotationBuilder() {
               <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={input} placeholder="Name shown on quotation" /></label>
               <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={input} placeholder="Site inspector name" /></label>
               <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={input} placeholder="For example, 15-18 days" /></label>
-              <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 sm:col-span-2">
-                Payment terms, product details, work procedures and terms and conditions come from Master Services. Review them in the quotation preview.
-              </p>
+              
              </div>
             <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
               <h2 className="font-bold">Estimated total</h2>
@@ -1526,9 +1524,7 @@ export default function QuotationBuilder() {
                   <span>{money(preview.total)}</span>
                 </div>
               </div>
-              <p className="mt-4 text-xs text-slate-400">
-                Review the total before previewing.
-              </p>
+              
             </div>
            </div></div>
          )}
@@ -1947,7 +1943,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
       <div className="border-b bg-slate-100 px-4 py-3">
         <div>
           <p className="font-semibold">Exterior wall and ceiling totals</p>
-          <p className="mt-0.5 text-xs text-slate-500">Choose full exterior totals or individual room/area totals. Type of Service is loaded from Master Data.</p>
+          
         </div>
       </div>
       <div className="hidden md:block">

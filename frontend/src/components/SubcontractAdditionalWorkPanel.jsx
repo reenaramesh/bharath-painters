@@ -34,10 +34,7 @@ export default function SubcontractAdditionalWorkPanel({ workOrder, isMain, onCh
       <h2 className="flex items-center gap-2 text-lg font-bold">
         <PlusCircle className="h-5 w-5" /> Extra work found
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Work that was not in the agreed scope. Whoever does the extra work asks, the other side
-        decides the money.
-      </p>
+      
 
       {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 

@@ -499,7 +499,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
               <span className="shrink-0 text-right text-xs font-extrabold">{areaText(summary.net)}<ChevronRight className={`ml-auto mt-1 h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} /></span>
             </button>
             {expanded && <div className="border-t border-[#e7edf1] px-4 pb-4 pt-3">
-              {summary.groups?.length ? <div className="space-y-1 text-xs text-slate-600">{summary.groups.map((group) => <div key={group.key} className="flex justify-between gap-2"><span>{group.label}</span><b className="text-[#193750]">{areaText(group.net)}</b></div>)}</div> : <p className="text-xs text-slate-500">Choose a surface to start this room.</p>}
+              {summary.groups?.length ? <div className="space-y-1 text-xs text-slate-600">{summary.groups.map((group) => <div key={group.key} className="flex justify-between gap-2"><span>{group.label}</span><b className="text-[#193750]">{areaText(group.net)}</b></div>)}</div> : null}
               <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => editArea(area)} className="min-h-10 rounded-lg bg-[#e8f3f8] px-3 text-xs font-bold text-[#176b9b]">{summary.surfaceCount ? "Edit measurements" : "Start measuring"}</button><button type="button" onClick={() => viewArea(area)} className="min-h-10 rounded-lg border border-[#dce6ed] px-3 text-xs font-bold text-[#245b75]">View details</button>{!area.legacy && <button type="button" onClick={() => deleteArea(area)} aria-label={`Delete ${area.name}`} className="ml-auto grid h-10 w-10 place-items-center rounded-lg border border-red-200 text-red-600"><Trash2 className="h-4 w-4" /></button>}</div>
             </div>}
           </article>;
@@ -606,9 +606,9 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
   const total = rows.reduce((sum, row) => sum + number(row.length) * number(row.breadth) * Math.max(1, number(row.quantity)) * multiplier, 0);
   const submit = async () => { if (await saveBatch(selected, rows, saveForFuture)) { setSelected(""); setSurfaceSearch(""); setRows([]); } };
   return <section className="flex flex-col rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-    <div><h2 className="text-lg font-extrabold"><span className="md:hidden">Start measuring</span><span className="hidden md:inline">Select surface</span></h2><p className="text-sm text-slate-500">Choose Wall, Ceiling, Floor or another saved surface.</p></div>
+    <div><h2 className="text-lg font-extrabold"><span className="md:hidden">Start measuring</span><span className="hidden md:inline">Select surface</span></h2></div>
     <div className="mt-4 md:hidden">
-      {!groups.length && <div className="mb-4 flex items-center gap-3 rounded-xl border border-[#dce7ed] bg-[#f7fafb] p-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f2f7] text-[#2e7091]"><Layers3 className="h-5 w-5" /></span><div><p className="text-sm font-bold">No surfaces added yet</p><p className="text-xs text-slate-500">Choose a surface to start this room.</p></div></div>}
+      {!groups.length && <div className="mb-4 flex items-center gap-3 rounded-xl border border-[#dce7ed] bg-[#f7fafb] p-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f2f7] text-[#2e7091]"><Layers3 className="h-5 w-5" /></span><div><p className="text-sm font-bold">No surfaces added yet</p></div></div>}
       <button type="button" onClick={() => choose("Wall")} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white"><Plus className="h-4 w-4" />Add Wall</button>
       <div className="mt-3 grid grid-cols-3 gap-2">
         {["Ceiling", "Floor"].map((name) => <button key={name} type="button" onClick={() => choose(name)} className="min-h-11 rounded-xl border border-[#dce6ed] bg-white px-1 text-xs font-bold text-[#2a506a]">{name}</button>)}
@@ -640,7 +640,7 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
       </div>}
     </div>
     {selected && <div ref={editorRef} className="order-1 mt-4 scroll-mt-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3 md:order-none sm:p-4">
-      <div><h3 className="font-extrabold">{selected} measurements</h3><p className="text-xs text-slate-500">Enter as many lines as required, then save once.</p></div>
+      <div><h3 className="font-extrabold">{selected} measurements</h3></div>
       <div className="mt-3 space-y-3">
         {rows.map((row, index) => (
           <div key={index} className="rounded-xl border bg-white p-3">
@@ -682,7 +682,7 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
 
 function DeductionTab({ groups, deductions, addDeduction, editDeduction, deleteDeduction }) {
   return <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6">
-    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-extrabold">Deductions / Additions</h2><p className="text-sm text-slate-500">Select the target surface total, then choose whether the area is deducted or added.</p></div><button disabled={!groups.length} onClick={() => addDeduction(groups[0])} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white disabled:opacity-40 sm:w-auto"><Plus className="h-4 w-4" />Add item</button></div>
+    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-extrabold">Deductions / Additions</h2></div><button disabled={!groups.length} onClick={() => addDeduction(groups[0])} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white disabled:opacity-40 sm:w-auto"><Plus className="h-4 w-4" />Add item</button></div>
     <div className="mt-4 grid gap-3 lg:grid-cols-2">
       {deductions.map((item) => <article key={item.id} className="rounded-xl border border-[#e1e7ef] p-4">
         <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg font-extrabold ${item.effect === "ADD" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-[#f58220]"}`}>{item.effect === "ADD" ? "+" : "-"}</span><div className="min-w-0 flex-1"><b>{item.name || item.opening_type.replaceAll("_", " ")}</b><p className="mt-1 text-xs text-slate-500">{item.width} x {item.height} x {item.quantity}</p><p className="mt-1 text-xs font-semibold text-[#176b9b]">{item.effect === "ADD" ? "Add to" : "Deduct from"}: {item.targetLabel}</p></div><b className={`text-sm ${item.effect === "ADD" ? "text-emerald-700" : "text-orange-700"}`}>{item.effect === "ADD" ? "+" : "-"}{areaText(item.effect === "ADD" ? item.area : item.effective_deduction)}</b></div>

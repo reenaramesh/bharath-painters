@@ -385,7 +385,7 @@ const [orderBusy, setOrderBusy] = useState(false);
         </nav>
 
         <div className="min-w-0 space-y-4">
-      {active.key === "apartments" && user?.role !== "ADMIN" && <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">The apartment directory is shared across the app. An administrator can add, edit, or upload entries.</p>}
+      {active.key === "apartments" && user?.role !== "ADMIN" && null}
 
       <SectionCard
         title={<span className="master-section-title"><span className="master-section-icon"><ActiveIcon aria-hidden="true" /></span>{active.label}</span>}
@@ -408,10 +408,10 @@ const [orderBusy, setOrderBusy] = useState(false);
         </form>}
 
         {(active.key !== "apartments" || user?.role === "ADMIN") && showImport && <div className="border-b bg-slate-50/60 p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">Import {active.label}</h3><p className="mt-1 text-sm text-slate-500">Import CSV or Excel (.xlsx). Matching entries are updated; new entries are added. Maximum 5 MB or 5,000 rows.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadTemplate} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">CSV template</button><button type="button" onClick={downloadCurrent} disabled={!items.length} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Download current data</button></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">Import {active.label}</h3></div><div className="flex flex-wrap gap-2"><button type="button" onClick={downloadTemplate} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">CSV template</button><button type="button" onClick={downloadCurrent} disabled={!items.length} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Download current data</button></div></div>
           <form onSubmit={uploadMaster} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"><input required type="file" accept=".csv,.xlsx" onChange={(event) => setUploadFile(event.target.files?.[0] || null)} className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white p-2 text-sm" /><button disabled={uploading || !uploadFile} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-50"><Upload className="h-4 w-4" />{uploading ? "Uploading..." : "Upload data"}</button></form>
-          {usesServiceCategory && <p className="mt-2 text-xs text-slate-500">The service_category column must match an existing Type of Service name in Master Data.</p>}
-          {active.key === "apartments" && <p className="mt-2 text-xs text-slate-500">Apartments are shared with every contractor. Name and PIN code identify an existing entry during upload.</p>}
+          {usesServiceCategory && null}
+          {active.key === "apartments" && null}
           <p className="mt-2 text-xs text-amber-700">Re-uploading a file switches existing entries back to Active.</p>
         </div>}
         {importSummary && <div className="border-b p-4 text-sm"><p className="font-semibold">{importSummary.created} added · {importSummary.updated} updated · {importSummary.skipped} skipped · {importSummary.error_count} errors</p>{importSummary.errors?.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">{importSummary.errors.map((item) => <li key={item.row}>Row {item.row}: {item.message}</li>)}</ul>}</div>}
@@ -609,7 +609,7 @@ function ScopeDot({ scope }) {
   return <span title={meta.label} className="inline-flex items-center gap-1.5 text-xs text-slate-500"><span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot} ring-4 ${meta.ring}`} />{meta.label}</span>;
 }
 
-function AvailabilityToggle({ value, onChange, disabled, locked, busy, hint, ariaLabel = "Availability" }) {
+function AvailabilityToggle({ value, onChange, disabled, locked, busy, ariaLabel = "Availability" }) {
   return (
     <div>
       <div role="radiogroup" aria-label={ariaLabel} className={`master-availability-toggle inline-flex overflow-hidden rounded-full border border-slate-200 bg-white ${disabled ? "opacity-50" : ""}`}>
@@ -619,7 +619,7 @@ function AvailabilityToggle({ value, onChange, disabled, locked, busy, hint, ari
         })}
         {locked && <span className="border-l border-slate-200 px-2 py-1.5 text-slate-400" title="Only an admin can change this"><Lock className="h-3.5 w-3.5" /></span>}
       </div>
-      {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
+      
     </div>
   );
 }

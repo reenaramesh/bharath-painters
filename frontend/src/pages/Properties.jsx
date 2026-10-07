@@ -142,7 +142,7 @@ export default function Properties() {
             <h1 className="mt-1 text-3xl font-bold">
               {selectedCustomer ? `${selectedCustomer.name}'s properties` : "Properties"}
             </h1>
-            {selectedCustomer && <p className="mt-2 text-slate-500">View all properties associated with this customer.</p>}
+            {selectedCustomer && null}
           </div>
           <button
             onClick={() => setShowForm(true)}

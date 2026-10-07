@@ -72,7 +72,7 @@ export default function ActivityLog() {
         <div>
           <p className="text-sm font-semibold text-indigo-600">Process monitoring</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">Activity Log</h1>
-          <p className="mt-1 text-sm text-slate-500">Track who created, updated, or deleted records. Summary counts cover the last 60 days; unresolved reviews remain counted until reviewed.</p>
+          
         </div>
         <div className="flex gap-2"><button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white"><Download className="h-4 w-4" /> Export</button><button onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</button></div>
       </header>

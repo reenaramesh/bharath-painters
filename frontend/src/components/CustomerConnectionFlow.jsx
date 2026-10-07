@@ -37,9 +37,9 @@ export default function CustomerConnectionFlow({ onClose, onNewCustomer, quotati
   }
 
   return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
-    <section className="w-full max-w-lg rounded-3xl bg-white shadow-2xl">
-      <header className="flex items-start justify-between border-b p-5 sm:p-6"><div><h2 className="text-xl font-extrabold">Add customer</h2><p className="mt-2 text-sm text-slate-500">We will check the mobile number and request approval if the customer already has an account.</p></div><button type="button" onClick={onClose} className="rounded-xl p-2 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button></header>
-      <form onSubmit={save} className="space-y-4 p-5 sm:p-6">
+    <section className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b bg-white p-4 sm:p-5"><div className="min-w-0"><h2 className="text-base font-extrabold">Add customer</h2></div><button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button></header>
+      <form onSubmit={save} className="min-h-0 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
         <label className="flex items-center gap-2 rounded-xl border px-3 py-3"><UserRound className="h-5 w-5 text-slate-400" /><input autoFocus required aria-label="Customer name" value={name} onChange={event => setName(event.target.value)} placeholder="Customer name" className="w-full outline-none" /></label>
         <label className="flex items-center gap-2 rounded-xl border px-3 py-3"><Phone className="h-5 w-5 text-slate-400" /><input required inputMode="tel" aria-label="Mobile number" value={mobile} onChange={event => { setMobile(event.target.value); setLookup(null); }} placeholder="Mobile number" className="w-full outline-none" /></label>
         {lookup && <p role="status" className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">{lookup.customer_exists ? "Existing customer found. A connection request will be sent if one is not already pending." : "New customer account will be created."}</p>}

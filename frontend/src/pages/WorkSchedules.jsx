@@ -819,10 +819,7 @@ function ProjectRow({
               </button>
             )}
             {paid && (
-              <p className="mt-2 text-xs text-slate-500">
-                This advance will be adjusted when the final invoice is created
-                after project completion.
-              </p>
+              null
             )}
             {role === "CONTRACTOR" && !paid && item.status === "CONFIRMED" && (
               <button
@@ -942,9 +939,7 @@ function ScheduleModal({ children, onClose }) {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold">Schedule work dates</h2>
-            <p className="text-sm text-slate-500">
-              Select an accepted quotation and propose dates.
-            </p>
+            
           </div>
           <button
             onClick={onClose}
@@ -1050,10 +1045,7 @@ function Detail({ title, children }) {
 function PaymentActions({ item, role, onPayment }) {
   if (item.status !== "CONFIRMED")
     return (
-      <p className="mt-2 text-xs text-slate-500">
-        Available after dates are confirmed. This does not affect booking
-        confirmation.
-      </p>
+      null
     );
   if (role === "CONTRACTOR" && item.payment_status === "NOT_REQUESTED")
     return (
@@ -1070,10 +1062,7 @@ function PaymentActions({ item, role, onPayment }) {
         >
           Payment received directly
         </button>
-        <p className="w-full text-xs text-slate-500">
-          Use "Payment received directly" if the customer already paid by cash
-          or another mode.
-        </p>
+        
       </div>
     );
   if (role === "CUSTOMER" && item.property_access?.permissions?.make_payment && item.payment_status === "AWAITING_PAYMENT")

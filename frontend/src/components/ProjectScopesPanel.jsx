@@ -165,10 +165,7 @@ export default function ProjectScopesPanel({ quotationId }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Project scopes</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            One row per service on this project. These are the lines you can hand to another
-            contractor.
-          </p>
+          
         </div>
         {editing ? (
           <button
@@ -455,14 +452,14 @@ export default function ProjectScopesPanel({ quotationId }) {
   );
 }
 
-function ScopeField({ label, hint, required, children }) {
+function ScopeField({ label, required, children }) {
   return (
     <label className="block">
       <span className="mb-2 block font-semibold">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      
     </label>
   );
 }

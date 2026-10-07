@@ -189,9 +189,7 @@ export default function NewOpportunity() {
         <h1 className="mt-1 text-3xl font-bold text-slate-900">
           New Opportunity
         </h1>
-        <p className="mt-2 text-slate-500">
-          First identify the client, then describe what they need.
-        </p>
+        
       </header>
 
       {error && (

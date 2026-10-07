@@ -71,10 +71,7 @@ export default function Reports() {
               : "Business performance"}
           </p>
           <h1 className="mt-1 text-3xl font-bold">Reports</h1>
-          <p className="mt-2 text-slate-500">
-            Projects, quotations, billing and collections in one operational
-            view.
-          </p>
+          
         </div>
         <div className="flex gap-2">
           <button

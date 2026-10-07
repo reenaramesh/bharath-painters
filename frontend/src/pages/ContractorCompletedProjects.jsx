@@ -86,7 +86,7 @@ export default function ContractorCompletedProjects() {
 
   return <div className="mx-auto max-w-4xl space-y-6 pb-8">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital profile</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">Completed projects</h1><p className="mt-2 text-sm text-slate-500">Projects added here appear on your digital card and its downloadable PDF.</p></div>
+      <div><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital profile</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">Completed projects</h1></div>
       <Link to="/profile" className="rounded-xl border border-[#b9d1dc] px-4 py-2.5 text-sm font-bold text-[#1d5e7b]">View digital card</Link>
     </div>
 

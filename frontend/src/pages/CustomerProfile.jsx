@@ -104,7 +104,7 @@ export default function CustomerProfile() {
     <header className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-7">
      <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-primary,#176b9b)]">Customer portal</p>
       <h1 className="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">My profile</h1>
-      <p className="mt-1 text-sm text-slate-600">Keep your contact details and address up to date.</p>
+      
     </header>
     <section className="customer-profile-pulse" aria-label="Account summary">
       <div><span>Customer ID</span><strong>{profile.customer_id || "Not assigned"}</strong><small>Use this when contacting support</small></div>
@@ -115,7 +115,7 @@ export default function CustomerProfile() {
     {saved && <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700"><CheckCircle2 className="h-5 w-5" />Profile saved successfully.</p>}
     {profile && <form onSubmit={save} className="min-w-0 space-y-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-7">
        <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] sm:items-center">
-         <div className="min-w-0"><p className="break-words font-bold text-slate-900">{profile.customer_id || "Customer"}</p><p className="mt-1 text-sm text-slate-500">Your photo appears on your Bharath Apps profile.</p></div>
+         <div className="min-w-0"><p className="break-words font-bold text-slate-900">{profile.customer_id || "Customer"}</p></div>
          <ProfileImageControl label="Profile photo" file={photo} existingUrl={profile.profile_photo} position={profile.profile_photo_position} shape="rounded" onFileChange={(file) => { setPhoto(file); setSaved(false); }} onPositionChange={(profile_photo_position) => { setProfile((current) => ({ ...current, profile_photo_position })); setSaved(false); }} />
        </div>
       <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">

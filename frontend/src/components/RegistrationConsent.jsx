@@ -74,7 +74,7 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
   if (inline) return <section className="space-y-4 sm:col-span-2" aria-labelledby="customer-registration-agreement">
     <header className="border-t pt-6">
       <h2 id="customer-registration-agreement" className="text-xl font-bold">Terms of Use & Privacy Notice</h2>
-      <p className="mt-2 text-sm text-slate-600">Read the information below, then tick the checkbox at the end to create your customer account.</p>
+      
       {document && <p className="mt-2 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p>}
     </header>
     {loading && <p role="status" className="flex items-center gap-2 text-sm text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Loading Terms and Privacy Notice...</p>}

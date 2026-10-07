@@ -100,7 +100,7 @@ export default function RecoveryEmailSettings() {
        <div><span>Sign-in recovery</span><strong>Available</strong><small>Use Forgot password if needed</small></div>
      </section>}
      <form onSubmit={submitPasswordChange} className="space-y-5 rounded-2xl border bg-white p-5 sm:p-6">
-      <div><h2 className="font-bold">Change password</h2><p className="mt-1 text-sm text-slate-500">Enter your current password, then choose a new one.</p></div>
+      <div><h2 className="font-bold">Change password</h2></div>
       {changePasswordError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{changePasswordError}</p>}
       {[["Current password", "current_password", "current-password"], ["New password", "new_password", "new-password"], ["Confirm new password", "confirm_password", "new-password"]].map(([label, field, autoComplete]) => <Field key={field} label={label}><span className="relative block"><input required minLength={field === "current_password" ? undefined : 8} type={showChangePasswords ? "text" : "password"} autoComplete={autoComplete} value={changePassword[field]} onChange={(event) => setChangePassword((current) => ({ ...current, [field]: event.target.value }))} className={`${input} pr-12`} /><button type="button" onClick={() => setShowChangePasswords((current) => !current)} aria-label={showChangePasswords ? "Hide passwords" : "Show passwords"} className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showChangePasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></Field>)}
       <button disabled={changingPassword} className={button}>{changingPassword ? "Changing password..." : "Change password"}</button>

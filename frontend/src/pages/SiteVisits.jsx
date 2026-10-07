@@ -89,9 +89,7 @@ export default function SiteVisits() {
         <div>
           <p className="text-sm font-semibold text-amber-600">Sales</p>
           <h1 className="mt-1 text-3xl font-bold text-slate-900">Site Visits</h1>
-          <p className="mt-2 text-slate-500">
-            Schedule and track customer site visits linked to opportunities.
-          </p>
+          
         </div>
         <div className="flex gap-2">
           <button
@@ -338,9 +336,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
         className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6"
       >
         <h2 className="text-xl font-bold">Schedule site visit</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          The visit is linked to the opportunity's client and property.
-        </p>
+        
         {error && (
           <div className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}

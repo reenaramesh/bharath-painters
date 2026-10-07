@@ -412,3 +412,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Keep customer status tabs readable while swiping on small screens. */
+.crm-customers-page .crm-customer-status-tabs { min-width: 0; max-width: 100%; overscroll-behavior-x: contain; }
+.crm-customers-page .crm-customer-status-tabs button { flex-shrink: 0; }
+@media (max-width: 639px) {
+  .crm-customers-page .crm-customer-status-tabs { gap: 6px; scrollbar-width: none; }
+  .crm-customers-page .crm-customer-status-tabs::-webkit-scrollbar { display: none; }
+  .crm-customers-page .crm-customer-status-tabs button { font-size: 12px; line-height: 1.4; padding: 10px 12px; min-height: 44px; width: auto; }
+}

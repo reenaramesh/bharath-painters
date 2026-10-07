@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useEffect, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
@@ -125,12 +126,11 @@ export default function MobileTableDialogs() {
 
   useEffect(() => {
     if (!dialog) return undefined;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockBodyScroll();
     const closeOnEscape = (event) => event.key === "Escape" && setDialog(null);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previous;
+      releaseScrollLock();
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [dialog]);

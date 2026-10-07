@@ -73,10 +73,7 @@ export default function SubcontractWorkOrders() {
         <div>
           <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
           <h1 className="mt-1 text-3xl font-bold">Subcontract Work Orders</h1>
-          <p className="mt-2 max-w-2xl text-slate-500">
-            Work you send to another contractor, and work other contractors send to you. Money
-            stays separate from your customer billing and from the wages you pay your own people.
-          </p>
+          
         </div>
         <div className="flex gap-2">
           <Link
@@ -332,9 +329,7 @@ function CreateWorkOrder({ initialQuotation = "", presetScope = "", onClose, onC
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold">Send work to a contractor</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              You can only send work to a contractor you are connected with.
-            </p>
+            
           </div>
           <button type="button" onClick={onClose} className="text-2xl leading-none text-slate-400">
             ×

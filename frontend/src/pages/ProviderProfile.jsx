@@ -498,9 +498,7 @@ export default function ProviderProfile({ embedded = false }) {
                 );
               })}
               {offeredIds.size === 0 && (
-                <p className="text-sm text-slate-500">
-                  Choose a core service first, then claim the sub-services you offer.
-                </p>
+                null
               )}
             </div>
           </SectionCard>
@@ -656,19 +654,19 @@ export default function ProviderProfile({ embedded = false }) {
   );
 }
 
-function Field({ label, hint, required, children }) {
+function Field({ label, required, children }) {
   return (
     <label className="block">
       <span className="mb-2 block font-semibold">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      
     </label>
   );
 }
 
-function Toggle({ checked, onChange, label, hint }) {
+function Toggle({ checked, onChange, label }) {
   return (
     <label className="flex items-start gap-3 text-sm">
       <input
@@ -679,7 +677,7 @@ function Toggle({ checked, onChange, label, hint }) {
       />
       <span>
         <span className="block font-semibold">{label}</span>
-        {hint && <span className="block text-xs text-slate-500">{hint}</span>}
+        
       </span>
     </label>
   );

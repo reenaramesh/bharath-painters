@@ -60,7 +60,7 @@ export default function AdminCustomerConnections() {
     <header>
       <p className="text-sm font-bold text-indigo-600">Administration</p>
       <h1 className="mt-1 text-3xl font-extrabold">Customer connection management</h1>
-      <p className="mt-2 text-slate-500">Audit customer-to-contractor access without exposing passwords, OTPs or private records.</p>
+      
     </header>
 
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

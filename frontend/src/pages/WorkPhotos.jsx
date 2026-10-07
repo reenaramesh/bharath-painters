@@ -129,7 +129,7 @@ export default function WorkPhotos() {
         <PageHeader eyebrow="Your project updates" title="Project photos" description="See photos shared for your projects as work progresses." />
       ) : (
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="text-sm font-semibold text-amber-600">Project evidence</p><h1 className="mt-1 text-3xl font-bold">Work photos</h1><p className="mt-2 text-slate-500">Keep before, progress and after photos organized against each scheduled project.</p></div>
+          <div><p className="text-sm font-semibold text-amber-600">Project evidence</p><h1 className="mt-1 text-3xl font-bold">Work photos</h1></div>
           {canUpload && <button onClick={() => setShowForm(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white"><Plus className="h-4 w-4" />Upload photos</button>}
         </header>
       )}
@@ -232,10 +232,7 @@ export default function WorkPhotos() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-bold">Upload work photos</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Select several photos to save them under the same project
-                  stage.
-                </p>
+                
               </div>
               <button type="button" onClick={() => setShowForm(false)}>
                 <X />

@@ -103,9 +103,7 @@ export default function WhatsAppAppChooser() {
               <h2 id="whatsapp-app-title" className="text-lg font-extrabold text-slate-950">
                 Open WhatsApp
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Choose the account you want to use.
-              </p>
+              
             </div>
           </div>
           <button

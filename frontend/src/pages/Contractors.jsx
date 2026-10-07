@@ -21,7 +21,7 @@ export default function Contractors() {
   useEffect(() => { if (safePage !== page) setPage(safePage); }, [page, safePage]);
 
   return <div className="space-y-6">
-    <header><p className="text-sm font-semibold text-amber-600">Verified professionals</p><h1 className="mt-1 text-3xl font-bold">Contractors</h1><p className="mt-2 text-slate-500">View and manage all verified contractor profiles.</p></header>
+    <header><p className="text-sm font-semibold text-amber-600">Verified professionals</p><h1 className="mt-1 text-3xl font-bold">Contractors</h1></header>
     <section className="overflow-hidden rounded-2xl border bg-white">
       <div className="border-b p-4"><label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search company, owner, mobile, ID or service area" className="w-full bg-transparent text-sm outline-none" /></label></div>
       {error && <p className="p-6 text-red-700">{error}</p>}

@@ -449,10 +449,7 @@ export default function CustomerDetail() {
                 >
                   Add follow-up
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Record the discussion and optionally schedule the next
-                  contact.
-                </p>
+                
               </div>
               <button
                 type="button"

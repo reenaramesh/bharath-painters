@@ -208,9 +208,7 @@ export default function ContractorRevenue() {
               <h2 className="mt-1 text-xl font-bold">
                 Record customer payment
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Record an advance against a quotation or a payment against a final invoice. A receipt for a draft or pending quotation accepts it, and the customer then confirms proposed work dates.
-              </p>
+              
             </div>
             <button
               type="button"

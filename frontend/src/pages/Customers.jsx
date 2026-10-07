@@ -399,8 +399,8 @@ export default function Customers() {
         </div>
       )}
 
-      <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
+      <nav aria-label="Customer connection status" className="crm-customer-status-tabs flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
+        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} aria-current={connectionView === value ? "page" : undefined} className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
@@ -456,9 +456,7 @@ export default function Customers() {
             <h2 className="mt-4 font-semibold text-slate-900">
               No customers found
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Add your first customer or change the current filters.
-            </p>
+            
           </div>
         ) : (
           <>
@@ -754,10 +752,7 @@ export default function Customers() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-bold">Bulk import customers</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Upload Excel (.xlsx) or CSV. Duplicate mobile numbers are
-                  skipped.
-                </p>
+                
               </div>
               <button
                 onClick={() => setShowImport(false)}
@@ -818,9 +813,7 @@ export default function Customers() {
                 <ContactRound className="h-4 w-4" />
                 Add from phone contacts
               </button>
-              <p className="mt-2 text-center text-xs text-slate-400">
-                Contact picker support depends on the device and browser.
-              </p>
+              
             </div>
           </div>
         </div>
@@ -832,7 +825,7 @@ export default function Customers() {
       {onboarding && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
         <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
           <h2 className="text-xl font-extrabold">{onboarding.link_purpose === "CONNECTION" ? "Connection request ready" : "Customer activation ready"}</h2>
-          <p className="mt-2 text-sm text-slate-500">Share this secure link with the customer. You will press Send in WhatsApp or SMS.</p>
+          
           <div className="mt-5 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">{buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices })}</div>
           {onboarding.share_link && <><p className="mt-3 text-xs text-slate-500">Expires {new Date(onboarding.link_expires_at).toLocaleString("en-IN")}</p><div className="mt-5 grid grid-cols-2 gap-3">
             <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile || onboarding.customer_mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />Share on WhatsApp</a>

@@ -239,3 +239,17 @@
 .admin-directory-table td { color: #26364b; line-height: 1.35; }
 .admin-directory-table tbody tr:hover { background: var(--app-soft); }
 @media (max-width: 767px) { .admin-dashboard .admin-summary > * { padding: 8px; } .admin-directory-table { min-width: 700px; } }
+
+/* Dashboard actions keep their icon, label and arrow in consistent columns. */
+.contractor-dashboard .contractor-tools-grid > a { display: grid; grid-template-columns: 42px minmax(0, 1fr) 17px; align-items: center; min-height: 72px; }
+.contractor-dashboard .contractor-tools-grid > a > span:nth-child(2) { min-height: 0; justify-content: center; }
+.contractor-dashboard .contractor-tools-grid strong { display: block; line-height: 1.35; overflow-wrap: anywhere; }
+.contractor-dashboard .contractor-icon svg, .contractor-dashboard .contractor-priority-icon svg { display: block; flex-shrink: 0; }
+.contractor-dashboard .contractor-inline-action, .contractor-dashboard .contractor-panel-link { align-items: center; gap: 8px; }
+.contractor-dashboard .bp-stat-card { align-items: center; }
+.contractor-dashboard .bp-stat-card > div { min-width: 0; }
+@media (max-width: 639px) {
+  .contractor-dashboard .contractor-tools-grid > a { grid-template-columns: 36px minmax(0, 1fr); gap: 8px; padding: 10px; min-height: 68px; }
+  .contractor-dashboard .contractor-tools-grid .contractor-icon { width: 36px; height: 36px; }
+  .contractor-dashboard .contractor-tools-grid strong { font-size: 13px; }
+}

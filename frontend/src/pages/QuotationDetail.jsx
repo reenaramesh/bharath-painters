@@ -563,7 +563,7 @@ export default function QuotationDetail() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 id="quotation-pdf-options-title" className="font-bold">Include in downloaded PDF</h2>
-            <p className="mt-1 text-sm text-slate-500">Select exactly which available fields appear in this PDF. Your saved quotation stays the same.</p>
+            
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{selectedPdfSections.length} of {pdfSectionOptions.length} selected</span>
@@ -702,9 +702,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <h2 className="text-xl font-bold">Final quotation submitted</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          This link takes the customer to login and then opens the quotation.
-        </p>
+        
         <div className="mt-4 break-all rounded-xl bg-slate-50 p-4 text-xs">
           {url}
         </div>

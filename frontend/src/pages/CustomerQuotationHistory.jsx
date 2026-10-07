@@ -134,9 +134,7 @@ export default function CustomerQuotationHistory() {
           <h1 className="mt-1 text-3xl font-bold text-slate-900">
             {customer.name}
           </h1>
-          <p className="mt-2 text-slate-500">
-            Review every quotation prepared for this customer.
-          </p>
+          
         </div>
         <Link
           to={`/quotations/new?customer=${id}`}
@@ -305,9 +303,7 @@ export default function CustomerQuotationHistory() {
           <div className="p-12 text-center">
             <FileText className="mx-auto h-10 w-10 text-slate-300" />
             <h2 className="mt-3 font-semibold">No quotations found</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Change the filters or create a new quotation.
-            </p>
+            
           </div>
         )}
       </section>

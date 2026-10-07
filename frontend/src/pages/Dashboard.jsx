@@ -228,9 +228,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           <header className="flex items-center justify-between border-b p-4 sm:p-5">
             <div>
               <h2 className="font-bold">Recent completed projects</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Your latest finished work history
-              </p>
+              
             </div>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">
               {c.completed}
@@ -265,9 +263,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
         </section>
         <section className="rounded-2xl bg-slate-950 p-6 text-white">
           <h2 className="font-bold">Current work</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Open active assignments to start or complete work.
-          </p>
+          
           <Link
             to="/painter-assignments"
             className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-slate-950"

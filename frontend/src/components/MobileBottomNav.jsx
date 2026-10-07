@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarPlus, FilePlus2, FileText, Home, ListTodo, MessageCircle, Paintbrush, Users } from "lucide-react";
+import { BarChart3, Bell, Building2, CalendarPlus, FilePlus2, FileText, Home, ListTodo, MessageCircle, Users } from "lucide-react";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
+import { visibleNavigation } from "../config/navigation";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const hiddenPatterns = [
   /^\/quotations\/new(?:-|\/|$)/,
@@ -10,7 +12,8 @@ const hiddenPatterns = [
   /^\/properties\/\d+\/measurements$/,
 ];
 
-export default function MobileBottomNav() {
+export default function MobileBottomNav({ employmentStatus = "loading" }) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,17 +46,22 @@ export default function MobileBottomNav() {
       { label: "Messages", icon: MessageCircle, to: "/messages", badge: counts.messages },
       { label: "Notifications", short: "Alerts", icon: Bell, action: () => window.dispatchEvent(new Event("bp-open-notifications")), badge: counts.notifications },
     ];
-    if (user?.role === "PAINTER") return [
+    if (user?.role === "PAINTER") {
+      const navigation = visibleNavigation("PAINTER", employmentStatus);
+      const work = navigation.find((entry) => entry.id === (employmentStatus === "in-house" ? "employment" : "available-work"));
+      const settings = navigation.find((entry) => entry.id === "settings");
+      return [
       { label: "Home", icon: Home, to: "/dashboard" },
-      { label: "Jobs", icon: BriefcaseBusiness, to: "/jobs" },
+      ...(work ? [{ label: work.label, short: employmentStatus === "in-house" ? "Employment" : "Jobs", icon: work.icon, to: work.route }] : []),
       { label: "Assignments", short: "Work", icon: ListTodo, to: "/painter-assignments" },
       { label: "Messages", icon: MessageCircle, to: "/messages" },
-      { label: "Profile", icon: Paintbrush, to: "/applicator-profile" },
+      { label: settings.label, icon: settings.icon, to: settings.route },
     ];
+    }
     if (user?.role === "ADMIN") return [
       { label: "Home", icon: Home, to: "/dashboard" },
       { label: "Contractors", short: "Contractors", icon: Users, to: "/contractors" },
-      { label: "Painters", icon: Paintbrush, to: "/painters" },
+      { label: "Professionals", short: "People", icon: Users, to: "/painters" },
       { label: "Billing", icon: FileText, to: "/billing" },
       { label: "Reports", icon: BarChart3, to: "/reports" },
     ];
@@ -72,16 +80,16 @@ export default function MobileBottomNav() {
       { label: "Add property", short: "Property", icon: Building2, to: "/properties?action=add" },
       { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
     ];
-  }, [user?.role, customerId, counts.messages, counts.notifications]);
+  }, [user?.role, employmentStatus, customerId, counts.messages, counts.notifications]);
 
   if (!items.length || hiddenPatterns.some((pattern) => pattern.test(location.pathname))) return null;
-  return <nav aria-label="Mobile quick navigation" className={`fixed inset-x-3 bottom-[max(.65rem,env(safe-area-inset-bottom))] z-40 grid ${items.length === 4 ? "grid-cols-4" : "grid-cols-5"} overflow-hidden rounded-[26px] border border-slate-200 bg-white/95 p-1.5 shadow-[0_14px_45px_rgba(15,23,42,.24)] backdrop-blur-xl md:hidden`}>
+  return <nav aria-label="Mobile quick navigation" className={`bp-mobile-bottom-nav fixed inset-x-3 bottom-[max(.65rem,env(safe-area-inset-bottom))] z-40 grid ${items.length === 4 ? "grid-cols-4" : "grid-cols-5"} overflow-hidden md:hidden`}>
     {items.map((item) => {
       const Icon = item.icon;
-      const content = <><span className="relative"><Icon className="h-5 w-5" />{item.badge > 0 && <span className="absolute -right-2.5 -top-2 min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-extrabold leading-4 text-white">{item.badge > 9 ? "9+" : item.badge}</span>}</span><span className="mt-1 max-w-full truncate text-[10px] font-bold leading-none">{item.short || item.label}</span></>;
-      const style = "flex min-w-0 flex-col items-center justify-center rounded-[20px] px-1 py-2 text-slate-500 transition active:scale-95";
-      if (item.action) return <button key={item.label} type="button" onClick={item.action} className={`${style} hover:bg-indigo-50 hover:text-indigo-700`}>{content}</button>;
-      return <NavLink key={item.label} to={item.to} onClick={() => navigate(item.to)} className={({ isActive }) => `${style} ${isActive ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-50"}`}>{content}</NavLink>;
+      const accessibleLabel = `${t(item.label)}${item.badge > 0 ? `, ${item.badge}` : ""}`;
+      const content = <><span className="relative"><Icon className="h-5 w-5" aria-hidden="true" />{item.badge > 0 && <span className="bp-mobile-nav-badge absolute -right-2 -top-2" aria-label={`${item.badge}`}>{item.badge > 9 ? "9+" : item.badge}</span>}</span><span className="max-w-full truncate text-xs font-bold leading-tight">{t(item.label)}</span></>;
+      if (item.action) return <button key={item.label} type="button" aria-label={accessibleLabel} onClick={item.action} className="bp-mobile-nav-item">{content}</button>;
+      return <NavLink key={item.label} to={item.to} aria-label={accessibleLabel} onClick={() => navigate(item.to)} className={({ isActive }) => `bp-mobile-nav-item ${isActive ? "is-active" : ""}`}>{content}</NavLink>;
     })}
   </nav>;
 }

@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
+import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
+import "./quotation-measurement.css";
 
 const SURFACE_TYPES = [
   ["WALL", "Wall"], ["CEILING", "Ceiling"], ["FLOOR", "Floor"],
@@ -388,14 +390,14 @@ export default function MeasurementCalculator() {
     catch (requestError) { setError(requestMessage(requestError, "Deduction could not be deleted.")); }
   }
 
-  if (!property) return <div className="grid min-h-[50vh] place-items-center text-slate-500">{error || "Loading Area Calculator..."}</div>;
+  if (!property) return error ? <ErrorState message={error} onRetry={load} /> : <LoadingState label="Loading Area Calculation..." />;
   const linearUnit = property.linear_unit_label || (property.measurement_unit === "METRES" ? "m" : "ft");
   const liveMultiplier = property.measurement_unit === "METRES" ? 10.7639104167 : 1;
   const liveSurfaceArea = number(surfaceDraft.length) * number(surfaceDraft.breadth) * Math.max(1, number(surfaceDraft.quantity)) * liveMultiplier;
   const liveDeductionArea = number(deductionDraft.width) * number(deductionDraft.height) * Math.max(1, number(deductionDraft.quantity)) * liveMultiplier;
 
   return (
-    <main className="bp-calculator -m-4 min-h-screen bg-[#f4f6f9] pb-24 text-[#12345b] sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+    <main className="bp-calculator quotation-measurement-page bp-measurement-calculator -m-4 min-h-screen bg-[#f4f6f9] pb-24 text-[#12345b] sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
       <div className="mx-auto max-w-7xl p-4 sm:p-0">
         {!activeArea ? (
           <AreaList property={property} record={record} areas={areas} summaries={areaSummaries}
@@ -444,7 +446,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
     <div className="space-y-4 md:hidden">
       <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm">
         <button type="button" onClick={goBack} className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />Properties</button>
-        <div className="mt-4 flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold tracking-tight">Area calculation</h1><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${record?.submitted_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{record?.submitted_at ? "Submitted" : "Draft"}</span></div>
+        <div className="mt-4 flex items-start justify-between gap-3"><h1 className="text-2xl font-extrabold tracking-tight">Area calculation</h1><StatusBadge status={record?.submitted_at ? "SUBMITTED" : "DRAFT"} tone={record?.submitted_at ? "success" : "neutral"} /></div>
         <p className="mt-2 text-sm font-semibold">{property.name || property.property_type}</p>
         <p className="text-xs text-slate-500">{[property.city, record?.reference_no].filter(Boolean).join(" · ")}</p>
         <div className="mt-4 rounded-2xl bg-[#245b75] p-4 text-white"><p className="text-[11px] font-bold uppercase tracking-wider text-white/75">Total measured area</p><p className="mt-1 text-3xl font-extrabold">{areaText(totals.net)}</p><div className="mt-3 flex gap-4 border-t border-white/20 pt-3 text-xs text-white/85"><span>{areas.length} rooms</span><span>{totals.surfaces} surfaces</span><span>{totals.deductions} deductions</span></div></div>
@@ -468,10 +470,10 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
               : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#176b9b] px-3 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />New Quotation</Link>}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className="text-sm text-slate-600">{record?.submitted_at ? "Submitted to customer. Editing will make this calculation private until resubmitted." : "Private draft. Customers cannot see this calculation until you submit it."}</p>
+            <p className="text-sm text-slate-600">{record?.reference_no && <span className="mr-2 font-semibold text-slate-800">{record.reference_no} ·</span>}{record?.submitted_at ? "Submitted to customer. Editing will make this calculation private until resubmitted." : "Private draft. Customers cannot see this calculation until you submit it."}</p>
             <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} className="rounded-lg bg-[#176b9b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{submitting ? "Submitting..." : record?.submitted_at ? "Submitted to Customer" : "Submit to Customer"}</button>
           </div>
-          <p className="mt-1 font-semibold">{property.name || property.property_type}</p>
+           <p className="mt-1 font-semibold">{property.name || property.property_type}{record?.reference_no ? ` · ${record.reference_no}` : ""}</p>
           <p className="text-sm text-slate-500">{property.property_type}{property.city ? ` " ${property.city}` : ""}</p>
         </div>
       </div>
@@ -550,7 +552,7 @@ function AreaDetail({ area, property, record, measurementId, groups, summary, ta
   return <div className="space-y-4">
     <header className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm md:hidden">
       <button onClick={back} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />All rooms</button>
-      <div className="mt-4 flex items-start justify-between gap-2"><div className="min-w-0"><h1 className="text-2xl font-extrabold tracking-tight">{area.name}</h1><p className="mt-1 truncate text-xs text-slate-500">{property?.name || property?.property_type}{record?.reference_no ? ` · ${record.reference_no}` : ""}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${record?.submitted_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{record?.submitted_at ? "Submitted" : "Draft"}</span></div>
+       <div className="mt-4 flex items-start justify-between gap-2"><div className="min-w-0"><h1 className="text-2xl font-extrabold tracking-tight">{area.name}</h1><p className="mt-1 truncate text-sm text-slate-600">{property?.name || property?.property_type}{record?.reference_no ? ` · ${record.reference_no}` : ""}</p></div><StatusBadge status={record?.submitted_at ? "SUBMITTED" : "DRAFT"} tone={record?.submitted_at ? "success" : "neutral"} /></div>
       <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#245b75] p-4 text-white"><div><p className="text-[11px] font-bold uppercase tracking-wide text-white/75">Net measured area</p><p className="mt-1 text-2xl font-extrabold">{areaText(summary.net)}</p></div><Ruler className="h-7 w-7 text-white/70" /></div>
       {canCreateQuotation && <Link to={quotationUrl} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-4 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />Create quotation</Link>}
       {!area.legacy && <button onClick={editRoom} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold"><Pencil className="h-4 w-4" />Change Room</button>}
@@ -561,7 +563,7 @@ function AreaDetail({ area, property, record, measurementId, groups, summary, ta
     </header>
     <header className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
       <button onClick={back} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><ArrowLeft className="h-4 w-4" />Back to Areas</button>
-      <div className="mt-3 flex items-start justify-between gap-3"><div><h1 className="text-2xl font-extrabold">{area.name}</h1><p className="text-sm text-slate-500">{area.section || "Area Measurement"}</p></div><div className="flex flex-wrap justify-end gap-2">{canCreateQuotation && <Link to={quotationUrl} className="inline-flex items-center gap-2 rounded-lg bg-[#176b9b] px-3 py-2 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />Create quotation</Link>}{!area.legacy && <button onClick={editRoom} className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-bold"><Pencil className="h-4 w-4" />Change Room</button>}</div></div>
+       <div className="mt-3 flex items-start justify-between gap-3"><div><h1 className="text-2xl font-extrabold">{area.name}</h1><p className="text-sm text-slate-500">{area.section || "Area Measurement"}{record?.reference_no ? ` · ${record.reference_no}` : ""}</p></div><div className="flex flex-wrap justify-end gap-2"><StatusBadge status={record?.submitted_at ? "SUBMITTED" : "DRAFT"} tone={record?.submitted_at ? "success" : "neutral"} />{canCreateQuotation && <Link to={quotationUrl} className="inline-flex items-center gap-2 rounded-lg bg-[#176b9b] px-3 py-2 text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />Create quotation</Link>}{!area.legacy && <button onClick={editRoom} className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-bold"><Pencil className="h-4 w-4" />Change Room</button>}</div></div>
       <nav className="mt-5 grid grid-cols-3 rounded-xl bg-[#f1f5f9] p-1">
         {[["surfaces", "Surfaces"], ["deductions", "Deduct / Add"], ["summary", "Summary"]].map(([key, label]) =>
           <button key={key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg text-sm font-bold transition ${tab === key ? "bg-[#176b9b] text-white shadow" : "text-slate-600"}`}>{label}</button>)}
@@ -647,9 +649,9 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
               <button type="button" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} className="mt-1.5 h-12 rounded-lg border border-red-200 px-3 text-red-600" aria-label={`Delete ${row.name || "surface"}`}><Trash2 className="h-4 w-4" /></button>
             </div>
             <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2">
-              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} placeholder={`Length (${unit})`} aria-label={`Length in ${unit}`} className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
-              <input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} placeholder={`Breadth (${unit})`} aria-label={`Width or height in ${unit}`} className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
-              <input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} placeholder="Quantity" aria-label="Quantity" className={`${inputClass} !mt-0 min-w-0 !px-1.5 !text-[11px] sm:!px-3 sm:!text-base`} />
+              <label className="min-w-0 text-xs font-semibold text-slate-600">Length ({unit})<input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.length} onChange={(event) => updateRow(index, "length", event.target.value)} placeholder="0.00" aria-label={`Length in ${unit}`} className={`${inputClass} !mt-1 min-w-0 !px-1.5 !text-sm sm:!px-3 sm:!text-base`} /></label>
+              <label className="min-w-0 text-xs font-semibold text-slate-600">Width / height ({unit})<input type="number" inputMode="decimal" min="0.01" step="0.01" value={row.breadth} onChange={(event) => updateRow(index, "breadth", event.target.value)} placeholder="0.00" aria-label={`Width or height in ${unit}`} className={`${inputClass} !mt-1 min-w-0 !px-1.5 !text-sm sm:!px-3 sm:!text-base`} /></label>
+              <label className="min-w-0 text-xs font-semibold text-slate-600">Quantity<input type="number" inputMode="numeric" min="1" value={row.quantity} onChange={(event) => updateRow(index, "quantity", event.target.value)} placeholder="1" aria-label="Quantity" className={`${inputClass} !mt-1 min-w-0 !px-1.5 !text-sm sm:!px-3 sm:!text-base`} /></label>
             </div>
           </div>
         ))}

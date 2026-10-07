@@ -1,0 +1,5 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Uses saved settings. Accepted means the provider accepted the message; check the inbox to confirm delivery.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<input type="submit" value="{{ title }}"></form>
+{% endblock %}

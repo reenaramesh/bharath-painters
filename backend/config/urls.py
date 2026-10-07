@@ -25,6 +25,7 @@ urlpatterns = [
         include("quotations.urls")
     ),
     path("api/billing/", include("billing.urls")),
+    path("api/outsourcing/", include("outsourcing.urls")),
 ]
 
 

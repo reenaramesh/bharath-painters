@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Bharath Painters",
-  "short_name": "Bharath Painters",
-  "description": "Manage painting customers, area calculations, quotations, jobs and projects.",
+  "name": "Bharath Apps",
+  "short_name": "Bharath Apps",
+  "description": "Manage service customers, quotations, jobs and projects.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

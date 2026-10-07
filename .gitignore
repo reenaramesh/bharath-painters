@@ -11,6 +11,7 @@ __pycache__/
 db.sqlite3
 *.sqlite3
 media/
+private_media/
 staticfiles/
 
 # Secrets
@@ -32,6 +33,8 @@ Thumbs.db
 
 
 backend/.git-backup/
+backend/.qa-venv/
+backend/.qa-temp/
 venv/
 .env
 db.sqlite3
@@ -41,3 +44,4 @@ node_modules/
 dist/
 output/
 tmp/
+frontend/.test-build/

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   CalendarDays,
   CheckCircle2,
   Download,
   Eye,
-  FileText,
   RefreshCw,
   XCircle,
   X,
@@ -13,6 +12,8 @@ import {
 import api from "../api/client";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
+import { Button, ErrorState, LoadingState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
+import "./customer-portal.css";
 
 export default function CustomerQuotation() {
   const { id } = useParams(),
@@ -23,6 +24,8 @@ export default function CustomerQuotation() {
     [showRevision, setShowRevision] = useState(false),
     [revisionNote, setRevisionNote] = useState(""),
     [revisionLines, setRevisionLines] = useState({});
+  const itemDialogRef = useRef(null);
+  const revisionDialogRef = useRef(null);
   const load = useCallback(async () => {
     try {
       setQuotation(
@@ -36,6 +39,35 @@ export default function CustomerQuotation() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    const dialog = showRevision ? revisionDialogRef.current : selectedItem ? itemDialogRef.current : null;
+    if (!dialog) return undefined;
+    const previousFocus = document.activeElement;
+    const focusable = () => [...dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    focusable()[0]?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (showRevision) setShowRevision(false);
+        else setSelectedItem(null);
+      }
+      if (event.key !== "Tab") return;
+      const controls = focusable();
+      if (!controls.length) return;
+      if (event.shiftKey && document.activeElement === controls[0]) {
+        event.preventDefault();
+        controls[controls.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === controls[controls.length - 1]) {
+        event.preventDefault();
+        controls[0].focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [showRevision, selectedItem]);
   async function downloadPdf() {
     try {
       const response = await api.get(
@@ -104,61 +136,50 @@ export default function CustomerQuotation() {
     }
     respond("REVISION", note);
   }
-  if (!quotation)
-    return (
-      <div className="p-12 text-center text-slate-500">
-        {error || "Loading quotation..."}
-      </div>
-    );
+  if (!quotation) return error
+    ? <ErrorState message={error} onRetry={load} />
+    : <LoadingState label="Loading quotation…" />;
   return (
-    <div className="bp-quotation-page space-y-6">
+    <div className="bp-quotation-page customer-quotation-detail-page space-y-6">
       <BackButton fallback="/customer-quotations" label="Back to My Quotations" />
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        <p role="alert" className="customer-portal-alert customer-portal-alert-error">{error}</p>
       )}
       {notice && (
-        <p className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+        <p role="status" className="customer-portal-alert customer-portal-alert-success">
           {notice}
         </p>
       )}
-      <section className="quotation-sheet quotation-customer-sheet rounded-2xl border bg-white">
-        <header className="quotation-customer-header flex flex-col gap-4 border-b p-6 sm:flex-row sm:items-start">
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-950 text-white">
-            <FileText />
-          </span>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-600">
-              {quotation.contractor_name}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold">
-              {quotation.quotation_number}
-            </h1>
-            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-indigo-600">
-              Version {quotation.version_number || 1}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {quotation.property_name} · {quotation.quotation_date}
-            </p>
-          </div>
-          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-            {quotation.status.replaceAll("_", " ")}
-          </span>
-        </header>
-        <CustomerRevisionSummary changes={quotation.revision_changes} />
+      <PageHeader
+        eyebrow={quotation.contractor_name || "Your contractor"}
+        title={quotation.quotation_number}
+        description={`${quotation.property_name || "Property"} · Quotation date ${formatDate(quotation.quotation_date)} · Version ${quotation.version_number || 1}`}
+        actions={<StatusBadge status={quotation.status} label={readableStatus(quotation.status)} tone={quotationTone(quotation.status)} />}
+      />
+      <div className="customer-quotation-overview">
+        <StatCard label="Grand total" value={`₹${money(quotation.grand_total)}`} hint="Total for the quoted work" tone="brand" className="customer-quotation-total" />
+        <div className="customer-quotation-overview-details">
+          <span><strong>Property</strong>{quotation.property_name || "Property"}</span>
+          <span><strong>Contractor</strong>{quotation.contractor_name || "Contractor"}</span>
+          {quotation.valid_until && <span><strong>Valid until</strong>{formatDate(quotation.valid_until)}</span>}
+        </div>
+      </div>
+      <CustomerRevisionSummary changes={quotation.revision_changes} />
+      <SectionCard title="Work included" description="Review the services, rooms, products and measurements in this estimate." className="customer-quotation-scope" bodyClassName="p-0">
         <div className="grid gap-3 p-3 md:hidden">
           {quotation.items.map((item, index) => (
             <button type="button" key={item.id} onClick={() => setSelectedItem({ item, index })} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm active:scale-[0.99]">
               <div className="flex items-start justify-between gap-3 bg-slate-950 p-4 text-white">
-                <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Item {index + 1} · {item.service || "Service"}</p><h3 className="mt-1 truncate font-bold">{item.room || "General"}</h3><p className="mt-1 truncate text-xs text-slate-300">{item.description || "Description not available"}</p></div>
-                <b className="shrink-0 text-emerald-300">₹{money(item.amount)}</b>
+                <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-amber-300">{item.service || "Service"} · Item {index + 1}</p><h3 className="mt-1 break-words font-bold">{item.room || "General"}</h3><p className="mt-1 whitespace-normal text-sm text-slate-300">{item.description || "Description not available"}</p></div>
+                <b className="shrink-0 text-base text-emerald-300">₹{money(item.amount)}</b>
               </div>
               <div className="grid grid-cols-3 gap-px bg-slate-200 text-xs"><CustomerItemValue label="Quantity" value={`${item.quantity} ${item.unit || ""}`} /><CustomerItemValue label="Rate" value={`₹${money(item.rate)}`} /><CustomerItemValue label="Coats" value={item.coats || "—"} /></div>
               <div className="flex items-center justify-end gap-1 border-t px-4 py-2 text-xs font-bold text-blue-700"><Eye className="h-4 w-4" /> View details</div>
             </button>
           ))}
         </div>
-        <div className="hidden overflow-x-auto p-6 md:block">
-          <table className="w-full min-w-[900px] table-fixed text-left text-xs lg:text-sm">
+        <div className="customer-quotation-items-table hidden overflow-x-auto p-5 md:block">
+          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
             <thead className="bg-slate-100">
               <tr>
                 {[
@@ -194,50 +215,40 @@ export default function CustomerQuotation() {
           </table>
         </div>
         {selectedItem && <CustomerQuotationItemDialog item={selectedItem.item} index={selectedItem.index} close={() => setSelectedItem(null)} />}
-        <div className="quotation-totals ml-auto w-full max-w-md space-y-2 border-t p-6 text-sm">
-          <Total label="Subtotal" value={quotation.subtotal} />
-          <Total label="Discount" value={quotation.discount} />
-          <Total label="GST" value={quotation.gst_amount} />
-          <div className="flex justify-between border-t pt-3 text-lg font-bold">
-            <span>Grand total</span>
-            <span>₹{money(quotation.grand_total)}</span>
+      </SectionCard>
+
+      <div className="customer-quotation-financial-grid">
+        <SectionCard title="Price breakdown" description="Saved totals from the quotation." className="customer-quotation-price-card">
+          <div className="customer-quotation-price-lines">
+            <Total label="Work subtotal" value={quotation.subtotal} />
+            <Total label="Discount" value={quotation.discount} />
+            <Total label="GST / taxes" value={quotation.gst_amount} />
+            <div className="customer-quotation-grand-total"><strong>Grand total</strong><strong>₹{money(quotation.grand_total)}</strong></div>
           </div>
+        </SectionCard>
+        <div className="customer-quotation-supporting-details">
+          {quotation.product_details && <SectionCard title="Product details"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{quotation.product_details}</p></SectionCard>}
+          {quotation.terms && <SectionCard title="Notes and terms"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{quotation.terms}</p></SectionCard>}
         </div>
-        {quotation.product_details && (
-          <div className="border-t p-6">
-            <h2 className="font-bold">Product details</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{quotation.product_details}</p>
-          </div>
-        )}
-        {quotation.terms && (
-          <div className="border-t p-6">
-            <h2 className="font-bold">Notes</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
-              {quotation.terms}
-            </p>
-          </div>
-        )}
-      </section>
-      <section className="quotation-customer-actions rounded-2xl border bg-white p-6">
+      </div>
+
+      <SectionCard title="Your next step" description="Choose an action for this quotation." className="quotation-customer-actions">
         {quotation.accepted_via_receipt_at && (
-          <p className="mb-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             Your advance payment receipt has been recorded, so this quotation is accepted. The contractor will propose work dates for you to confirm.
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            onClick={downloadPdf}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
-          >
-            <Download className="h-5 w-5" />
+        <div className="customer-quotation-actions-grid">
+          <Button variant="secondary" onClick={downloadPdf}>
+            <Download aria-hidden="true" />
             Download quotation PDF
-          </button>
-          {["ACCEPTED", "CONVERTED"].includes(quotation.status) && (
+          </Button>
+          {quotation.property_access?.permissions?.view_schedules && ["ACCEPTED", "CONVERTED"].includes(quotation.status) && (
             <Link
               to={quotation.accepted_via_receipt_at ? "/work-schedules" : `/work-schedules?quotation=${quotation.id}`}
-              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white"
+              className="bp-button bp-button-primary inline-flex items-center justify-center gap-2"
             >
-              <CalendarDays className="h-5 w-5" />
+              <CalendarDays className="h-5 w-5" aria-hidden="true" />
               {quotation.accepted_via_receipt_at ? "View work dates" : "Continue to schedule"}
             </Link>
           )}
@@ -248,40 +259,32 @@ export default function CustomerQuotation() {
             <p className="mt-1">{quotation.customer_response_note}</p>
           </div>
         )}
-        {["SENT", "VIEWED"].includes(quotation.status) && (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={() => respond("APPROVE")}
-              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white"
-            >
-              <CheckCircle2 className="h-5 w-5" />
-              Approve
-            </button>
-            <button
-              onClick={() => respond("REJECT")}
-              className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-3 font-semibold text-red-600"
-            >
-              <XCircle className="h-5 w-5" />
-              Reject
-            </button>
+        {quotation.property_access?.permissions?.approve_quotations && ["SENT", "VIEWED"].includes(quotation.status) && (
+          <div className="customer-quotation-response-actions">
+            <Button onClick={() => respond("APPROVE")}>
+              <CheckCircle2 aria-hidden="true" />Accept quotation
+            </Button>
+            <Button variant="danger" onClick={() => respond("REJECT")}>
+              <XCircle aria-hidden="true" />Decline quotation
+            </Button>
           </div>
         )}
-        {["SENT", "VIEWED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS"].includes(quotation.status) && (
+        {quotation.property_access?.permissions?.request_quotation_changes && ["SENT", "VIEWED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS"].includes(quotation.status) && (
           <button
             onClick={() => { setShowRevision(true); setError(""); }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 font-semibold text-indigo-800"
+            className="customer-quotation-revision-button mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 font-semibold text-indigo-800"
           >
             <RefreshCw className="h-5 w-5" />
             Request quotation changes
           </button>
         )}
-      </section>
+      </SectionCard>
       {showRevision && (
         <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5">
-          <form onSubmit={submitRevisionRequest} className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-white p-5 shadow-2xl sm:max-w-2xl sm:rounded-[28px] sm:p-6">
+          <form ref={revisionDialogRef} role="dialog" aria-modal="true" aria-labelledby="customer-revision-title" onSubmit={submitRevisionRequest} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-white p-5 shadow-2xl sm:max-w-2xl sm:rounded-[28px] sm:p-6">
             <div className="flex items-start justify-between gap-4">
-              <div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Create a new quotation version</p><h2 className="mt-1 text-xl font-bold">What should be changed?</h2><p className="mt-1 text-sm text-slate-500">The contractor will edit a copy. This accepted version will remain unchanged.</p></div>
-              <button type="button" onClick={() => setShowRevision(false)} className="rounded-xl border p-2"><X className="h-5 w-5" /></button>
+              <div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Create a new quotation version</p><h2 id="customer-revision-title" className="mt-1 text-xl font-bold">What should be changed?</h2><p className="mt-1 text-sm text-slate-500">The contractor will edit a copy. This accepted version will remain unchanged.</p></div>
+              <button type="button" aria-label="Close change request" onClick={() => setShowRevision(false)} className="rounded-xl border p-2"><X className="h-5 w-5" /></button>
             </div>
             <div className="mt-5 space-y-2">
               <p className="text-sm font-bold">Select lines to change or remove</p>
@@ -306,8 +309,8 @@ function CustomerItemValue({ label, value }) {
 function CustomerQuotationItemDialog({ item, index, close }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <section role="dialog" aria-modal="true" aria-label={`Quotation item ${index + 1}`} className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-white shadow-2xl sm:max-w-xl sm:rounded-[28px]">
-        <header className="sticky top-0 flex items-start justify-between gap-3 border-b bg-slate-950 p-5 text-white"><div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Quotation item {index + 1}</p><h2 className="mt-1 text-xl font-bold">{item.room || "General"}</h2><p className="mt-1 text-sm text-slate-300">{item.service || "Service"}</p></div><button type="button" onClick={close} className="rounded-xl border border-white/30 p-2.5"><X className="h-5 w-5" /></button></header>
+      <section ref={itemDialogRef} role="dialog" aria-modal="true" aria-label={`Quotation item ${index + 1}`} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-white shadow-2xl sm:max-w-xl sm:rounded-[28px]">
+        <header className="sticky top-0 flex items-start justify-between gap-3 border-b bg-slate-950 p-5 text-white"><div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Quotation item {index + 1}</p><h2 className="mt-1 text-xl font-bold">{item.room || "General"}</h2><p className="mt-1 text-sm text-slate-300">{item.service || "Service"}</p></div><button type="button" aria-label="Close quotation item details" onClick={close} className="rounded-xl border border-white/30 p-2.5"><X className="h-5 w-5" /></button></header>
         <div className="grid grid-cols-2 gap-px bg-slate-200"><CustomerDialogValue label="Product description" value={item.description} wide /><CustomerDialogValue label="Product" value={item.paint_type || "—"} /><CustomerDialogValue label="Brand" value={item.paint_brand || "—"} /><CustomerDialogValue label="Quantity" value={`${item.quantity} ${item.unit || ""}`} /><CustomerDialogValue label="Coats" value={item.coats || "—"} /><CustomerDialogValue label="Rate" value={`₹${money(item.rate)}`} /><CustomerDialogValue label="Amount" value={`₹${money(item.amount)}`} strong /></div>
         <div className="p-4"><button type="button" onClick={close} className="w-full rounded-xl bg-slate-950 px-5 py-3 font-bold text-white">Close</button></div>
       </section>
@@ -329,6 +332,26 @@ function money(value) {
   return Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 0,
   });
+}
+
+function readableStatus(value) {
+  return String(value || "Status unavailable")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function quotationTone(status) {
+  if (["ACCEPTED", "CONVERTED", "SCHEDULED", "IN_PROGRESS", "COMPLETED"].includes(status)) return "success";
+  if (["SENT", "VIEWED", "REVISION_REQUESTED"].includes(status)) return "warning";
+  if (["REJECTED", "CANCELLED", "EXPIRED"].includes(status)) return "danger";
+  return "neutral";
+}
+
+function formatDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function CustomerRevisionSummary({ changes }) {

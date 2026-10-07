@@ -14,12 +14,15 @@ import csv
 from math import asin, cos, radians, sin, sqrt
 
 from accounts.models import BharathUser, PainterProfile
+from accounts.serializers import ProfileImagePositionField
 from accounts.mobile import normalize_mobile, matching_mobile_users
 from accounts.utils import activate_business_identity
 
 from .models import Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter, WorkPhoto, WorkReview, PainterSeekingPost, ContractorApplicatorTeam, ApplicatorBooking, ApplicatorAvailabilityBlock, ApplicatorAttendance, ApplicatorLedgerEntry
 from quotations.models import Customer, Invoice, PortalNotification, ProjectReceipt, Quotation
 from quotations.pdf_utils import build_advance_receipt_pdf
+from quotations.document_languages import document_language
+from quotations.property_access import PropertyPermission, accessible_properties, effective_property_permissions, has_property_access
 from billing.services import enforce_employee_limit, enforce_job_post_limit, enforce_job_seeking_post_limit, enforce_location_limit
 
 
@@ -38,7 +41,12 @@ def next_employee_code(contractor):
 
 
 def schedule_access(user, schedule):
-    return schedule.quotation.contractor_id == user.id or schedule.quotation.customer.portal_user_id == user.id
+    if schedule.quotation.contractor_id == user.id:
+        return True
+    property_obj = schedule.quotation.property
+    if user.role == BharathUser.Roles.CUSTOMER and property_obj:
+        return has_property_access(user, property_obj, PropertyPermission.VIEW_SCHEDULES)
+    return user.role == BharathUser.Roles.CUSTOMER and schedule.quotation.customer.portal_user_id == user.id
 
 
 def notify(recipient, actor, event_type, title, message, link):
@@ -202,7 +210,7 @@ def complete_job_transfer(source, target, actor):
     return replacement
 
 
-def schedule_data(item):
+def schedule_data(item, viewer=None):
     quotation = item.quotation
     receipt_advance_total = quotation.project_receipts.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
     project_receipt = quotation.project_receipts.order_by("-received_date", "-id").first()
@@ -212,8 +220,11 @@ def schedule_data(item):
     ) or (
         item.status == WorkSchedule.Status.CONFIRMED and item.proposed_end_date < today
     )
-    return {
+    data = {
         "id": item.id, "quotation": quotation.id, "quotation_number": quotation.quotation_number,
+        "customer_contact_id": item.customer_contact_id,
+        "customer_contact_name": item.customer_contact.customer.name if item.customer_contact_id else "",
+        "customer_contact_role": item.customer_contact.role if item.customer_contact_id else "",
         "customer": quotation.customer.name, "customer_bharath_id": quotation.customer.bharath_id, "property": quotation.property.name or quotation.property.property_type,
         "contractor": quotation.contractor.get_full_name() or quotation.contractor.mobile,
         "start_date": item.proposed_start_date, "end_date": item.proposed_end_date,
@@ -233,12 +244,32 @@ def schedule_data(item):
         "painters": [{"id": assignment.painter_id, "assignment_id": assignment.id, "name": assignment.painter.get_full_name() or assignment.painter.mobile, "mobile": assignment.painter.mobile, "status": assignment.status, "wage_type": assignment.wage_type, "agreed_wage": assignment.agreed_wage, "painter_note": assignment.painter_note} for assignment in item.painter_assignments.all()],
         "updated_at": item.updated_at,
     }
+    if viewer and viewer.role == BharathUser.Roles.CUSTOMER and quotation.property_id:
+        data["property_access"] = effective_property_permissions(viewer, quotation.property)
+    if (
+        viewer
+        and viewer.role == BharathUser.Roles.CUSTOMER
+        and quotation.property_id
+        and not has_property_access(viewer, quotation.property, PropertyPermission.VIEW_PAYMENTS)
+    ):
+        for field in (
+            "advance_amount", "receipt_advance_total", "payment_status", "payment_mode",
+            "payment_reference", "payment_note", "payment_submitted_at", "payment_confirmed_at",
+            "advance_receipt_number", "project_receipt_id",
+        ):
+            data.pop(field, None)
+    return data
 
 
 def work_photo_access(user, schedule):
     if user.role == BharathUser.Roles.ADMIN or user.is_superuser:
         return True
-    if schedule.quotation.contractor_id == user.id or schedule.quotation.customer.portal_user_id == user.id:
+    if schedule.quotation.contractor_id == user.id:
+        return True
+    property_obj = schedule.quotation.property
+    if user.role == BharathUser.Roles.CUSTOMER and property_obj:
+        return has_property_access(user, property_obj, PropertyPermission.VIEW_PROGRESS)
+    if user.role == BharathUser.Roles.CUSTOMER and schedule.quotation.customer.portal_user_id == user.id:
         return True
     return user.role == BharathUser.Roles.PAINTER and schedule.painter_assignments.filter(painter=user).exists()
 
@@ -269,7 +300,10 @@ class WorkPhotoListCreateView(APIView):
         if user.role == BharathUser.Roles.CONTRACTOR:
             return queryset.filter(quotation__contractor=user)
         if user.role == BharathUser.Roles.CUSTOMER:
-            return queryset.filter(quotation__customer__portal_user=user)
+            allowed_property_ids = accessible_properties(user, PropertyPermission.VIEW_PROGRESS).values("pk")
+            queryset = queryset.filter(quotation__property_id__in=allowed_property_ids)
+            property_id = self.request.query_params.get("property_id")
+            return queryset.filter(quotation__property_id=property_id) if property_id else queryset
         if user.role == BharathUser.Roles.PAINTER:
             return queryset.filter(painter_assignments__painter=user).distinct()
         return queryset.none()
@@ -282,6 +316,12 @@ class WorkPhotoListCreateView(APIView):
         )
         if schedule_id:
             photos = photos.filter(schedule_id=schedule_id)
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            photos = photos.filter(schedule__quotation__property_id=property_id)
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            photos = photos.filter(schedule__quotation__property_id=property_id)
         return Response({
             "schedules": [{
                 "id": item.id, "quotation_number": item.quotation.quotation_number,
@@ -391,18 +431,31 @@ class WorkScheduleListCreateView(APIView):
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             queryset = queryset.filter(quotation__contractor=request.user)
         elif request.user.role == BharathUser.Roles.CUSTOMER:
-            queryset = queryset.filter(quotation__customer__portal_user=request.user)
+            allowed_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_SCHEDULES).values("pk")
+            queryset = queryset.filter(quotation__property_id__in=allowed_property_ids)
+            property_id = request.query_params.get("property_id")
+            if property_id:
+                queryset = queryset.filter(quotation__property_id=property_id)
         else:
             queryset = queryset.none()
         items = list(queryset.order_by("-updated_at"))
-        data = [schedule_data(item) for item in items]
+        data = [schedule_data(item, request.user) for item in items]
         if request.user.role == BharathUser.Roles.CUSTOMER:
             WorkSchedule.objects.filter(pk__in=[item.pk for item in items], status__in=(WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED)).update(customer_seen_update_at=timezone.now())
         return Response(data)
 
     def post(self, request):
         quotation = Quotation.objects.select_related("customer", "contractor", "property").filter(pk=request.data.get("quotation")).first()
-        if not quotation or not (quotation.contractor_id == request.user.id or quotation.customer.portal_user_id == request.user.id):
+        customer_can_schedule = bool(
+            quotation
+            and request.user.role == BharathUser.Roles.CUSTOMER
+            and (
+                has_property_access(request.user, quotation.property, PropertyPermission.APPROVE_QUOTATIONS)
+                if quotation.property_id
+                else quotation.customer.portal_user_id == request.user.id
+            )
+        )
+        if not quotation or not (quotation.contractor_id == request.user.id or customer_can_schedule):
             return Response({"quotation": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         if quotation.status not in (Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.CONVERTED):
             return Response({"quotation": "The customer must accept the quotation before scheduling."}, status=status.HTTP_400_BAD_REQUEST)
@@ -434,6 +487,7 @@ class WorkScheduleListCreateView(APIView):
             return Response({"reason": "Give a reason for rescheduling the confirmed or proposed dates."}, status=status.HTTP_400_BAD_REQUEST)
         schedule_defaults = {
             "proposed_start_date": start, "proposed_end_date": end, "proposed_by": request.user,
+            "customer_contact": quotation.customer_contact,
             "previous_start_date": existing.proposed_start_date if existing else None,
             "previous_end_date": existing.proposed_end_date if existing else None,
             "reschedule_reason": reason,
@@ -464,6 +518,12 @@ class WorkScheduleAcceptView(APIView):
         item = WorkSchedule.objects.select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").filter(pk=pk).first()
         if not item or not schedule_access(request.user, item):
             return Response({"detail": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+        if (
+            request.user.role == BharathUser.Roles.CUSTOMER
+            and item.quotation.property_id
+            and not has_property_access(request.user, item.quotation.property, PropertyPermission.APPROVE_QUOTATIONS)
+        ):
+            return Response({"detail": "Only a contact with quotation approval rights can respond to this schedule."}, status=status.HTTP_403_FORBIDDEN)
         if item.proposed_start_date < timezone.localdate():
             return Response({"start_date": "These proposed dates have expired. The contractor must reschedule using today or a future date."}, status=status.HTTP_400_BAD_REQUEST)
         if request.user.role == BharathUser.Roles.CUSTOMER: item.customer_accepted = True
@@ -535,7 +595,15 @@ class WorkSchedulePaymentView(APIView):
             item.payment_mode = item.payment_reference = item.payment_note = ""
             item.payment_submitted_at = item.payment_confirmed_at = None
         elif action == "SUBMIT":
-            if request.user.id != item.quotation.customer.portal_user_id:
+            can_submit_payment = (
+                request.user.role == BharathUser.Roles.CUSTOMER
+                and (
+                    has_property_access(request.user, item.quotation.property, PropertyPermission.MAKE_PAYMENT)
+                    if item.quotation.property_id
+                    else request.user.id == item.quotation.customer.portal_user_id
+                )
+            )
+            if not can_submit_payment:
                 return Response({"detail": "Only the customer can submit payment details."}, status=status.HTTP_403_FORBIDDEN)
             if item.payment_status != WorkSchedule.PaymentStatus.AWAITING_PAYMENT:
                 return Response({"detail": "No advance payment is awaiting submission."}, status=status.HTTP_400_BAD_REQUEST)
@@ -600,7 +668,13 @@ class WorkScheduleAdvanceReceiptView(APIView):
         ).filter(pk=pk, payment_status=WorkSchedule.PaymentStatus.CONFIRMED).first()
         if not item or not schedule_access(request.user, item) or not item.advance_receipt_number:
             return Response({"detail": "Advance payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_advance_receipt_pdf(item), content_type="application/pdf")
+        if (
+            request.user.role == BharathUser.Roles.CUSTOMER
+            and item.quotation.property_id
+            and not has_property_access(request.user, item.quotation.property, PropertyPermission.VIEW_PAYMENTS)
+        ):
+            return Response({"detail": "Advance payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
+        response = HttpResponse(build_advance_receipt_pdf(item, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{item.advance_receipt_number}.pdf"'
         return response
 
@@ -622,7 +696,7 @@ class WorkScheduleCancelView(APIView):
         if item.quotation.status == Quotation.Status.SCHEDULED:
             item.quotation.status = Quotation.Status.ACCEPTED
             item.quotation.save(update_fields=("status", "updated_at"))
-        return Response(schedule_data(item))
+        return Response(schedule_data(item, request.user))
 
 
 class WorkScheduleProgressView(APIView):
@@ -697,6 +771,7 @@ def team_member_data(item, request):
         "email": painter.email,
         "bharath_id": painter.bharath_id,
         "profile_photo": request.build_absolute_uri(painter.profile_photo.url) if painter.profile_photo else None,
+        "profile_photo_position": ProfileImagePositionField().to_representation(painter.profile_photo_position),
         "experience_years": profile.experience_years if profile else 0,
         "skills": profile.skills if profile else "",
         "daily_wage": profile.daily_wage if profile else None,
@@ -1172,6 +1247,7 @@ class ApplicatorProfileView(APIView):
         return Response({
             "name": request.user.get_full_name() or request.user.mobile,
             "profile_photo": photo,
+            "profile_photo_position": ProfileImagePositionField().to_representation(request.user.profile_photo_position),
             "mobile": request.user.mobile,
             "email": request.user.email,
             "bharath_id": request.user.bharath_id,
@@ -1203,7 +1279,10 @@ class ApplicatorProfileView(APIView):
             request.user.last_name = parts[1] if len(parts) > 1 else ""
         if request.FILES.get("profile_photo"):
             request.user.profile_photo = request.FILES["profile_photo"]
-        request.user.save(update_fields=("first_name", "last_name", "profile_photo", "updated_at"))
+        if "profile_photo_position" in request.data:
+            serializer = ProfileImagePositionField()
+            request.user.profile_photo_position = serializer.to_internal_value(request.data["profile_photo_position"])
+        request.user.save(update_fields=("first_name", "last_name", "profile_photo", "profile_photo_position", "updated_at"))
         profile.save()
         return self.get(request)
 

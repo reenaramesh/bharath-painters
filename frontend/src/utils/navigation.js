@@ -44,7 +44,9 @@ export const MODULE_FALLBACKS = {
   // Leads
   "/leads/:id": "/leads",
 
-  // Sales opportunities
+  // Opportunities
+  "/opportunities": "/dashboard",
+  "/opportunities/new": "/opportunities",
   "/opportunities/:id": "/opportunities",
 
   // People
@@ -68,6 +70,12 @@ export const MODULE_FALLBACKS = {
   "/measurement-access": "/dashboard",
   "/measurement-trial": "/dashboard",
   "/coming-soon": "/dashboard",
+
+  // Subcontract outsourcing
+  "/subcontract-work-orders": "/dashboard",
+  "/subcontract-work-orders/:id": "/subcontract-work-orders",
+  "/contractor-network": "/dashboard",
+  "/provider-profile": "/dashboard",
 
   // Revenue / reports
   "/reports": "/dashboard",
@@ -100,6 +108,7 @@ const PATTERN_RULES = [
   [/^\/work-schedules\/\d+$/, "/work-schedules"],
   [/^\/work-reschedules\/\d+$/, "/work-reschedules"],
   [/^\/leads\/\d+$/, "/leads"],
+  [/^\/opportunities\/new$/, "/opportunities"],
   [/^\/opportunities\/\d+$/, "/opportunities"],
   [/^\/painters\/\d+$/, "/painters"],
   [/^\/contractors\/\d+$/, "/contractors"],
@@ -108,6 +117,10 @@ const PATTERN_RULES = [
   [/^\/applicator-team\/\d+$/, "/applicator-team"],
   [/^\/support-tickets\/\d+$/, "/support-tickets"],
   [/^\/service-requests\/\d+$/, "/service-requests"],
+  [/^\/subcontract-work-orders\/\d+$/, "/subcontract-work-orders"],
+  [/^\/subcontract-work-orders$/, "/dashboard"],
+  [/^\/contractor-network$/, "/dashboard"],
+  [/^\/provider-profile$/, "/dashboard"],
 ];
 
 /**

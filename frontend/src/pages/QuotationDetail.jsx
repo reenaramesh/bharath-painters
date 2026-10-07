@@ -15,8 +15,13 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
+import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
+import ProjectScopesPanel from "../components/ProjectScopesPanel";
+import { profileImageStyle } from "../utils/profileImagePosition";
+import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import "./quotation-measurement.css";
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
@@ -114,11 +119,7 @@ export default function QuotationDetail() {
       .catch(() => setError("Quotation could not be loaded."));
   }, [id]);
   if (!quotation)
-    return (
-      <p className="p-12 text-center text-slate-500">
-        {error || "Loading quotation..."}
-      </p>
-    );
+    return error ? <ErrorState message={error} /> : <LoadingState label="Loading quotation..." />;
   const contractor = quotation.contractor_details;
   const revisedDraft =
     quotation.status === "DRAFT" && Boolean(quotation.customer_response_note);
@@ -242,7 +243,7 @@ export default function QuotationDetail() {
     }
   }
   return (
-    <div className="bp-quotation-page space-y-6">
+    <div className="bp-quotation-page quotation-measurement-page bp-quotation-detail space-y-6">
       {location.state?.draftSaved && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Quotation draft saved.</p>}
       {pendingCustomerConnection && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">This quotation is a private draft. It can be sent after the customer accepts your connection request.</p>}
       <div className="quotation-toolbar flex flex-wrap items-center justify-between gap-3">
@@ -386,6 +387,7 @@ export default function QuotationDetail() {
                     ? "w-14 rounded-full object-cover"
                     : "w-24 rounded-xl object-contain p-1"
                 }`}
+                style={profileImageStyle(contractor.company_logo_position)}
               />
             ) : (
               <span className="grid h-14 w-14 place-items-center rounded-xl bg-slate-950 text-white">
@@ -422,22 +424,7 @@ export default function QuotationDetail() {
           </div>
         </div>
         <div className="quotation-number-header flex flex-col gap-3 border-b p-4 sm:flex-row sm:justify-between sm:p-5">
-          <div>
-            <p className="text-xs text-slate-500">Quotation</p>
-            <h1 className="mt-0.5 font-bold">
-              {quotation.quotation_number}
-            </h1>
-            <p className="mt-0.5 text-xs font-bold uppercase tracking-wide text-indigo-600">
-              Version {quotation.version_number || 1}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Created {quotation.quotation_date}
-              {quotation.valid_until && ` · Valid until ${quotation.valid_until}`}
-            </p>
-          </div>
-          <span className="h-fit rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
-            {quotation.status}
-          </span>
+          <PageHeader eyebrow="Quotation" title={quotation.quotation_number} description={`Version ${quotation.version_number || 1} · Created ${quotation.quotation_date}${quotation.valid_until ? ` · Valid until ${quotation.valid_until}` : ""}`} actions={<StatusBadge status={quotation.status} tone={quotationTone(quotation.status)} />} />
         </div>
         <div className="quotation-entity-cards grid gap-5 p-6 md:grid-cols-2">
           <Info
@@ -478,8 +465,8 @@ export default function QuotationDetail() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
                       Item {index + 1} · {item.service_category_name || "Service"}
                     </p>
-                    <h3 className="mt-1 truncate font-bold">
-                      {room?.name || "General"}
+                    <h3 className="mt-1 whitespace-normal font-bold">
+                      {quotationRoomAreaLabel(item) || room?.name || "General"}
                     </h3>
                     <p className="mt-0.5 truncate text-xs text-slate-300">
                       {item.paint_type_name || "Product not specified"}
@@ -532,7 +519,7 @@ export default function QuotationDetail() {
                 return <tr key={item.id} className="hover:bg-slate-50/70">
                   <td className="px-3 py-4 text-slate-400">{index + 1}</td>
                   <td className="px-3 py-4 font-semibold">{[item.service_category_name, item.service_type_name].filter(Boolean).join(" / ") || "-"}</td>
-                  <td className="px-3 py-4 font-semibold text-slate-700">{room?.name || "General"}</td>
+                  <td className="px-3 py-4 font-semibold text-slate-700">{quotationRoomAreaLabel(item) || room?.name || "General"}</td>
                   <td className="px-3 py-4"><p className="font-medium">{item.paint_type_name || "-"}</p><p className="mt-1 text-[11px] text-slate-500">{item.brand_name || "No brand"}</p></td>
                   <td className="break-words px-3 py-4 font-medium">{item.description}</td>
                   <td className="px-3 py-4 text-right"><p className="font-bold tabular-nums">{item.quantity}</p><p className="text-[11px] text-slate-500">{item.unit_name || "-"}</p></td>
@@ -571,6 +558,7 @@ export default function QuotationDetail() {
           </div>
         </div>
       </section>
+      <ProjectScopesPanel quotationId={id} />
       <section className="quotation-pdf-options rounded-2xl border bg-white p-5 sm:p-6" aria-labelledby="quotation-pdf-options-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -684,7 +672,7 @@ function InvoiceSetupDialog({ quotation, hsnCodes, setHsnCodes, converting, onCl
         {quotation.items.map((item, index) => {
           const room = quotation.rooms.find((entry) => Number(entry.id) === Number(item.room));
           return <label key={item.id || index} className="block rounded-2xl border p-4">
-            <span className="flex items-start justify-between gap-3"><span><small className="block font-bold uppercase tracking-wide text-amber-600">Item {index + 1}</small><b className="mt-1 block">{item.service_category_name || item.service_type_name || "Service"}</b><small className="text-slate-500">{room?.name || "General"} / {item.description}</small></span><b className="shrink-0">{money(item.amount)}</b></span>
+            <span className="flex items-start justify-between gap-3"><span><small className="block font-bold uppercase tracking-wide text-amber-600">Item {index + 1}</small><b className="mt-1 block">{item.service_category_name || item.service_type_name || "Service"}</b><small className="whitespace-normal text-slate-600">{quotationRoomAreaLabel(item) || room?.name || "General"} / {item.description}</small></span><b className="shrink-0">{money(item.amount)}</b></span>
             <span className="mt-3 block text-sm font-semibold">HSN/SAC code (optional)<input value={hsnCodes[index] || ""} onChange={(event) => update(index, event.target.value)} placeholder="Enter HSN or SAC code" className="mt-1.5 w-full rounded-xl border px-3 py-3 font-normal" /></span>
           </label>;
         })}
@@ -705,7 +693,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
     if (navigator.share)
       await navigator.share({
         title: quotation.quotation_number,
-        text: "View your Bharath Painters quotation",
+        text: "View your Bharath Apps quotation",
         url,
       });
     else await navigator.clipboard.writeText(url);
@@ -782,14 +770,22 @@ function Total({ label, value }) {
 function QuoteItemValue({ label, value, strong = false }) {
   return (
     <div className="min-w-0 bg-white px-3 py-3">
-      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className={`mt-1 truncate text-xs ${strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900"}`}>
+      <p className={`mt-1 truncate text-sm tabular-nums ${strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900"}`}>
         {value || "—"}
       </p>
     </div>
   );
+}
+
+function quotationTone(status) {
+  if (["ACCEPTED", "COMPLETED"].includes(status)) return "success";
+  if (["REJECTED", "CANCELLED"].includes(status)) return "danger";
+  if (["EXPIRED", "REVISION_REQUESTED"].includes(status)) return "warning";
+  if (["SENT", "VIEWED", "SCHEDULED", "IN_PROGRESS"].includes(status)) return "info";
+  return "neutral";
 }
 function QuotationItemMobileDialog({ item, room, index, close }) {
   return (
@@ -801,14 +797,14 @@ function QuotationItemMobileDialog({ item, room, index, close }) {
         <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white px-4 py-4">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Item {index + 1} · Quotation line</p>
-            <h2 className="truncate text-lg font-bold">{room?.name || "General"}</h2>
+            <h2 className="whitespace-normal text-lg font-bold">{quotationRoomAreaLabel(item) || room?.name || "General"}</h2>
           </div>
           <button type="button" onClick={close} aria-label="Close details" className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button>
         </header>
         <div className="space-y-4 p-4 pb-24">
           <div className="grid grid-cols-2 gap-3">
             <PopupValue label="Type of service" value={item.service_category_name} />
-            <PopupValue label="Room / Area" value={room?.name || "General"} />
+            <PopupValue label="Room / Area" value={quotationRoomAreaLabel(item) || room?.name || "General"} />
             <PopupValue label="Product type" value={item.paint_type_name} />
             <PopupValue label="Brand" value={item.brand_name} />
             <PopupValue label="MOU" value={item.unit_name} />

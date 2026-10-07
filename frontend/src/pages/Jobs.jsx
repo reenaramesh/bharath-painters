@@ -20,6 +20,8 @@ import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
 import MobilePageBack from "../components/MobilePageBack";
 import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import { EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./jobs-schedules.css";
 import {
   APPLICATOR_AVAILABILITY_PATH,
   paintingSkillOptions as skillOptions,
@@ -331,24 +333,12 @@ export default function Jobs() {
     .map((job) => ({ id: job.id, label: `${job.title} · ${job.start_date || "No start date"}` }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 jobs-schedules-page bp-jobs-page">
       <MobilePageBack />
-<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Work Network</p>
-          <h1 className="mt-1 text-3xl font-bold">
-            {t(contractor ? "Job requirements" : "Available Jobs")}
-          </h1>
-          <p className="mt-2 text-slate-500">
-            {contractor
-              ? "Post work and manage Paint Applicator applications from one synchronized list."
-              : "Find contractor requirements matching your location and apply directly."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")} description={contractor ? "Post requirements and manage Paint Applicator applications." : "Find contractor requirements that match your skills and location."} actions={<div className="flex flex-wrap gap-2">
           <Link
             to={APPLICATOR_AVAILABILITY_PATH}
-            className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+            className="bp-button bp-button-secondary inline-flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
             {t(contractor ? "Find Paint Applicators" : "Post my availability")}
@@ -356,14 +346,13 @@ export default function Jobs() {
           {contractor && (
             <button
               onClick={openForm}
-              className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              className="bp-button bp-button-primary inline-flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
               {t("Post requirement")}
             </button>
           )}
-        </div>
-      </header>
+      </div>} />
       <WorkNetworkTabs
         pathname={pathname}
         contractor={contractor}
@@ -371,10 +360,8 @@ export default function Jobs() {
         availabilityCount={availabilityCount}
       />
 
-      {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      )}
-      <section className="overflow-hidden rounded-2xl border bg-white">
+      {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
+      <SectionCard title="Job requirements" description={contractor ? "Review posted work and applicant activity." : "Compare work location, dates, crew size and wage."} className="job-list-card" bodyClassName="p-0">
         <div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -423,7 +410,7 @@ export default function Jobs() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-bold">{job.title}</h2>
-                      <Badge>{job.status}</Badge>
+                      <StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} />
                       <Badge>{job.job_type}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-slate-500">
@@ -437,7 +424,7 @@ export default function Jobs() {
                         job.required_skills ||
                         job.service_type}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+                    <div className="job-card-facts mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" />
                         {job.location}, {job.city}
@@ -446,7 +433,7 @@ export default function Jobs() {
                       {job.distance_km != null && <b className="text-blue-700">{job.distance_km} km away</b>}
                       <span className="flex items-center gap-1">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        {job.start_date} · {job.estimated_days} days
+                         {formatJobDate(job.start_date)} · {job.estimated_days} days
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
@@ -466,14 +453,14 @@ export default function Jobs() {
                   </div>
                   <div className="mt-auto pt-2">
                   {contractor ? (
-                    <button
-                      onClick={() => viewApplications(job)}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
-                    >
-                      <Eye className="h-4 w-4" /> View details
+                      <button
+                        onClick={() => viewApplications(job)}
+                        className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold"
+                      >
+                        <Eye className="h-4 w-4" /> Manage applicants
                     </button>
                   ) : (
-                    <button onClick={() => setDetailJob(job)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">
+                      <button onClick={() => setDetailJob(job)} className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold">
                       <Eye className="h-4 w-4" /> View details
                     </button>
                   )}
@@ -483,16 +470,12 @@ export default function Jobs() {
             ))}
           </div>
         ) : (
-          <div className="p-14 text-center">
-            <p className="text-slate-400">
-              {contractor
-                ? "No work requirements match these filters."
-                : "No available jobs match these filters."}
-            </p>
+          <div className="job-empty-state p-6 text-center sm:p-10">
+            <EmptyState title={contractor ? "No requirements found" : "No available jobs found"} description={contractor ? "Adjust your filters or post a new work requirement." : "Adjust your location or filters to look for matching work."} />
             {contractor ? (
               <button
                 onClick={openForm}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+                className="job-primary-action mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold"
               >
                 <Plus className="h-4 w-4" />
                 {t("Post requirement")}
@@ -508,7 +491,7 @@ export default function Jobs() {
             )}
           </div>
         )}
-      </section>
+      </SectionCard>
       {showForm && contractor && (
         <JobForm
           form={form}
@@ -548,10 +531,10 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
   const wage = job.job_type === "DAILY" ? job.daily_wage : job.weekly_wage;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-3xl">
+      <section className="job-detail-modal max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-3xl">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b bg-white p-5 sm:p-6">
           <div>
-            <div className="flex flex-wrap items-center gap-2"><Badge>{job.status}</Badge><Badge>{job.job_type}</Badge></div>
+            <div className="flex flex-wrap items-center gap-2"><StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} /><Badge>{job.job_type}</Badge></div>
             <h2 className="mt-3 text-2xl font-extrabold text-slate-950">{job.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{contractor ? `${job.applications_count} applications` : job.contractor_name}</p>
           </div>
@@ -596,8 +579,8 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
   const [targets, setTargets] = useState({});
   const selectableTargets = transferTargets || [];
   return (
-    <div className="mt-5 rounded-xl bg-slate-50 p-4">
-      <h3 className="font-bold">Paint Applicator applications</h3>
+          <div className="job-applications-panel mt-5 rounded-xl bg-slate-50 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold">Applicants</h3><span className="text-sm text-slate-500">{items.length} {items.length === 1 ? "response" : "responses"}</span></div>
       {items.length ? (
         <div className="mt-3 divide-y rounded-xl border bg-white">
           {items.map((item) => (
@@ -621,7 +604,7 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
                 )}
                 {item.transfer_request && <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"><p className="font-bold">Transfer requested: {item.transfer_request.target_job}</p><p className="mt-1">{item.transfer_request.target_start_date} to {item.transfer_request.target_end_date} · {item.transfer_request.reason}</p>{item.transfer_request.can_respond ? <div className="mt-2 flex gap-2"><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "REJECT")} className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 font-bold">Decline</button><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "ACCEPT")} className="rounded-lg bg-blue-700 px-3 py-1.5 font-bold text-white">Accept transfer</button></div> : <p className="mt-2 font-bold">Waiting for Paint Applicator approval</p>}</div>}
               </div>
-              <Badge>{item.status}</Badge>
+              <StatusBadge status={item.status} label={labelStatus(item.status)} tone={applicationTone(item.status)} />
               <div className="flex gap-2">
                 <a href={`tel:${item.mobile}`} title={`Call ${item.mobile}`} className="grid h-10 w-10 place-items-center rounded-lg border"><Phone className="h-4 w-4"/></a>
                 <button onClick={() => onMessage(item.painter_id)} title="Message applicator" className="grid h-10 w-10 place-items-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700"><MessageCircle className="h-4 w-4"/></button>
@@ -800,6 +783,31 @@ function Badge({ children }) {
       {String(children).replaceAll("_", " ")}
     </span>
   );
+}
+function labelStatus(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+function jobStatusTone(value) {
+  if (["FILLED", "COMPLETED"].includes(value)) return "success";
+  if (["CANCELLED"].includes(value)) return "danger";
+  if (["PARTIALLY_FILLED"].includes(value)) return "warning";
+  if (["OPEN", "IN_PROGRESS"].includes(value)) return "info";
+  return "neutral";
+}
+function applicationTone(value) {
+  if (["ACCEPTED", "COMPLETED"].includes(value)) return "success";
+  if (["REJECTED", "CANCELLED"].includes(value)) return "danger";
+  if (["CANCELLATION_REQUESTED"].includes(value)) return "warning";
+  if (["APPLIED", "ASSIGNED", "IN_PROGRESS"].includes(value)) return "info";
+  return "neutral";
+}
+function formatJobDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 function readError(error, fallback) {
   const data = error.response?.data;

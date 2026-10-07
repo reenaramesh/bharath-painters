@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Search } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import { EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./jobs-schedules.css";
+import "./painter-portal.css";
 
 const sections = [
   ["ALL", "All activity"],
@@ -162,22 +165,11 @@ export default function JobActivity() {
   }, [rows, search, section]);
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-amber-600">
-          People & workforce
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">Job Activity</h1>
-        <p className="mt-2 text-slate-500">
-          {user?.role === "CONTRACTOR"
-            ? "Review job posts, assignments, cancellation requests and work history."
-            : "Review accepted jobs, request cancellation when required and see your history."}
-        </p>
-      </header>
-      {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      )}
-      <section className="overflow-hidden rounded-2xl border bg-white">
+    <div className={`space-y-6 jobs-schedules-page bp-job-activity-page ${user?.role === "PAINTER" ? "painter-portal-page painter-job-activity-page" : ""}`}>
+      <PageHeader eyebrow="People and workforce" title="Job Activity" description={user?.role === "CONTRACTOR" ? "Review job posts, assignments, cancellation requests and work history." : "Review accepted jobs, request cancellation when required and see your history."} />
+      {user?.role === "PAINTER" && <section className="painter-activity-focus" aria-label="Painter job activity summary"><div><span>Accepted work</span><strong>{rows.filter((row) => row.status === "ACCEPTED").length}</strong><small>Jobs you have accepted</small></div><div className="is-action"><span>Waiting on action</span><strong>{rows.filter((row) => ["CANCELLATION_REQUESTED", "TRANSFER_REQUESTED"].includes(row.status)).length}</strong><small>Requests to review</small></div><div><span>History records</span><strong>{rows.filter((row) => row.section === "HISTORY").length}</strong><small>Past work activity</small></div></section>}
+      {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
+      <SectionCard title="Activity records" description={`${visible.length} matching activity ${visible.length === 1 ? "record" : "records"}`} className="job-activity-card" bodyClassName="p-0">
         <div className="grid gap-3 border-b p-4 lg:grid-cols-[1fr_190px_190px]">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -201,6 +193,7 @@ export default function JobActivity() {
             <button
               key={value}
               onClick={() => setSection(value)}
+              aria-pressed={section === value}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${section === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {label}{" "}
@@ -231,9 +224,7 @@ export default function JobActivity() {
                       {row.person || "—"}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase">
-                    {String(row.status).replaceAll("_", " ")}
-                  </span>
+                  <StatusBadge status={row.status} label={String(row.status).replaceAll("_", " ")} tone={activityTone(row.status)} />
                 </div>
               </header>
               <div className="grid grid-cols-2 gap-px bg-slate-200">
@@ -243,9 +234,9 @@ export default function JobActivity() {
                   </p>
                   <p className="mt-1 flex items-start gap-1 text-xs font-semibold">
                     <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    {row.start_date}
+                    {formatJobActivityDate(row.start_date)}
                     {row.end_date && row.end_date !== row.start_date
-                      ? ` to ${row.end_date}`
+                      ? ` to ${formatJobActivityDate(row.end_date)}`
                       : ""}
                   </p>
                 </div>
@@ -293,11 +284,7 @@ export default function JobActivity() {
               </div>
             </article>
           ))}
-          {!visible.length && (
-            <p className="p-10 text-center text-sm text-slate-400">
-              No job activity matches these filters.
-            </p>
-          )}
+          {!visible.length && <EmptyState title="No job activity found" description="Adjust the search or date filters to review other work." />}
         </div>
         <div
           className="hidden overflow-x-auto md:block"
@@ -331,9 +318,9 @@ export default function JobActivity() {
                   <td className="whitespace-nowrap px-4 py-4">
                     <span className="flex items-center gap-1">
                       <CalendarDays className="h-4 w-4 text-slate-400" />
-                      {row.start_date}
+                      {formatJobActivityDate(row.start_date)}
                       {row.end_date && row.end_date !== row.start_date
-                        ? ` to ${row.end_date}`
+                        ? ` to ${formatJobActivityDate(row.end_date)}`
                         : ""}
                     </span>
                   </td>
@@ -341,9 +328,7 @@ export default function JobActivity() {
                     {row.location || "—"}
                   </td>
                   <td className="px-4 py-4">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold">
-                      {String(row.status).replaceAll("_", " ")}
-                    </span>
+                    <StatusBadge status={row.status} label={String(row.status).replaceAll("_", " ")} tone={activityTone(row.status)} />
                   </td>
                   <td className="max-w-xs px-4 py-4 text-slate-500">
                     {row.cancellation_reason && (
@@ -381,13 +366,9 @@ export default function JobActivity() {
               ))}
             </tbody>
           </table>
-          {!visible.length && (
-            <p className="p-12 text-center text-slate-400">
-              No job activity matches these filters.
-            </p>
-          )}
+          {!visible.length && <EmptyState title="No job activity found" description="Adjust the search or date filters to review other work." />}
         </div>
-      </section>
+      </SectionCard>
     </div>
   );
 }
@@ -527,4 +508,18 @@ function DateField({ label, value, change, min }) {
       />
     </label>
   );
+}
+
+function activityTone(value) {
+  if (["ACCEPTED", "COMPLETED", "FILLED"].includes(value)) return "success";
+  if (["REJECTED", "CANCELLED"].includes(value)) return "danger";
+  if (["CANCELLATION_REQUESTED", "PENDING"].includes(value)) return "warning";
+  if (["APPLIED", "IN_PROGRESS", "ASSIGNED"].includes(value)) return "info";
+  return "neutral";
+}
+
+function formatJobActivityDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

@@ -1,12 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, Check, ExternalLink, MessageCircle, Share2, Star, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Building2,
+  Check,
+  ExternalLink,
+  MessageCircle,
+  Share2,
+  Star,
+  X,
+} from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api, { API_BASE_URL } from "../api/client";
 import ContractorConnectSearch from "../components/ContractorConnectSearch";
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SectionCard,
+  StatusBadge,
+} from "../components/ui";
+import "./customer-connections.css";
 
 const tabs = [
-  ["PENDING", "Pending"],
-  ["CONNECTED", "My contractors"],
+  ["PENDING", "Requests"],
+  ["CONNECTED", "Connected"],
   ["BLOCKED", "Blocked"],
 ];
 
@@ -15,22 +33,61 @@ export default function CustomerConnections() {
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
-  const [tab, setTab] = useState(searchParams.get("tab")?.toLowerCase() === "pending" ? "PENDING" : "CONNECTED");
-  useEffect(() => { setTab(searchParams.get("tab")?.toLowerCase() === "pending" ? "PENDING" : "CONNECTED"); }, [searchParams]);
+  const [tab, setTab] = useState(
+    searchParams.get("tab")?.toLowerCase() === "pending" ? "PENDING" : "CONNECTED",
+  );
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setTab(searchParams.get("tab")?.toLowerCase() === "pending" ? "PENDING" : "CONNECTED");
+  }, [searchParams]);
+
   const load = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
     try {
       const { data } = await api.get("/quotations/customer/connection-requests/");
       setItems(data.results || []);
       setPendingCount(data.pending_count || 0);
       setError("");
-    } catch { setError("Connection requests could not be loaded."); }
+    } catch {
+      setError("Your contractor connections could not be loaded.");
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { load(); }, [load]);
-  const visible = useMemo(() => items.filter((item) => tab === "PENDING" ? ["PENDING", "RECONNECT_PENDING", "REJECTED"].includes(item.status) : item.status === tab), [items, tab]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const visible = useMemo(
+    () =>
+      items.filter((item) =>
+        tab === "PENDING"
+          ? ["PENDING", "RECONNECT_PENDING", "REJECTED"].includes(item.status)
+          : item.status === tab,
+      ),
+    [items, tab],
+  );
+  const counts = useMemo(
+    () => ({
+      PENDING: pendingCount,
+      CONNECTED: items.filter((item) => item.status === "CONNECTED").length,
+      BLOCKED: items.filter((item) => item.status === "BLOCKED").length,
+    }),
+    [items, pendingCount],
+  );
+  const closeDialog = useCallback(() => {
+    setSelected(null);
+    setShareMessage("");
+  }, []);
 
   async function act(item, action, payload = {}) {
     if (!window.confirm(confirmText(item, action))) return;
@@ -44,22 +101,39 @@ export default function CustomerConnections() {
       setSelected(null);
       await load();
       if (action === "block") setTab("BLOCKED");
-      if (action === "unblock") setTab(item.status_before_block === "CONNECTED" ? "CONNECTED" : "PENDING");
+      if (action === "unblock") {
+        setTab(item.status_before_block === "CONNECTED" ? "CONNECTED" : "PENDING");
+      }
       window.dispatchEvent(new Event("portal-counts-changed"));
     } catch (requestError) {
       const response = requestError.response?.data;
-      setError(response?.detail || response?.action || `The connection could not be updated${requestError.response?.status ? ` (HTTP ${requestError.response.status})` : ""}.`);
-    } finally { setBusy(false); }
+      setError(
+        response?.detail ||
+          response?.action ||
+          `The connection could not be updated${requestError.response?.status ? ` (HTTP ${requestError.response.status})` : ""}.`,
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function shareProfile(item) {
     const url = contractorProfileUrl(item.contractor?.contractor_id);
     if (!url) return;
     try {
-      if (navigator.share) await navigator.share({ title: `${item.contractor.business_name} | Bharath Painters`, url });
-      else { await navigator.clipboard.writeText(url); setShareMessage("Contractor profile link copied."); }
+      if (navigator.share) {
+        await navigator.share({
+          title: `${item.contractor.business_name} | Bharath Apps`,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareMessage("Contractor profile link copied.");
+      }
     } catch (shareError) {
-      if (shareError.name !== "AbortError") setShareMessage("Profile could not be shared on this device.");
+      if (shareError.name !== "AbortError") {
+        setShareMessage("Profile could not be shared on this device.");
+      }
     }
   }
 
@@ -68,7 +142,9 @@ export default function CustomerConnections() {
     setBusy(true);
     setError("");
     try {
-      const { data } = await api.post("/quotations/chat/conversations/", { connection: item.id });
+      const { data } = await api.post("/quotations/chat/conversations/", {
+        connection: item.id,
+      });
       navigate(`/messages?conversation=${data.id}`);
     } catch (requestError) {
       setError(requestError.response?.data?.connection || "Conversation could not be opened.");
@@ -77,37 +153,445 @@ export default function CustomerConnections() {
     }
   }
 
-  return <div className="space-y-6">
-    <header><p className="text-sm font-bold text-indigo-600">Customer privacy</p><h1 className="mt-1 text-3xl font-extrabold text-slate-950">My Contractors</h1><p className="mt-2 max-w-2xl text-slate-500">Choose which contractors may create and share records for your account. Each contractor sees only their own work.</p></header>
-    {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    <ContractorConnectSearch onConnected={async () => { await load(); setTab("CONNECTED"); }} />
-    <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">{tabs.map(([value, label]) => <button key={value} onClick={() => setTab(value)} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${tab === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{label}{value === "PENDING" && pendingCount > 0 ? ` (${pendingCount})` : ""}</button>)}</nav>
-    <section className="grid gap-4 lg:grid-cols-2">
-      {visible.map((item) => <ConnectionCard key={item.id} item={item} busy={busy} onView={() => setSelected(item)} onAct={act} onMessage={openMessage} />)}
-      {!visible.length && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {tab.toLowerCase()} connections.</div>}
-    </section>
-    {selected && <ContractorDialog item={selected} onClose={() => { setSelected(null); setShareMessage(""); }} onAct={act} onShare={shareProfile} shareMessage={shareMessage} busy={busy} />}
-  </div>;
+  return (
+    <div className="customer-connections-page space-y-6">
+      <PageHeader
+        eyebrow="Your network"
+        title="Your contractors"
+        description="Connect with contractors you choose. Each contractor can see and share records only for work connected to your account."
+      />
+
+      {error && !loadFailed && (
+        <p className="connections-alert" role="alert">
+          {error}
+        </p>
+      )}
+
+      <ContractorConnectSearch
+        onConnected={async () => {
+          await load();
+          setTab("CONNECTED");
+        }}
+      />
+
+      <div className="customer-connection-tabs" role="group" aria-label="Filter contractor connections">
+        {tabs.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={tab === value}
+            onClick={() => setTab(value)}
+          >
+            {label}
+            <span>{counts[value] || 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <SectionCard
+        title={tabLabel(tab)}
+        description={
+          tab === "PENDING"
+            ? "Review incoming requests or a previous request response."
+            : tab === "CONNECTED"
+              ? "Contractors you have connected with."
+              : "Contractors you have blocked from connecting."
+        }
+        className="customer-connections-list"
+        bodyClassName="p-0"
+      >
+        {loadFailed ? (
+          <ErrorState message={error} onRetry={load} className="connections-state" />
+        ) : loading ? (
+          <LoadingState label="Loading your contractor connections…" className="connections-state" />
+        ) : visible.length ? (
+          <div className="connection-card-grid">
+            {visible.map((item) => (
+              <ConnectionCard
+                key={item.id}
+                item={item}
+                busy={busy}
+                onView={() => setSelected(item)}
+                onAct={act}
+                onMessage={openMessage}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title={emptyTitle(tab)}
+            description={emptyDescription(tab)}
+            className="connections-state"
+          />
+        )}
+      </SectionCard>
+
+      {selected && (
+        <ContractorDialog
+          item={selected}
+          onClose={closeDialog}
+          onAct={act}
+          onShare={shareProfile}
+          onMessage={openMessage}
+          shareMessage={shareMessage}
+          busy={busy}
+        />
+      )}
+    </div>
+  );
 }
 
 function ConnectionCard({ item, onView, onAct, onMessage, busy }) {
   const contractor = item.contractor || {};
-  return <article className="rounded-2xl border bg-white p-5 shadow-sm">
-    <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><Building2 className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="truncate font-extrabold text-slate-950">{contractor.business_name}</h2><p className="mt-0.5 text-sm text-slate-500">{contractor.contractor_id || "Bharath Painters Contractor"}</p></div><Status value={item.status} /></div>
-    <p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>
-    {item.counts && <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs"><Metric label="Quotations" value={item.counts.quotations} /><Metric label="Calculations" value={item.counts.area_calculations} /><Metric label="Projects" value={item.counts.active_projects} /></div>}
-    <div className="mt-5 flex flex-wrap gap-2"><button onClick={onView} className="rounded-xl border px-4 py-2 text-sm font-bold">View details</button>{item.status === "CONNECTED" && <button type="button" disabled={busy} onClick={() => onMessage(item)} className="flex items-center gap-2 rounded-xl bg-[#176b9b] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><MessageCircle className="h-4 w-4" />Message contractor</button>}{["PENDING", "RECONNECT_PENDING"].includes(item.status) && <><button disabled={busy} onClick={() => onAct(item, "accept")} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white">Accept</button><button disabled={busy} onClick={() => onAct(item, "reject")} className="rounded-xl bg-red-50 px-4 py-2 text-sm font-bold text-red-700">Reject</button></>}{item.status === "REJECTED" && <button disabled={busy || (item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => onAct(item, "connect-back")} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Connect Back</button>}{item.status !== "BLOCKED" && <button disabled={busy} onClick={() => onAct(item, "block")} className="rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700">Block</button>}{item.status === "BLOCKED" && <button disabled={busy} onClick={() => onAct(item, "unblock")} className="rounded-xl border px-4 py-2 text-sm font-bold">Unblock</button>}</div>
-  </article>;
+  const statusLabel = connectionStatusLabel(item.status);
+  return (
+    <article className="connection-card">
+      <div className="connection-card-heading">
+        <span className="connection-card-icon" aria-hidden="true">
+          <Building2 />
+        </span>
+        <div className="connection-card-identity">
+          <h2>{contractor.business_name || "Contractor"}</h2>
+          <p>{contractor.contractor_id || "Bharath Apps Contractor"}</p>
+        </div>
+        <StatusBadge status={item.status} label={statusLabel} tone={connectionTone(item.status)} />
+      </div>
+
+      {contractor.is_verified && (
+        <p className="connection-verification">
+          <Check aria-hidden="true" /> Verified contractor
+        </p>
+      )}
+
+      <p className="connection-date">
+        {item.status === "CONNECTED" ? "Connected" : "Requested"} {formatConnectionDate(item.connected_at || item.requested_at)}
+      </p>
+
+      {item.status === "CONNECTED" && item.counts && (
+        <div className="connection-activity-summary" aria-label="Work shared with this contractor">
+          <Metric label="Quotations" value={item.counts.quotations} />
+          <Metric label="Area calculations" value={item.counts.area_calculations} />
+          <Metric label="Active projects" value={item.counts.active_projects} />
+        </div>
+      )}
+
+      {item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && (
+        <p className="connection-cooldown" role="status">
+          You can send another request after {formatConnectionDate(item.cooldown_until)}.
+        </p>
+      )}
+
+      <div className="connection-card-actions">
+        <Button variant="secondary" onClick={onView} className="connection-view-action">
+          View contractor
+        </Button>
+        {item.status === "CONNECTED" && (
+          <Button onClick={() => onMessage(item)} disabled={busy}>
+            <MessageCircle aria-hidden="true" />
+            Message contractor
+          </Button>
+        )}
+        {["PENDING", "RECONNECT_PENDING"].includes(item.status) && (
+          <>
+            <Button onClick={() => onAct(item, "accept")} disabled={busy}>
+              Accept request
+            </Button>
+            <Button variant="danger" onClick={() => onAct(item, "reject")} disabled={busy}>
+              Decline
+            </Button>
+          </>
+        )}
+        {item.status === "REJECTED" && (
+          <Button
+            variant="secondary"
+            onClick={() => onAct(item, "connect-back")}
+            disabled={busy || Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())}
+          >
+            Request connection again
+          </Button>
+        )}
+        {item.status === "BLOCKED" ? (
+          <Button variant="secondary" onClick={() => onAct(item, "unblock")} disabled={busy}>
+            Unblock contractor
+          </Button>
+        ) : (
+          <Button variant="danger" onClick={() => onAct(item, "block")} disabled={busy}>
+            Block
+          </Button>
+        )}
+      </div>
+    </article>
+  );
 }
 
-function ContractorDialog({ item, onClose, onAct, onShare, shareMessage, busy }) {
+function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessage, busy }) {
   const contractor = item.contractor || {};
   const profileUrl = contractorProfileUrl(contractor.contractor_id);
-  return <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/50 p-0 sm:place-items-center sm:p-4"><section role="dialog" aria-modal="true" aria-label={`${contractor.business_name} profile`} className="max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl"><div className="rounded-t-3xl bg-gradient-to-r from-[#14374a] to-[#508398] p-5 text-white sm:p-6"><div className="flex justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-white/75">Contractor profile</p><h2 className="mt-2 text-2xl font-extrabold">{contractor.business_name}</h2><p className="mt-1 text-sm text-white/80">{contractor.name}</p></div><button onClick={onClose} aria-label="Close profile" className="h-10 rounded-xl bg-white/15 p-2 hover:bg-white/25"><X className="h-5 w-5" /></button></div><div className="mt-4 flex flex-wrap items-center gap-2 text-xs"><span className="rounded-full bg-white/15 px-3 py-1.5">{contractor.contractor_id}</span>{contractor.is_verified && <span className="rounded-full bg-emerald-100 px-3 py-1.5 font-bold text-emerald-800">Verified contractor</span>}</div></div><div className="p-5 sm:p-6"><div className="grid grid-cols-3 gap-2 text-center"><Metric label="Years" value={contractor.years_in_business} /><Metric label="Workers" value={contractor.workers} /><Metric label="Projects" value={contractor.completed_projects} /></div>{contractor.public_rating && <p className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{contractor.public_rating} / 5 from {contractor.review_count} customer reviews</p>}<dl className="mt-5 grid gap-4 rounded-2xl border border-slate-200 p-4 text-sm sm:grid-cols-2"><Info label="Service areas" value={contractor.service_areas || "Not specified"} /><Info label="Work skills" value={contractor.work_skills || "Not specified"} /></dl><div className="mt-5 grid grid-cols-2 gap-2"><a href={profileUrl || "#"} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-3 text-xs font-bold text-white sm:text-sm"><ExternalLink className="h-4 w-4" />Open full profile</a><button type="button" onClick={() => onShare(item)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#b9d1dc] px-3 text-xs font-bold text-[#1d5e7b] sm:text-sm"><Share2 className="h-4 w-4" />Share profile</button></div>{shareMessage && <p role="status" className="mt-2 text-xs text-[#1d5e7b]">{shareMessage}</p>}{item.status === "PENDING" && <div className="mt-5 flex flex-wrap gap-2 border-t pt-5"><button disabled={busy} onClick={() => onAct(item, "accept")} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><Check className="h-4 w-4" />Accept connection</button><button disabled={busy} onClick={() => onAct(item, "reject")} className="rounded-xl border border-red-200 px-4 py-3 font-bold text-red-700">Reject</button></div>}</div></section></div>;
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    closeButtonRef.current?.focus();
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="contractor-dialog-backdrop fixed inset-0 z-50 grid place-items-end bg-slate-950/55 sm:place-items-center sm:p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-contractor-dialog-title"
+        tabIndex={-1}
+        className="contractor-profile-dialog max-h-[calc(100dvh-0.5rem)] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:my-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-3xl"
+      >
+        <header className="contractor-profile-header rounded-t-3xl bg-gradient-to-r from-[#14374a] to-[#508398] p-5 text-white sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/75">Contractor profile</p>
+              <h2 id="customer-contractor-dialog-title" className="mt-2 break-words text-2xl font-extrabold">
+                {contractor.business_name || "Contractor"}
+              </h2>
+              <p className="mt-1 break-words text-sm text-white/85">{contractor.name}</p>
+            </div>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Close contractor profile"
+              className="contractor-dialog-close"
+            >
+              <X aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {contractor.contractor_id && <span className="contractor-identity-id">{contractor.contractor_id}</span>}
+            <StatusBadge status={item.status} label={connectionStatusLabel(item.status)} tone="neutral" className="contractor-dialog-connection-status" />
+            {contractor.is_verified && <StatusBadge status="VERIFIED" label="Verified contractor" tone="success" />}
+            {!contractor.is_verified && contractor.verification_status && <StatusBadge status={contractor.verification_status} label={verificationLabel(contractor.verification_status)} tone={verificationTone(contractor.verification_status)} />}
+          </div>
+        </header>
+
+        <div className="contractor-profile-body p-5 sm:p-6">
+          <div className="contractor-profile-stats">
+            <Metric label="Years in business" value={contractor.years_in_business} />
+            <Metric label="Team members" value={contractor.workers} />
+            <Metric label="Completed projects" value={contractor.completed_projects} />
+          </div>
+
+          {contractor.public_rating != null && (
+            <p className="contractor-public-rating" aria-label={`${contractor.public_rating} out of 5 from ${contractor.review_count || 0} reviews`}>
+              <Star aria-hidden="true" />
+              <strong>{contractor.public_rating} / 5</strong>
+              <span>{contractor.review_count || 0} customer reviews</span>
+            </p>
+          )}
+
+          <dl className="contractor-profile-details">
+            <Info label="Service areas" value={contractor.service_areas || "Not specified"} />
+            <Info label="Services and skills" value={contractor.work_skills || "Not specified"} />
+          </dl>
+
+          <div className="contractor-profile-links">
+            {profileUrl && (
+              <a href={profileUrl} target="_blank" rel="noreferrer" className="bp-button bp-button-secondary">
+                <ExternalLink aria-hidden="true" />
+                Open full profile
+              </a>
+            )}
+            {item.status === "CONNECTED" && (
+              <Button onClick={() => onMessage(item)} disabled={busy}>
+                <MessageCircle aria-hidden="true" />
+                Message contractor
+              </Button>
+            )}
+            {item.status === "PENDING" && (
+              <Button onClick={() => onAct(item, "accept")} disabled={busy}>
+                <Check aria-hidden="true" />
+                Accept request
+              </Button>
+            )}
+            {item.status === "RECONNECT_PENDING" && (
+              <Button onClick={() => onAct(item, "accept")} disabled={busy}>
+                <Check aria-hidden="true" />
+                Accept reconnection
+              </Button>
+            )}
+            {item.status === "REJECTED" && (
+              <Button
+                onClick={() => onAct(item, "connect-back")}
+                disabled={busy || Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())}
+              >
+                Request connection again
+              </Button>
+            )}
+            {item.status === "BLOCKED" && (
+              <Button variant="secondary" onClick={() => onAct(item, "unblock")} disabled={busy}>
+                Unblock contractor
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => onShare(item)}>
+              <Share2 aria-hidden="true" />
+              Share profile
+            </Button>
+          </div>
+          {item.status === "PENDING" || item.status === "RECONNECT_PENDING" ? (
+            <div className="contractor-dialog-request-actions">
+              <Button variant="danger" onClick={() => onAct(item, "reject")} disabled={busy}>
+                Decline request
+              </Button>
+            </div>
+          ) : null}
+          {item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && (
+            <p className="contractor-dialog-cooldown" role="status">
+              You can send another request after {formatConnectionDate(item.cooldown_until)}.
+            </p>
+          )}
+          {shareMessage && <p role="status" className="contractor-dialog-share-status">{shareMessage}</p>}
+          {item.status === "CONNECTED" && (
+            <div className="contractor-dialog-danger-action">
+              <Button variant="danger" onClick={() => onAct(item, "block")} disabled={busy}>
+                Block contractor
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }
 
-function Status({ value }) { const style = value === "CONNECTED" ? "bg-emerald-50 text-emerald-700" : ["PENDING", "RECONNECT_PENDING"].includes(value) ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"; const labels = { PENDING: "Pending", CONNECTED: "Connected", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" }; return <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${style}`}>{labels[value] || value.replaceAll("_", " ")}</span>; }
-function Metric({ label, value }) { return <div className="rounded-xl bg-slate-50 p-2"><b className="block text-base text-slate-900">{value || 0}</b><span className="text-slate-500">{label}</span></div>; }
-function Info({ label, value }) { return <div><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-1 font-semibold text-slate-800">{value || "—"}</dd></div>; }
-function confirmText(item, action) { const name = item.contractor?.business_name || "this contractor"; return ({ accept: `Connect with ${name}? They can create records only for their work with you.`, reject: `Reject the request from ${name}?`, block: `Block ${name}? They will not be able to send more requests.`, unblock: `Unblock ${name}?`, "connect-back": `Ask to reconnect with ${name}?` })[action] || `Update ${name}?`; }
-function contractorProfileUrl(bharathId) { return bharathId ? new URL(`${API_BASE_URL.replace(/\/$/, "")}/accounts/verify-page/${encodeURIComponent(bharathId)}/`, window.location.origin).href : ""; }
+function connectionStatusLabel(status) {
+  return ({
+    PENDING: "Connection request pending",
+    RECONNECT_PENDING: "Reconnection request pending",
+    CONNECTED: "Connected",
+    REJECTED: "Request declined",
+    BLOCKED: "Blocked",
+    DISCONNECTED: "Disconnected",
+  })[status] || readableStatus(status);
+}
+
+function connectionTone(status) {
+  if (status === "CONNECTED") return "success";
+  if (["PENDING", "RECONNECT_PENDING"].includes(status)) return "warning";
+  if (status === "BLOCKED") return "danger";
+  return "neutral";
+}
+
+function verificationLabel(status) {
+  return ({
+    PENDING: "Verification pending",
+    UNDER_REVIEW: "Verification in review",
+    REJECTED: "Verification not approved",
+    SUSPENDED: "Verification suspended",
+  })[status] || `Verification ${readableStatus(status).toLowerCase()}`;
+}
+
+function verificationTone(status) {
+  if (status === "UNDER_REVIEW") return "warning";
+  if (["REJECTED", "SUSPENDED"].includes(status)) return "danger";
+  return "neutral";
+}
+
+function readableStatus(value) {
+  return String(value || "Status unavailable")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function emptyTitle(tab) {
+  if (tab === "PENDING") return "No connection requests";
+  if (tab === "BLOCKED") return "No blocked contractors";
+  return "No contractors connected yet";
+}
+
+function emptyDescription(tab) {
+  if (tab === "PENDING") return "New requests and previous responses will appear here.";
+  if (tab === "BLOCKED") return "Contractors you block will be listed here.";
+  return "Search by a contractor’s mobile number to connect, or ask them to send you a request.";
+}
+
+function tabLabel(tab) {
+  return tabs.find(([value]) => value === tab)?.[1] || "Contractors";
+}
+
+function formatConnectionDate(value) {
+  if (!value) return "date unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="connection-metric">
+      <b>{value ?? 0}</b>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="contractor-profile-info">
+      <dt>{label}</dt>
+      <dd>{value || "Not specified"}</dd>
+    </div>
+  );
+}
+
+function confirmText(item, action) {
+  const name = item.contractor?.business_name || "this contractor";
+  return ({
+    accept: `Connect with ${name}? They can create records only for their work with you.`,
+    reject: `Reject the request from ${name}?`,
+    block: `Block ${name}? They will not be able to send more requests.`,
+    unblock: `Unblock ${name}?`,
+    "connect-back": `Ask to reconnect with ${name}?`,
+  })[action] || `Update ${name}?`;
+}
+
+function contractorProfileUrl(bharathId) {
+  return bharathId
+    ? new URL(
+        `${API_BASE_URL.replace(/\/$/, "")}/accounts/verify-page/${encodeURIComponent(bharathId)}/`,
+        window.location.origin,
+      ).href
+    : "";
+}

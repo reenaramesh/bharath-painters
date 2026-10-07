@@ -2,6 +2,8 @@
 
 from io import BytesIO
 
+from PIL import Image as PILImage, ImageOps
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader, simpleSplit
@@ -15,12 +17,38 @@ LINE = colors.HexColor("#DBE7ED")
 MUTED = colors.HexColor("#607786")
 
 
-def _image(pdf, image, x, y, width, height):
+def _image(pdf, image, x, y, width, height, position=None, cover=True):
     if not image:
         return False
     try:
         image.open("rb")
-        pdf.drawImage(ImageReader(image), x, y, width, height, preserveAspectRatio=True, anchor="c", mask="auto")
+        if position:
+            frame_width, frame_height = max(1, round(width * 3)), max(1, round(height * 3))
+            zoom = min(3, max(1, float(position.get("zoom", 1))))
+            focus_x = min(100, max(0, float(position.get("x", 50)))) / 100
+            focus_y = min(100, max(0, float(position.get("y", 50)))) / 100
+            with PILImage.open(image) as source:
+                source = ImageOps.exif_transpose(source).convert("RGBA")
+                if cover:
+                    expanded = (max(1, round(frame_width * zoom)), max(1, round(frame_height * zoom)))
+                    fitted = ImageOps.fit(source, expanded, method=PILImage.Resampling.LANCZOS, centering=(focus_x, focus_y))
+                    left = max(0, (expanded[0] - frame_width) // 2)
+                    top = max(0, (expanded[1] - frame_height) // 2)
+                    rendered = fitted.crop((left, top, left + frame_width, top + frame_height))
+                else:
+                    contained = ImageOps.contain(source, (frame_width, frame_height), method=PILImage.Resampling.LANCZOS)
+                    contained = contained.resize((max(1, round(contained.width * zoom)), max(1, round(contained.height * zoom))), PILImage.Resampling.LANCZOS)
+                    canvas_image = PILImage.new("RGBA", (frame_width, frame_height), (255, 255, 255, 0))
+                    left = round((frame_width - contained.width) * focus_x)
+                    top = round((frame_height - contained.height) * focus_y)
+                    canvas_image.paste(contained, (left, top), contained)
+                    rendered = canvas_image
+            buffer = BytesIO()
+            rendered.save(buffer, format="PNG")
+            buffer.seek(0)
+            pdf.drawImage(ImageReader(buffer), x, y, width, height, mask="auto")
+        else:
+            pdf.drawImage(ImageReader(image), x, y, width, height, preserveAspectRatio=True, anchor="c", mask="auto")
         return True
     except (OSError, ValueError):
         return False
@@ -55,23 +83,23 @@ def render_contractor_card_pdf(user, card, profile_url):
 
     pdf.setFillColor(colors.white)
     pdf.roundRect(48, height - 100, 194, 56, 8, fill=1, stroke=0)
-    if not _image(pdf, profile.company_logo, 55, height - 94, 180, 44):
+    if not _image(pdf, profile.company_logo, 55, height - 94, 180, 44, card.get("logo_position"), cover=False):
         _line(pdf, card["title"], 59, height - 76, 174, 13, color=NAVY, max_lines=1)
     pdf.setFillColor(colors.white)
     pdf.setFont("Helvetica-Bold", 10)
     pdf.drawRightString(width - 49, height - 63, card["bharath_id"] or "")
     pdf.setFont("Helvetica", 9)
-    pdf.drawRightString(width - 49, height - 80, "Bharath Painters verified profile")
+    pdf.drawRightString(width - 49, height - 80, f"{card.get('platform_name', 'Bharath Apps')} verified profile")
 
     pdf.setFillColor(PALE)
     pdf.roundRect(48, height - 230, 82, 94, 10, fill=1, stroke=0)
-    if not _image(pdf, user.profile_photo, 51, height - 227, 76, 88):
+    if not _image(pdf, user.profile_photo, 51, height - 227, 76, 88, card.get("owner_photo_position"), cover=True):
         pdf.setFillColor(MUTED)
         pdf.setFont("Helvetica", 8)
         pdf.drawCentredString(89, height - 185, "Photo not added")
     pdf.setFillColor(TEAL)
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(146, height - 173, "PAINTING CONTRACTOR")
+    pdf.drawString(146, height - 173, str(card.get("profession_label", "Contractor")).upper())
     _line(pdf, card["title"], 146, height - 196, 320, 21, 23, NAVY, 1)
     _line(pdf, card["owner_name"], 146, height - 214, 290, 10, 13, MUTED, 1)
     if user.bharath_qr:
@@ -182,7 +210,7 @@ def render_contractor_card_pdf(user, card, profile_url):
     _line(pdf, f"Profile: {profile_url}", 48, profile_y, width - 96, 8, 11, TEAL, 2)
     pdf.setFillColor(MUTED)
     pdf.setFont("Helvetica", 8)
-    pdf.drawString(48, footer_y, "Verified by Bharath Painters")
+    pdf.drawString(48, footer_y, f"Verified by {card.get('platform_name', 'Bharath Apps')}")
     pdf.drawRightString(width - 48, footer_y, card["bharath_id"] or "")
     if card["projects"] or card["customer_reviews"]["items"]:
         pdf.showPage()

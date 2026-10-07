@@ -1,0 +1,88 @@
+.navp { --nav-bg: var(--bp-canvas, #f4f6fa); --nav-card: var(--bp-card, #fff); --nav-text: var(--bp-ink, #172033); --nav-muted: var(--bp-muted, #667085); --nav-line: var(--bp-line, #e5e9f2); --nav-brand: var(--bp-brand, #176b9b); --nav-active: #e8f2f8; display: flex; min-height: 100dvh; background: var(--nav-bg); color: var(--nav-text); font-size: 14px; }
+.navp-dark { --nav-bg: #101827; --nav-card: #172235; --nav-text: #edf3fc; --nav-muted: #a9b8ce; --nav-line: #31405a; --nav-brand: #8bc9ee; --nav-active: #243e57; color-scheme: dark; }
+.navp button, .navp a, .navp select, .navp input { outline-offset: 3px; }
+.navp :focus-visible { outline: 3px solid var(--nav-brand); }
+.navp button { cursor: pointer; }
+.navp-sidebar { position: sticky; top: 0; width: 250px; flex-shrink: 0; height: 100dvh; display: flex; flex-direction: column; background: var(--nav-card); border-right: 1px solid var(--nav-line); z-index: 30; }
+.navp-sidebar.is-rail { width: 72px; }
+.navp-brand { display: flex; align-items: center; gap: 10px; padding: 20px 15px; min-height: 88px; border-bottom: 1px solid var(--nav-line); }
+.navp-logo { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: #176b9b; color: white; }
+.navp-brand div { min-width: 0; }
+.navp-brand strong, .navp-brand span:not(.navp-logo) { display: block; }
+.navp-brand strong { font-size: 16px; }
+.navp-brand div span { margin-top: 3px; color: var(--nav-muted); font-size: 12px; overflow: hidden; display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.navp-collapse { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--nav-muted); margin: 8px; min-height: 44px; border-radius: 9px; }
+.navp-scroll { overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; padding: 0 10px 12px; }
+.navp-group { margin-top: 8px; }
+.navp-group-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 44px; padding: 8px 10px; font-size: 11px; font-weight: 750; color: var(--nav-muted); text-transform: uppercase; letter-spacing: .045em; border-radius: 9px; }
+.navp-group-trigger .is-open { transform: rotate(180deg); }
+.navp-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px; border-radius: 9px; text-align: left; font-size: 13px; font-weight: 550; }
+.navp-item svg { flex-shrink: 0; color: var(--nav-muted); }
+.navp-item span:first-of-type { flex: 1; min-width: 0; }
+.navp-item:hover, .navp-group-trigger:hover, .navp-collapse:hover, .navp-icon-button:hover { background: var(--nav-active); }
+.navp .is-active, .navp .has-active { background: var(--nav-active); color: var(--nav-brand); }
+.navp-item.is-active { box-shadow: inset 3px 0 var(--nav-brand); font-weight: 750; }
+.navp-item.is-active svg { color: var(--nav-brand); }
+.navp-badge { border-radius: 7px; padding: 1px 6px; background: var(--nav-active); color: var(--nav-brand); font-size: 11px; font-weight: 800; }
+.navp-account { border-top: 1px solid var(--nav-line); padding: 8px 10px; }
+.is-rail .navp-expanded { display: none; }
+.is-rail .navp-group-trigger, .navp-icon-button { display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; border-radius: 10px; }
+.navp-tooltip { display: none; position: fixed; left: 78px; background: var(--nav-text); color: var(--nav-card); border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; text-transform: none; white-space: nowrap; z-index: 60; pointer-events: none; }
+.is-rail button:hover .navp-tooltip, .is-rail button:focus-visible .navp-tooltip { display: block; }
+.navp-flyout { position: fixed; z-index: 50; left: 82px; top: 110px; width: 260px; max-height: calc(100dvh - 130px); overflow-y: auto; border: 1px solid var(--nav-line); border-radius: 14px; background: var(--nav-card); padding: 10px; box-shadow: var(--bp-shadow); }
+.navp-flyout-title { display: flex; justify-content: space-between; align-items: center; padding-left: 10px; }
+.navp-flyout-title button { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+.navp-main { flex: 1; min-width: 0; }
+.navp-topbar { display: flex; align-items: center; gap: 12px; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--nav-line); background: var(--nav-card); }
+.navp-topbar div { flex: 1; min-width: 0; }
+.navp-topbar strong, .navp-topbar span { display: block; }
+.navp-topbar span { color: var(--nav-muted); font-size: 12px; margin-top: 3px; }
+.navp-topbar button { min-height: 44px; min-width: 44px; display: grid; place-items: center; border-radius: 10px; }
+.navp-main main { padding: 28px; max-width: 1220px; margin: auto; }
+.navp-heading { margin-bottom: 22px; }
+.navp-eyebrow { color: var(--nav-brand); font-weight: 750; font-size: 12px; }
+.navp h1 { font-size: clamp(24px, 3vw, 32px); font-weight: 800; letter-spacing: -.03em; margin: 8px 0; }
+.navp h2 { font-size: 17px; font-weight: 750; margin: 0 0 12px; }
+.navp p { line-height: 1.6; }
+.navp-heading > p:last-child, .navp-muted { color: var(--nav-muted); }
+.navp-card { border: 1px solid var(--nav-line); background: var(--nav-card); border-radius: 16px; padding: 22px; margin-bottom: 20px; box-shadow: var(--bp-shadow); min-width: 0; }
+.navp-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.navp-controls label { font-size: 12px; font-weight: 700; }
+.navp-controls select { display: block; padding: 10px; margin-top: 6px; border: 1px solid var(--nav-line); border-radius: 8px; background: var(--nav-bg); min-height: 44px; max-width: 100%; }
+.navp-checkbox { display: flex; align-items: center; gap: 9px; min-height: 44px; }
+.navp-checkbox input { width: 18px; height: 18px; }
+.navp-tag { display: inline-block; font-size: 11px; color: var(--nav-brand); background: var(--nav-active); border-radius: 7px; padding: 5px 9px; margin-bottom: 14px; font-weight: 700; }
+.navp code { font-size: 12px; overflow-wrap: anywhere; }
+.navp-destination p { margin: 12px 0; color: var(--nav-muted); }
+.navp-destination a { display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background: #176b9b; color: white; border-radius: 9px; font-weight: 700; margin-top: 6px; }
+.navp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.navp-grid ul { list-style: disc; padding-left: 20px; line-height: 1.8; margin-bottom: 14px; }
+.navp-tests { margin-top: 12px; }
+.navp-tests button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; text-align: left; min-height: 44px; padding: 10px; border-bottom: 1px solid var(--nav-line); }
+.navp-tests span { overflow-wrap: anywhere; min-width: 0; }
+.navp-tests svg { flex-shrink: 0; }
+.navp-inventory { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.navp-inventory button { display: flex; flex-direction: column; text-align: left; min-height: 60px; border: 1px solid var(--nav-line); border-radius: 9px; padding: 10px; }
+.navp-inventory code { color: var(--nav-muted); }
+.navp-skeleton { padding: 12px 0; color: var(--nav-muted); }
+.navp-skeleton div { height: 38px; margin-bottom: 12px; border-radius: 9px; background: var(--nav-active); animation: navp-pulse 1.5s infinite; }
+.navp-empty { padding: 14px 8px; color: var(--nav-muted); }
+.navp-notice { border: 1px solid var(--nav-line); background: var(--nav-active); padding: 12px; border-radius: 10px; margin-bottom: 20px; }
+.navp-mobile-close, .navp-hamburger { display: none !important; }
+@keyframes navp-pulse { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .navp-skeleton div { animation: none; } }
+@media (max-width: 1023px) {
+  .navp-sidebar, .navp-sidebar.is-rail { position: fixed; width: 250px; max-width: 86vw; transform: translateX(-100%); visibility: hidden; }
+  .navp-sidebar.is-mobile-open { transform: translateX(0); visibility: visible; z-index: 70; }
+  .navp-backdrop { position: fixed; inset: 0; z-index: 65; background: #0009; }
+  .navp-mobile-close, .navp-hamburger { display: grid !important; place-items: center; min-width: 44px; min-height: 44px; }
+  .navp-brand { padding: 12px; gap: 8px; }
+  .navp-brand .navp-logo { width: 32px; height: 32px; }
+  .navp-brand strong { font-size: 14px; }
+  .navp-collapse { display: none; }
+  .navp-topbar { padding: 12px; }
+  .navp-main main { padding: 18px 12px; }
+  .navp-grid, .navp-inventory { grid-template-columns: 1fr; }
+  .navp-card { padding: 16px; }
+  .navp-flyout { display: none; }
+}

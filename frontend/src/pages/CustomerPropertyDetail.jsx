@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Building2, Eye, X } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowRight, Building2, Eye, FileText, Ruler, X } from "lucide-react";
 import api from "../api/client";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
+import SharePropertyDialog from "../components/SharePropertyDialog";
+import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
 
 const emptyTotals = () => ({
   wallGross: 0,
@@ -75,6 +77,7 @@ function aggregateRoom(surfaces) {
 
 export default function CustomerPropertyDetail() {
   const { id } = useParams();
+  const [shareOpen, setShareOpen] = useState(false);
   const [data, setData] = useState(null);
   const [selectedMeasurement, setSelectedMeasurement] = useState("");
   const [viewingRoom, setViewingRoom] = useState(null);
@@ -141,14 +144,12 @@ export default function CustomerPropertyDetail() {
     }
   };
 
-  if (!data)
-    return (
-      <p className="p-12 text-center text-slate-500">
-        {error || "Loading property..."}
-      </p>
-    );
+  if (!data) return error
+    ? <ErrorState message={error} onRetry={() => load()} />
+    : <LoadingState label="Loading property details…" />;
 
   const property = data.property;
+  const permissions = property.property_access?.permissions || {};
   const roomSheets = data.rooms
     .map((room) => ({
       room,
@@ -189,48 +190,54 @@ export default function CustomerPropertyDetail() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="customer-property-detail-page space-y-6">
       <BackButton fallback="/customer-properties" label="Back to properties" />
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <section className="rounded-2xl border bg-white p-6">
-        <div className="flex items-start gap-4">
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-950 text-white">
-            <Building2 />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-amber-600">
-              {property.contractor_name}
-            </p>
-            <h1 className="mt-1 text-3xl font-bold">{property.name}</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              {property.property_type} · {property.measurement_type} ·{" "}
-              {[
-                property.flat_number,
-                property.block_name,
-                property.address,
-                property.city,
-                property.pincode,
-              ]
-                .filter(Boolean)
-                .join(", ")}
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        eyebrow={property.contractor_name ? `Project with ${property.contractor_name}` : "Your property"}
+        title={property.name || property.property_type || "Property"}
+        description={[
+          property.property_type,
+          property.primary_contact_name ? `Primary contact · ${property.primary_contact_name}` : "",
+          property.measurement_type ? `Area unit · ${property.measurement_type}` : "",
+          [property.flat_number, property.block_name, property.address, property.city, property.pincode].filter(Boolean).join(", "),
+        ].filter(Boolean).join(" · ") || "Property details shared for your project."}
+      />
+      {property.can_share_access && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShareOpen(true)} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#176b9b] px-5 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]">Share Access</button>{property.can_manage_access && <Link to={`/customer-properties/${id}/access`} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-[#b9cbd3] bg-white px-4 text-sm font-bold text-[#145878] hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Manage property access</Link>}</div>}
+      <SharePropertyDialog open={shareOpen} onClose={() => setShareOpen(false)} propertyId={id} propertyName={property.name || property.property_type} onShared={() => window.dispatchEvent(new Event("portal-counts-changed"))} />
+      <section className="customer-property-context-strip" aria-label="Property project context">
+        <div><span>Contractor</span><strong>{property.contractor_name || "Not listed"}</strong><small>Sharing this project with you</small></div>
+        <div><span>Area unit</span><strong>{property.measurement_type || "Not specified"}</strong><small>Used for saved measurements</small></div>
+        <div><span>Saved calculations</span><strong>{data.measurement_records.length}</strong><small>Choose one below to review</small></div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border bg-white">
-        <header className="border-b p-5">
-          <h2 className="font-bold">Saved Area Calculations</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Select an Area Calculation to view its room-wise totals and
-            dimensions.
-          </p>
-        </header>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Available project modules">
+        {permissions.view_measurements && <ModuleLink to={`/customer-properties/${id}`} title="Measurements" description="View submitted Area Calculations" />}
+        {permissions.view_quotations && <ModuleLink to={`/customer-quotations?property_id=${id}`} title="Quotations" description="View estimates for this property" />}
+        {permissions.view_schedules && <ModuleLink to={`/work-schedules?property_id=${id}`} title="Schedule" description="View project dates and schedule" />}
+        {permissions.view_progress && <ModuleLink to={`/work-photos?property_id=${id}`} title="Work progress" description="View project progress photos" />}
+        {permissions.view_invoices && <ModuleLink to={`/customer-invoices?property_id=${id}`} title="Invoices" description="View invoices for this property" />}
+        {permissions.view_payments && <ModuleLink to={`/customer-invoices?property_id=${id}&section=payments`} title="Payments" description="View receipts and payment history" />}
+      </section>
+
+      {property.can_view_measurements ? <>
+      <section className="customer-property-overview" aria-label="Measurement overview">
+        <StatCard icon={Ruler} label="Measured area" value={`${Math.round(allRoomTotals.finalArea)} sq ft`} hint="Total recorded area" tone="brand" />
+        <StatCard icon={Building2} label="Rooms and areas" value={roomTotals.length} hint="With saved measurements" tone="info" />
+        <StatCard icon={FileText} label="Measured surfaces" value={data.surfaces.length} hint="Walls, ceilings and openings" tone="success" />
+      </section>
+
+      <SectionCard
+        title="Saved measurements"
+        description="Choose a shared Area Calculation to see room totals and dimensions."
+        className="customer-measurement-records"
+        bodyClassName="p-0"
+      >
         <div className="grid gap-3 p-3 md:hidden">
           {data.measurement_records.map((record) => {
             const selected = String(record.id) === selectedMeasurement;
@@ -248,13 +255,11 @@ export default function CustomerPropertyDetail() {
                       {record.measured_on} · {record.contractor_name}
                     </p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                    {record.status_display}
-                  </span>
+                  <StatusBadge status={record.status} label={record.status_display} tone={record.status === "LOCKED" ? "success" : record.status === "DRAFT" ? "warning" : "info"} />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-white/80 p-3">
-                    <p className="text-[10px] font-bold uppercase text-slate-400">
+                    <p className="text-xs font-bold uppercase text-slate-500">
                       Area
                     </p>
                     <p className="mt-1 text-sm font-bold">
@@ -262,7 +267,7 @@ export default function CustomerPropertyDetail() {
                     </p>
                   </div>
                   <div className="rounded-xl bg-white/80 p-3">
-                    <p className="text-[10px] font-bold uppercase text-slate-400">
+                    <p className="text-xs font-bold uppercase text-slate-500">
                       Rooms
                     </p>
                     <p className="mt-1 text-sm font-bold">
@@ -270,30 +275,24 @@ export default function CustomerPropertyDetail() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => downloadPdf(record)}
-                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
+                <div className="customer-measurement-actions mt-3">
+                  <button type="button" onClick={() => viewMeasurement(record.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold">
+                    View details
+                  </button>
+                  <button type="button" onClick={() => downloadPdf(record)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white">
+                    <Eye className="h-4 w-4" />View PDF
                   </button>
                 </div>
               </article>
             );
           })}
-          {!data.measurement_records.length && (
-            <p className="p-8 text-center text-sm text-slate-500">
-              No Area Calculations have been shared yet.
-            </p>
-          )}
+          {!data.measurement_records.length && <EmptyState title="No Area Calculations published yet" description="The contractor needs to submit a saved Area Calculation before it appears here." className="customer-detail-empty" />}
         </div>
         <div
           className="hidden overflow-x-auto md:block"
           data-mobile-table="keep"
         >
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="customer-measurement-table w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
               <tr>
                 {[
@@ -341,9 +340,7 @@ export default function CustomerPropertyDetail() {
                   </td>
                   <td className="px-4 py-3">{record.room_count}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
-                      {record.status_display}
-                    </span>
+                    <StatusBadge status={record.status} label={record.status_display} tone={record.status === "LOCKED" ? "success" : record.status === "DRAFT" ? "warning" : "info"} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
@@ -368,23 +365,22 @@ export default function CustomerPropertyDetail() {
             </tbody>
           </table>
         </div>
-      </section>
+      </SectionCard>
+      </> : <section className="rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="measurements-access-title">
+        <h2 id="measurements-access-title" className="font-bold text-slate-950">Area Calculation details aren’t included in your access</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Ask the primary property contact to update your access to include measurements.</p>
+      </section>}
 
-      <section
-        ref={roomTableRef}
-        className="scroll-mt-6 overflow-hidden rounded-2xl border bg-white"
+      {property.can_view_measurements && <SectionCard
+        title="Room measurements"
+        description={[
+          property.measurement_reference,
+          property.measurement_date ? `Updated ${property.measurement_date}` : "",
+        ].filter(Boolean).join(" · ") || "Room-by-room dimensions shared by your contractor."}
+        className="customer-room-measurements scroll-mt-6"
+        bodyClassName="p-0"
       >
-        <header className="border-b p-5">
-          <h2 className="text-xl font-bold">Room Area Calculations</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {property.measurement_reference
-              ? `${property.measurement_reference} · `
-              : ""}
-            {property.measurement_date
-              ? `Calculated on ${property.measurement_date}.`
-              : ""}
-          </p>
-        </header>
+        <div ref={roomTableRef}>
         {roomTotals.length > 0 && (
           <div className="space-y-3 p-3 md:hidden">
             <article className="overflow-hidden rounded-2xl border border-emerald-300 bg-emerald-50 shadow-sm">
@@ -555,7 +551,8 @@ export default function CustomerPropertyDetail() {
             )}
           </table>
         </div>
-      </section>
+        </div>
+      </SectionCard>}
 
       {selectedRoom && (
         <MeasurementDetailsModal
@@ -761,6 +758,13 @@ function MeasurementDetailsModal({ sheet, close }) {
       </div>
     </div>
   );
+}
+
+function ModuleLink({ to, title, description }) {
+  return <Link to={to} className="flex min-h-20 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 hover:border-[#176b9b] hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">
+    <span><strong className="block text-sm">{title}</strong><span className="mt-1 block text-xs text-slate-600">{description}</span></span>
+    <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#176b9b]" />
+  </Link>;
 }
 
 function DetailRow({ category, name, first, second, quantity, area }) {

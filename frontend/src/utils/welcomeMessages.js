@@ -27,7 +27,7 @@ export function buildCustomerWelcomeMessage(customer, contractor, origin = windo
   return [
     `Hello ${customerName},`,
     "",
-    customer?.link_purpose === "CONNECTION" ? `*${contractorName}* has sent you a connection request on Bharath Painters.` : `Thank you for connecting with *${contractorName}*.`,
+    customer?.link_purpose === "CONNECTION" ? `*${contractorName}* has sent you a connection request on Bharath Apps.` : `Thank you for connecting with *${contractorName}*.`,
     customer?.link_purpose === "ACTIVATION" && (customer?.bharath_id || customer?.customer_id) ? `Customer ID: ${customer.bharath_id || customer.customer_id}` : "",
     "",
     "We offer:",
@@ -53,18 +53,19 @@ export function buildCustomerWelcomeMessage(customer, contractor, origin = windo
 }
 
 export function buildPainterWelcomeMessage(painter, contractor, origin = window.location.origin) {
-  const painterName = clean(painter?.name, "Paint Applicator");
+  const painterName = clean(painter?.name, "Employee");
+  const profession = clean(painter?.employee_singular_label || painter?.profession_label, "Employee");
   return [
     `Dear ${painterName},`,
-    "Welcome to the Bharath Painters network.",
-    "Your Paint Applicator profile has been created free of charge by the contractor below. You can use the platform for work opportunities, assignments and professional communication.",
-    painter?.bharath_id ? `Painter ID: ${painter.bharath_id}` : "",
+    "Welcome to the Bharath Apps network.",
+    `Your ${profession} profile has been created free of charge by the contractor below. You can use the platform for work opportunities, assignments and professional communication.`,
+    painter?.bharath_id ? `Employee ID: ${painter.bharath_id}` : "",
     painter?.mobile ? `Registered mobile: ${painter.mobile}` : "",
     painter?.password ? `Temporary password: ${painter.password}` : "",
     `Sign in: ${origin}/login`,
     "For your security, please change the temporary password after signing in and do not share it with anyone.",
     ...contractorLines(contractor),
-    "Bharath Painters - Skilled People. Better Spaces.",
+    "Bharath Apps - Skilled People. Better Spaces.",
   ].filter(Boolean).join("\n\n");
 }
 

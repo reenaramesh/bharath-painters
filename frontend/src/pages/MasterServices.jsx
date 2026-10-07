@@ -22,7 +22,10 @@ import {
 } from "lucide-react";
 
 import api from "../api/client";
+import "./admin-portal.css";
 import useAuth from "../context/useAuth";
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./master-services.css";
 
 // `key` is the UI/nav id. `section` is the canonical backend section name that
 // MASTER_MODELS is keyed by, and is what the reorder endpoint resolves against
@@ -47,6 +50,7 @@ export default function MasterServices() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -99,6 +103,8 @@ const [orderBusy, setOrderBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
+    setError("");
     try {
       const [current, cats] = await Promise.all([
         api.get(`/quotations/${active.endpoint}/`),
@@ -107,8 +113,10 @@ const [orderBusy, setOrderBusy] = useState(false);
       setItems(current.data.results || current.data);
       setCategories(cats.data.results || cats.data);
       setError("");
+      setLoadFailed(false);
     } catch {
       setError(`${active.label} could not be loaded.`);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -145,6 +153,7 @@ const [orderBusy, setOrderBusy] = useState(false);
   }, [items, search, categoryFilter, statusFilter]);
   const visibleItems = filteredItems.slice(0, visiblePage * 50);
   const usesServiceCategory = ["products", "descriptions"].includes(active.key);
+  const showsDefaultPrice = active.key === "products";
   const inactiveCount = items.filter((item) => item.is_active === false).length;
   const activeCount = items.length - inactiveCount;
   const categoryCounts = useMemo(() => {
@@ -331,13 +340,10 @@ const [orderBusy, setOrderBusy] = useState(false);
 
   const ActiveIcon = active.icon;
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-amber-600">Quotation configuration</p>
-        <h1 className="mt-1 text-3xl font-bold">Master Data</h1>
-      </header>
+    <div className="space-y-6 master-services-page">
+      <PageHeader eyebrow="Quotation configuration" title="Master Data" description="Organize services, product types, units, and other options used throughout quotations." />
 
-      {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {error && !loadFailed && <p className="master-data-alert" role="alert">{error}</p>}
 
       <div className="grid gap-6 lg:grid-cols-[248px_1fr]">
         <label className="block lg:hidden">
@@ -381,17 +387,16 @@ const [orderBusy, setOrderBusy] = useState(false);
         <div className="min-w-0 space-y-4">
       {active.key === "apartments" && user?.role !== "ADMIN" && <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">The apartment directory is shared across the app. An administrator can add, edit, or upload entries.</p>}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-amber-300"><ActiveIcon className="h-5 w-5" /></span>
-            <div><h2 className="text-lg font-bold">{active.label}</h2><p className="text-sm text-slate-500">{items.length} saved · {inactiveCount} inactive</p></div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { setShowAdd((open) => !open); setShowImport(false); }} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${showAdd ? "border-slate-950 bg-slate-950 text-white" : "border-slate-300 hover:bg-slate-50"}`}><Plus className="h-4 w-4" />Add {active.singular}</button>
-            <button type="button" onClick={() => { setShowImport((open) => !open); setShowAdd(false); }} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${showImport ? "border-slate-950 bg-slate-950 text-white" : "border-slate-300 hover:bg-slate-50"}`}><Upload className="h-4 w-4" />Import CSV</button>
-          </div>
-        </header>
+      <SectionCard
+        title={<span className="master-section-title"><span className="master-section-icon"><ActiveIcon aria-hidden="true" /></span>{active.label}</span>}
+        description={`${items.length} saved ${items.length === 1 ? "entry" : "entries"} · ${activeCount} active · ${inactiveCount} inactive`}
+        className="master-data-card"
+        bodyClassName="p-0"
+        action={<div className="master-data-actions">
+          <Button variant={showAdd ? "primary" : "secondary"} onClick={() => { setShowAdd((open) => !open); setShowImport(false); }} aria-pressed={showAdd}><Plus aria-hidden="true" />Add {active.singular}</Button>
+          <Button variant={showImport ? "primary" : "secondary"} onClick={() => { setShowImport((open) => !open); setShowAdd(false); }} aria-pressed={showImport}><Upload aria-hidden="true" />Import CSV</Button>
+        </div>}
+      >
 
         {(active.key !== "apartments" || user?.role === "ADMIN") && showAdd && <form onSubmit={submit} className="grid gap-4 border-b bg-slate-50/60 p-4 sm:p-5 md:grid-cols-[1fr_1fr_auto]">
           <Field label={`${active.singular} name`}><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={placeholder(active.key)} /></Field>
@@ -399,7 +404,7 @@ const [orderBusy, setOrderBusy] = useState(false);
           {active.key === "apartments" && <><Field label="Locality"><input value={form.locality} onChange={(event) => setForm({ ...form, locality: event.target.value })} placeholder="Area or neighbourhood" /></Field><Field label="Zone / State"><input value={form.zone} onChange={(event) => setForm({ ...form, zone: event.target.value })} placeholder="Karnataka" /></Field><Field label="PIN code"><input value={form.pincode} onChange={(event) => setForm({ ...form, pincode: event.target.value })} placeholder="560001" /></Field></>}
           <div className="flex items-end gap-2"><button disabled={saving} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-semibold text-white disabled:opacity-50 md:flex-none"><Plus className="h-4 w-4" />{saving ? "Saving..." : editing ? "Update" : `Add ${active.singular}`}</button>{editing && <button type="button" onClick={() => { setEditing(null); setShowAdd(false); setForm(empty); }} className="grid h-12 w-12 place-items-center rounded-xl border" aria-label="Cancel editing"><X className="h-4 w-4" /></button>}</div>
           {active.key === "products" && <div className="grid gap-4 md:col-span-full md:grid-cols-[220px_1fr]"><Field label="Default price (optional)"><input type="number" min="0" step="0.01" value={form.default_price} onChange={(event) => setForm({ ...form, default_price: event.target.value })} placeholder="Example: 28.00" /></Field><Field label="Key features (optional)"><textarea rows="3" value={form.key_features} onChange={(event) => setForm({ ...form, key_features: event.target.value })} placeholder="Example: Stain resistance, smooth finish, 8-year warranty" /></Field></div>}
-          <div className="md:col-span-full"><AvailabilityToggle value={form.is_active !== false} onChange={(next) => setForm({ ...form, is_active: next })} hint="Inactive entries are hidden from quotation dropdowns." /></div>
+          <div className="md:col-span-full"><AvailabilityToggle ariaLabel={`${active.singular} availability`} value={form.is_active !== false} onChange={(next) => setForm({ ...form, is_active: next })} hint="Inactive entries are hidden from quotation dropdowns." /></div>
         </form>}
 
         {(active.key !== "apartments" || user?.role === "ADMIN") && showImport && <div className="border-b bg-slate-50/60 p-4 sm:p-5">
@@ -415,21 +420,21 @@ const [orderBusy, setOrderBusy] = useState(false);
         <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
         <div className="flex flex-wrap gap-2">
           {[["ALL", "All", items.length], ["ACTIVE", "Active", activeCount], ["INACTIVE", "Inactive", inactiveCount]].map(([value, label, count]) => (
-            <button key={value} type="button" onClick={() => setStatusFilter(value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${statusFilter === value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{label} · {count}</button>
+            <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${statusFilter === value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{label} · {count}</button>
           ))}
         </div>
       </div>
 
-      {usesServiceCategory && <div className="flex flex-wrap items-center gap-2 border-b px-3 py-3 sm:px-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Service type</span>
-        <button type="button" onClick={() => setCategoryFilter("ALL")} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === "ALL" ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>All types</button>
+        {usesServiceCategory && <div className="master-category-filters flex flex-wrap items-center gap-2 border-b px-3 py-3 sm:px-4" role="group" aria-label="Filter by service category">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Service type</span>
+          <button type="button" aria-pressed={categoryFilter === "ALL"} onClick={() => setCategoryFilter("ALL")} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === "ALL" ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>All types</button>
         {categories.map((category) => {
           const id = String(category.id);
-          return <button key={category.id} type="button" onClick={() => setCategoryFilter(id)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === id ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{category.name} · {categoryCounts[id] || 0}</button>;
+          return <button key={category.id} type="button" aria-pressed={categoryFilter === id} onClick={() => setCategoryFilter(id)} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === id ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{category.name} · {categoryCounts[id] || 0}</button>;
         })}
       </div>}
 
-      {loading ? <p className="p-12 text-center text-sm text-slate-500">Loading {active.label.toLowerCase()}...</p> : <>
+      {loadFailed ? <ErrorState message={error} onRetry={load} className="master-data-state" /> : loading ? <LoadingState label={`Loading ${active.label.toLowerCase()}…`} className="master-data-state" /> : <>
           <div className="md:hidden">
             {canReorder && <div className="flex flex-wrap items-center gap-2 border-b bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
               <p className="flex-1">Drag or use the arrows to set the order in <strong className="font-semibold text-slate-800">your</strong> quotation dropdowns.</p>
@@ -438,16 +443,16 @@ const [orderBusy, setOrderBusy] = useState(false);
           </div>
 
           <div className="grid gap-3 p-3 md:hidden">
-            {visibleItems.map((item) => <MasterCard key={item.id} item={item} index={orderIndexOf(item.id)} total={filteredItems.length} category={categoryMap[String(item.service_category)]} subtitle={active.key === "apartments" ? [item.locality, item.zone, item.pincode].filter(Boolean).join(", ") : ""} owned={canManageItem(item)} scope={itemScope(item)} busy={busyId === item.id} lockScope={active.key === "apartments"} canReorder={canReorder} orderBusy={orderBusy} onToggle={(next) => setAvailability(item, next)} onMove={(direction) => moveItem(item.id, direction)} onResetOrder={resetOrder} edit={() => edit(item)} remove={() => remove(item)} />)}
+            {visibleItems.map((item) => <MasterCard key={item.id} item={item} index={orderIndexOf(item.id)} total={filteredItems.length} category={categoryMap[String(item.service_category)]} price={showsDefaultPrice ? item.default_price : null} features={showsDefaultPrice ? item.key_features : ""} subtitle={active.key === "apartments" ? [item.locality, item.zone, item.pincode].filter(Boolean).join(", ") : ""} owned={canManageItem(item)} scope={itemScope(item)} busy={busyId === item.id} lockScope={active.key === "apartments"} canReorder={canReorder} orderBusy={orderBusy} onToggle={(next) => setAvailability(item, next)} onMove={(direction) => moveItem(item.id, direction)} onResetOrder={resetOrder} edit={() => edit(item)} remove={() => remove(item)} />)}
           </div>
 
-          <div className="hidden md:block">
+          <div className="master-data-table-scroll hidden md:block">
             {canReorder && <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2 text-xs text-slate-500">
               <p className="flex items-center gap-2"><GripVertical className="h-3.5 w-3.5" />Drag a row, or use the arrows, to set the order in <strong className="font-semibold text-slate-700">your</strong> quotation dropdowns. Nobody else&apos;s list changes.</p>
               <button type="button" onClick={resetOrder} disabled={orderBusy} className="ml-auto rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">Reset to default order</button>
             </div>}
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="w-12 px-2 py-3">#</th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">Type of Service</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
+            <table className="master-data-table w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="w-12 px-2 py-3">#</th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">Type of Service</th>}{showsDefaultPrice && <th className="w-36 px-4 py-3 text-right">Default price</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
               <tbody className="divide-y">{visibleItems.map((item, index) => {
                 const owned = canManageItem(item);
                 const isOff = item.is_active === false;
@@ -482,20 +487,21 @@ const [orderBusy, setOrderBusy] = useState(false);
                   className={`${dragId === item.id ? "opacity-40" : ""} ${dropTarget?.id === item.id ? `outline-2 outline-dashed -outline-offset-2 ${dropTarget.below ? "outline-violet-400" : "outline-violet-600"}` : ""} ${isOff ? "bg-slate-50/70" : "hover:bg-slate-50"}`}>
                   <td className="px-3 py-3.5">{canReorder && <span className="flex cursor-grab flex-col gap-0.5 text-slate-300 hover:text-slate-500" aria-hidden="true"><ArrowUp className="h-3 w-3" /><GripVertical className="h-3.5 w-3.5" /><ArrowDown className="h-3 w-3" /></span>}</td>
                   <td className="px-2 py-3.5 font-bold text-slate-400">{index + 1}</td>
-                  <td className="px-4 py-3.5"><span className={`font-semibold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</span>{active.key === "apartments" && <span className="mt-1 block text-xs text-slate-500">{[item.locality, item.zone, item.pincode].filter(Boolean).join(", ")}</span>}{isOff && <span className="mt-1 inline-block rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">Inactive — hidden from quotation dropdowns</span>}</td>
-                  {usesServiceCategory && <td className="px-4 py-3.5">{categoryMap[String(item.service_category)] ? <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{categoryMap[String(item.service_category)]}</span> : <span className="text-xs text-slate-400">Not assigned</span>}</td>}
+                    <td className="px-4 py-3.5"><div className="flex flex-wrap items-center gap-2"><span className={`font-semibold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</span><StatusBadge status={isOff ? "INACTIVE" : "ACTIVE"} label={isOff ? "Inactive" : "Active"} tone={isOff ? "neutral" : "success"} /></div>{active.key === "apartments" && <span className="mt-1 block text-xs text-slate-500">{[item.locality, item.zone, item.pincode].filter(Boolean).join(", ")}</span>}{showsDefaultPrice && item.key_features && <span className="master-product-features mt-1 block text-sm text-slate-600">{item.key_features}</span>}</td>
+                   {usesServiceCategory && <td className="px-4 py-3.5">{categoryMap[String(item.service_category)] ? <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{categoryMap[String(item.service_category)]}</span> : <span className="text-xs text-slate-400">Not assigned</span>}</td>}
+                    {showsDefaultPrice && <td className="master-price-cell px-4 py-3.5 text-right">{item.default_price === null || item.default_price === undefined || item.default_price === "" ? <span className="text-sm text-slate-500">Not set</span> : <span className="text-sm font-bold tabular-nums text-slate-900">{formatDefaultPrice(item.default_price)}</span>}</td>}
                   <td className="px-4 py-3.5 text-center"><ScopeDot scope={itemScope(item)} /></td>
-                  <td className="px-4 py-3.5"><AvailabilityToggle value={!isOff} disabled={active.key === "apartments"} locked={active.key === "apartments"} busy={busyId === item.id} onChange={(next) => setAvailability(item, next)} /></td>
-                  <td className="px-4 py-3.5"><div className="flex justify-end gap-2">{canReorder && <><button type="button" onClick={() => moveItem(item.id, -1)} disabled={orderBusy || orderIndexOf(item.id) === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} up`}><ArrowUp className="h-4 w-4" /></button><button type="button" onClick={() => moveItem(item.id, 1)} disabled={orderBusy || orderIndexOf(item.id) === filteredItems.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} down`}><ArrowDown className="h-4 w-4" /></button></>}{owned && !isOff && <><button type="button" onClick={() => edit(item)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></>}</div></td>
+                   <td className="px-4 py-3.5"><AvailabilityToggle ariaLabel={`${item.name} availability`} value={!isOff} disabled={active.key === "apartments"} locked={active.key === "apartments"} busy={busyId === item.id} onChange={(next) => setAvailability(item, next)} /></td>
+                   <td className="px-4 py-3.5"><div className="master-item-actions">{canReorder && <><button type="button" onClick={() => moveItem(item.id, -1)} disabled={orderBusy || orderIndexOf(item.id) === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} up`}><ArrowUp className="h-4 w-4" /></button><button type="button" onClick={() => moveItem(item.id, 1)} disabled={orderBusy || orderIndexOf(item.id) === filteredItems.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} down`}><ArrowDown className="h-4 w-4" /></button></>}{owned && !isOff && <><button type="button" onClick={() => edit(item)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></>}</div></td>
                 </tr>;
               })}</tbody>
             </table>
           </div>
 
-          {!filteredItems.length && <p className="p-12 text-center text-sm text-slate-500">No {active.label.toLowerCase()} match these filters.</p>}
+          {!filteredItems.length && <EmptyState title={items.length ? `No ${active.label.toLowerCase()} match these filters` : `No ${active.label.toLowerCase()} yet`} description={items.length ? "Adjust your search or filters to see more entries." : `Add or import ${active.label.toLowerCase()} to use them in quotations.`} className="master-data-state" />}
           {visibleItems.length < filteredItems.length && <div className="border-t p-4 text-center"><button type="button" onClick={() => setVisiblePage((page) => page + 1)} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold">Show more ({filteredItems.length - visibleItems.length} remaining)</button></div>}
       </>}
-      </section>
+      </SectionCard>
         </div>
       </div>
 
@@ -578,15 +584,15 @@ function QuotationDefaults() {
   );
 }
 
-function MasterCard({ item, index, total, category, subtitle, owned, scope, busy, lockScope, canReorder, orderBusy, onToggle, onMove, edit, remove }) {
+function MasterCard({ item, index, total, category, price, features, subtitle, owned, scope, busy, lockScope, canReorder, orderBusy, onToggle, onMove, edit, remove }) {
   const isOff = item.is_active === false;
   return <article className={`rounded-xl border bg-white p-4 shadow-sm ${isOff ? "border-slate-200 bg-slate-50" : "border-slate-200"}`}>
     <div className="flex items-start gap-3">
-      {canReorder && <span className="mt-0.5 flex shrink-0 flex-col items-center gap-0.5"><button type="button" onClick={() => onMove(-1)} disabled={orderBusy || index === 0} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} up`}><ArrowUp className="h-3.5 w-3.5" /></button><span className="text-[10px] font-bold text-slate-400 tabular-nums">{index + 1}</span><button type="button" onClick={() => onMove(1)} disabled={orderBusy || index === total - 1} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} down`}><ArrowDown className="h-3.5 w-3.5" /></button></span>}
-      <div className="min-w-0 flex-1"><h3 className={`font-bold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</h3>{subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}{category && <p className="mt-1 text-xs font-semibold text-violet-700">{category}</p>}<div className="mt-1.5"><ScopeDot scope={scope} /></div>{isOff && <p className="mt-2 inline-block rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">Inactive — hidden from quotation dropdowns</p>}</div>
-      {owned && !isOff && <div className="flex shrink-0 gap-2"><button type="button" onClick={edit} className="rounded-lg border p-2" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={remove} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Remove ${item.name}`}><Trash2 className="h-4 w-4" /></button></div>}
+       {canReorder && <span className="master-reorder-controls mt-0.5 flex shrink-0 flex-col items-center gap-0.5"><button type="button" onClick={() => onMove(-1)} disabled={orderBusy || index === 0} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} up`}><ArrowUp className="h-3.5 w-3.5" /></button><span className="text-[10px] font-bold text-slate-400 tabular-nums">{index + 1}</span><button type="button" onClick={() => onMove(1)} disabled={orderBusy || index === total - 1} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} down`}><ArrowDown className="h-3.5 w-3.5" /></button></span>}
+      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className={`font-bold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</h3><StatusBadge status={isOff ? "INACTIVE" : "ACTIVE"} label={isOff ? "Inactive" : "Active"} tone={isOff ? "neutral" : "success"} /></div>{subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}{category && <p className="mt-1 text-sm font-semibold text-violet-700">{category}</p>}{features && <p className="master-product-features mt-1 text-sm text-slate-600">{features}</p>}{price !== null && price !== undefined && price !== "" && <p className="master-card-price mt-2"><span>Default price</span><strong>{formatDefaultPrice(price)}</strong></p>}<div className="mt-2"><ScopeDot scope={scope} /></div>{isOff && <p className="mt-2 text-sm font-semibold text-slate-600">Hidden from quotation selections.</p>}</div>
+       {owned && !isOff && <div className="master-item-actions flex shrink-0 gap-2"><button type="button" onClick={edit} className="rounded-lg border p-2" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={remove} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></div>}
     </div>
-    <div className={`flex flex-wrap items-center gap-2 ${canReorder ? "pl-9" : ""}`}><AvailabilityToggle value={!isOff} disabled={lockScope} locked={lockScope} busy={busy} onChange={onToggle} /></div>
+     <div className={`flex flex-wrap items-center gap-2 ${canReorder ? "pl-9" : ""}`}><AvailabilityToggle ariaLabel={`${item.name} availability`} value={!isOff} disabled={lockScope} locked={lockScope} busy={busy} onChange={onToggle} /></div>
   </article>;
 }
 
@@ -603,10 +609,10 @@ function ScopeDot({ scope }) {
   return <span title={meta.label} className="inline-flex items-center gap-1.5 text-xs text-slate-500"><span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot} ring-4 ${meta.ring}`} />{meta.label}</span>;
 }
 
-function AvailabilityToggle({ value, onChange, disabled, locked, busy, hint }) {
+function AvailabilityToggle({ value, onChange, disabled, locked, busy, hint, ariaLabel = "Availability" }) {
   return (
     <div>
-      <div role="radiogroup" aria-label="Availability" className={`inline-flex overflow-hidden rounded-full border border-slate-200 bg-white ${disabled ? "opacity-50" : ""}`}>
+      <div role="radiogroup" aria-label={ariaLabel} className={`master-availability-toggle inline-flex overflow-hidden rounded-full border border-slate-200 bg-white ${disabled ? "opacity-50" : ""}`}>
         {[[true, "Active"], [false, "Inactive"]].map(([option, label]) => {
           const selected = value === option;
           return <button key={label} type="button" role="radio" aria-checked={selected} disabled={disabled || busy} onClick={() => !disabled && !selected && onChange(option)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition ${selected ? option ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600" : "text-slate-400 hover:bg-slate-50"}`}><span className={`h-1.5 w-1.5 rounded-full ${selected ? option ? "bg-emerald-500" : "bg-slate-400" : "border border-slate-300"}`} />{busy && selected ? "..." : label}</button>;
@@ -616,6 +622,9 @@ function AvailabilityToggle({ value, onChange, disabled, locked, busy, hint }) {
       {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
+}
+function formatDefaultPrice(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 function Field({ label, children }) {
   return <label className="text-sm font-semibold">{label}<span className="mt-2 block [&>*]:w-full [&>*]:rounded-xl [&>*]:border [&>*]:bg-white [&>*]:px-3 [&>*]:py-3 [&>*]:outline-none [&>*]:focus:border-violet-500 [&>*]:focus:ring-4 [&>*]:focus:ring-violet-100">{children}</span></label>;

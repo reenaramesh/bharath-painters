@@ -27,10 +27,11 @@ import {
   PageHeader,
   StatCard,
 } from "../components/ui";
+import "./admin-portal.css";
 
 const sections = [
   { key: "contractors", label: "Contractors", icon: BriefcaseBusiness },
-  { key: "applicators", label: "Paint Applicators", icon: Paintbrush },
+  { key: "applicators", label: "Employees", icon: Paintbrush },
   { key: "customers", label: "Customers", icon: Users },
   { key: "messages", label: "Conversations", icon: MessageCircle },
   { key: "quotations", label: "Quotations", icon: FileText },
@@ -607,7 +608,7 @@ function ActiveTodayCounts({ contractors, applicators, openSection }) {
     },
     {
       key: "applicators",
-      label: "Paint Applicators working today",
+      label: "Employees working today",
       value: applicators,
       icon: Paintbrush,
     },

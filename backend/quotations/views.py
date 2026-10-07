@@ -1,6 +1,8 @@
 
 from django.db import IntegrityError, models, transaction
+from django.db.models import Q, Subquery
 from django.http import FileResponse, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.core.files.base import File
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -20,10 +22,11 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 from openpyxl import Workbook, load_workbook
 from .pdf_utils import build_quotation_pdf, build_measurement_pdf, build_invoice_pdf, build_invoice_receipt_pdf
+from .document_languages import document_language
 from .revision_utils import clone_quotation_revision, previous_revision, quotation_revision_changes
 from .product_details import consolidated_product_details
 
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
@@ -33,6 +36,7 @@ from accounts.models import BharathUser, ContractorProfile, PainterProfile, Pass
 from accounts.mobile import normalize_mobile as canonical_mobile, matching_mobile_users
 from accounts.profile_completion import contractor_profile_completion
 from accounts.views import _registration_consent_error, _record_registration_consent, _issue_email_otp, _verify_otp, _masked_email
+from accounts.email_setup import development_otp_visible
 from accounts.utils import generate_bharath_qr
 
 
@@ -46,12 +50,14 @@ from .models import (
     PaintColor,
     Unit,
     Customer, SavedCustomerContact, ContractorCustomerConnection, CustomerConnectionAudit, CustomerShareLink, normalize_indian_mobile,
+    PropertyContact, PropertyInvitation, PropertyAccessAudit,
     CustomerFollowUp,
     CustomerWorkHistory, ChatConversation, ChatMessage, ChatAttachment, ColourComparisonDraft, PortalNotification, ServiceRequest, Lead, LeadStageHistory, SupportTicket, SupportTicketMessage, SupportActionLog, MeasurementAccessRequest,
-    MasterDataSortPreference,
+    MasterDataSortPreference, SiteVisit,
     WorkPhoto,
     Property, ApartmentCommunity,
     Quotation, QuotationRoom, PropertyRoom, PropertyMeasurement, MeasurementSurface, MeasurementOpening, ActivityLog, Invoice, InvoiceNumberSequence, InvoicePayment, ProjectReceipt, WorkChange, WorkChangeItem,
+    ProjectScope, ContractorConnection,
 )
 
 
@@ -74,9 +80,11 @@ from .serializers import (
     CustomerWorkHistorySerializer,
     WorkPhotoSerializer, PropertyRoomSerializer, PropertyMeasurementSerializer, MeasurementSurfaceSerializer,
     MeasurementOpeningSerializer, ActivityLogSerializer, WorkChangeSerializer, WorkChangeItemSerializer,
+    ProjectScopeSerializer, ContractorConnectionSerializer,
 )
 from .work_changes import current_scope, work_change_summary
 from .master_import import MASTER_MODELS, import_master_rows
+from .property_access import PropertyPermission, accessible_properties, effective_property_permissions, ensure_legacy_primary_contact, has_property_access, property_permissions, require_property_access
 from .chat_colours import colour_catalogue, colour_by_id
 
 logger = logging.getLogger(__name__)
@@ -96,8 +104,16 @@ def work_change_for_user(user, pk):
     if user.role == BharathUser.Roles.CONTRACTOR:
         return queryset.filter(contractor=user).first()
     if user.role == BharathUser.Roles.CUSTOMER:
-        return queryset.filter(customer__portal_user=user).first()
+        return customer_work_change_scope(user).filter(pk=pk).first()
     return None
+
+
+def customer_work_change_scope(user, permission=PropertyPermission.VIEW_QUOTATIONS):
+    property_ids = accessible_properties(user, permission).values("pk")
+    return work_change_queryset().filter(
+        Q(quotation__property_id__in=Subquery(property_ids))
+        | Q(quotation__property__isnull=True, customer__portal_user=user)
+    )
 
 
 class WorkChangeListCreateView(APIView):
@@ -108,7 +124,7 @@ class WorkChangeListCreateView(APIView):
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             queryset = queryset.filter(contractor=request.user)
         elif request.user.role == BharathUser.Roles.CUSTOMER:
-            queryset = queryset.filter(customer__portal_user=request.user).exclude(status=WorkChange.Status.DRAFT)
+            queryset = customer_work_change_scope(request.user).exclude(status=WorkChange.Status.DRAFT)
         else:
             return Response({"detail": "Customer or contractor access only."}, status=status.HTTP_403_FORBIDDEN)
         quotation_id = request.query_params.get("quotation")
@@ -174,7 +190,11 @@ class CustomerWorkChangeActionView(APIView):
 
     @transaction.atomic
     def post(self, request, pk, action):
-        change = work_change_queryset().select_for_update().filter(pk=pk, customer__portal_user=request.user).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        change = customer_work_change_scope(
+            request.user, PropertyPermission.APPROVE_QUOTATIONS,
+        ).select_for_update().filter(pk=pk).first()
         if not change or request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Work Change not found."}, status=status.HTTP_404_NOT_FOUND)
         if change.status != WorkChange.Status.SENT_TO_CUSTOMER:
@@ -592,10 +612,7 @@ class CustomerShareLinkView(APIView):
                     return Response({"detail": error}, status=response_status)
                 challenge, code = result
                 response = {"detail": "Verification code sent.", "challenge_id": challenge.id, "masked_email": _masked_email(email)}
-                if settings.DEBUG and settings.EMAIL_BACKEND in {
-                    "django.core.mail.backends.console.EmailBackend",
-                    "django.core.mail.backends.locmem.EmailBackend",
-                }:
+                if development_otp_visible():
                     response["test_otp"] = code
                 return Response(response)
             try:
@@ -1747,10 +1764,12 @@ class PropertyListCreateView(
         if not connection:
             raise ValidationError({"customer": "A customer connection request is required before creating a property."})
         if "measurement_unit" in self.request.data:
-            serializer.save(contractor=self.request.user, connection=connection)
+            property_obj = serializer.save(contractor=self.request.user, connection=connection)
+            ensure_legacy_primary_contact(property_obj)
             return
         profile = getattr(self.request.user, "contractor_profile", None)
-        serializer.save(contractor=self.request.user, connection=connection, measurement_unit=getattr(profile, "default_measurement_unit", "FEET"))
+        property_obj = serializer.save(contractor=self.request.user, connection=connection, measurement_unit=getattr(profile, "default_measurement_unit", "FEET"))
+        ensure_legacy_primary_contact(property_obj)
 
 
 class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -1764,6 +1783,823 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         instance.contractor_hidden_at = timezone.now()
         instance.save(update_fields=("contractor_hidden_at",))
+
+
+PROPERTY_INVITATION_LIFETIME = timedelta(days=7)
+
+
+def property_access_audit(request, property_obj, action, *, contact=None, invitation=None, details=None):
+    forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
+    return PropertyAccessAudit.objects.create(
+        property=property_obj,
+        contact=contact,
+        invitation=invitation,
+        performed_by=request.user if request.user.is_authenticated else None,
+        action=action,
+        details=details or {},
+        ip_address=forwarded or request.META.get("REMOTE_ADDR") or None,
+        user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:255],
+    )
+
+
+def property_invitation_digest(token):
+    if not isinstance(token, str) or not token or len(token) > 100:
+        return ""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def property_invitation_data(invitation, *, include_target=False):
+    property_obj = invitation.property
+    data = {
+        "id": invitation.id,
+        "property_id": property_obj.id,
+        "property_name": property_obj.name or property_obj.property_type,
+        "property_type": property_obj.property_type,
+        "city": property_obj.city,
+        "role": invitation.role,
+        "relationship": invitation.relationship,
+        "access_level": invitation.access_level,
+        "custom_permissions": invitation.custom_permissions,
+        "requires_mobile": bool(invitation.invitee_mobile),
+        "requires_email": bool(invitation.invitee_email),
+        "status": invitation.status,
+        "expires_at": invitation.expires_at,
+        "created_at": invitation.created_at,
+        "accepted_at": invitation.accepted_at,
+    }
+    if include_target:
+        data.update({
+            "invitee_name": invitation.invitee_name,
+            "invitee_mobile": invitation.invitee_mobile,
+            "invitee_email": invitation.invitee_email,
+        })
+    return data
+
+
+def property_contact_share_data(contact):
+    return {
+        "id": contact.id,
+        "customer_id": contact.customer_id,
+        "name": contact.customer.name,
+        "bharath_id": masked_customer_id(contact.customer.bharath_id),
+        "mobile": masked_mobile(contact.customer.mobile),
+        "relationship": contact.relationship,
+        "access_level": contact.access_level,
+        "custom_permissions": contact.custom_permissions,
+        "status": contact.status,
+        "is_primary": contact.is_primary,
+    }
+
+
+def property_share_access(request, property_obj):
+    if request.user.role not in (BharathUser.Roles.CUSTOMER, BharathUser.Roles.CONTRACTOR):
+        return False
+    return has_property_access(request.user, property_obj, PropertyPermission.INVITE_CONTACTS)
+
+
+def create_property_share(request, property_obj):
+    if not property_share_access(request, property_obj):
+        raise PermissionDenied("You cannot share access to this property.")
+
+    mobile_input = str(request.data.get("mobile") or "").strip()
+    normalized_mobile = normalize_indian_mobile(mobile_input)
+    if not normalized_mobile:
+        raise ValidationError({"mobile": "Enter a valid mobile number before searching or sharing."})
+
+    customer = Customer.objects.select_for_update().exclude(
+        status=Customer.Status.CANCELLED,
+    ).filter(normalized_mobile=normalized_mobile).select_related("portal_user").first()
+    expected_customer_id = request.data.get("customer_id")
+    if expected_customer_id and (not customer or str(customer.pk) != str(expected_customer_id)):
+        raise ValidationError({"customer": "The searched customer no longer matches this mobile number. Search again."})
+
+    relationship = str(request.data.get("relationship") or "").upper()
+    if relationship not in {"", *PropertyContact.Relationship.values}:
+        raise ValidationError({"relationship": "Choose a valid relationship."})
+    access_level = str(request.data.get("access_level") or PropertyContact.AccessLevel.VIEW_ONLY).upper()
+    if access_level not in PropertyContact.AccessLevel.values:
+        raise ValidationError({"access_level": "Choose a valid access level."})
+    custom_permissions = request.data.get("custom_permissions") or []
+    if not isinstance(custom_permissions, list):
+        raise ValidationError({"custom_permissions": "Choose a list of custom permissions."})
+    permission_values = {value for name, value in vars(PropertyPermission).items() if name.isupper()}
+    custom_permissions = sorted({str(value) for value in custom_permissions if str(value) in permission_values})
+    if access_level == PropertyContact.AccessLevel.CUSTOM and not custom_permissions:
+        raise ValidationError({"custom_permissions": "Choose at least one permission for custom access."})
+    email_input = str(request.data.get("email") or "").strip().lower()
+    if email_input:
+        try:
+            validate_email(email_input)
+        except DjangoValidationError:
+            raise ValidationError({"email": "Enter a valid email address."})
+
+    invitation_qs = PropertyInvitation.objects.select_for_update().filter(
+        property=property_obj,
+        status=PropertyInvitation.Status.PENDING,
+        invitee_mobile=normalized_mobile,
+    )
+    pending_invitation = invitation_qs.order_by("-created_at", "-id").first()
+
+    if customer:
+        contact = PropertyContact.objects.select_for_update().filter(
+            property=property_obj, customer=customer,
+        ).first()
+        if contact and contact.is_primary:
+            return {"state": "ACTIVE", "customer": property_contact_share_data(contact), "already_linked": True}
+
+        if contact and request.user.role == BharathUser.Roles.CONTRACTOR:
+            if contact.status == PropertyContact.Status.ACTIVE:
+                return {"state": "ACTIVE", "customer": property_contact_share_data(contact), "already_linked": True}
+            if contact.added_by_id != request.user.id:
+                return {"state": contact.status, "customer": property_contact_share_data(contact), "already_linked": False}
+
+        if contact and contact.status == PropertyContact.Status.ACTIVE:
+            contact.relationship = relationship
+            contact.access_level = access_level
+            contact.custom_permissions = custom_permissions
+            contact.save(update_fields=("relationship", "access_level", "custom_permissions", "updated_at"))
+            if pending_invitation:
+                pending_invitation.status = PropertyInvitation.Status.REVOKED
+                pending_invitation.revoked_at = timezone.now()
+                pending_invitation.save(update_fields=("status", "revoked_at", "updated_at"))
+            property_access_audit(request, property_obj, "CONTACT_ACCESS_UPDATED", contact=contact, details={"access_level": access_level, "relationship": relationship})
+            return {"state": "ACTIVE", "customer": property_contact_share_data(contact), "already_linked": True}
+
+        if customer.portal_user_id:
+            if pending_invitation:
+                pending_invitation.status = PropertyInvitation.Status.REVOKED
+                pending_invitation.revoked_at = timezone.now()
+                pending_invitation.save(update_fields=("status", "revoked_at", "updated_at"))
+            defaults = {
+                "relationship": relationship,
+                "access_level": access_level,
+                "custom_permissions": custom_permissions,
+                "role": PropertyContact.Role.AUTHORIZED_CONTACT,
+                "added_by": request.user,
+            }
+            if contact is None:
+                contact, contact_created = PropertyContact.objects.get_or_create(
+                    property=property_obj,
+                    customer=customer,
+                    defaults={"status": PropertyContact.Status.PENDING, **defaults},
+                )
+            else:
+                contact_created = False
+            if not contact_created and contact.status != PropertyContact.Status.ACTIVE:
+                contact.relationship = relationship
+                contact.access_level = access_level
+                contact.custom_permissions = custom_permissions
+                contact.status = PropertyContact.Status.PENDING
+                contact.added_by = request.user
+                contact.save(update_fields=("relationship", "access_level", "custom_permissions", "status", "added_by", "updated_at"))
+            property_access_audit(
+                request, property_obj, "PROPERTY_ACCESS_REQUESTED", contact=contact,
+                details={"access_level": access_level, "relationship": relationship},
+            )
+            if contact.status == PropertyContact.Status.PENDING:
+                create_notification(
+                    customer.portal_user, "PROPERTY_ACCESS_REQUEST", "Property access request",
+                    f"{request.user.get_full_name() or request.user.mobile} has shared {property_obj.name or property_obj.property_type} with you.",
+                    "/customer-properties", request.user,
+                )
+            return {"state": contact.status, "customer": property_contact_share_data(contact), "already_linked": contact.status == PropertyContact.Status.ACTIVE}
+
+        if contact:
+            contact.relationship = relationship
+            contact.access_level = access_level
+            contact.custom_permissions = custom_permissions
+            contact.status = PropertyContact.Status.PENDING
+            contact.added_by = request.user
+            contact.save(update_fields=("relationship", "access_level", "custom_permissions", "status", "added_by", "updated_at"))
+            if pending_invitation:
+                pending_invitation.status = PropertyInvitation.Status.REVOKED
+                pending_invitation.revoked_at = timezone.now()
+                pending_invitation.save(update_fields=("status", "revoked_at", "updated_at"))
+            property_access_audit(request, property_obj, "PROPERTY_ACCESS_REQUESTED", contact=contact, details={"access_level": access_level, "relationship": relationship})
+        else:
+            contact, _created = PropertyContact.objects.get_or_create(
+                property=property_obj,
+                customer=customer,
+                defaults={
+                    "status": PropertyContact.Status.PENDING,
+                    "relationship": relationship,
+                    "access_level": access_level,
+                    "custom_permissions": custom_permissions,
+                    "role": PropertyContact.Role.AUTHORIZED_CONTACT,
+                    "added_by": request.user,
+                },
+            )
+            if contact.status == PropertyContact.Status.ACTIVE:
+                return {"state": "ACTIVE", "customer": property_contact_share_data(contact), "already_linked": True}
+            property_access_audit(request, property_obj, "PROPERTY_ACCESS_REQUESTED", contact=contact, details={"access_level": access_level, "relationship": relationship})
+        # Existing CRM identities without a portal login keep their Customer
+        # row and pending contact. The invitation only provisions the login.
+        invitee_customer = customer
+    else:
+        invitee_customer = None
+
+    if pending_invitation:
+        token = secrets.token_urlsafe(32)
+        pending_invitation.invitee_customer = invitee_customer or pending_invitation.invitee_customer
+        pending_invitation.invitee_name = str(request.data.get("name") or (invitee_customer.name if invitee_customer else pending_invitation.invitee_name)).strip()[:150]
+        pending_invitation.invitee_email = email_input or pending_invitation.invitee_email
+        pending_invitation.relationship = relationship
+        pending_invitation.access_level = access_level
+        pending_invitation.custom_permissions = custom_permissions
+        pending_invitation.role = PropertyContact.Role.AUTHORIZED_CONTACT
+        pending_invitation.token_hash = property_invitation_digest(token)
+        pending_invitation.expires_at = timezone.now() + PROPERTY_INVITATION_LIFETIME
+        pending_invitation.save(update_fields=(
+            "invitee_customer", "invitee_name", "invitee_email", "relationship", "access_level",
+            "custom_permissions", "role", "token_hash", "expires_at", "updated_at",
+        ))
+        property_access_audit(request, property_obj, "INVITATION_RESENT", invitation=pending_invitation, details={"access_level": access_level})
+        return {"state": "INVITATION_PENDING", "invitation": property_invitation_data(pending_invitation, include_target=True), "invite_url": f"/join/property/{token}", "reused": True}
+
+    token = secrets.token_urlsafe(32)
+    try:
+        with transaction.atomic():
+            invitation = PropertyInvitation.objects.create(
+                property=property_obj,
+                invited_by=request.user,
+                invitee_customer=invitee_customer,
+                invitee_name=str(request.data.get("name") or (invitee_customer.name if invitee_customer else "")).strip()[:150],
+                invitee_mobile=normalized_mobile,
+                invitee_email=email_input,
+                relationship=relationship,
+                access_level=access_level,
+                custom_permissions=custom_permissions,
+                role=PropertyContact.Role.AUTHORIZED_CONTACT,
+                token_hash=property_invitation_digest(token),
+                expires_at=timezone.now() + PROPERTY_INVITATION_LIFETIME,
+            )
+    except IntegrityError:
+        if PropertyInvitation.objects.filter(
+            property=property_obj,
+            status=PropertyInvitation.Status.PENDING,
+            invitee_mobile=normalized_mobile,
+        ).exists():
+            return create_property_share(request, property_obj)
+        raise
+    property_access_audit(request, property_obj, "INVITATION_CREATED", invitation=invitation, details={"access_level": access_level})
+    target_user = invitee_customer.portal_user if invitee_customer else None
+    if target_user:
+        create_notification(
+            target_user, "PROPERTY_INVITATION", "Property access invitation",
+            f"You have been invited to {property_obj.name or property_obj.property_type}.",
+            f"/join/property/{token}", request.user,
+        )
+    return {"state": "INVITATION_CREATED", "customer_exists": bool(customer), "invitation": property_invitation_data(invitation, include_target=True), "invite_url": f"/join/property/{token}"}
+
+
+class PropertyInvitationListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, property_id):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Only property customer contacts can manage invitations."}, status=status.HTTP_403_FORBIDDEN)
+        property_obj = get_object_or_404(Property, pk=property_id)
+        require_property_access(request.user, property_obj, PropertyPermission.MANAGE_CONTACTS)
+        ensure_legacy_primary_contact(property_obj)
+        contacts = [{
+            "id": contact.id,
+            "customer_id": contact.customer_id,
+            "name": contact.customer.name,
+            "role": contact.role,
+            "relationship": contact.relationship,
+            "access_level": contact.access_level,
+            "custom_permissions": contact.custom_permissions,
+            "status": contact.status,
+            "is_primary": contact.is_primary,
+            "created_at": contact.created_at,
+        } for contact in property_obj.contacts.select_related("customer")]
+        invitations = [
+            property_invitation_data(item, include_target=True)
+            for item in property_obj.invitations.all()
+        ]
+        return Response({"contacts": contacts, "invitations": invitations})
+
+    @transaction.atomic
+    def post(self, request, property_id):
+        property_obj = get_object_or_404(Property.objects.select_for_update(), pk=property_id)
+        result = create_property_share(request, property_obj)
+        return Response(result, status=status.HTTP_201_CREATED if result["state"] == "INVITATION_CREATED" else status.HTTP_202_ACCEPTED if result["state"] == PropertyContact.Status.PENDING else status.HTTP_200_OK)
+
+
+class PropertyShareLookupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, property_id):
+        property_obj = get_object_or_404(Property, pk=property_id)
+        if not property_share_access(request, property_obj):
+            return Response({"detail": "You cannot search customers for this property."}, status=status.HTTP_403_FORBIDDEN)
+        normalized = normalize_indian_mobile(request.data.get("mobile"))
+        if not normalized:
+            return Response({"mobile": "Enter a valid mobile number."}, status=status.HTTP_400_BAD_REQUEST)
+        customer = Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
+        pending_invitation = PropertyInvitation.objects.filter(
+            property=property_obj, status=PropertyInvitation.Status.PENDING, invitee_mobile=normalized,
+        ).order_by("-created_at", "-id").first()
+        if not customer:
+            account_matches = matching_mobile_users(normalized, BharathUser.objects.all())
+            account_conflict = next((item for item in account_matches if item.role != BharathUser.Roles.CUSTOMER), None)
+            if account_conflict:
+                return Response({
+                    "found": False,
+                    "account_conflict": True,
+                    "message": "This mobile number belongs to a different account type and cannot be added as a customer.",
+                })
+            return Response({
+                "found": False,
+                "normalized_mobile": normalized,
+                "account_exists_without_customer": bool(account_matches),
+                "pending_invitation": property_invitation_data(pending_invitation) if pending_invitation else None,
+            })
+
+        contact = PropertyContact.objects.filter(property=property_obj, customer=customer).first()
+        invitation = pending_invitation
+        return Response({
+            "found": True,
+            "customer": {
+                "id": customer.id,
+                "name": customer.name,
+                "mobile": masked_mobile(customer.mobile),
+                "bharath_id": masked_customer_id(customer.bharath_id),
+                "has_account": bool(customer.portal_user_id),
+            },
+            "contact": property_contact_share_data(contact) if contact else None,
+            "can_edit_access": bool(
+                request.user.role == BharathUser.Roles.CUSTOMER
+                and contact
+                and not contact.is_primary
+                and has_property_access(request.user, property_obj, PropertyPermission.INVITE_CONTACTS)
+            ),
+            "pending_invitation": property_invitation_data(invitation) if invitation else None,
+        })
+
+
+class PropertyShareView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, property_id):
+        property_obj = get_object_or_404(Property.objects.select_for_update(), pk=property_id)
+        result = create_property_share(request, property_obj)
+        if result["state"] == "INVITATION_CREATED":
+            response_status = status.HTTP_201_CREATED
+        elif result["state"] == PropertyContact.Status.PENDING:
+            response_status = status.HTTP_202_ACCEPTED
+        else:
+            response_status = status.HTTP_200_OK
+        return Response(result, status=response_status)
+
+
+class CustomerPropertyShareRequestListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        contacts = PropertyContact.objects.filter(
+            customer__portal_user=request.user,
+            status=PropertyContact.Status.PENDING,
+        ).select_related("property").order_by("-created_at")
+        return Response([{
+            "id": contact.id,
+            "property_id": contact.property_id,
+            "property_name": contact.property.name or contact.property.property_type,
+            "property_type": contact.property.property_type,
+            "city": contact.property.city,
+            "relationship": contact.relationship,
+            "access_level": contact.access_level,
+            "custom_permissions": contact.custom_permissions,
+            "requested_at": contact.created_at,
+        } for contact in contacts])
+
+
+class CustomerPropertyShareRequestRespondView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, contact_id):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        contact = PropertyContact.objects.select_for_update().select_related(
+            "property", "customer",
+        ).filter(
+            pk=contact_id,
+            customer__portal_user=request.user,
+            status=PropertyContact.Status.PENDING,
+        ).first()
+        if not contact:
+            return Response({"detail": "Property access request not found."}, status=status.HTTP_404_NOT_FOUND)
+        decision = str(request.data.get("action") or "").upper()
+        if decision not in {"ACCEPT", "DECLINE"}:
+            return Response({"action": "Choose accept or decline."}, status=status.HTTP_400_BAD_REQUEST)
+        contact.status = PropertyContact.Status.ACTIVE if decision == "ACCEPT" else PropertyContact.Status.DECLINED
+        contact.save(update_fields=("status", "updated_at"))
+        property_access_audit(
+            request, contact.property,
+            "PROPERTY_ACCESS_ACCEPTED" if decision == "ACCEPT" else "PROPERTY_ACCESS_DECLINED",
+            contact=contact,
+            details={"access_level": contact.access_level, "relationship": contact.relationship},
+        )
+        primary = contact.property.contacts.filter(is_primary=True).select_related("customer__portal_user").first()
+        if primary:
+            decision_word = "accepted" if decision == "ACCEPT" else "declined"
+            create_notification(
+                primary.customer.portal_user,
+                "PROPERTY_ACCESS_RESPONSE",
+                "Property access response",
+                f"{request.user.get_full_name() or request.user.mobile} {decision_word} access to {contact.property.name or contact.property.property_type}.",
+                f"/customer-properties/{contact.property_id}/access",
+                request.user,
+            )
+        return Response({
+            "detail": "Property access accepted." if decision == "ACCEPT" else "Property access declined.",
+            "property_id": contact.property_id,
+            "status": contact.status,
+        })
+
+
+class PropertyInvitationTokenView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        invitation = PropertyInvitation.objects.select_related("property").filter(
+            token_hash=property_invitation_digest(token),
+            status=PropertyInvitation.Status.PENDING,
+            expires_at__gt=timezone.now(),
+        ).first()
+        if not invitation:
+            return Response({"detail": "This property invitation is invalid or has expired."}, status=status.HTTP_404_NOT_FOUND)
+        response = Response(property_invitation_data(invitation))
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+class PropertyInvitationAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, token):
+        invitation = PropertyInvitation.objects.select_for_update().select_related(
+            "property", "invitee_customer__portal_user",
+        ).filter(
+            token_hash=property_invitation_digest(token),
+            status=PropertyInvitation.Status.PENDING,
+        ).first()
+        if not invitation or invitation.expires_at <= timezone.now():
+            return Response({"detail": "This property invitation is invalid or has expired."}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Sign in with the invited customer account to accept."}, status=status.HTTP_403_FORBIDDEN)
+
+        user_mobile = normalize_indian_mobile(request.user.mobile)
+        user_emails = {
+            str(getattr(request.user, "email", "") or "").strip().lower(),
+            str(getattr(request.user, "recovery_email", "") or "").strip().lower(),
+        } - {""}
+        if invitation.invitee_mobile and user_mobile != invitation.invitee_mobile:
+            return Response({"detail": "Sign in with the mobile number this invitation was sent to."}, status=status.HTTP_403_FORBIDDEN)
+        if invitation.invitee_email and invitation.invitee_email.lower() not in user_emails:
+            return Response({"detail": "Sign in with the email address this invitation was sent to."}, status=status.HTTP_403_FORBIDDEN)
+
+        customer = invitation.invitee_customer
+        if customer and customer.portal_user_id and customer.portal_user_id != request.user.id:
+            return Response({"detail": "This invitation is linked to a different customer account."}, status=status.HTTP_403_FORBIDDEN)
+        if customer is None:
+            customer = Customer.objects.filter(portal_user=request.user).first()
+        if customer is None and invitation.invitee_mobile:
+            customer = Customer.objects.filter(normalized_mobile=invitation.invitee_mobile).first()
+        if customer is None and invitation.invitee_email:
+            customer = Customer.objects.filter(email__iexact=invitation.invitee_email).first()
+        if customer is None:
+            if invitation.invitee_mobile and normalize_indian_mobile(request.user.mobile) == invitation.invitee_mobile:
+                try:
+                    with transaction.atomic():
+                        customer = Customer.objects.create(
+                            name=invitation.invitee_name or request.user.get_full_name() or request.user.mobile,
+                            mobile=request.user.mobile,
+                            email=request.user.email or invitation.invitee_email,
+                            portal_user=request.user,
+                        )
+                except IntegrityError:
+                    customer = Customer.objects.filter(normalized_mobile=invitation.invitee_mobile).first()
+            if customer is None:
+                return Response({"detail": "A Customer profile could not be created for this account. Please retry."}, status=status.HTTP_409_CONFLICT)
+        if customer.portal_user_id not in (None, request.user.id):
+            return Response({"detail": "This customer profile is linked to another account."}, status=status.HTTP_403_FORBIDDEN)
+        if customer.portal_user_id is None:
+            customer.portal_user = request.user
+            customer.save(update_fields=("portal_user", "updated_at"))
+
+        ensure_legacy_primary_contact(invitation.property)
+        contact, created = PropertyContact.objects.get_or_create(
+            property=invitation.property,
+            customer=customer,
+            defaults={
+                "role": PropertyContact.Role.AUTHORIZED_CONTACT,
+                "relationship": invitation.relationship,
+                "access_level": invitation.access_level,
+                "custom_permissions": invitation.custom_permissions,
+                "status": PropertyContact.Status.ACTIVE,
+                "added_by": invitation.invited_by,
+            },
+        )
+        if not created:
+            if contact.status != PropertyContact.Status.PENDING:
+                return Response({"detail": "This customer already has access to the property."}, status=status.HTTP_409_CONFLICT)
+            contact.relationship = invitation.relationship
+            contact.access_level = invitation.access_level
+            contact.custom_permissions = invitation.custom_permissions
+            contact.status = PropertyContact.Status.ACTIVE
+            contact.added_by = invitation.invited_by
+            contact.save(update_fields=("relationship", "access_level", "custom_permissions", "status", "added_by", "updated_at"))
+        invitation.invitee_customer = customer
+        invitation.status = PropertyInvitation.Status.ACCEPTED
+        invitation.accepted_at = timezone.now()
+        invitation.save(update_fields=("invitee_customer", "status", "accepted_at", "updated_at"))
+        property_access_audit(
+            request, invitation.property, "INVITATION_ACCEPTED",
+            contact=contact, invitation=invitation, details={"role": contact.role},
+        )
+        primary = invitation.property.contacts.filter(is_primary=True).select_related("customer__portal_user").first()
+        if primary:
+            create_notification(
+                primary.customer.portal_user, "PROPERTY_CONTACT_ADDED", "Property contact added",
+                f"{customer.name} accepted an invitation to {invitation.property.name or invitation.property.property_type}.",
+                "/customer-properties", request.user,
+            )
+        return Response({
+            "detail": "You now have access to this property.",
+            "property_id": invitation.property_id,
+            "contact_id": contact.id,
+            "role": contact.role,
+        })
+
+
+class PropertyInvitationRevokeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, invitation_id):
+        invitation = PropertyInvitation.objects.select_for_update().select_related("property").filter(pk=invitation_id).first()
+        if not invitation:
+            return Response({"detail": "Property invitation not found."}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.role == BharathUser.Roles.CUSTOMER:
+            require_property_access(request.user, invitation.property, PropertyPermission.INVITE_CONTACTS)
+        elif request.user.role == BharathUser.Roles.CONTRACTOR:
+            if invitation.invited_by_id != request.user.id or not has_property_access(request.user, invitation.property, PropertyPermission.INVITE_CONTACTS):
+                return Response({"detail": "Only the connected contractor who sent this invitation can revoke it."}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return Response({"detail": "Property access only."}, status=status.HTTP_403_FORBIDDEN)
+        if invitation.status != PropertyInvitation.Status.PENDING:
+            return Response({"detail": "Only pending invitations can be revoked."}, status=status.HTTP_409_CONFLICT)
+        invitation.status = PropertyInvitation.Status.REVOKED
+        invitation.revoked_at = timezone.now()
+        invitation.save(update_fields=("status", "revoked_at", "updated_at"))
+        property_access_audit(
+            request, invitation.property, "INVITATION_REVOKED", invitation=invitation,
+        )
+        invitee_user = invitation.invitee_customer.portal_user if invitation.invitee_customer_id else None
+        if invitee_user:
+            create_notification(
+                invitee_user, "PROPERTY_INVITATION_REVOKED", "Property invitation revoked",
+                f"The invitation for {invitation.property.name or invitation.property.property_type} is no longer available.",
+                "/customer-properties", request.user,
+            )
+        return Response({"detail": "Property invitation revoked."})
+
+
+class PropertyContactActionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, property_id, action):
+        is_customer = request.user.role == BharathUser.Roles.CUSTOMER
+        is_contractor = request.user.role == BharathUser.Roles.CONTRACTOR
+        if not (is_customer or is_contractor):
+            return Response({"detail": "Customer or connected contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        if action not in {"transfer-primary", "leave", "remove", "change-role", "change-access"}:
+            return Response({"detail": "Unknown property contact action."}, status=status.HTTP_404_NOT_FOUND)
+
+        with transaction.atomic():
+            property_obj = Property.objects.select_for_update().filter(pk=property_id).first()
+            if not property_obj:
+                return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
+            if is_contractor:
+                if action != "remove" or not has_property_access(request.user, property_obj, PropertyPermission.INVITE_CONTACTS):
+                    return Response({"detail": "This contractor action is not permitted."}, status=status.HTTP_403_FORBIDDEN)
+                target = PropertyContact.objects.select_for_update().filter(
+                    pk=request.data.get("contact_id"), property=property_obj,
+                    added_by=request.user, status=PropertyContact.Status.PENDING,
+                ).first()
+                if not target:
+                    return Response({"detail": "Pending share request not found."}, status=status.HTTP_404_NOT_FOUND)
+                property_access_audit(request, property_obj, "PROPERTY_ACCESS_REQUEST_CANCELLED", contact=target)
+                target.delete()
+                return Response({"detail": "Pending property share request cancelled."})
+            current = PropertyContact.objects.select_for_update().filter(
+                property=property_obj,
+                customer__portal_user=request.user,
+            ).first()
+            if not current:
+                return Response({"detail": "You are not a contact for this property."}, status=status.HTTP_403_FORBIDDEN)
+
+            if action == "leave":
+                if current.is_primary:
+                    return Response({"detail": "Transfer primary contact to another contact before leaving this property."}, status=status.HTTP_409_CONFLICT)
+                if property_obj.contacts.count() <= 1:
+                    return Response({"detail": "The only contact cannot leave this property."}, status=status.HTTP_409_CONFLICT)
+                property_access_audit(
+                    request, property_obj, "CONTACT_LEFT", contact=current,
+                    details={"role": current.role},
+                )
+                primary_contact = property_obj.contacts.filter(is_primary=True).select_related("customer__portal_user").first()
+                if primary_contact:
+                    create_notification(
+                        primary_contact.customer.portal_user, "PROPERTY_CONTACT_LEFT", "A contact left the property",
+                        f"{current.customer.name} left {property_obj.name or property_obj.property_type}.",
+                        f"/customer-properties/{property_obj.id}/access", request.user,
+                    )
+                current.delete()
+                return Response({"detail": "You have left this property."})
+
+            if action == "remove":
+                target = PropertyContact.objects.select_for_update().filter(
+                    pk=request.data.get("contact_id"), property=property_obj,
+                ).first()
+                if not target:
+                    return Response({"contact_id": "Choose an existing contact on this property."}, status=status.HTTP_400_BAD_REQUEST)
+                if target.is_primary:
+                    return Response({"detail": "Transfer primary contact before removing this contact."}, status=status.HTTP_409_CONFLICT)
+                if not current.is_primary and target.added_by_id != request.user.id and not has_property_access(
+                    request.user, property_obj, PropertyPermission.MANAGE_CONTACTS,
+                ):
+                    return Response({"detail": "You cannot cancel this property access request."}, status=status.HTTP_403_FORBIDDEN)
+                property_access_audit(
+                    request, property_obj,
+                    "PROPERTY_ACCESS_REQUEST_CANCELLED" if target.status == PropertyContact.Status.PENDING else "CONTACT_REMOVED",
+                    contact=target,
+                    details={"status": target.status},
+                )
+                create_notification(
+                    target.customer.portal_user, "PROPERTY_ACCESS_REMOVED", "Property access removed",
+                    f"You no longer have access to {property_obj.name or property_obj.property_type}.",
+                    "/customer-properties", request.user,
+                )
+                target.delete()
+                return Response({"detail": "Property contact removed."})
+
+            if not current.is_primary:
+                return Response({"detail": "Only the primary contact can make this change."}, status=status.HTTP_403_FORBIDDEN)
+
+            if action == "transfer-primary":
+                target = PropertyContact.objects.select_for_update().filter(
+                    pk=request.data.get("contact_id"), property=property_obj,
+                ).first()
+                if not target:
+                    return Response({"contact_id": "Choose an existing contact on this property."}, status=status.HTTP_400_BAD_REQUEST)
+                if target.pk == current.pk:
+                    return Response({"detail": "You are already the primary contact."}, status=status.HTTP_409_CONFLICT)
+                if target.status != PropertyContact.Status.ACTIVE:
+                    return Response({"detail": "Only an active property contact can become primary."}, status=status.HTTP_409_CONFLICT)
+                previous_role = current.role
+                current.role = PropertyContact.Role.OWNER
+                current.is_primary = False
+                current.save(update_fields=("role", "is_primary", "updated_at"))
+                target.role = PropertyContact.Role.PRIMARY
+                target.is_primary = True
+                target.access_level = PropertyContact.AccessLevel.FULL_ACCESS
+                target.save(update_fields=("role", "is_primary", "access_level", "updated_at"))
+                property_access_audit(
+                    request, property_obj, "PRIMARY_CONTACT_TRANSFERRED",
+                    contact=target,
+                    details={"previous_primary_contact_id": current.id, "previous_role": previous_role},
+                )
+                create_notification(
+                    target.customer.portal_user, "PROPERTY_PRIMARY_TRANSFERRED", "You are now the primary contact",
+                    f"You are now the primary contact for {property_obj.name or property_obj.property_type}.",
+                    f"/customer-properties/{property_obj.id}", request.user,
+                )
+                create_notification(
+                    current.customer.portal_user, "PROPERTY_PRIMARY_TRANSFERRED", "Primary contact transferred",
+                    f"{target.customer.name} is now the primary contact for {property_obj.name or property_obj.property_type}.",
+                    f"/customer-properties/{property_obj.id}", request.user,
+                )
+                return Response({"detail": "Primary contact transferred.", "contact_id": target.id})
+
+            target = PropertyContact.objects.select_for_update().filter(
+                pk=request.data.get("contact_id"), property=property_obj,
+            ).first()
+            if not target:
+                return Response({"contact_id": "Choose an existing contact on this property."}, status=status.HTTP_400_BAD_REQUEST)
+            if target.is_primary:
+                return Response({"detail": "Transfer primary contact before changing or removing this contact."}, status=status.HTTP_409_CONFLICT)
+
+            if action == "change-access":
+                relationship = str(request.data.get("relationship") or "").upper()
+                access_level = str(request.data.get("access_level") or "").upper()
+                custom_permissions = request.data.get("custom_permissions") or []
+                if relationship not in {"", *PropertyContact.Relationship.values}:
+                    return Response({"relationship": "Choose a valid relationship."}, status=status.HTTP_400_BAD_REQUEST)
+                if access_level not in PropertyContact.AccessLevel.values:
+                    return Response({"access_level": "Choose a valid access level."}, status=status.HTTP_400_BAD_REQUEST)
+                if not isinstance(custom_permissions, list):
+                    return Response({"custom_permissions": "Choose a list of permissions."}, status=status.HTTP_400_BAD_REQUEST)
+                permission_values = {value for name, value in vars(PropertyPermission).items() if name.isupper()}
+                custom_permissions = sorted({str(value) for value in custom_permissions if str(value) in permission_values})
+                if access_level == PropertyContact.AccessLevel.CUSTOM and not custom_permissions:
+                    return Response({"custom_permissions": "Choose at least one custom permission."}, status=status.HTTP_400_BAD_REQUEST)
+                target.relationship = relationship
+                target.access_level = access_level
+                target.custom_permissions = custom_permissions
+                target.save(update_fields=("relationship", "access_level", "custom_permissions", "updated_at"))
+                property_access_audit(
+                    request, property_obj, "CONTACT_ACCESS_UPDATED", contact=target,
+                    details={"access_level": access_level, "relationship": relationship},
+                )
+                return Response({"detail": "Property contact access updated.", "contact": property_contact_share_data(target)})
+
+            role = str(request.data.get("role") or "").upper()
+            permitted_roles = {choice for choice, _label in PropertyContact.Role.choices} - {PropertyContact.Role.PRIMARY}
+            if role not in permitted_roles:
+                return Response({"role": "Choose a non-primary property-contact role."}, status=status.HTTP_400_BAD_REQUEST)
+            previous_role = target.role
+            target.role = role
+            target.save(update_fields=("role", "updated_at"))
+            property_access_audit(
+                request, property_obj, "CONTACT_ROLE_CHANGED", contact=target,
+                details={"from": previous_role, "to": role},
+            )
+            create_notification(
+                target.customer.portal_user, "PROPERTY_CONTACT_ROLE_CHANGED", "Property contact role changed",
+                f"Your role for {property_obj.name or property_obj.property_type} is now {target.get_role_display()}.",
+                f"/customer-properties/{property_obj.id}", request.user,
+            )
+            return Response({"detail": "Property contact role updated.", "contact_id": target.id, "role": target.role})
+
+
+class CustomerPropertyShareRequestListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        requests = PropertyContact.objects.filter(
+            customer__portal_user=request.user,
+            status=PropertyContact.Status.PENDING,
+        ).select_related("property").order_by("-created_at")
+        return Response([{
+            "id": item.id,
+            "property_id": item.property_id,
+            "property_name": item.property.name or item.property.property_type,
+            "property_type": item.property.property_type,
+            "city": item.property.city,
+            "relationship": item.relationship,
+            "access_level": item.access_level,
+            "custom_permissions": item.custom_permissions,
+            "requested_at": item.created_at,
+        } for item in requests])
+
+
+class CustomerPropertyShareRequestRespondView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, contact_id):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        contact = PropertyContact.objects.select_for_update().select_related(
+            "property", "customer",
+        ).filter(
+            pk=contact_id,
+            customer__portal_user=request.user,
+            status=PropertyContact.Status.PENDING,
+        ).first()
+        if not contact:
+            return Response({"detail": "Property access request not found."}, status=status.HTTP_404_NOT_FOUND)
+        decision = str(request.data.get("action") or "").upper()
+        if decision not in {"ACCEPT", "DECLINE"}:
+            return Response({"action": "Choose accept or decline."}, status=status.HTTP_400_BAD_REQUEST)
+        contact.status = PropertyContact.Status.ACTIVE if decision == "ACCEPT" else PropertyContact.Status.DECLINED
+        contact.save(update_fields=("status", "updated_at"))
+        property_access_audit(
+            request, contact.property,
+            "PROPERTY_ACCESS_ACCEPTED" if decision == "ACCEPT" else "PROPERTY_ACCESS_DECLINED",
+            contact=contact,
+            details={"access_level": contact.access_level, "relationship": contact.relationship},
+        )
+        primary = contact.property.contacts.filter(is_primary=True).select_related("customer__portal_user").first()
+        if primary:
+            create_notification(
+                primary.customer.portal_user,
+                "PROPERTY_ACCESS_RESPONSE",
+                "Property access response",
+                f"{request.user.get_full_name() or request.user.mobile} {('accepted' if decision == 'ACCEPT' else 'declined')} access to {contact.property.name or contact.property.property_type}.",
+                f"/customer-properties/{contact.property_id}/access",
+                request.user,
+            )
+        return Response({"detail": "Property access accepted." if decision == "ACCEPT" else "Property access declined.", "property_id": contact.property_id, "status": contact.status})
 
 
 class PropertyMeasurementPdfView(APIView):
@@ -1781,7 +2617,7 @@ class PropertyMeasurementPdfView(APIView):
             record = PropertyMeasurement.objects.filter(id=record_id, property=property_obj).first()
             if not record:
                 return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
-        pdf = build_measurement_pdf(property_obj, record)
+        pdf = build_measurement_pdf(property_obj, record, language=document_language(request))
         response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="property-area-calculation-{property_obj.id}.pdf"'
         return response
@@ -2118,8 +2954,15 @@ def chat_targets_for(user):
     return []
 
 
-def notification_data(item):
-    return {"id": item.id, "event_type": item.event_type, "title": item.title, "message": item.message, "link": item.link, "is_read": bool(item.read_at), "created_at": item.created_at}
+def notification_data(item, language="en"):
+    is_message = item.event_type == "MESSAGE"
+    from .transliteration import system_text, NOTIFICATIONS
+    title = "New message" if is_message else item.title
+    message = "Open your inbox to view it." if is_message else item.message
+    return {"id": item.id, "event_type": item.event_type, "title": title, "message": message,
+        "display_title": system_text(title, language) if is_message or title in NOTIFICATIONS['titles'] else title,
+        "display_message": system_text(message, language) if is_message or message in NOTIFICATIONS['messages'] else message,
+        "link": item.link, "is_read": bool(item.read_at), "created_at": item.created_at}
 
 
 class PortalNotificationListView(APIView):
@@ -2137,7 +2980,7 @@ class PortalNotificationListView(APIView):
         return Response({
             "unread_count": PortalNotification.objects.filter(recipient=request.user, read_at__isnull=True).count(),
             "pending_connection_count": pending_connection_count,
-            "results": [notification_data(item) for item in items],
+            "results": [notification_data(item, request.query_params.get('display_script', 'en')) for item in items],
         })
 
     def create_appointment_reminders(self, user):
@@ -2487,7 +3330,7 @@ class ChatMessageListCreateView(APIView):
             recipient = conversation.contractor
         else:
             recipient = conversation.painter
-        create_notification(recipient, "MESSAGE", "New message", f"{request.user.get_full_name() or request.user.mobile}: {chat_message_summary(message)}", "/messages", request.user)
+        create_notification(recipient, "MESSAGE", "New message", "Open your inbox to view it.", "/messages", request.user)
         return Response(chat_message_data(message, request.user), status=status.HTTP_201_CREATED)
 
 
@@ -2536,7 +3379,7 @@ class ChatMessageForwardView(APIView):
             recipient = target.customer.portal_user if request.user.id == target.contractor_id else target.contractor
         else:
             recipient = target.contractor if request.user.id == target.painter_id else target.painter
-        create_notification(recipient, "MESSAGE", "Forwarded message", f"{request.user.get_full_name() or request.user.mobile}: {chat_message_summary(forwarded)}", "/messages", request.user)
+        create_notification(recipient, "MESSAGE", "New message", "Open your inbox to view it.", "/messages", request.user)
         return Response(chat_message_data(forwarded, request.user), status=status.HTTP_201_CREATED)
 
 
@@ -3899,8 +4742,9 @@ class CustomerPortalDashboardView(APIView):
         conversations = ChatConversation.objects.filter(customer_id__in=customer_ids)
         requests = ServiceRequest.objects.filter(customer_id__in=customer_ids).select_related("customer", "customer__contractor", "service_type")
         tickets = SupportTicket.objects.filter(customer_id__in=customer_ids).select_related("customer", "customer__contractor")
-        properties = Property.objects.filter(customer_id__in=customer_ids).select_related("customer")
-        quotations = Quotation.objects.filter(customer_id__in=customer_ids).exclude(status=Quotation.Status.DRAFT).select_related("customer", "contractor")
+        properties = accessible_properties(request.user, PropertyPermission.VIEW_PROPERTY).select_related("customer")
+        quotations = CustomerQuotationListView.customer_queryset(request.user).exclude(status=Quotation.Status.DRAFT).select_related("customer", "contractor", "property")
+        work_changes = customer_work_change_scope(request.user).exclude(status=WorkChange.Status.DRAFT)
         return Response({
             "customer_name": request.user.get_full_name() or request.user.first_name or request.user.mobile,
             "customer_bharath_ids": list(customers.values_list("bharath_id", flat=True)),
@@ -3912,6 +4756,7 @@ class CustomerPortalDashboardView(APIView):
                 "open_tickets": tickets.exclude(status__in=(SupportTicket.Status.RESOLVED, SupportTicket.Status.CLOSED)).count(),
                 "properties": properties.count(),
                 "quotations": quotations.count(),
+                "work_changes": work_changes.filter(status=WorkChange.Status.SENT_TO_CUSTOMER).count(),
             },
             "recent_requests": [service_request_data(item) for item in requests[:5]],
             "recent_tickets": [ticket_data(item) for item in tickets[:5]],
@@ -4239,6 +5084,7 @@ class MeasurementAccessPrepareQuotationView(APIView):
             measurement_unit=source.measurement_unit, name=source.name, address=source.address,
             city=source.city, pincode=source.pincode, approximate_area=source.approximate_area,
         )
+        ensure_legacy_primary_contact(target)
         source_record = source.measurement_records.filter(submitted_at__isnull=False).order_by("-measured_on", "-id").first()
         if not source_record:
             raise ValidationError({"measurement": "No submitted Area Calculation is available."})
@@ -4309,6 +5155,8 @@ class PortalNotificationCountsView(APIView):
         if request.user.role == BharathUser.Roles.CUSTOMER:
             from jobs.models import WorkSchedule
             customers = Customer.objects.filter(portal_user=request.user)
+            progress_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_PROGRESS).values("pk")
+            payment_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).values("pk")
             conversations = ChatConversation.objects.filter(customer__in=customers)
             return Response({
                 "messages": ChatMessage.objects.filter(conversation__in=conversations, read_at__isnull=True).exclude(sender=request.user).count(),
@@ -4318,9 +5166,18 @@ class PortalNotificationCountsView(APIView):
                 "connection_requests": ContractorCustomerConnection.objects.filter(customer__portal_user=request.user, status=ContractorCustomerConnection.Status.PENDING).count(),
                 "tasks": 0,
                 "work_updates": WorkSchedule.objects.filter(
-                    models.Q(status__in=(WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED), customer_seen_update_at__isnull=True)
-                    | models.Q(payment_status=WorkSchedule.PaymentStatus.AWAITING_PAYMENT),
-                    quotation__customer__portal_user=request.user,
+                    (
+                        models.Q(status__in=(WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED), customer_seen_update_at__isnull=True)
+                        & models.Q(quotation__property_id__in=Subquery(progress_property_ids))
+                    ) | (
+                        models.Q(payment_status=WorkSchedule.PaymentStatus.AWAITING_PAYMENT)
+                        & models.Q(quotation__property_id__in=Subquery(payment_property_ids))
+                    ) | models.Q(
+                        quotation__customer__portal_user=request.user,
+                        quotation__property__isnull=True,
+                        status__in=(WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED),
+                        customer_seen_update_at__isnull=True,
+                    ),
                 ).distinct().count(),
             })
         if request.user.role == BharathUser.Roles.PAINTER:
@@ -4348,11 +5205,18 @@ class CustomerQuotationView(APIView):
     def get(self, request, pk):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        allowed_property_ids = accessible_properties(
+            request.user, PropertyPermission.VIEW_QUOTATIONS,
+        ).values("pk")
         quotation = Quotation.objects.select_related(
-            "customer", "property", "contractor", "contractor__contractor_profile"
+            "customer", "property", "contractor", "contractor__contractor_profile",
+            "customer_contact__customer",
         ).prefetch_related(
             "items__room__property_room__room_type", "items__service_type", "items__paint_type", "items__paint_brand", "items__unit"
-        ).filter(pk=pk, customer__portal_user=request.user).exclude(status=Quotation.Status.DRAFT).first()
+        ).filter(pk=pk).filter(
+            Q(property_id__in=Subquery(allowed_property_ids))
+            | Q(property__isnull=True, customer__portal_user=request.user)
+        ).exclude(status=Quotation.Status.DRAFT).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         profile = quotation.contractor.contractor_profile if hasattr(quotation.contractor, "contractor_profile") else None
@@ -4360,12 +5224,19 @@ class CustomerQuotationView(APIView):
         property_snapshot = quotation.property_snapshot or {}
         response = Response({
             "id": quotation.id, "quotation_number": quotation.quotation_number,
+            "property_id": quotation.property_id,
+            "property_access": effective_property_permissions(request.user, quotation.property),
             "revision_of": quotation.revision_of_id,
             "version_number": quotation.version_number,
             "revision_changes": quotation_revision_changes(quotation),
             "quotation_date": quotation.quotation_date, "valid_until": quotation.valid_until,
             "status": quotation.status,
             "contractor_name": profile.company_name if profile else contractor_snapshot.get("company_name") or quotation.contractor.get_full_name() or quotation.contractor.mobile,
+            "customer_contact": {
+                "id": quotation.customer_contact_id,
+                "name": quotation.customer_contact.customer.name,
+                "role": quotation.customer_contact.role,
+            } if quotation.customer_contact_id else None,
             "property_name": property_snapshot.get("name") or quotation.property.name or quotation.property.property_type,
             "subtotal": quotation.subtotal, "discount": quotation.discount,
             "gst_amount": quotation.gst_amount, "grand_total": quotation.grand_total,
@@ -4377,7 +5248,8 @@ class CustomerQuotationView(APIView):
             "accepted_via_receipt_at": quotation.accepted_via_receipt_at,
             "items": [{
                 "id": item.id, "serial": index,
-                "room": item.room.name if item.room else "General",
+                "room": ", ".join(item.included_areas) if item.included_areas else (item.room.name if item.room else "General"),
+                "included_areas": item.included_areas or [],
                 "room_type": (
                     item.room.room_type_name_snapshot
                     if item.room and item.room.room_type_name_snapshot
@@ -4405,12 +5277,28 @@ class CustomerQuotationView(APIView):
 class CustomerQuotationListView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def customer_queryset(user):
+        allowed_property_ids = accessible_properties(
+            user, PropertyPermission.VIEW_QUOTATIONS,
+        ).values("pk")
+        return Quotation.objects.filter(
+            Q(property_id__in=Subquery(allowed_property_ids))
+            | Q(property__isnull=True, customer__portal_user=user)
+        )
+
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        quotations = Quotation.objects.filter(customer__portal_user=request.user).exclude(
+        quotations = self.customer_queryset(request.user).exclude(
             status=Quotation.Status.DRAFT
-        ).select_related("contractor", "contractor__contractor_profile", "property", "work_schedule").order_by("-updated_at")
+        ).select_related("contractor", "contractor__contractor_profile", "property", "work_schedule", "customer_contact__customer").order_by("-updated_at")
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            quotations = quotations.filter(property_id=property_id)
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            quotations = quotations.filter(property_id=property_id)
         results = []
         for item in quotations:
             profile = item.contractor.contractor_profile if hasattr(item.contractor, "contractor_profile") else None
@@ -4419,8 +5307,15 @@ class CustomerQuotationListView(APIView):
             schedule = item.work_schedule if hasattr(item, "work_schedule") else None
             results.append({
                 "id": item.id, "quotation_number": item.quotation_number,
+                "property_id": item.property_id,
+                "property_access": effective_property_permissions(request.user, item.property),
                 "revision_of": item.revision_of_id, "version_number": item.version_number,
                 "status": item.status, "status_display": item.get_status_display(),
+                "customer_contact": {
+                    "id": item.customer_contact_id,
+                    "name": item.customer_contact.customer.name,
+                    "role": item.customer_contact.role,
+                } if item.customer_contact_id else None,
                 "accepted_via_receipt_at": item.accepted_via_receipt_at,
                 "grand_total": item.grand_total, "quotation_date": item.quotation_date,
                 "updated_at": item.updated_at,
@@ -4431,6 +5326,7 @@ class CustomerQuotationListView(APIView):
                 "contractor_bharath_id": item.contractor.bharath_id,
                 "contractor_logo": request.build_absolute_uri(profile.company_logo.url) if profile and profile.company_logo else None,
                 "contractor_logo_shape": profile.company_logo_shape if profile else contractor_snapshot.get("company_logo_shape") or "RECTANGLE",
+                "contractor_logo_position": profile.company_logo_position if profile else contractor_snapshot.get("company_logo_position") or {"x": 50, "y": 50, "zoom": 1},
                 "schedule_start_date": schedule.proposed_start_date if schedule else None,
                 "schedule_end_date": schedule.proposed_end_date if schedule else None,
                 "schedule_status": schedule.get_status_display() if schedule else "Not scheduled",
@@ -4445,10 +5341,23 @@ class CustomerQuotationActionView(APIView):
 
     @transaction.atomic
     def post(self, request, pk):
-        quotation = Quotation.objects.select_for_update().filter(pk=pk, customer__portal_user=request.user).exclude(status=Quotation.Status.DRAFT).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        action = str(request.data.get("action") or "").upper()
+        property_permission = (
+            PropertyPermission.REQUEST_QUOTATION_CHANGES
+            if action == "REVISION"
+            else PropertyPermission.APPROVE_QUOTATIONS
+        )
+        allowed_property_ids = accessible_properties(
+            request.user, property_permission,
+        ).values("pk")
+        quotation = Quotation.objects.select_for_update().filter(pk=pk).filter(
+            Q(property_id__in=Subquery(allowed_property_ids))
+            | Q(property__isnull=True, customer__portal_user=request.user)
+        ).exclude(status=Quotation.Status.DRAFT).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
-        action = str(request.data.get("action") or "").upper()
         response_statuses = (Quotation.Status.SENT, Quotation.Status.VIEWED)
         revision_statuses = response_statuses + (
             Quotation.Status.ACCEPTED,
@@ -4539,10 +5448,18 @@ class CustomerQuotationPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        quotation = Quotation.objects.select_related("customer", "property", "contractor", "contractor__contractor_profile").prefetch_related("items__service_type", "items__paint_type").filter(pk=pk, customer__portal_user=request.user).exclude(status=Quotation.Status.DRAFT).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        allowed_property_ids = accessible_properties(
+            request.user, PropertyPermission.VIEW_QUOTATIONS,
+        ).values("pk")
+        quotation = Quotation.objects.select_related("customer", "property", "contractor", "contractor__contractor_profile").prefetch_related("items__service_type", "items__paint_type").filter(pk=pk).filter(
+            Q(property_id__in=Subquery(allowed_property_ids))
+            | Q(property__isnull=True, customer__portal_user=request.user)
+        ).exclude(status=Quotation.Status.DRAFT).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_quotation_pdf(quotation), content_type="application/pdf")
+        response = HttpResponse(build_quotation_pdf(quotation, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{quotation.quotation_number}.pdf"'
         return response
 
@@ -4553,11 +5470,8 @@ class CustomerPropertyListView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        properties = Property.objects.filter(
-            customer__portal_user=request.user,
-        ).filter(
-            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
-            | models.Q(connection__isnull=True)
+        properties = accessible_properties(
+            request.user, PropertyPermission.VIEW_PROPERTY,
         ).select_related(
             "customer", "contractor", "contractor__contractor_profile", "connection__contractor"
         ).annotate(room_count=models.Count("rooms", filter=models.Q(rooms__measurement_record__submitted_at__isnull=False), distinct=True), surface_count=models.Count("measurement_surfaces", filter=models.Q(measurement_surfaces__measurement_record__submitted_at__isnull=False), distinct=True)).order_by("-updated_at")
@@ -4565,6 +5479,9 @@ class CustomerPropertyListView(APIView):
         for item in properties:
             contractor = item.contractor or (item.connection.contractor if item.connection_id else item.customer.contractor)
             profile = contractor.contractor_profile if hasattr(contractor, "contractor_profile") else None
+            access_contact = item.contacts.filter(customer__portal_user=request.user).first()
+            primary_contact = item.contacts.filter(is_primary=True, status=PropertyContact.Status.ACTIVE).select_related("customer").first()
+            can_view_measurements = has_property_access(request.user, item, PropertyPermission.VIEW_MEASUREMENTS)
             data.append({
                 "id": item.id, "name": item.name or item.property_type,
                 "property_type": item.property_type, "measurement_type": item.measurement_type,
@@ -4572,7 +5489,16 @@ class CustomerPropertyListView(APIView):
                 "address": item.address, "city": item.city, "pincode": item.pincode,
                 "approximate_area": item.approximate_area,
                 "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else "Not assigned"),
-                "rooms": item.room_count, "surfaces": item.surface_count, "updated_at": item.updated_at,
+                "contact_role": access_contact.role if access_contact else PropertyContact.Role.PRIMARY,
+                "is_primary_contact": access_contact.is_primary if access_contact else True,
+                "can_share_access": has_property_access(request.user, item, PropertyPermission.INVITE_CONTACTS),
+                "can_manage_access": has_property_access(request.user, item, PropertyPermission.MANAGE_CONTACTS),
+                "primary_contact_name": primary_contact.customer.name if primary_contact else item.customer.name,
+                "can_view_measurements": can_view_measurements,
+                "property_access": effective_property_permissions(request.user, item),
+                "rooms": item.room_count if can_view_measurements else 0,
+                "surfaces": item.surface_count if can_view_measurements else 0,
+                "updated_at": item.updated_at,
             })
         return Response(data)
 
@@ -4581,27 +5507,31 @@ class CustomerPropertyDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        property_obj = Property.objects.select_related("customer", "contractor", "contractor__contractor_profile", "connection__contractor").filter(
-            pk=pk, customer__portal_user=request.user,
-        ).filter(
-            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
-            | models.Q(connection__isnull=True)
-        ).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        property_obj = accessible_properties(
+            request.user, PropertyPermission.VIEW_PROPERTY,
+        ).select_related("customer", "contractor", "contractor__contractor_profile", "connection__contractor").filter(pk=pk).first()
         if not property_obj:
             return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
         contractor = property_obj.contractor or (property_obj.connection.contractor if property_obj.connection_id else property_obj.customer.contractor)
         profile = contractor.contractor_profile if hasattr(contractor, "contractor_profile") else None
-        records = property_obj.measurement_records.filter(
-            submitted_at__isnull=False, surfaces__isnull=False
-        ).distinct().select_related(
-            "contractor", "contractor__contractor_profile"
-        ).prefetch_related("surfaces__openings", "rooms").order_by("-measured_on", "-id")
+        access_contact = property_obj.contacts.filter(customer__portal_user=request.user).first()
+        primary_contact = property_obj.contacts.filter(is_primary=True, status=PropertyContact.Status.ACTIVE).select_related("customer").first()
+        can_view_measurements = has_property_access(request.user, property_obj, PropertyPermission.VIEW_MEASUREMENTS)
+        records = PropertyMeasurement.objects.none()
+        if can_view_measurements:
+            records = property_obj.measurement_records.filter(
+                submitted_at__isnull=False, surfaces__isnull=False
+            ).distinct().select_related(
+                "contractor", "contractor__contractor_profile"
+            ).prefetch_related("surfaces__openings", "rooms").order_by("-measured_on", "-id")
         record_id = request.query_params.get("measurement")
         record = records.filter(id=record_id).first() if record_id else records.first()
         if record_id and not record:
             return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
-        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id") if record else PropertyRoom.objects.none()
-        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id") if record else MeasurementSurface.objects.none()
+        rooms = PropertyRoom.objects.filter(property=property_obj, measurement_record=record).order_by("id") if record and can_view_measurements else PropertyRoom.objects.none()
+        surfaces = MeasurementSurface.objects.filter(property=property_obj, measurement_record=record).select_related("room").prefetch_related("openings").order_by("room_id", "id") if record and can_view_measurements else MeasurementSurface.objects.none()
         return Response({
             "property": {
                 "id": property_obj.id, "name": property_obj.name or property_obj.property_type,
@@ -4610,6 +5540,13 @@ class CustomerPropertyDetailView(APIView):
                 "address": property_obj.address, "city": property_obj.city, "pincode": property_obj.pincode,
                 "approximate_area": property_obj.approximate_area,
                 "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else "Not assigned"),
+                "contact_role": access_contact.role if access_contact else PropertyContact.Role.PRIMARY,
+                "is_primary_contact": access_contact.is_primary if access_contact else True,
+                "can_share_access": has_property_access(request.user, property_obj, PropertyPermission.INVITE_CONTACTS),
+                "can_manage_access": has_property_access(request.user, property_obj, PropertyPermission.MANAGE_CONTACTS),
+                "can_view_measurements": can_view_measurements,
+                "property_access": effective_property_permissions(request.user, property_obj),
+                "primary_contact_name": primary_contact.customer.name if primary_contact else property_obj.customer.name,
                 "updated_at": property_obj.updated_at,
                 "measurement_id": record.id if record else None,
                 "measurement_reference": record.reference_no if record else "",
@@ -4641,20 +5578,21 @@ class CustomerPropertyMeasurementPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        property_obj = Property.objects.select_related("customer").filter(
-            pk=pk, customer__portal_user=request.user,
-        ).filter(
-            models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
-            | models.Q(connection__isnull=True)
-        ).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        property_obj = accessible_properties(
+            request.user, PropertyPermission.VIEW_PROPERTY,
+        ).select_related("customer").filter(pk=pk).first()
         if not property_obj:
             return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not has_property_access(request.user, property_obj, PropertyPermission.VIEW_MEASUREMENTS):
+            return Response({"detail": "Area Calculation access is not included in your property permissions."}, status=status.HTTP_403_FORBIDDEN)
         record_id = request.query_params.get("measurement")
         records = property_obj.measurement_records.filter(submitted_at__isnull=False, surfaces__isnull=False).distinct()
         record = records.filter(id=record_id).first() if record_id else records.first()
         if not record:
             return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
-        pdf = build_measurement_pdf(property_obj, record)
+        pdf = build_measurement_pdf(property_obj, record, language=document_language(request))
         response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
         filename = record.reference_no if record else f"property-{property_obj.id}"
         response["Content-Disposition"] = f'attachment; filename="{filename}-area-calculation.pdf"'
@@ -4778,7 +5716,7 @@ class QuotationPdfView(APIView):
                 for section in request.query_params.get("sections", "").split(",")
                 if section.strip()
             }
-        response = HttpResponse(build_quotation_pdf(quotation, included_sections=included_sections), content_type="application/pdf")
+        response = HttpResponse(build_quotation_pdf(quotation, included_sections=included_sections, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{quotation.quotation_number}.pdf"'
         return response
 
@@ -4810,7 +5748,7 @@ class QuotationPreviewPdfView(APIView):
                 status=Quotation.Status.DRAFT,
             )
             quotation.quotation_number = "PREVIEW"
-            pdf_bytes = build_quotation_pdf(quotation)
+            pdf_bytes = build_quotation_pdf(quotation, language=document_language(request))
             transaction.set_rollback(True)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
@@ -5627,7 +6565,24 @@ def invoice_payload(invoice):
                           "notes": payment.notes, "created_at": payment.created_at} for payment in invoice.payments.all()],
             "can_edit": timezone.localdate(invoice.created_at) == timezone.localdate() and invoice.status not in {Invoice.Status.PAID, Invoice.Status.CANCELLED},
             "balance_due": invoice.balance_due, "notes": invoice.notes, "terms_conditions": invoice.terms_conditions,
-            "created_at": invoice.created_at, "updated_at": invoice.updated_at}
+             "created_at": invoice.created_at, "updated_at": invoice.updated_at}
+
+
+def customer_invoice_payload(user, invoice):
+    payload = invoice_payload(invoice)
+    property_obj = invoice.quotation.property if invoice.quotation_id else invoice.site_property
+    legacy_owner = bool(invoice.customer_id and invoice.customer.portal_user_id == user.pk)
+    can_view_payments = (
+        has_property_access(user, property_obj, PropertyPermission.VIEW_PAYMENTS)
+        if property_obj else legacy_owner
+    )
+    if not can_view_payments:
+        for field in (
+            "amount_paid", "payment_mode", "payment_reference", "payment_received_at",
+            "receipt_number", "payments", "balance_due",
+        ):
+            payload.pop(field, None)
+    return payload
 
 
 def invoice_financial_year(value=None):
@@ -5891,14 +6846,35 @@ def record_project_receipts(invoice, quotation):
     return created
 
 
+def customer_invoice_scope(user):
+    property_ids = accessible_properties(
+        user, PropertyPermission.VIEW_INVOICES,
+    ).values("pk")
+    completed_project_invoices = Q(quotation__work_schedule__status="COMPLETED") & (
+        Q(quotation__customer__portal_user=user)
+        | Q(quotation__property_id__in=Subquery(property_ids))
+        | Q(site_property_id__in=Subquery(property_ids))
+    )
+    standalone_invoices = Q(quotation__isnull=True) & (
+        Q(customer__portal_user=user)
+        | Q(site_property_id__in=Subquery(property_ids))
+    )
+    return Invoice.objects.filter(completed_project_invoices | standalone_invoices).distinct()
+
+
 class CustomerInvoiceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        invoices = Invoice.objects.filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).select_related("quotation", "customer", "site_property").distinct()
-        return Response([invoice_payload(item) for item in invoices])
+        invoices = customer_invoice_scope(request.user).select_related("quotation", "customer", "site_property")
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            if not accessible_properties(request.user, PropertyPermission.VIEW_INVOICES).filter(pk=property_id).exists():
+                return Response({"detail": "Invoice access is not available for this property."}, status=status.HTTP_403_FORBIDDEN)
+            invoices = invoices.filter(Q(quotation__property_id=property_id) | Q(site_property_id=property_id))
+        return Response([customer_invoice_payload(request.user, item) for item in invoices])
 
 
 class InvoiceDetailView(APIView):
@@ -5942,7 +6918,7 @@ class InvoicePdfView(APIView):
     def get(self,request,pk):
         item=contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).first()
         if not item:return Response({"detail":"Invoice not found."},status=status.HTTP_404_NOT_FOUND)
-        response=HttpResponse(build_invoice_pdf(item),content_type="application/pdf");response["Content-Disposition"]=f'attachment; filename="{item.invoice_number}.pdf"';return response
+        response=HttpResponse(build_invoice_pdf(item, language=document_language(request)),content_type="application/pdf");response["Content-Disposition"]=f'attachment; filename="{item.invoice_number}.pdf"';return response
 
 
 class InvoiceReceiptPdfView(APIView):
@@ -5953,6 +6929,11 @@ class InvoiceReceiptPdfView(APIView):
             item.contractor_id == request.user.id
             or (item.quotation_id and item.quotation.customer.portal_user_id == request.user.id)
             or (item.customer_id and item.customer.portal_user_id == request.user.id)
+            or (
+                item.quotation_id
+                and item.quotation.property_id
+                and has_property_access(request.user, item.quotation.property, PropertyPermission.VIEW_PAYMENTS)
+            )
         )
         if not allowed or item.status == Invoice.Status.CANCELLED or item.amount_paid <= 0:
             return Response({"detail": "Payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -5960,7 +6941,7 @@ class InvoiceReceiptPdfView(APIView):
             item.receipt_number = f"BPR-{timezone.localdate():%Y%m%d}-{item.id:04d}"
             item.payment_received_at = item.payment_received_at or item.updated_at
             item.save(update_fields=("receipt_number", "payment_received_at", "updated_at"))
-        response = HttpResponse(build_invoice_receipt_pdf(item), content_type="application/pdf")
+        response = HttpResponse(build_invoice_receipt_pdf(item, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{item.receipt_number}.pdf"'
         return response
 
@@ -6021,10 +7002,14 @@ class CustomerInvoicePdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        item = Invoice.objects.select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        item = customer_invoice_scope(request.user).select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).first()
         if not item:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_invoice_pdf(item), content_type="application/pdf")
+        property_obj = item.quotation.property if item.quotation_id else item.site_property
+        can_view_payments = has_property_access(request.user, property_obj, PropertyPermission.VIEW_PAYMENTS) if property_obj else bool(item.customer_id and item.customer.portal_user_id == request.user.id)
+        response = HttpResponse(build_invoice_pdf(item, include_payment_details=can_view_payments, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{item.invoice_number}.pdf"'
         return response
 
@@ -6033,13 +7018,183 @@ class CustomerInvoiceReceiptPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        item = Invoice.objects.select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).filter(models.Q(quotation__customer__portal_user=request.user, quotation__work_schedule__status="COMPLETED") | models.Q(customer__portal_user=request.user, quotation__isnull=True)).first()
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        item = customer_invoice_scope(request.user).select_related("quotation", "customer", "site_property", "contractor__contractor_profile").filter(pk=pk).first()
         if not item or item.status == Invoice.Status.CANCELLED or item.amount_paid <= 0:
+            return Response({"detail": "Payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
+        property_obj = item.quotation.property if item.quotation_id else item.site_property
+        can_view_payments = has_property_access(request.user, property_obj, PropertyPermission.VIEW_PAYMENTS) if property_obj else bool(item.customer_id and item.customer.portal_user_id == request.user.id)
+        if not can_view_payments:
             return Response({"detail": "Payment receipt not found."}, status=status.HTTP_404_NOT_FOUND)
         if not item.receipt_number:
             item.receipt_number = f"BPR-{timezone.localdate():%Y%m%d}-{item.id:04d}"
             item.payment_received_at = item.payment_received_at or item.updated_at
             item.save(update_fields=("receipt_number", "payment_received_at", "updated_at"))
-        response = HttpResponse(build_invoice_receipt_pdf(item), content_type="application/pdf")
+        response = HttpResponse(build_invoice_receipt_pdf(item, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{item.receipt_number}.pdf"'
         return response
+
+# ============================================================
+# PROJECT SCOPES
+# ============================================================
+
+class ProjectScopeViewSet(viewsets.ModelViewSet):
+    """One addressable service line per project, owned by the quotation."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProjectScopeSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == BharathUser.Roles.ADMIN:
+            queryset = ProjectScope.objects.all()
+        elif user.role == BharathUser.Roles.CONTRACTOR:
+            queryset = ProjectScope.objects.filter(quotation__contractor=user)
+        else:
+            return ProjectScope.objects.none()
+        if self.request.query_params.get("quotation"):
+            queryset = queryset.filter(quotation_id=self.request.query_params["quotation"])
+        return queryset.select_related("category", "work_description", "unit")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["viewer"] = self.request.user
+        return context
+
+    def perform_create(self, serializer):
+        quotation = serializer.validated_data["quotation"]
+        if quotation.contractor_id != self.request.user.id and self.request.user.role != BharathUser.Roles.ADMIN:
+            raise ValidationError({"quotation": "That quotation is not yours."})
+        if quotation.status == Quotation.Status.CANCELLED:
+            raise ValidationError({"quotation": "This project has been cancelled."})
+        serializer.save(
+            sort_order=(ProjectScope.objects.filter(quotation=quotation).aggregate(top=models.Max("sort_order"))["top"] or 0) + 10
+        )
+
+
+# ============================================================
+# CONTRACTOR NETWORK
+# ============================================================
+
+class ContractorConnectionListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role not in {BharathUser.Roles.CONTRACTOR, BharathUser.Roles.ADMIN}:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        rows = ContractorConnection.objects.filter(
+            models.Q(requester=user) | models.Q(recipient=user)
+        ).select_related("requester", "recipient")
+        if request.query_params.get("status"):
+            rows = rows.filter(status=request.query_params["status"])
+        return Response(ContractorConnectionSerializer(rows, many=True, context={"viewer": user}).data)
+
+    @transaction.atomic
+    def post(self, request):
+        user = request.user
+        if user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        recipient_id = request.data.get("recipient")
+        if not recipient_id:
+            raise ValidationError({"recipient": "Choose a contractor."})
+        if str(recipient_id) == str(user.id):
+            raise ValidationError({"recipient": "You cannot connect with yourself."})
+
+        recipient = BharathUser.objects.filter(
+            pk=recipient_id, role=BharathUser.Roles.CONTRACTOR, is_active=True
+        ).first()
+        if recipient is None:
+            raise ValidationError({"recipient": "That contractor is not available."})
+
+        message = request.data.get("message", "")
+        if not isinstance(message, str) or len(message) > 2000:
+            raise ValidationError({"message": "Use a message of up to 2000 characters."})
+        message = message.strip()
+        connection = ContractorConnection.objects.select_for_update().filter(
+            models.Q(requester=user, recipient=recipient) | models.Q(requester=recipient, recipient=user)
+        ).first()
+        if connection is not None:
+            if connection.is_blocked or connection.status == ContractorConnection.Status.BLOCKED:
+                raise ValidationError({"recipient": "This connection is blocked."})
+            if connection.status == ContractorConnection.Status.CONNECTED:
+                raise ValidationError({"recipient": "You are already connected."})
+            if connection.status == ContractorConnection.Status.PENDING:
+                raise ValidationError({"recipient": "A connection request is already pending."})
+            connection.status = ContractorConnection.Status.PENDING
+            connection.requester = user
+            connection.recipient = recipient
+            connection.message = message
+            connection.discover_method = request.data.get("discover_method", "")
+            connection.last_request_at = timezone.now()
+            connection.request_count += 1
+            connection.save(update_fields=["status", "requester", "recipient", "message", "discover_method", "last_request_at", "request_count", "updated_at"])
+        else:
+            connection = ContractorConnection.objects.create(
+                requester=user,
+                recipient=recipient,
+                discover_method=request.data.get("discover_method", ""),
+                message=message,
+            )
+        company = getattr(getattr(user, "contractor_profile", None), "company_name", "")
+        sender = company or user.get_full_name() or user.mobile
+        create_notification(
+            recipient, "CONTRACTOR_CONNECTION_REQUEST", "New contractor connection request",
+            f"{sender} wants to connect with you." + (f" Message: {message}" if message else ""),
+            f"/messages?connection={connection.pk}", user,
+        )
+        return Response(
+            ContractorConnectionSerializer(connection, context={"viewer": user}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ContractorConnectionActionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    ACTION_BY_TARGET = {
+        "accept": (ContractorConnection.Status.CONNECTED, "accepted_at"),
+        "reject": (ContractorConnection.Status.REJECTED, "rejected_at"),
+        "block": (ContractorConnection.Status.BLOCKED, "blocked_at"),
+        "disconnect": (ContractorConnection.Status.DISCONNECTED, "disconnected_at"),
+    }
+
+    @transaction.atomic
+    def post(self, request, pk, action):
+        if action not in self.ACTION_BY_TARGET:
+            return Response({"detail": "Unknown action."}, status=status.HTTP_404_NOT_FOUND)
+        user = request.user
+        connection = get_object_or_404(ContractorConnection.objects.select_for_update().select_related("requester", "recipient"), pk=pk)
+        if user.id not in {connection.requester_id, connection.recipient_id}:
+            raise ValidationError({"detail": "This connection is not yours."})
+
+        target_status, stamp_field = self.ACTION_BY_TARGET[action]
+        if action in {"accept", "reject"}:
+            if connection.recipient_id != user.id:
+                raise ValidationError({"detail": "Only the receiving contractor can accept or decline."})
+            if connection.status != ContractorConnection.Status.PENDING:
+                raise ValidationError({"detail": "This request is no longer pending."})
+        if action in {"block", "disconnect"} and connection.status != ContractorConnection.Status.CONNECTED:
+            raise ValidationError({"detail": "You can only block or disconnect a live connection."})
+
+        if action == "block":
+            connection.status_before_block = connection.status
+            connection.is_blocked = True
+        elif action == "disconnect":
+            connection.is_blocked = False
+
+        connection.status = target_status
+        setattr(connection, stamp_field, timezone.now())
+        if action == "reject":
+            connection.rejection_reason = request.data.get("reason", "")[:150]
+        connection.save()
+        if action in {"accept", "reject"}:
+            create_notification(
+                connection.requester, "CONTRACTOR_CONNECTION_RESPONSE",
+                "Connection accepted" if action == "accept" else "Connection declined",
+                f"{user.get_full_name() or user.mobile} {'accepted' if action == 'accept' else 'declined'} your contractor connection request.",
+                "/contractor-network", user,
+            )
+        return Response(ContractorConnectionSerializer(connection, context={"viewer": user}).data)

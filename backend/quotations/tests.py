@@ -240,6 +240,21 @@ class CustomerApiTests(APITestCase):
         alert = PortalNotification.objects.get(recipient=admin, event_type="CHAT_SAFETY")
         self.assertNotIn("cocaine", alert.message.lower())
 
+    def test_message_notifications_never_include_message_content(self):
+        PortalNotification.objects.create(
+            recipient=self.contractor,
+            actor=self.other_contractor,
+            event_type="MESSAGE",
+            title="New message",
+            message="Private message text must stay in the inbox",
+            link="/messages",
+        )
+        response = self.client.get(reverse("portal-notifications"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notification = response.data["results"][0]
+        self.assertEqual(notification["title"], "New message")
+        self.assertEqual(notification["message"], "Open your inbox to view it.")
+
     def test_contractor_can_open_and_message_a_job_applicant(self):
         from jobs.models import Job, JobApplication
 

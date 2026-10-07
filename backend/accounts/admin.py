@@ -9,6 +9,7 @@ from .models import (
 )
 
 from .utils import generate_bharath_qr
+from . import email_setup_admin  # Registers the superuser-only setup and delivery logs.
 
 
 @admin.register(UserLegalConsent)

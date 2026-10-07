@@ -9,7 +9,8 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from .email_setup import otp_policy, send_configured_email, development_otp_visible
 from django.core.validators import validate_email
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
@@ -18,7 +19,7 @@ from datetime import timedelta
 from urllib.parse import quote
 import secrets
 
-from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent
+from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent, ProviderProfile
 from .legal import POLICY_VERSION, document_hashes, registration_legal_payload
 from .utils import activate_business_identity, bharath_profile_url, generate_bharath_qr
 from django.shortcuts import render
@@ -30,7 +31,9 @@ from .maps_lookup import MapLookupError, lookup_google_map_link
 from .serializers import (
     PainterRegistrationSerializer,
     ContractorRegistrationSerializer, ContractorProfileSerializer, ContractorCompletedProjectSerializer,
+    ProviderProfileSerializer, ProfileImagePositionField,
 )
+from .profile_field_ownership import reconcile_contractor_shared_fields
 
 
 RECOVERY_ROLES = {
@@ -40,10 +43,6 @@ RECOVERY_ROLES = {
     BharathUser.Roles.ADMIN,
     BharathUser.Roles.SUPPORT,
 }
-OTP_EXPIRY_MINUTES = 10
-OTP_RESEND_SECONDS = 60
-OTP_MAX_ATTEMPTS = 5
-OTP_MAX_PER_HOUR = 5
 PASSWORD_RESET_SIGNING_SALT = "bharath-painters-password-reset"
 
 
@@ -143,45 +142,41 @@ def _recovery_user(mobile, role):
     )
 
 
+@transaction.atomic
 def _issue_email_otp(user, purpose, target_email):
-    if not settings.DEBUG and settings.EMAIL_BACKEND in {
-        "django.core.mail.backends.console.EmailBackend",
-        "django.core.mail.backends.locmem.EmailBackend",
-    }:
-        return None, "Email delivery is not configured. Please contact support to enable password recovery."
+    BharathUser.objects.select_for_update().get(pk=user.pk)
+    policy = otp_policy()
     recent_hour = PasswordResetOTP.objects.filter(
         user=user,
         purpose=purpose,
         created_at__gte=timezone.now() - timedelta(hours=1),
     ).count()
-    if recent_hour >= OTP_MAX_PER_HOUR:
+    if recent_hour >= policy.max_per_hour:
         return None, "Too many verification codes requested. Please try again later."
     recent = PasswordResetOTP.objects.filter(
         user=user,
         purpose=purpose,
-        created_at__gte=timezone.now() - timedelta(seconds=OTP_RESEND_SECONDS),
+        created_at__gte=timezone.now() - timedelta(seconds=policy.resend_seconds),
     ).exists()
     if recent:
-        return None, "Please wait one minute before requesting another code."
+        return None, "Please wait before requesting another code."
     PasswordResetOTP.objects.filter(user=user, purpose=purpose, is_used=False).update(is_used=True)
-    code = f"{secrets.randbelow(1000000):06d}"
+    code = str(secrets.randbelow(10 ** policy.otp_length)).zfill(policy.otp_length)
     challenge = PasswordResetOTP.objects.create(
         user=user,
         purpose=purpose,
         target_email=target_email,
         code_hash=make_password(code),
-        expires_at=timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES),
+        expires_at=timezone.now() + timedelta(minutes=policy.expiry_minutes),
+        max_attempts=policy.max_attempts,
     )
-    try:
-        send_mail(
-            "Your Bharath Painters verification code",
-            f"Your Bharath Painters verification code is {code}. It expires in {OTP_EXPIRY_MINUTES} minutes. Do not share this code.",
-            settings.DEFAULT_FROM_EMAIL,
-            [target_email],
-            fail_silently=False,
-        )
-    except Exception:
-        challenge.delete()
+    if not send_configured_email(
+        "Your Bharath Painters verification code",
+        f"Your Bharath Painters verification code is {code}. It expires in {policy.expiry_minutes} minutes. Do not share this code.\nAccount security: {(policy.frontend_url or settings.FRONTEND_URL).rstrip('/')}/account-security",
+        target_email, purpose,
+    ):
+        challenge.is_used = True
+        challenge.save(update_fields=("is_used",))
         return None, "Verification email could not be sent. Please try again later."
     # The notification is visible only to the account holder and never stores
     # the code. Keeping the code in email preserves the separate verification step.
@@ -192,18 +187,22 @@ def _issue_email_otp(user, purpose, target_email):
             recipient=user,
             event_type="SECURITY_CODE_SENT",
             title="Verification code requested",
-            message=f"A verification code was sent to {_masked_email(target_email)}. It expires in {OTP_EXPIRY_MINUTES} minutes. Never share the code with support staff.",
+            message=f"A verification code was sent to {_masked_email(target_email)}. It expires in {policy.expiry_minutes} minutes. Never share the code with support staff.",
             link="/account-security" if purpose == PasswordResetOTP.Purpose.RECOVERY_EMAIL else "",
         )
     return (challenge, code), None
 
 
+@transaction.atomic
 def _verify_otp(challenge, code):
-    if challenge.is_used or challenge.expires_at < timezone.now() or challenge.attempts >= OTP_MAX_ATTEMPTS:
+    locked = PasswordResetOTP.objects.select_for_update().get(pk=challenge.pk)
+    for field in ("is_used", "expires_at", "attempts", "max_attempts", "code_hash"):
+        setattr(challenge, field, getattr(locked, field))
+    if challenge.is_used or challenge.expires_at <= timezone.now() or challenge.attempts >= challenge.max_attempts:
         return "The verification code is invalid or expired."
     if not check_password(code, challenge.code_hash):
         challenge.attempts += 1
-        if challenge.attempts >= OTP_MAX_ATTEMPTS:
+        if challenge.attempts >= challenge.max_attempts:
             challenge.is_used = True
         challenge.save(update_fields=("attempts", "is_used"))
         return "The verification code is incorrect."
@@ -218,10 +217,7 @@ def _registration_email_response(user):
         return {"email_verification_pending": True, "email_verification_error": error}
     challenge, code = result
     response = {"email_verification_pending": True, "challenge_id": challenge.id, "masked_email": _masked_email(user.email)}
-    if settings.DEBUG and settings.EMAIL_BACKEND in {
-        "django.core.mail.backends.console.EmailBackend",
-        "django.core.mail.backends.locmem.EmailBackend",
-    }:
+    if development_otp_visible():
         response["test_otp"] = code
     return response
 
@@ -376,21 +372,77 @@ class CustomerRegistrationView(APIView):
         if len(password) < 8:
             return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
 
+        invitation = None
+        invitation_token = str(request.data.get("property_invitation_token") or "").strip()
+        if invitation_token:
+            from quotations.models import PropertyInvitation
+            from quotations.views import property_invitation_digest
+
+            invitation = PropertyInvitation.objects.select_for_update().select_related(
+                "property", "invitee_customer",
+            ).filter(
+                token_hash=property_invitation_digest(invitation_token),
+                status=PropertyInvitation.Status.PENDING,
+                expires_at__gt=timezone.now(),
+            ).first()
+            if not invitation:
+                return Response({"detail": "This property invitation is invalid or has expired."}, status=status.HTTP_404_NOT_FOUND)
+            if invitation.invitee_customer_id and invitation.invitee_customer.status == Customer.Status.CANCELLED:
+                return Response({"detail": "The customer profile for this invitation is no longer active."}, status=status.HTTP_410_GONE)
+            if invitation.invitee_mobile and invitation.invitee_mobile != normalized_mobile:
+                return Response({"mobile": "Use the mobile number this property invitation was sent to."}, status=status.HTTP_400_BAD_REQUEST)
+            if invitation.invitee_email and invitation.invitee_email.lower() != email.strip().lower():
+                return Response({"email": "Use the email address this property invitation was sent to."}, status=status.HTTP_400_BAD_REQUEST)
+            from quotations.models import Customer, PropertyContact
+            target_customer = invitation.invitee_customer
+            if target_customer is None and invitation.invitee_mobile:
+                target_customer = Customer.objects.filter(normalized_mobile=invitation.invitee_mobile).first()
+            if target_customer is None and invitation.invitee_email:
+                target_customer = Customer.objects.filter(email__iexact=invitation.invitee_email).first()
+            existing_contact = PropertyContact.objects.filter(
+                property=invitation.property, customer=target_customer,
+            ).first() if target_customer else None
+            if existing_contact and existing_contact.status != PropertyContact.Status.PENDING:
+                return Response({"detail": "This customer already has access to the property."}, status=status.HTTP_409_CONFLICT)
+
         from quotations.customer_identity import release_deleted_customer_mobile
         release_deleted_customer_mobile(normalized_mobile)
         customer_records = list(Customer.objects.select_related("portal_user").exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized_mobile))
 
+        if invitation and invitation.invitee_customer_id:
+            invitee_customer = invitation.invitee_customer
+            if invitee_customer.status != Customer.Status.CANCELLED and all(
+                existing.pk != invitee_customer.pk for existing in customer_records
+            ):
+                customer_records.insert(0, invitee_customer)
+
+        if not customer_records:
+            try:
+                with transaction.atomic():
+                    customer_records = [Customer.objects.create(name=name, mobile=normalized_mobile, email=email)]
+            except IntegrityError:
+                # Another request may have inserted this normalized mobile
+                # after our initial lookup. Reuse that identity.
+                customer_records = list(Customer.objects.select_related("portal_user").exclude(
+                    status=Customer.Status.CANCELLED,
+                ).filter(normalized_mobile=normalized_mobile))
+                if not customer_records:
+                    transaction.set_rollback(True)
+                    return Response({"mobile": "This mobile number is already registered. Please sign in."}, status=status.HTTP_409_CONFLICT)
+
         user = _find_user_by_mobile(mobile, BharathUser.objects.all())
         if not user:
             user = next((item.portal_user for item in customer_records if item.portal_user), None)
+        if invitation and invitation.invitee_customer_id and invitation.invitee_customer.portal_user_id:
+            if user and user.id != invitation.invitee_customer.portal_user_id:
+                return Response({"detail": "This invitation is linked to a different customer account. Sign in to accept it."}, status=status.HTTP_409_CONFLICT)
+            user = invitation.invitee_customer.portal_user
         if user and user.role != BharathUser.Roles.CUSTOMER:
             return Response({"mobile": "This mobile belongs to another account type."}, status=status.HTTP_400_BAD_REQUEST)
         if user and user.has_usable_password():
             return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
         if not user:
             user = BharathUser(mobile=normalized_mobile, role=BharathUser.Roles.CUSTOMER)
-        if not customer_records:
-            customer_records = [Customer.objects.create(name=name, mobile=normalized_mobile, email=email)]
         primary_customer = customer_records[0]
         if not primary_customer.bharath_id:
             sequence = primary_customer.pk
@@ -418,7 +470,12 @@ class CustomerRegistrationView(APIView):
         if not user.badge_issued_at:
             user.badge_issued_at = timezone.now()
         user.set_password(password)
-        user.save()
+        try:
+            with transaction.atomic():
+                user.save()
+        except IntegrityError:
+            transaction.set_rollback(True)
+            return Response({"mobile": "A customer account was created for this number while you were registering. Sign in to continue."}, status=status.HTTP_409_CONFLICT)
         generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
         user.save(update_fields=("bharath_qr",))
         _record_registration_consent(user, request, BharathUser.Roles.CUSTOMER)
@@ -451,7 +508,76 @@ class CustomerRegistrationView(APIView):
                     defaults={"connection": connection},
                 )
 
-        return Response({"message": "Customer account created. You can now sign in."}, status=status.HTTP_201_CREATED)
+        if invitation:
+            from quotations.models import PortalNotification, PropertyAccessAudit, PropertyContact, PropertyInvitation
+            from quotations.property_access import ensure_legacy_primary_contact
+
+            invitee_customer = next(
+                (item for item in customer_records if item.pk == invitation.invitee_customer_id),
+                None,
+            ) if invitation.invitee_customer_id else next(
+                (item for item in customer_records if item.portal_user_id == user.id),
+                None,
+            )
+            if invitee_customer is None:
+                transaction.set_rollback(True)
+                return Response({"detail": "The customer profile for this invitation could not be resolved."}, status=status.HTTP_409_CONFLICT)
+            ensure_legacy_primary_contact(invitation.property)
+            contact, created = PropertyContact.objects.get_or_create(
+                property=invitation.property,
+                customer=invitee_customer,
+                defaults={
+                    "role": PropertyContact.Role.AUTHORIZED_CONTACT,
+                    "relationship": invitation.relationship,
+                    "access_level": invitation.access_level,
+                    "custom_permissions": invitation.custom_permissions,
+                    "status": PropertyContact.Status.ACTIVE,
+                    "added_by": invitation.invited_by,
+                },
+            )
+            if not created:
+                if contact.status != PropertyContact.Status.PENDING:
+                    transaction.set_rollback(True)
+                    return Response({"detail": "This customer already has access to the property."}, status=status.HTTP_409_CONFLICT)
+                contact.relationship = invitation.relationship
+                contact.access_level = invitation.access_level
+                contact.custom_permissions = invitation.custom_permissions
+                contact.status = PropertyContact.Status.ACTIVE
+                contact.added_by = invitation.invited_by
+                contact.save(update_fields=("relationship", "access_level", "custom_permissions", "status", "added_by", "updated_at"))
+            invitation.invitee_customer = invitee_customer
+            invitation.status = PropertyInvitation.Status.ACCEPTED
+            invitation.accepted_at = timezone.now()
+            invitation.save(update_fields=("invitee_customer", "status", "accepted_at", "updated_at"))
+            forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
+            PropertyAccessAudit.objects.create(
+                property=invitation.property,
+                contact=contact,
+                invitation=invitation,
+                performed_by=user,
+                action="INVITATION_ACCEPTED_DURING_SIGNUP",
+                details={"role": contact.role},
+                ip_address=forwarded or request.META.get("REMOTE_ADDR") or None,
+                user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:255],
+            )
+            primary_contact = invitation.property.contacts.filter(
+                is_primary=True,
+            ).select_related("customer__portal_user").first()
+            if primary_contact and primary_contact.customer.portal_user_id != user.id:
+                PortalNotification.objects.create(
+                    recipient=primary_contact.customer.portal_user,
+                    actor=user,
+                    event_type="PROPERTY_CONTACT_ADDED",
+                    title="Property contact added",
+                    message=f"{invitee_customer.name} accepted an invitation to {invitation.property.name or invitation.property.property_type}.",
+                    link="/customer-properties",
+                )
+
+        return Response({
+            "message": "Customer account created. You can now sign in.",
+            "property_invitation_accepted": bool(invitation),
+            "property_id": invitation.property_id if invitation else None,
+        }, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -594,10 +720,7 @@ class ForgotPasswordRequestView(APIView):
             "masked_email": _masked_email(user.recovery_email),
             "challenge_id": challenge.id,
         }
-        if settings.DEBUG and settings.EMAIL_BACKEND in {
-            "django.core.mail.backends.console.EmailBackend",
-            "django.core.mail.backends.locmem.EmailBackend",
-        }:
+        if development_otp_visible():
             response["test_otp"] = code
         return Response(response)
 
@@ -651,7 +774,7 @@ class ForgotPasswordConfirmView(APIView):
             signed = signing.loads(
                 str(request.data.get("reset_token") or ""),
                 salt=PASSWORD_RESET_SIGNING_SALT,
-                max_age=OTP_EXPIRY_MINUTES * 60,
+                max_age=60 * 60,
             )
         except (BadSignature, SignatureExpired):
             return Response({"detail": "The password reset session is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
@@ -662,7 +785,7 @@ class ForgotPasswordConfirmView(APIView):
             is_used=False,
             verified_at__isnull=False,
         ).select_related("user").first()
-        if not reset or reset.expires_at < timezone.now():
+        if not reset or reset.expires_at <= timezone.now():
             return Response({"detail": "The password reset session is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
         user = reset.user
         try:
@@ -726,10 +849,7 @@ class RecoveryEmailRequestView(APIView):
             "masked_email": _masked_email(email),
             "challenge_id": challenge.id,
         }
-        if settings.DEBUG and settings.EMAIL_BACKEND in {
-            "django.core.mail.backends.console.EmailBackend",
-            "django.core.mail.backends.locmem.EmailBackend",
-        }:
+        if development_otp_visible():
             response["test_otp"] = code
         return Response(response)
 
@@ -780,6 +900,7 @@ class CustomerProfileUpdateSerializer(serializers.Serializer):
     city = serializers.CharField(max_length=100, required=False, allow_blank=True)
     pincode = serializers.RegexField(r"^$|^[0-9]{6}$", required=False, allow_blank=True)
     profile_photo = serializers.ImageField(required=False)
+    profile_photo_position = ProfileImagePositionField(required=False)
 
 
 class CustomerProfileView(APIView):
@@ -797,6 +918,7 @@ class CustomerProfileView(APIView):
             "mobile": request.user.mobile, "email": request.user.email,
             "address": customer.address, "city": customer.city, "pincode": customer.pincode,
             "profile_photo": request.build_absolute_uri(request.user.profile_photo.url) if request.user.profile_photo else None,
+            "profile_photo_position": ProfileImagePositionField().to_representation(request.user.profile_photo_position),
             "email_verified": request.user.recovery_email_verified and (request.user.recovery_email or "").lower() == (request.user.email or "").lower(),
         }
 
@@ -827,6 +949,9 @@ class CustomerProfileView(APIView):
             if "profile_photo" in values:
                 request.user.profile_photo = values["profile_photo"]
                 user_fields.append("profile_photo")
+            if "profile_photo_position" in values:
+                request.user.profile_photo_position = values["profile_photo_position"]
+                user_fields.append("profile_photo_position")
             if user_fields:
                 request.user.save(update_fields=user_fields)
         return Response(self.representation(request, customer))
@@ -869,6 +994,7 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         user = request.user
+        provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
         return Response(
             {
                 "id": user.id,
@@ -884,10 +1010,16 @@ class CurrentUserView(APIView):
                 "app_primary_color": user.app_primary_color,
                 "app_accent_color": user.app_accent_color,
                 "display_name": _user_display_name(user),
+                "branding": provider.resolved_branding() if provider else (
+                    {"platform_name": "Bharath Apps", "workspace_name": "Bharath Apps", "contractor_label": "Contractor", "employee_singular_label": "Employee", "employee_plural_label": "Employees"}
+                    if user.role in {BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER}
+                    else None
+                ),
                 "profile_photo": (
                     request.build_absolute_uri(user.profile_photo.url)
                     if user.profile_photo else None
                 ),
+                "profile_photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
             },
             status=status.HTTP_200_OK,
         )
@@ -928,24 +1060,32 @@ class ContractorProfileView(APIView):
             return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(ContractorProfileSerializer(profile, context={"request": request}).data)
 
+    @transaction.atomic
     def patch(self, request):
+        BharathUser.objects.select_for_update().get(pk=request.user.pk)
         profile = self.get_profile(request)
         if not profile:
             return Response({"detail": "Contractor profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        data = request.data.copy()
+        clear_fields = []
         for flag, field in (
             ("clear_gst_document", "gst_document"),
             ("clear_business_document", "business_document"),
         ):
-            if request.data.get(flag):
-                request.data.pop(flag, None)
-                current = getattr(profile, field)
-                if current:
-                    current.delete(save=False)
-                setattr(profile, field, None)
-                profile.save(update_fields=[field])
-        serializer = ContractorProfileSerializer(profile, data=request.data, partial=True, context={"request": request})
+            if _truthy(data.get(flag)):
+                clear_fields.append(field)
+            data.pop(flag, None)
+        serializer = ContractorProfileSerializer(profile, data=data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        for field in clear_fields:
+            current = getattr(profile, field)
+            if current:
+                storage, name = current.storage, current.name
+                transaction.on_commit(lambda storage=storage, name=name: storage.delete(name))
+            setattr(profile, field, None)
+        if clear_fields:
+            profile.save(update_fields=[*clear_fields, "updated_at"])
         return Response(serializer.data)
 
 
@@ -1051,8 +1191,20 @@ def _contractor_digital_card(user, request):
     profile = getattr(user, "contractor_profile", None)
     if not profile:
         return None
+    provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
+    branding = (
+        provider.brand_snapshot
+        if provider and provider.is_published and provider.brand_snapshot
+        else provider.resolved_branding() if provider
+        else {"platform_name": "Bharath Apps", "workspace_name": "Bharath Apps", "contractor_label": "Contractor"}
+    )
     return {
         "title": profile.company_name,
+        "platform_name": branding.get("platform_name", "Bharath Apps"),
+        "profession_label": branding.get("contractor_label", "Contractor"),
+        "employee_plural_label": branding.get("employee_plural_label", "Employees"),
+        "logo_position": ProfileImagePositionField().to_representation(profile.company_logo_position),
+        "owner_photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
         "owner_name": profile.owner_name,
         "logo": _profile_image_url(request, profile.company_logo),
         "owner_photo": _profile_image_url(request, user.profile_photo),
@@ -1062,7 +1214,7 @@ def _contractor_digital_card(user, request):
         "email": user.email,
         "years_in_business": profile.years_in_business or None,
         "workers": profile.number_of_painters or None,
-"service_areas": _profile_list(profile.service_areas),
+        "service_areas": _profile_list(profile.service_areas),
         "work_skills": _profile_list(profile.work_skills),
         "social_links": _contractor_social_links(profile),
         "customer_reviews": _customer_review_data(profile),
@@ -1091,7 +1243,9 @@ def _private_profile_card_data(user, request):
     photo = user.profile_photo.url if user.profile_photo else None
     title = user.get_full_name() or user.mobile
     subtitle = user.get_role_display()
+    platform_name = "Bharath Apps"
     logo_shape = "ROUND"
+    photo_position = ProfileImagePositionField().to_representation(user.profile_photo_position)
 
     def add(label, value):
         if value not in (None, ""):
@@ -1100,10 +1254,17 @@ def _private_profile_card_data(user, request):
     if user.role == BharathUser.Roles.CONTRACTOR:
         profile = getattr(user, "contractor_profile", None)
         if profile:
+            provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
+            branding = provider.resolved_branding() if provider else {
+                "platform_name": "Bharath Apps", "contractor_label": "Contractor", "workspace_name": "Bharath Apps"
+            }
+            platform_name = branding.get("platform_name", "Bharath Apps")
             title = profile.company_name or title
-            subtitle = f"Contractor · {profile.owner_name}" if profile.owner_name else "Contractor"
+            profession = branding.get("contractor_label", "Contractor")
+            subtitle = f"{profession} · {profile.owner_name}" if profile.owner_name else profession
             photo = profile.company_logo.url if profile.company_logo else photo
             logo_shape = profile.company_logo_shape
+            photo_position = ProfileImagePositionField().to_representation(profile.company_logo_position if profile.company_logo else user.profile_photo_position)
             add("Company name", profile.company_name)
             add("Owner / proprietor", profile.owner_name)
             add("Mobile", user.mobile)
@@ -1113,11 +1274,18 @@ def _private_profile_card_data(user, request):
             add("GSTIN", profile.gst_number)
             add("PAN", profile.pan_number)
             add("Years in business", profile.years_in_business)
-            add("Paint Applicators", profile.number_of_painters)
+            provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
+            worker_label = provider.resolved_branding().get("employee_plural_label", "Employees") if provider else "Employees"
+            add(worker_label, profile.number_of_painters)
             add("Area calculation unit", profile.get_default_measurement_unit_display())
     elif user.role == BharathUser.Roles.PAINTER:
         profile = getattr(user, "painter_profile", None)
-        subtitle = "Paint Applicator"
+        provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
+        branding = provider.resolved_branding() if provider else {
+            "platform_name": "Bharath Apps", "employee_singular_label": "Employee"
+        }
+        platform_name = branding.get("platform_name", "Bharath Apps")
+        subtitle = branding.get("employee_singular_label", "Employee")
         add("Name", title)
         add("Mobile", user.mobile)
         add("Email", user.email)
@@ -1133,6 +1301,8 @@ def _private_profile_card_data(user, request):
     return {
         "title": title,
         "subtitle": subtitle,
+        "platform_name": platform_name,
+        "photo_position": photo_position,
         "photo": photo,
         "logo_shape": logo_shape,
         "details": details,
@@ -1155,7 +1325,7 @@ class ProfileCardView(APIView):
         user.save(update_fields=("bharath_qr",))
         profile_url = bharath_profile_url(user, base_url)
         share_text = "\n".join((
-            "Bharath Painters verified profile",
+            "Bharath Apps verified profile",
             profile["title"],
             f"Role: {profile['subtitle']}",
             f"Bharath ID: {user.bharath_id}",
@@ -1328,7 +1498,14 @@ class ContractorDigitalCardPdfView(APIView):
             user.save(update_fields=("bharath_qr",))
         card = _contractor_digital_card(user, request)
         profile_url = bharath_profile_url(user, request.build_absolute_uri("/").rstrip("/"))
-        response = HttpResponse(render_contractor_card_pdf(user, card, profile_url), content_type="application/pdf")
+        from quotations.document_languages import document_language
+        language = document_language(request)
+        if language == "en":
+            pdf_bytes = render_contractor_card_pdf(user, card, profile_url)
+        else:
+            from quotations.indic_pdf import profile_pdf
+            pdf_bytes = profile_pdf(user, card, profile_url, language)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{user.bharath_id}-profile.pdf"'
         return response
 
@@ -1345,12 +1522,23 @@ class ContractorDirectoryView(APIView):
                 user__is_verified=True,
                 user__verification_status=BharathUser.VerificationStatus.VERIFIED,
             )
-            .select_related("user")
+            .select_related("user", "user__provider_profile", "user__provider_profile__core_service")
+            .prefetch_related("user__provider_profile__additional_services", "user__provider_profile__service_claims__work_description")
             .order_by("company_name")
         )
         data = []
         for profile in profiles:
             user = profile.user
+            provider = getattr(user, "provider_profile", None)
+            services = []
+            if provider:
+                if provider.core_service:
+                    services.append(provider.core_service.name)
+                services.extend(service.name for service in provider.additional_services.all())
+                services.extend(
+                    claim.work_description.name for claim in provider.service_claims.all()
+                    if claim.is_active and claim.work_description
+                )
             data.append({
                 "id": user.id,
                 "bharath_id": user.bharath_id,
@@ -1361,12 +1549,18 @@ class ContractorDirectoryView(APIView):
                 "years_in_business": profile.years_in_business,
                 "service_areas": profile.service_areas,
                 "office_address": profile.office_address,
+                "base_location": provider.base_location if provider else "",
+                "work_skills": profile.work_skills,
+                "services": list(dict.fromkeys(services)),
                 "number_of_painters": profile.number_of_painters,
                 "company_logo": (
                     request.build_absolute_uri(profile.company_logo.url)
                     if profile.company_logo else None
                 ),
                 "company_logo_shape": profile.company_logo_shape,
+                "company_logo_position": ProfileImagePositionField().to_representation(profile.company_logo_position),
+                "profile_photo": _profile_image_url(request, user.profile_photo),
+                "profile_photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
             })
         return Response(data, status=status.HTTP_200_OK)
 
@@ -1399,6 +1593,7 @@ class PainterDirectoryView(APIView):
                     request.build_absolute_uri(user.profile_photo.url)
                     if user.profile_photo else None
                 ),
+                "profile_photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
                 "experience_years": profile.experience_years,
                 "skills": profile.skills,
                 "daily_wage": profile.daily_wage,
@@ -1595,14 +1790,23 @@ class VerifyBharathIDPageView(APIView):
                 generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
                 user.save(update_fields=("bharath_qr",))
             painter = user.painter_profile
+            provider = ProviderProfile.objects.filter(user=user).select_related("core_service").first()
+            branding = (
+                provider.brand_snapshot
+                if provider and provider.is_published and provider.brand_snapshot
+                else provider.resolved_branding() if provider
+                else {"platform_name": "Bharath Apps", "employee_singular_label": "Employee"}
+            )
             return render(request, "accounts/painter_card.html", {
                 "name": user.get_full_name() or user.mobile,
                 "bharath_id": user.bharath_id,
                 "photo": _profile_image_url(request, user.profile_photo),
+                "photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
                 "experience": painter.experience_years,
                 "skills": _profile_list(painter.skills),
                 "location": painter.current_location,
                 "preferred_locations": _profile_list(painter.preferred_locations),
+                "branding": branding,
                 "qr_image": _profile_image_url(request, user.bharath_qr),
             })
 
@@ -1614,6 +1818,7 @@ class VerifyBharathIDPageView(APIView):
 
         if user.profile_photo:
             profile_photo = user.profile_photo.url
+        photo_position = ProfileImagePositionField().to_representation(user.profile_photo_position)
 
         if user.role == BharathUser.Roles.CONTRACTOR:
             contractor = getattr(user, "contractor_profile", None)
@@ -1626,6 +1831,7 @@ class VerifyBharathIDPageView(APIView):
                 ]
                 if contractor.company_logo:
                     profile_photo = contractor.company_logo.url
+                    photo_position = ProfileImagePositionField().to_representation(contractor.company_logo_position)
                 logo_shape = contractor.company_logo_shape
         elif user.role == BharathUser.Roles.PAINTER:
             painter = getattr(user, "painter_profile", None)
@@ -1648,8 +1854,152 @@ class VerifyBharathIDPageView(APIView):
                 "profession": profession,
                 "professional_details": professional_details,
                 "profile_photo": profile_photo,
+                "profile_photo_position": photo_position,
                 "logo_shape": logo_shape,
                 "verified_at": user.verified_at,
                 "badge_issued_at": user.badge_issued_at,
             }
         )
+
+class ProviderProfileView(APIView):
+    """Multi-trade profile for contractors and employees.
+
+    Both roles use one endpoint; the workspace labels always come from the
+    core service, so adding a second trade never renames the workspace.
+    """
+
+    permission_classes = [IsAuthenticated]
+    ALLOWED_ROLES = {BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER}
+
+    @transaction.atomic
+    def get_profile(self, request):
+        if request.user.role not in self.ALLOWED_ROLES:
+            raise ValidationError({"detail": "Contractor or employee access only."})
+        BharathUser.objects.select_for_update().get(pk=request.user.pk)
+        profile, created = ProviderProfile.objects.get_or_create(user=request.user)
+        if created and request.user.role == BharathUser.Roles.CONTRACTOR:
+            # Seed the mirrors from the company profile that already exists, so
+            # a contractor who set coverage before the merged settings page does
+            # not lose it.
+            contractor = ContractorProfile.objects.filter(user=request.user).first()
+            if contractor is not None:
+                reconcile_contractor_shared_fields(contractor)
+                profile.refresh_from_db()
+        return profile
+
+    def get(self, request):
+        profile = self.get_profile(request)
+        return Response(ProviderProfileSerializer(profile, context={"request": request}).data)
+
+    @transaction.atomic
+    def patch(self, request):
+        profile = self.get_profile(request)
+        profile = ProviderProfile.objects.select_for_update().get(pk=profile.pk)
+        serializer = ProviderProfileSerializer(
+            profile, data=request.data, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @transaction.atomic
+    def post(self, request):
+        """Publish the profile, freezing the workspace branding at that point."""
+        profile = self.get_profile(request)
+        profile = ProviderProfile.objects.select_for_update().get(pk=profile.pk)
+        _publish_provider_profile(profile)
+        return Response(ProviderProfileSerializer(profile, context={"request": request}).data)
+
+
+def _publish_provider_profile(profile):
+    if not profile.core_service_id:
+        raise ValidationError({"core_service": "Choose a core service first."})
+    profile.brand_snapshot = profile.resolved_branding()
+    profile.is_published = True
+    profile.is_draft = False
+    profile.published_at = timezone.now()
+    profile.save(update_fields=["brand_snapshot", "is_published", "is_draft", "published_at", "updated_at"])
+
+
+class BusinessSettingsView(APIView):
+    """One atomic save for the existing company and provider profile records."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get_profiles(self, request):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            raise PermissionDenied("Contractor access only.")
+        BharathUser.objects.select_for_update().get(pk=request.user.pk)
+        company = ContractorProfile.objects.select_for_update().filter(user=request.user).first()
+        if company is None:
+            raise ValidationError({"company": "Contractor profile not found."})
+        provider = ProviderProfileView().get_profile(request)
+        provider = ProviderProfile.objects.select_for_update().get(pk=provider.pk)
+        return company, provider
+
+    def response_data(self, request, company, provider):
+        company.refresh_from_db()
+        provider.refresh_from_db()
+        # User identity may have been updated by the company serializer.
+        company.user.refresh_from_db()
+        return {
+            "company": ContractorProfileSerializer(company, context={"request": request}).data,
+            "provider": ProviderProfileSerializer(provider, context={"request": request}).data,
+        }
+
+    @transaction.atomic
+    def get(self, request):
+        company, provider = self.get_profiles(request)
+        return Response(self.response_data(request, company, provider))
+
+    @transaction.atomic
+    def patch(self, request):
+        import json
+        company, provider = self.get_profiles(request)
+        parts = {}
+        for key in ("company", "provider"):
+            value = request.data.get(key, {})
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except (TypeError, ValueError):
+                    raise ValidationError({key: "Enter a JSON object."})
+            if not isinstance(value, dict):
+                raise ValidationError({key: "Enter an object."})
+            parts[key] = value.copy()
+        company_data, provider_data = parts["company"], parts["provider"]
+        # The merged form has one owner for each shared concept. Reject conflicting
+        # aliases instead of letting save order silently choose the winner.
+        for company_key, provider_key in (("service_areas", "service_areas"), ("years_in_business", "years_in_business"), ("number_of_painters", "team_size")):
+            if company_key in company_data and provider_key in provider_data and str(company_data[company_key]) != str(provider_data[provider_key]):
+                raise ValidationError({"detail": f"Conflicting values for {company_key}."})
+        file_fields = ("company_logo", "profile_photo", "gst_document", "business_document")
+        for field in file_fields:
+            if field in request.FILES:
+                company_data[field] = request.FILES[field]
+        company_serializer = ContractorProfileSerializer(company, data=company_data, partial=True, context={"request": request})
+        provider_serializer = ProviderProfileSerializer(provider, data=provider_data, partial=True, context={"request": request})
+        errors = {}
+        if not company_serializer.is_valid():
+            errors["company"] = company_serializer.errors
+        if provider_data and not provider_serializer.is_valid():
+            errors["provider"] = provider_serializer.errors
+        if errors:
+            raise ValidationError(errors)
+        cleared_files = []
+        for field in file_fields:
+            if field in company_data and company_data[field] is None:
+                existing = getattr(company.user if field == "profile_photo" else company, field)
+                if existing:
+                    cleared_files.append((existing.storage, existing.name))
+        company_serializer.save()
+        # Company aliases may have synchronized the provider; avoid serializing
+        # or saving a stale copy of shared fields.
+        provider.refresh_from_db()
+        if provider_data:
+            provider_serializer.save()
+        if _truthy(request.data.get("publish")):
+            _publish_provider_profile(provider)
+        for storage, name in cleared_files:
+            transaction.on_commit(lambda storage=storage, name=name: storage.delete(name))
+        return Response(self.response_data(request, company, provider))

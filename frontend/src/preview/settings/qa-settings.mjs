@@ -1,0 +1,90 @@
+export default async function run(page) {
+  const results = [], pageErrors = [], apiRequests = [];
+  const check = (condition, message) => { if (!condition) throw new Error(message); results.push(message); };
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("request", (request) => { if (new URL(request.url()).pathname.startsWith("/api/")) apiRequests.push(request.url()); });
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForSelector(".msp-content");
+  check(await page.getByRole("tab").count() === 2, "Only Business details and Appearance tabs");
+  check(await page.locator("#merged-panel-business form").count() === 0 && await page.locator(".msp-content form").count() === 1, "One combined form and one save action");
+  const names = await page.locator("form input[name], form select[name], form textarea[name]").evaluateAll((elements) => elements.map((element) => element.name));
+  for (const name of ["company_name", "service_areas", "years_in_business", "team_size", "core_service", "work_skills", "base_location", "office_address", "headline", "about"]) {
+    check(names.filter((value) => value === name).length === 1, `${name}: exactly one editable field`);
+  }
+  check(await page.locator(".bp-page-description, .bp-section-card header p").count() === 0, "No explanatory help text or repeated descriptions");
+  const core = page.locator("select[name='core_service']");
+  check(await page.locator("input[name='additional_services'][value='painting']").count() === 0, "Core service excluded from additional services");
+  await core.selectOption("plumbing");
+  await page.waitForFunction(() => !document.querySelector("input[name='additional_services'][value='plumbing']"));
+  check(await page.locator("input[name='additional_services'][value='painting']").isChecked(), "Changing core retains previous service as additional");
+  check(await page.locator("input[name='sub_services'][value='interior-painting']").isChecked(), "Changing core preserves existing sub-service choices");
+  await page.locator("input[name='additional_services'][value='painting']").uncheck();
+  check(await page.locator("input[name='sub_services'][value='interior-painting']").count() === 0, "Removing service removes its obsolete sub-service selection");
+  const subIds = await page.locator("input[name='sub_services']").evaluateAll((elements) => elements.map((element) => element.value));
+  check(new Set(subIds).size === subIds.length, "No duplicate sub-service choices");
+  const company = page.locator("input[name='company_name']");
+  await company.fill("Edited sample business");
+  await page.locator("textarea[name='work_skills']").fill("Existing custom skill, restoration");
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await page.getByRole("button", { name: "Forest", exact: true }).click();
+  await page.getByRole("tab", { name: "Business details", exact: true }).click();
+  check(await company.inputValue() === "Edited sample business", "Unsaved company edits survive section switch");
+  check(await page.locator("textarea[name='work_skills']").inputValue() === "Existing custom skill, restoration", "Free-text skills retained");
+  const file = { name: "sample-certificate.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\npreview fixture") };
+  await page.getByLabel("GST certificate", { exact: true }).setInputFiles(file);
+  check(await page.locator(".msp-filename", { hasText: file.name }).count() === 1, "Document upload displays selected file");
+  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("textbox", { name: "Link 1 label", exact: true }).fill("Portfolio");
+  await page.getByRole("textbox", { name: "Link 1 URL", exact: true }).fill("https://example.test/portfolio");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Preview changes saved." }).waitFor();
+  check(await page.getByRole("button", { name: "Discard changes", exact: true }).isDisabled(), "Save establishes local saved baseline");
+  await company.fill("Unsaved replacement");
+  await page.getByRole("button", { name: "Discard changes", exact: true }).click();
+  check(await company.inputValue() === "Edited sample business", "Discard restores saved values");
+  check(await page.locator(".msp-filename", { hasText: file.name }).count() === 1, "Discard preserves saved document selection");
+  await page.getByRole("button", { name: "Remove link 1", exact: true }).click();
+  check(await page.getByRole("textbox", { name: "Link 1 URL", exact: true }).count() === 0, "Custom social link can be removed");
+  await page.locator("input[name='email']").fill("invalid-email");
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.waitForSelector("#merged-tab-business[aria-selected='true']");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("name") === "email");
+  check(await page.locator("input[name='email']").evaluate((el) => document.activeElement === el), "Invalid hidden field returns to Business details and receives focus");
+  await page.locator("input[name='email']").fill("owner@example.test");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  const appearanceTab = page.getByRole("tab", { name: "Appearance", exact: true });
+  await appearanceTab.focus(); await page.keyboard.press("Home");
+  check(await page.getByRole("tab", { name: "Business details", exact: true }).evaluate((el) => document.activeElement === el), "Tabs support Home keyboard navigation");
+  await page.keyboard.press("ArrowRight");
+  await page.waitForSelector("#merged-tab-appearance[aria-selected='true']");
+  check(await page.locator("input[name='app_primary_color']").inputValue() === "#276749", "Appearance edits survived switch and save");
+  await page.locator("select[name='pdf_font']").selectOption("CLASSIC");
+  check((await page.locator(".msp-document-preview").evaluate((el) => getComputedStyle(el).fontFamily)).includes("Georgia"), "Document font changes live preview");
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/settings-merged-appearance.png" });
+  await page.getByRole("tab", { name: "Business details", exact: true }).click();
+  await page.getByRole("button", { name: "Discard changes", exact: true }).click();
+  await page.getByRole("button", { name: "View QR profile", exact: true }).click();
+  await page.getByRole("dialog", { name: "Profile preview" }).waitFor();
+  await page.waitForFunction(() => document.querySelector(".msp-modal button") === document.activeElement);
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Profile preview" }).waitFor({ state: "hidden" });
+  check(await page.getByRole("button", { name: "View QR profile", exact: true }).evaluate((el) => document.activeElement === el), "Profile preview Escape returns focus");
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/settings-merged-desktop.png" });
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No horizontal overflow at ${width}px`);
+    check(await page.locator(".bp-section-card").first().evaluate((el) => Math.abs(el.getBoundingClientRect().left - document.querySelector(".msp-tabbar").getBoundingClientRect().left) < 1), `${width}px: tabbar and cards share left alignment`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/settings-merged-mobile.png" });
+  for (const alias of ["company", "trade"]) {
+    await page.goto(`http://127.0.0.1:5173/preview/settings?tab=${alias}`);
+    await page.waitForSelector("#merged-tab-business[aria-selected='true']");
+    check(true, `Legacy ${alias} section lands on merged Business details`);
+  }
+  check(apiRequests.length === 0, "Preview makes no backend API requests");
+  check(pageErrors.length === 0, "No uncaught page errors");
+  return { passed: results.length, results, apiRequests, pageErrors };
+}

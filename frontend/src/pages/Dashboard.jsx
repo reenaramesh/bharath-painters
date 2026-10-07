@@ -15,6 +15,7 @@ import ContractorDashboard from "./ContractorDashboard";
 import AdminDashboard from "./AdminDashboard";
 import SupportWorkspace from "./SupportWorkspace";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
+import "./painter-portal.css";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export default function Dashboard() {
     } catch {
       setError(
         user.role === "PAINTER"
-          ? "Paint Applicator dashboard could not be loaded."
+          ? `${user.branding?.employee_singular_label || "Employee"} dashboard could not be loaded.`
           : "CRM dashboard could not be loaded.",
       );
     } finally {
@@ -58,7 +59,7 @@ export default function Dashboard() {
   if (user?.role === "PAINTER")
     return loading ? (
       <p className="p-12 text-center text-slate-500">
-        Loading Paint Applicator dashboard...
+        Loading {user.branding?.employee_singular_label || "Employee"} dashboard...
       </p>
     ) : data ? (
       <div className="space-y-4">
@@ -77,7 +78,7 @@ export default function Dashboard() {
     return (
       <div className="rounded-2xl border bg-white p-10">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="mt-2 text-slate-500">Welcome to Bharath Painters.</p>
+        <p className="mt-2 text-slate-500">Welcome to Bharath Apps.</p>
       </div>
     );
   if (loading)
@@ -176,7 +177,7 @@ function ApplicatorActiveCount({ value }) {
 function ApplicatorDashboard({ data, onRefresh }) {
   const c = data.counts;
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="painter-portal-page painter-dashboard-page space-y-4 sm:space-y-7">
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold sm:text-3xl">Welcome, {data.name}</h1>
@@ -216,6 +217,11 @@ function ApplicatorDashboard({ data, onRefresh }) {
           color="bg-amber-50 text-amber-700"
         />
       </div>
+      <section className="painter-dashboard-focus" aria-label="Painter work focus">
+        <div><span>Work in motion</span><strong>{Number(c.in_progress || 0) + Number(c.assigned || 0)}</strong><small>Assigned or currently in progress</small></div>
+        <div><span>Finished work</span><strong>{c.completed || 0}</strong><small>Projects in your work history</small></div>
+        <div><span>Contractors</span><strong>{c.active_contractors || 0}</strong><small>Contractors connected to your work</small></div>
+      </section>
       <ApplicatorActiveCount value={c.active_contractors} />
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="overflow-hidden rounded-2xl border bg-white xl:col-span-2">

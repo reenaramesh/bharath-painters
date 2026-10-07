@@ -11,6 +11,7 @@ import {
 import { Navigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import "./admin-portal.css";
 
 const money = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;

@@ -3,16 +3,19 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import VerifiedContractorRoute from "./components/VerifiedContractorRoute";
+import ProviderProfileRoute, { LegacyPersonalSettingsRedirect } from "./components/ProviderProfileRoute";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import PdfPreviewHost from "./components/PdfPreview";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import WhatsAppAppChooser from "./components/WhatsAppAppChooser";
+import LanguageSelector from "./components/LanguageSelector";
 
 const page = (name) => lazy(() => import(`./pages/${name}.jsx`));
 const Login = page("Login");
 const Register = page("Register");
 const CustomerRegister = page("CustomerRegister");
 const CustomerShareLink = page("CustomerShareLink");
+const JoinProperty = page("JoinProperty");
 const ForgotPassword = page("ForgotPassword");
 const RecoveryEmailSettings = page("RecoveryEmailSettings");
 const Dashboard = page("Dashboard");
@@ -27,10 +30,13 @@ const QuotationDetail = page("QuotationDetail");
 const QuotationEdit = page("QuotationEdit");
 const Invoices = page("Invoices");
 const Contractors = page("Contractors");
+const ContractorNetwork = page("ContractorNetwork");
+const SubcontractWorkOrders = page("SubcontractWorkOrders");
+const SubcontractWorkOrderDetail = page("SubcontractWorkOrderDetail");
 const Painters = page("Painters");
 const MeasurementCalculator = page("MeasurementCalculator");
 const MasterServices = page("MasterServices");
-const ContractorSettings = page("ContractorSettings");
+const Settings = page("Settings");
 const ContractorCompletedProjects = page("ContractorCompletedProjects");
 const AppearanceSettings = page("AppearanceSettings");
 const Tasks = page("Tasks");
@@ -48,6 +54,7 @@ const CustomerQuotation = page("CustomerQuotation");
 const CustomerQuotations = page("CustomerQuotations");
 const CustomerProperties = page("CustomerProperties");
 const CustomerPropertyDetail = page("CustomerPropertyDetail");
+const PropertyAccess = page("PropertyAccess");
 const CustomerInvoices = page("CustomerInvoices");
 const WorkSchedules = page("WorkSchedules");
 const WorkChanges = page("WorkChanges");
@@ -55,15 +62,14 @@ const WorkReschedules = page("WorkReschedules");
 const CompletedWork = page("CompletedWork");
 const Leads = page("Leads");
 const Opportunities = page("Opportunities");
-const OpportunityDetail = page("OpportunityDetail");
 const NewOpportunity = page("NewOpportunity");
+const OpportunityDetail = page("OpportunityDetail");
 const SiteVisits = page("SiteVisits");
 const PainterSeeking = page("PainterSeeking");
 const PainterAssignments = page("PainterAssignments");
 const Jobs = page("Jobs");
 const JobActivity = page("JobActivity");
 const ApplicatorTeam = page("ApplicatorTeam");
-const ApplicatorProfile = page("ApplicatorProfile");
 const ApplicatorAvailability = page("ApplicatorAvailability");
 const ApplicatorBookings = page("ApplicatorBookings");
 const InHouseApplicators = page("InHouseApplicators");
@@ -92,6 +98,15 @@ const CustomerContractorReviews = page("CustomerContractorReviews");
 const BharathAppsPreview = import.meta.env.DEV
   ? lazy(() => import("./preview/bharathApps/PreviewApp.jsx"))
   : null;
+const SidebarPreview = import.meta.env.DEV
+  ? lazy(() => import("./preview/sidebar/SidebarPreview.jsx"))
+  : null;
+const MergedSettingsPreview = import.meta.env.DEV
+  ? lazy(() => import("./preview/settings/MergedSettingsPreview.jsx"))
+  : null;
+const SubcontractWorkOrdersPreview = import.meta.env.DEV
+  ? lazy(() => import("./preview/subcontractWorkOrders/SubcontractWorkOrdersPreview.jsx"))
+  : null;
 
 function App() {
   return (
@@ -109,9 +124,11 @@ function App() {
 // captured failure without an extra render pass.
 function AppRoutes() {
   const location = useLocation();
+  const publicLanguagePage = ["/login", "/register", "/customer-register", "/forgot-password"].includes(location.pathname);
 
   return (
     <RouteErrorBoundary key={location.pathname}>
+      {publicLanguagePage && <div className="flex justify-end bg-white px-4 py-3"><LanguageSelector /></div>}
       <Suspense
         fallback={
           <div className="bp-state min-h-screen">
@@ -121,6 +138,11 @@ function AppRoutes() {
         }
       >
         <Routes>
+          {MergedSettingsPreview && <Route path="/preview/settings" element={<MergedSettingsPreview />} />}
+          {SubcontractWorkOrdersPreview && (
+            <Route path="/preview/subcontract-work-orders" element={<SubcontractWorkOrdersPreview />} />
+          )}
+          {SidebarPreview && <Route path="/preview/sidebar" element={<SidebarPreview />} />}
           {BharathAppsPreview && (
             <Route path="/preview/bharath-apps" element={<BharathAppsPreview />} />
           )}
@@ -128,6 +150,7 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
           <Route path="/customer-link/:token" element={<CustomerShareLink />} />
+          <Route path="/join/property/:token" element={<JoinProperty />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
             element={
@@ -196,6 +219,7 @@ function AppRoutes() {
               path="/customer-properties/:id"
               element={<CustomerPropertyDetail />}
             />
+            <Route path="/customer-properties/:id/access" element={<PropertyAccess />} />
             <Route path="/work-schedules" element={<WorkSchedules />} />
             <Route path="/work-changes" element={<WorkChanges />} />
             <Route path="/work-reschedules" element={<WorkReschedules />} />
@@ -243,7 +267,6 @@ function AppRoutes() {
             <Route path="/my-packages" element={<ContractorPackages />} />
             <Route path="/activity-log" element={<ActivityLog />} />
             <Route path="/measurement-trial" element={<MeasurementTrial />} />
-            <Route path="/applicator-profile" element={<ApplicatorProfile />} />
             <Route
               path="/applicator-availability"
               element={<ApplicatorAvailability />}
@@ -260,18 +283,56 @@ function AppRoutes() {
             />
             <Route path="/master-services" element={<MasterServices />} />
             <Route
-              path="/settings"
+              path="/contractor-network"
               element={
                 <VerifiedContractorRoute>
-                  <ContractorSettings />
+                  <ContractorNetwork />
                 </VerifiedContractorRoute>
               }
+            />
+            <Route
+              path="/subcontract-work-orders"
+              element={
+                <VerifiedContractorRoute>
+                  <SubcontractWorkOrders />
+                </VerifiedContractorRoute>
+              }
+            />
+            <Route
+              path="/subcontract-work-orders/:id"
+              element={
+                <VerifiedContractorRoute>
+                  <SubcontractWorkOrderDetail />
+                </VerifiedContractorRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProviderProfileRoute>
+                  <Settings />
+                </ProviderProfileRoute>
+              }
+            />
+            {/* Kept so old bookmarks and shared links land on the right tab of
+                the merged settings page instead of a removed screen. */}
+            <Route
+              path="/provider-profile"
+              element={
+                <ProviderProfileRoute>
+                  <Navigate to="/settings?tab=trade" replace />
+                </ProviderProfileRoute>
+              }
+            />
+            <Route
+              path="/applicator-profile"
+              element={<LegacyPersonalSettingsRedirect />}
             />
             <Route
               path="/contractor-theme"
               element={
                 <VerifiedContractorRoute>
-                  <ContractorSettings themeOnly />
+                  <Navigate to="/settings?tab=appearance" replace />
                 </VerifiedContractorRoute>
               }
             />

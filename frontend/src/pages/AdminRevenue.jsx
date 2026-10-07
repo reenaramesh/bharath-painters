@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import "./admin-portal.css";
 
 const months = [
   "All months",
@@ -72,8 +73,8 @@ export default function AdminRevenue() {
           <p className="text-sm font-semibold text-amber-600">Admin billing</p>
           <h1 className="mt-1 text-3xl font-bold">Subscription revenue</h1>
           <p className="mt-2 text-slate-500">
-            Only Bharath Painters package payments received from contractors and
-            Paint Applicators.
+            Only Bharath Apps package payments received from contractors and
+            employees.
           </p>
         </div>
         <button
@@ -230,7 +231,7 @@ export default function AdminRevenue() {
                     <b>{item.user}</b>
                     <small className="block text-slate-500">
                       {item.role === "PAINTER"
-                        ? "Paint Applicator"
+                        ? "Employee"
                         : "Contractor"}{" "}
                       · {item.mobile} · {item.bharath_id || "No ID"}
                     </small>

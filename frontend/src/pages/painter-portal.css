@@ -1,0 +1,370 @@
+.painter-portal-page {
+  --painter-accent: var(--app-primary, var(--bp-brand));
+  --painter-accent-soft: color-mix(in srgb, var(--painter-accent) 7%, white);
+  --painter-border: var(--bp-line);
+  min-width: 0;
+  color: var(--bp-ink);
+}
+
+.painter-shell main > :is(.space-y-6, .space-y-4) > header:not(.bp-page-header) {
+  border: 1px solid var(--painter-border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--painter-accent-soft), #fff 72%);
+  padding: 20px;
+  box-shadow: var(--bp-shadow);
+}
+
+.painter-shell main :is(input, select, textarea) {
+  min-height: 44px;
+  border-color: var(--painter-border);
+  border-radius: var(--bp-radius-control);
+}
+
+.painter-shell main :is(button, a):focus-visible,
+.painter-shell main :is(input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--painter-accent) 72%, white);
+  outline-offset: 2px;
+}
+
+.painter-shell main :is(section, article, details)[class*="rounded-2xl"][class*="border"] {
+  border-color: var(--painter-border);
+  box-shadow: var(--bp-shadow);
+}
+
+/* Legacy painter work screens share the shell but not a common component tree. */
+.painter-shell main article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.painter-shell main article > div {
+  min-width: 0;
+}
+
+.painter-shell main article :is(h2, h3, p, span) {
+  overflow-wrap: anywhere;
+}
+
+.painter-shell main article :is(a, button) {
+  min-height: 44px;
+}
+
+.painter-shell main article p {
+  line-height: 1.45;
+}
+
+/* Availability dates: keep the calendar legible and the state key textual. */
+.painter-shell main button[title="Available"],
+.painter-shell main button[title="Work assigned"],
+.painter-shell main button[title="Blocked by you"] {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.painter-shell main input[type="month"] {
+  min-width: 150px;
+  padding-inline: 12px;
+}
+
+/* Earnings and attendance records should never compress numeric values. */
+.painter-shell main :is(table, [role="table"]) {
+  font-variant-numeric: tabular-nums;
+}
+
+.painter-shell main :is(table td, table th) {
+  vertical-align: middle;
+}
+
+.painter-shell main :is(table td:last-child, table th:last-child) {
+  overflow-wrap: anywhere;
+}
+
+.painter-shell main :is(section, article) :is([class*="bg-emerald-50"], [class*="bg-blue-50"], [class*="bg-amber-50"], [class*="bg-violet-50"]) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.painter-portal-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--painter-accent) 72%, white);
+  outline-offset: 2px;
+}
+
+.painter-portal-page :is(button, a) {
+  min-height: 44px;
+}
+
+.painter-portal-page h1 {
+  letter-spacing: -0.035em;
+}
+
+.painter-dashboard-page > header,
+.painter-work-network-page > header,
+.painter-profile-page > header {
+  border: 1px solid var(--painter-border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--painter-accent-soft), #fff 72%);
+  padding: 20px;
+  box-shadow: var(--bp-shadow);
+}
+
+.painter-dashboard-page > header h1,
+.painter-work-network-page > header h1,
+.painter-profile-page > header h2 {
+  color: var(--bp-ink);
+}
+
+.painter-dashboard-page > header::after {
+  content: "Your next job, clearly in view";
+  display: block;
+  margin-top: 6px;
+  color: var(--bp-muted);
+  font-size: 0.875rem;
+}
+
+.painter-dashboard-page .painter-dashboard-focus,
+.painter-availability-focus,
+.painter-booking-focus {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.painter-dashboard-focus > div,
+.painter-availability-focus > div,
+.painter-booking-focus > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border: 1px solid var(--painter-border);
+  border-radius: 15px;
+  background: #fff;
+  padding: 15px 16px;
+  box-shadow: var(--bp-shadow);
+}
+
+.painter-dashboard-focus span,
+.painter-availability-focus span,
+.painter-booking-focus span {
+  color: var(--bp-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.painter-dashboard-focus strong,
+.painter-availability-focus strong,
+.painter-booking-focus strong {
+  overflow-wrap: anywhere;
+  color: var(--bp-ink);
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.painter-dashboard-focus small,
+.painter-availability-focus small,
+.painter-booking-focus small {
+  color: var(--bp-color-text);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.painter-availability-focus .is-blocked,
+.painter-booking-focus .is-action {
+  border-color: #f1c56b;
+  background: #fffaf0;
+}
+
+.painter-availability-focus .is-blocked strong,
+.painter-booking-focus .is-action strong {
+  color: #9a5b00;
+}
+
+.painter-availability-focus .is-location {
+  border-color: color-mix(in srgb, var(--painter-accent) 30%, white);
+  background: var(--painter-accent-soft);
+}
+
+.painter-portal-page :is(section, article, details) {
+  border-color: var(--painter-border);
+}
+
+.painter-profile-page > section {
+  border-radius: 18px;
+  box-shadow: var(--bp-shadow);
+}
+
+.painter-activity-focus,
+.painter-photo-focus {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.painter-activity-focus > div,
+.painter-photo-focus > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border: 1px solid var(--painter-border);
+  border-radius: 15px;
+  background: #fff;
+  padding: 15px 16px;
+  box-shadow: var(--bp-shadow);
+}
+
+.painter-activity-focus span,
+.painter-photo-focus span {
+  color: var(--bp-muted);
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.painter-activity-focus strong,
+.painter-photo-focus strong {
+  color: var(--bp-ink);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.painter-activity-focus small,
+.painter-photo-focus small {
+  color: var(--bp-color-text);
+  font-size: .8125rem;
+}
+
+.painter-activity-focus .is-action {
+  border-color: #f1c56b;
+  background: #fffaf0;
+}
+
+.painter-activity-focus .is-action strong {
+  color: #9a5b00;
+}
+
+.painter-photo-focus .is-complete {
+  border-color: #b7e4cc;
+  background: #f2fbf6;
+}
+
+.painter-photo-focus .is-complete strong {
+  color: var(--bp-color-success);
+}
+
+.painter-chat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.painter-chat-summary span {
+  border: 1px solid var(--painter-border);
+  border-radius: 999px;
+  background: var(--painter-accent-soft);
+  padding: 7px 10px;
+  color: var(--bp-muted);
+  font-size: .75rem;
+}
+
+.painter-chat-summary strong {
+  color: var(--painter-accent);
+}
+
+.painter-work-network-page > section,
+.painter-work-network-page > details {
+  border-radius: 18px;
+  box-shadow: var(--bp-shadow);
+}
+
+@media (max-width: 767px) {
+  .painter-shell main > :is(.space-y-6, .space-y-4) > header:not(.bp-page-header) {
+    padding: 16px;
+  }
+
+  .painter-shell main article {
+    border-radius: 15px;
+  }
+
+  .painter-shell main :is(table td, table th) {
+    white-space: normal;
+  }
+
+  .painter-shell main button[title="Available"],
+  .painter-shell main button[title="Work assigned"],
+  .painter-shell main button[title="Blocked by you"] {
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  .painter-dashboard-page > header,
+  .painter-work-network-page > header,
+  .painter-profile-page > header {
+    padding: 16px;
+  }
+
+  .painter-dashboard-page .painter-dashboard-focus,
+  .painter-availability-focus,
+  .painter-booking-focus {
+    gap: 7px;
+  }
+
+  .painter-dashboard-focus > div,
+  .painter-availability-focus > div,
+  .painter-booking-focus > div {
+    padding: 11px 10px;
+  }
+
+  .painter-dashboard-focus span,
+  .painter-availability-focus span,
+  .painter-booking-focus span {
+    font-size: 0.6875rem;
+    line-height: 1.25;
+  }
+
+  .painter-dashboard-focus strong,
+  .painter-availability-focus strong,
+  .painter-booking-focus strong {
+    font-size: 0.95rem;
+  }
+
+  .painter-dashboard-focus small,
+  .painter-availability-focus small,
+  .painter-booking-focus small {
+    display: none;
+  }
+
+  .painter-activity-focus,
+  .painter-photo-focus {
+    gap: 7px;
+  }
+
+  .painter-activity-focus > div,
+  .painter-photo-focus > div {
+    padding: 11px 10px;
+  }
+
+  .painter-activity-focus span,
+  .painter-photo-focus span {
+    font-size: .6875rem;
+    line-height: 1.25;
+  }
+
+  .painter-activity-focus strong,
+  .painter-photo-focus strong {
+    font-size: .95rem;
+  }
+
+  .painter-activity-focus small,
+  .painter-photo-focus small {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painter-portal-page *,
+  .painter-portal-page *::before,
+  .painter-portal-page *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -57,8 +57,106 @@ class MeasurementSurfaceType(MasterDataBase):
 
 
 class ServiceCategory(MasterDataBase):
+    class Icon(models.TextChoices):
+        PAINT_ROLLER = "PAINT_ROLLER", "Paint roller"
+        BRUSH = "BRUSH", "Brush"
+        SPRAY = "SPRAY", "Spray"
+        WATERPROOFING = "WATERPROOFING", "Waterproofing"
+        PUTTY = "PUTTY", "Putty and wall care"
+        INTERIOR = "INTERIOR", "Interior design"
+        ELECTRICAL = "ELECTRICAL", "Electrical"
+        PLUMBING = "PLUMBING", "Plumbing"
+        CARPENTRY = "CARPENTRY", "Carpentry"
+        HVAC = "HVAC", "HVAC"
+        FLOORING = "FLOORING", "Flooring"
+        FURNITURE = "FURNITURE", "Furniture"
+        LANDSCAPING = "LANDSCAPING", "Landscaping"
+        GENERAL = "GENERAL", "General handyman"
+
+    workspace_name = models.CharField(
+        max_length=150,
+        default="Bharath Painters",
+        help_text="Workspace name shown when this is the core service.",
+    )
+
+    contractor_label = models.CharField(
+        max_length=60,
+        default="Painter",
+        help_text='Role label, e.g. "Painter" or "Contractor".',
+    )
+
+    employee_singular_label = models.CharField(max_length=60, default="Employee")
+    employee_plural_label = models.CharField(max_length=60, default="Employees")
+
+    icon = models.CharField(
+        max_length=30,
+        choices=Icon.choices,
+        default=Icon.PAINT_ROLLER,
+    )
+
+    units = models.ManyToManyField(
+        "Unit",
+        blank=True,
+        related_name="service_categories",
+        help_text="Units offered by this service.",
+    )
+
+    is_provider_selectable = models.BooleanField(
+        default=True,
+        help_text="Contractors can add this service to their profile.",
+    )
+
+    sort_weight = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Ordering hint used when a profile lists its services.",
+    )
+
     class Meta:
         verbose_name_plural = "Service categories"
+
+    def __str__(self):
+        return self.name
+
+    def branding(self):
+        """Resolved workspace labels derived from this service.
+
+        Additional services never change the workspace identity, so callers
+        always resolve branding from the profile's core service.
+        """
+        name = (self.name or "Service").strip()
+        legacy_painting_defaults = name.casefold() in {"paint", "painting", "paint services", "painting services"}
+
+        # 0109 introduced these fields with painting-era defaults. Older
+        # catalogue rows therefore have non-empty values that look configured
+        # but are not. Keep those values for Painting while resolving them from
+        # the service name for other categories. Explicit catalogue labels
+        # always win.
+        workspace_name = self.workspace_name or name
+        if workspace_name == "Bharath Painters" and not legacy_painting_defaults:
+            workspace_name = f"Bharath {name} Services"
+
+        contractor_label = self.contractor_label or "Contractor"
+        if contractor_label == "Painter" and not legacy_painting_defaults:
+            contractor_label = f"{name} Contractor"
+
+        employee_singular = self.employee_singular_label or "Employee"
+        employee_plural = self.employee_plural_label or "Employees"
+        if not legacy_painting_defaults and employee_singular == "Employee" and employee_plural == "Employees":
+            if name.casefold().endswith("ing"):
+                employee_singular = f"{name[:-3]}er"
+                employee_plural = f"{employee_singular}s"
+            else:
+                employee_singular = f"{name} professional"
+                employee_plural = f"{name} professionals"
+
+        return {
+            "platform_name": "Bharath Apps",
+            "workspace_name": workspace_name,
+            "contractor_label": contractor_label,
+            "employee_singular_label": employee_singular,
+            "employee_plural_label": employee_plural,
+            "icon": self.icon,
+        }
 
 
 
@@ -1149,6 +1247,149 @@ class Property(models.Model):
         return "m²" if self.measurement_unit == self.MeasurementUnit.METRES else "sq ft"
 
 
+class PropertyContact(models.Model):
+    """A customer account authorized to participate in one property's work."""
+
+    class Relationship(models.TextChoices):
+        OWNER = "OWNER", "Owner"
+        TENANT = "TENANT", "Tenant"
+        PROPERTY_MANAGER = "PROPERTY_MANAGER", "Property manager"
+        FACILITY_MANAGER = "FACILITY_MANAGER", "Facility manager"
+        OTHER = "OTHER", "Other"
+
+    class AccessLevel(models.TextChoices):
+        VIEW_ONLY = "VIEW_ONLY", "View only"
+        SITE_COORDINATION = "SITE_COORDINATION", "Site coordination"
+        QUOTATION_APPROVAL = "QUOTATION_APPROVAL", "Quotation & approval"
+        FINANCE = "FINANCE", "Finance"
+        PROPERTY_MANAGEMENT = "PROPERTY_MANAGEMENT", "Property management"
+        FULL_ACCESS = "FULL_ACCESS", "Full access"
+        CUSTOM = "CUSTOM", "Custom"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        ACTIVE = "ACTIVE", "Active"
+        DECLINED = "DECLINED", "Declined"
+        REVOKED = "REVOKED", "Revoked"
+
+    class Role(models.TextChoices):
+        PRIMARY = "PRIMARY", "Primary contact"
+        OWNER = "OWNER", "Owner"
+        TENANT = "TENANT", "Tenant"
+        PROPERTY_MANAGER = "PROPERTY_MANAGER", "Property manager"
+        AUTHORIZED_CONTACT = "AUTHORIZED_CONTACT", "Authorized contact"
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="contacts")
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="property_contacts")
+    relationship = models.CharField(max_length=30, choices=Relationship.choices, blank=True, default="")
+    access_level = models.CharField(max_length=30, choices=AccessLevel.choices, default=AccessLevel.SITE_COORDINATION)
+    custom_permissions = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    role = models.CharField(max_length=30, choices=Role.choices, default=Role.AUTHORIZED_CONTACT)
+    is_primary = models.BooleanField(default=False)
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="added_property_contacts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-is_primary", "created_at", "id")
+        constraints = [
+            models.UniqueConstraint(fields=("property", "customer"), name="unique_property_customer_contact"),
+            models.UniqueConstraint(
+                fields=("property",), condition=models.Q(is_primary=True),
+                name="unique_primary_contact_per_property",
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(is_primary=False) | models.Q(role="PRIMARY")),
+                name="primary_property_contact_role_matches",
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(is_primary=False) | models.Q(status="ACTIVE")),
+                name="primary_property_contact_is_active",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.customer_id} on property {self.property_id} ({self.role})"
+
+
+class PropertyInvitation(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        ACCEPTED = "ACCEPTED", "Accepted"
+        REVOKED = "REVOKED", "Revoked"
+        EXPIRED = "EXPIRED", "Expired"
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="invitations")
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="property_invitations_sent",
+    )
+    invitee_customer = models.ForeignKey(
+        Customer, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="property_invitations",
+    )
+    invitee_name = models.CharField(max_length=150, blank=True)
+    invitee_mobile = models.CharField(max_length=16, blank=True)
+    invitee_email = models.EmailField(blank=True)
+    relationship = models.CharField(max_length=30, choices=PropertyContact.Relationship.choices, blank=True, default="")
+    access_level = models.CharField(max_length=30, choices=PropertyContact.AccessLevel.choices, default=PropertyContact.AccessLevel.SITE_COORDINATION)
+    custom_permissions = models.JSONField(default=list, blank=True)
+    role = models.CharField(max_length=30, choices=PropertyContact.Role.choices, default=PropertyContact.Role.AUTHORIZED_CONTACT)
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(invitee_customer__isnull=True)
+                    | ~models.Q(invitee_mobile="")
+                    | ~models.Q(invitee_email="")
+                ),
+                name="property_invitation_has_target",
+            ),
+            models.UniqueConstraint(
+                fields=("property", "invitee_mobile"),
+                condition=(models.Q(status="PENDING") & ~models.Q(invitee_mobile="")),
+                name="unique_pending_property_invite_mobile",
+            ),
+        ]
+
+
+class PropertyAccessAudit(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="access_audit_entries")
+    contact = models.ForeignKey(
+        PropertyContact, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="audit_entries",
+    )
+    invitation = models.ForeignKey(
+        PropertyInvitation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="audit_entries",
+    )
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="property_access_audit_entries",
+    )
+    action = models.CharField(max_length=50)
+    details = models.JSONField(default=dict, blank=True, encoder=DjangoJSONEncoder)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
 
 # =========================================================
 # QUOTATION
@@ -1265,6 +1506,14 @@ class Quotation(models.Model):
         Property,
         on_delete=models.PROTECT,
         related_name="quotations"
+    )
+
+    customer_contact = models.ForeignKey(
+        PropertyContact,
+        on_delete=models.SET_NULL,
+        related_name="quotations_as_contact",
+        null=True,
+        blank=True,
     )
 
     measurement_record = models.ForeignKey(
@@ -1437,6 +1686,7 @@ class Quotation(models.Model):
                 "email": self.contractor.email,
                 "company_logo": logo_name,
                 "company_logo_shape": profile.company_logo_shape if profile else "RECTANGLE",
+                "company_logo_position": profile.company_logo_position if profile else {"x": 50, "y": 50, "zoom": 1},
                 "office_address": profile.office_address if profile else "",
                 "service_areas": profile.service_areas if profile else "",
                 "gst_number": profile.gst_number if profile else "",
@@ -1465,12 +1715,25 @@ class Quotation(models.Model):
             }
 
     def save(self, *args, **kwargs):
+        contact_matches_property = bool(
+            self.customer_contact_id
+            and PropertyContact.objects.filter(
+                pk=self.customer_contact_id,
+                property_id=self.property_id,
+            ).exists()
+        ) if self.property_id else False
+        if self.property_id and not contact_matches_property:
+            self.customer_contact_id = PropertyContact.objects.filter(
+                property_id=self.property_id, is_primary=True,
+            ).values_list("id", flat=True).first()
         self.capture_document_snapshot()
         update_fields = kwargs.get("update_fields")
         if update_fields:
             snapshot_fields = {
                 "contractor_snapshot", "customer_snapshot", "property_snapshot"
             }
+            if self.customer_contact_id:
+                snapshot_fields.add("customer_contact")
             kwargs["update_fields"] = tuple(set(update_fields) | snapshot_fields)
         super().save(*args, **kwargs)
 
@@ -1798,6 +2061,10 @@ class QuotationItem(models.Model):
     coats = models.PositiveIntegerField(
         default=1
     )
+
+    included_areas = models.JSONField(default=list, blank=True)
+
+    specification_details = models.JSONField(default=dict, blank=True)
 
     quantity = models.DecimalField(
         max_digits=12,
@@ -2478,3 +2745,212 @@ class ProjectReceipt(models.Model):
 
     class Meta:
         ordering = ("-received_date", "-id")
+
+
+class ProjectScope(models.Model):
+    """One service line inside a quotation treated as a project scope.
+
+    A quotation already carries the customer, property, measurement, rooms,
+    items, revisions and invoices for a job. Scopes sit underneath it so a
+    multi-service job has one addressable row per service, which is what the
+    project screen, the network and the outsourcing flow all read from.
+    """
+
+    class Status(models.TextChoices):
+        PROPOSED = "PROPOSED", "Proposed"
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    class Handling(models.TextChoices):
+        INTERNAL = "INTERNAL", "In-house"
+        OUTSOURCED = "OUTSOURCED", "Outsourced"
+
+    quotation = models.ForeignKey(
+        Quotation,
+        on_delete=models.CASCADE,
+        related_name="scopes",
+    )
+    reference = models.CharField(max_length=40, blank=True)
+    title = models.CharField(max_length=200)
+
+    category = models.ForeignKey(
+        ServiceCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
+    work_description = models.ForeignKey(
+        WorkDescription,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
+    measurement_record = models.ForeignKey(
+        PropertyMeasurement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
+
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    unit_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PROPOSED,
+    )
+    handling = models.CharField(
+        max_length=20,
+        choices=Handling.choices,
+        default=Handling.INTERNAL,
+    )
+
+    measurement_version = models.PositiveIntegerField(null=True, blank=True)
+
+    category_name_snapshot = models.CharField(max_length=150, blank=True)
+    work_description_snapshot = models.CharField(max_length=200, blank=True)
+    unit_name_snapshot = models.CharField(max_length=40, blank=True)
+
+    target_start_date = models.DateField(null=True, blank=True)
+    target_end_date = models.DateField(null=True, blank=True)
+
+    notes = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("quotation", "reference"),
+                condition=~models.Q(reference=""),
+                name="unique_project_scope_reference_per_quotation",
+            ),
+        ]
+
+    def __str__(self):
+        return self.title or self.work_description_snapshot or f"Scope {self.pk}"
+
+    def calculate_amount(self):
+        self.amount = (self.quantity * self.unit_rate).quantize(Decimal("0.01"))
+        return self.amount
+
+    def assign_reference(self):
+        if self.reference or not self.quotation_id:
+            return self.reference
+        last_id = (
+            ProjectScope.objects.filter(quotation_id=self.quotation_id)
+            .exclude(pk=self.pk)
+            .aggregate(top=models.Max("id"))["top"]
+            or 0
+        )
+        self.reference = f"SC-{last_id + 1:04d}"
+        return self.reference
+
+    def save(self, *args, **kwargs):
+        self.calculate_amount()
+        self.assign_reference()
+        if self.category_id and not self.category_name_snapshot:
+            self.category_name_snapshot = self.category.name
+        if self.work_description_id and not self.work_description_snapshot:
+            self.work_description_snapshot = self.work_description.name
+        if self.unit_id and not self.unit_name_snapshot:
+            self.unit_name_snapshot = self.unit.name
+        if self.measurement_record_id and self.measurement_version is None:
+            self.measurement_version = self.measurement_record.version
+        super().save(*args, **kwargs)
+
+
+class ContractorConnection(models.Model):
+    """Consent-based link between two contractors.
+
+    Mirrors ContractorCustomerConnection so the same lifecycle vocabulary
+    (request, accept, reject, block) is used on both sides of the platform.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        CONNECTED = "CONNECTED", "Connected"
+        REJECTED = "REJECTED", "Rejected"
+        RECONNECT_PENDING = "RECONNECT_PENDING", "Reconnect pending"
+        DISCONNECTED = "DISCONNECTED", "Disconnected"
+        BLOCKED = "BLOCKED", "Blocked"
+
+    class DiscoverMethod(models.TextChoices):
+        SEARCH = "SEARCH", "Search"
+        COMPLETED_WORK = "COMPLETED_WORK", "Completed work together"
+        INVITATION = "INVITATION", "Invitation"
+        REFERRAL = "REFERRAL", "Referral"
+
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="contractor_connections_requested",
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="contractor_connections_received",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    status_before_block = models.CharField(max_length=20, choices=Status.choices, blank=True)
+    discover_method = models.CharField(max_length=30, choices=DiscoverMethod.choices, blank=True)
+    message = models.TextField(blank=True)
+    rejection_reason = models.CharField(max_length=150, blank=True)
+
+    requested_at = models.DateTimeField(default=timezone.now)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    blocked_at = models.DateTimeField(null=True, blank=True)
+    disconnected_at = models.DateTimeField(null=True, blank=True)
+    last_request_at = models.DateTimeField(null=True, blank=True)
+    request_count = models.PositiveIntegerField(default=1)
+
+    is_favourite = models.BooleanField(default=False)
+    is_blocked = models.BooleanField(default=False)
+
+    completed_work_orders = models.PositiveIntegerField(default=0)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-requested_at", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(requester=models.F("recipient")),
+                name="contractor_connection_not_self",
+            ),
+            models.UniqueConstraint(
+                fields=("requester", "recipient"),
+                name="unique_contractor_connection_pair",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.requester_id} -> {self.recipient_id} ({self.status})"
+
+    def other_party(self, user):
+        return self.recipient if self.requester_id == user.id else self.requester

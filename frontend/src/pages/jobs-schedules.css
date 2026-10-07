@@ -1,0 +1,302 @@
+.jobs-schedules-page {
+  --work-accent: var(--bp-brand);
+  --work-accent-soft: color-mix(in srgb, var(--work-accent) 9%, white);
+  --work-border: var(--bp-line);
+  min-width: 0;
+  color: var(--bp-ink);
+}
+
+.jobs-schedules-page .bp-page-header {
+  align-items: center;
+}
+
+.jobs-schedules-page .bp-page-header h1 {
+  letter-spacing: -0.035em;
+}
+
+.jobs-schedules-page .bp-section-card {
+  min-width: 0;
+}
+
+.jobs-schedules-page .bp-section-card > header {
+  min-height: 76px;
+}
+
+.jobs-schedules-page .bp-section-card > header h2 {
+  color: var(--bp-ink);
+}
+
+.jobs-schedules-page :is(input, select, textarea) {
+  min-height: 44px;
+  border-color: var(--work-border);
+  border-radius: var(--bp-radius-control);
+  color: var(--bp-ink);
+}
+
+.jobs-schedules-page :is(input, select, textarea):focus-visible {
+  border-color: var(--work-accent);
+  outline-color: var(--work-accent);
+}
+
+.jobs-schedules-page :is(button, a) {
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.jobs-schedules-page .job-list-card,
+.jobs-schedules-page .schedule-list-card,
+.jobs-schedules-page .job-activity-card,
+.jobs-schedules-page .completed-schedules-card {
+  border-radius: 16px;
+}
+
+.jobs-schedules-page .job-primary-action {
+  min-height: 44px;
+  border: 1px solid var(--work-accent);
+  background: var(--work-accent);
+  color: var(--bp-color-on-brand);
+  box-shadow: 0 4px 12px -8px var(--work-accent);
+}
+
+.jobs-schedules-page .job-primary-action:hover:not(:disabled) {
+  border-color: var(--bp-brand-dark);
+  background: var(--bp-brand-dark);
+}
+
+.jobs-schedules-page .job-primary-action:focus-visible {
+  outline: 3px solid var(--bp-focus-ring);
+  outline-offset: 2px;
+}
+
+.bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child,
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child,
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child {
+  background: #fff;
+}
+
+.bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child > label,
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child > label,
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child > label {
+  min-width: 0;
+  border: 1px solid var(--work-border);
+  background: #f8fafc;
+}
+
+.bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child > label:focus-within,
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child > label:focus-within,
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child > label:focus-within {
+  border-color: var(--work-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--work-accent) 14%, transparent);
+}
+
+.bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child input,
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child input,
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child input {
+  min-height: 24px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child input:focus-visible,
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child input:focus-visible,
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child input:focus-visible {
+  outline: 0;
+}
+
+.bp-jobs-page .job-primary-action,
+.bp-jobs-page article.rounded-2xl.border {
+  border-radius: 14px;
+}
+
+.bp-jobs-page .job-card-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.bp-jobs-page .job-card-facts > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bp-jobs-page .job-card-facts > b {
+  color: var(--bp-ink);
+}
+
+.bp-jobs-page .job-empty-state .bp-state {
+  min-height: 180px;
+}
+
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child {
+  align-items: center;
+}
+
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child > button {
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child > button[aria-pressed="true"] {
+  border-color: var(--work-accent);
+  background: var(--work-accent);
+  color: white;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll {
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll > div:first-child {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  border-bottom: 1px solid var(--work-border);
+  color: #596579;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll article {
+  transition: background-color 0.15s ease;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll article:hover {
+  background: #fbfcfe;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll article > .grid:first-child {
+  min-height: 88px;
+}
+
+.bp-work-schedules-page .schedule-grid-scroll article > div:first-child > button,
+.bp-work-schedules-page .schedule-grid-scroll article > div:first-child > div > button,
+.bp-work-schedules-page .schedule-grid-scroll article button {
+  min-height: 40px;
+}
+
+.bp-work-schedules-page .completed-schedule-card {
+  min-width: 0;
+  border-color: var(--work-border);
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bp-work-schedules-page .completed-schedule-card:hover {
+  border-color: color-mix(in srgb, var(--work-accent) 42%, white);
+  box-shadow: var(--bp-shadow);
+}
+
+.bp-work-schedules-page .bp-state,
+.bp-job-activity-page .bp-state {
+  min-height: 180px;
+}
+
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:nth-child(2) {
+  gap: 8px;
+  background: #fff;
+}
+
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:nth-child(2) button {
+  min-height: 40px;
+  border: 1px solid var(--work-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--bp-color-text);
+}
+
+.bp-job-activity-page .job-activity-card .bp-section-card-body > div:nth-child(2) button[aria-pressed="true"] {
+  border-color: var(--work-accent);
+  background: var(--work-accent);
+  color: white;
+}
+
+.bp-job-activity-page .job-activity-card tbody tr:hover {
+  background: #f8fafc;
+}
+
+.jobs-schedules-page .job-detail-modal {
+  border: 1px solid var(--work-border);
+}
+
+.jobs-schedules-page .job-detail-modal > header {
+  box-shadow: 0 4px 12px -12px #172033;
+}
+
+.jobs-schedules-page :is(.job-detail-modal, form, [role="dialog"]) :is(input, select, textarea) {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  .jobs-schedules-page .bp-page-header {
+    align-items: flex-start;
+  }
+
+  .jobs-schedules-page .bp-page-header .bp-page-actions {
+    width: 100%;
+  }
+
+  .bp-jobs-page .bp-page-header .bp-page-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .bp-jobs-page .bp-page-header .bp-page-actions > * {
+    width: 100%;
+  }
+
+  .jobs-schedules-page .bp-section-card > header {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child {
+    padding: 12px;
+  }
+
+  .bp-jobs-page .job-list-card .bp-section-card-body > .grid:first-child > div {
+    flex-wrap: wrap;
+  }
+
+  .bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child {
+    padding: 12px;
+  }
+
+  .bp-work-schedules-page .schedule-list-card .bp-section-card-body > div:first-child > div:last-child {
+    padding-bottom: 3px;
+  }
+
+  .bp-work-schedules-page .completed-schedules-card > header {
+    padding: 16px;
+  }
+
+  .bp-job-activity-page .job-activity-card .bp-section-card-body > div:first-child {
+    padding: 12px;
+  }
+
+  .bp-job-activity-page .job-activity-card .bp-section-card-body > div:nth-child(2) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .bp-job-activity-page .job-activity-card .bp-section-card-body > div:nth-child(2) button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jobs-schedules-page *,
+  .jobs-schedules-page *::before,
+  .jobs-schedules-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

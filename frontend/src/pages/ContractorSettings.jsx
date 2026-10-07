@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Award, Check, Eye, EyeOff, FileText, Plus, QrCode, Save, Trash2, Upload, X } from "lucide-react";
+import { Award, Check, Eye, EyeOff, FileText, Plus, QrCode, Save, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
+import useAuth from "../context/useAuth";
+import ProfileImageControl from "../components/ProfileImageControl";
+import { LoadingState } from "../components/ui";
+import { profileImageStyle } from "../utils/profileImagePosition";
 
 const pdfColorTemplates = [
   { value: "STUDIO", label: "Studio", colors: ["#142743", "#ff991f"] },
@@ -66,8 +70,10 @@ const blank = {
   company_logo: null,
   company_logo_url: "",
   company_logo_shape: "RECTANGLE",
+  company_logo_position: { x: 50, y: 50, zoom: 1 },
   profile_photo: null,
   profile_photo_url: "",
+  profile_photo_position: { x: 50, y: 50, zoom: 1 },
   pdf_color_template: "STUDIO",
   pdf_font_template: "MODERN",
   pdf_custom_primary_color: "#142743",
@@ -109,9 +115,12 @@ const blank = {
   quotation_work_procedures: "",
 };
 
-export default function ContractorSettings({ themeOnly = false }) {
-  const [form, setForm] = useState(blank);
-  const [loading, setLoading] = useState(true);
+export default function ContractorSettings({ themeOnly = false, embedded = false, fieldsOnly = false, managedForm, setManagedForm }) {
+  const { refreshUser } = useAuth();
+  const [localForm, setLocalForm] = useState(blank);
+  const form = managedForm || localForm;
+  const setForm = setManagedForm || setLocalForm;
+  const [loading, setLoading] = useState(!managedForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -143,6 +152,7 @@ export default function ContractorSettings({ themeOnly = false }) {
   const removeExtraSocial = (index) =>
     setForm((value) => ({ ...value, extra_social_links: (value.extra_social_links || []).filter((_, i) => i !== index) }));
   useEffect(() => {
+    if (managedForm) return;
     api
       .get("/accounts/contractor-profile/")
       .then(({ data }) =>
@@ -151,8 +161,10 @@ export default function ContractorSettings({ themeOnly = false }) {
           ...data,
           company_logo: null,
           company_logo_url: data.company_logo || "",
+          company_logo_position: data.company_logo_position || { x: 50, y: 50, zoom: 1 },
           profile_photo: null,
           profile_photo_url: data.profile_photo || "",
+          profile_photo_position: data.profile_photo_position || { x: 50, y: 50, zoom: 1 },
           gst_document: null,
           gst_document_url: data.gst_document || "",
           business_document: null,
@@ -163,7 +175,7 @@ export default function ContractorSettings({ themeOnly = false }) {
       )
       .catch(() => setError("Contractor details could not be loaded."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [managedForm, setForm]);
   useEffect(() => {
     if (!success) return undefined;
     const timer = window.setTimeout(() => setSuccess(""), 4000);
@@ -199,13 +211,14 @@ export default function ContractorSettings({ themeOnly = false }) {
         "company_name",
         "owner_name",
         "company_logo_shape",
+        "company_logo_position",
+        "profile_photo_position",
         "office_address",
         "service_areas",
         "work_skills",
         "gst_number",
         "pan_number",
         "years_in_business",
-        "number_of_painters",
         "default_measurement_unit",
         "bank_account_name",
         "bank_account_number",
@@ -219,7 +232,7 @@ export default function ContractorSettings({ themeOnly = false }) {
         "instagram_url",
         "pinterest_url",
         "whatsapp_number",
-      ]).forEach((field) => payload.append(field, form[field] ?? ""));
+      ]).forEach((field) => payload.append(field, field.endsWith("_position") ? JSON.stringify(form[field] || { x: 50, y: 50, zoom: 1 }) : form[field] ?? ""));
       if (!themeOnly) payload.append("extra_social_links", JSON.stringify(form.extra_social_links ?? []));
       if (!themeOnly && form.password) payload.append("password", form.password);
       if (!themeOnly && form.company_logo) payload.append("company_logo", form.company_logo);
@@ -239,8 +252,10 @@ export default function ContractorSettings({ themeOnly = false }) {
         password: "",
         company_logo: null,
         company_logo_url: data.company_logo || value.company_logo_url,
+        company_logo_position: data.company_logo_position || value.company_logo_position,
         profile_photo: null,
         profile_photo_url: data.profile_photo || value.profile_photo_url,
+        profile_photo_position: data.profile_photo_position || value.profile_photo_position,
         gst_document: null,
         gst_document_url: data.gst_document || "",
         business_document: null,
@@ -249,6 +264,8 @@ export default function ContractorSettings({ themeOnly = false }) {
         clear_business_document: false,
       }));
       window.dispatchEvent(new CustomEvent("bp-app-theme-changed", { detail: data }));
+      if (!themeOnly) window.dispatchEvent(new CustomEvent("bp-company-profile-saved", { detail: data }));
+      await refreshUser().catch(() => setError("Settings saved, but account details could not refresh. Reload to refresh your name, photo and contact details."));
       setSuccess(themeOnly ? "Theme settings saved successfully." : "Contractor and company details saved successfully.");
     } catch (requestError) {
       setError(
@@ -259,39 +276,37 @@ export default function ContractorSettings({ themeOnly = false }) {
       setSaving(false);
     }
   }
-  if (loading)
-    return (
-      <p className="p-12 text-center text-slate-500">
-        Loading contractor details...
-      </p>
-    );
+  const FormContainer = fieldsOnly ? "div" : "form";
+  if (loading && !managedForm) return <LoadingState label="Loading contractor details…" />;
   return (
-    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-5 overflow-x-hidden sm:space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className={`contractor-settings-page mx-auto w-full min-w-0 max-w-4xl space-y-5 overflow-x-hidden sm:space-y-6 ${fieldsOnly ? "msp-managed-appearance" : ""}`}>
+      {/* When embedded, the merged settings page already shows the page title
+          and tabs, so only the section actions are repeated. */}
+      {!fieldsOnly && <div className={embedded ? "" : "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"}>
         <div className="min-w-0">
         <p className="text-sm font-semibold text-amber-600">{themeOnly ? "Appearance settings" : "Account settings"}</p>
-        <h1 className="mt-1 text-3xl font-bold">
+        <h2 className={embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold"}>
           {themeOnly ? "Theme settings" : "Contractor and company details"}
-        </h1>
+        </h2>
         <p className="mt-2 text-slate-500">
           {themeOnly ? "Choose colors and fonts for the app and downloaded documents." : "These details appear on your quotations and downloadable estimates."}
         </p>
         </div>
-        <Link to={themeOnly ? "/settings" : "/profile"} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 text-center text-sm font-semibold sm:w-auto">{themeOnly ? "Company details" : <><QrCode className="h-5 w-5 shrink-0" />View & share QR profile</>}</Link>
-      </div>
+        <Link to={themeOnly ? "/settings?tab=company" : "/profile"} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 text-center text-sm font-semibold sm:w-auto">{themeOnly ? "Company details" : <><QrCode className="h-5 w-5 shrink-0" />View & share QR profile</>}</Link>
+      </div>}
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
       {success && <div role="status" aria-live="polite" className="fixed inset-x-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl sm:left-auto sm:px-5 sm:py-4">✓ {success}</div>}
-      {!themeOnly && <section className="rounded-2xl border bg-white p-5" aria-label="Company profile completion">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Company profile</h2><p className="mt-1 text-xs text-slate-500">Fill in your company details to complete your public profile.</p></div><strong className="text-2xl text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
+      {!themeOnly && <section className="contractor-profile-completion rounded-2xl border bg-white p-5" aria-label="Company profile completion">
+        <div className="flex items-center justify-between gap-3"><div><h2 id="company-profile-completion-title" className="font-bold">Company profile</h2><p className="mt-1 text-sm text-slate-600">Fill in your company details to complete your public profile.</p></div><strong className="text-2xl tabular-nums text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-labelledby="company-profile-completion-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow={form.profile_completion?.percent ?? 0}><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
         {form.profile_completion?.missing?.length > 0 && <p className="mt-2 text-xs text-slate-500">Still to add: {form.profile_completion.missing.map((field) => field.replaceAll("_", " ")).join(", ")}.</p>}
       </section>}
-      <form
-        onSubmit={submit}
+      <FormContainer
+        onSubmit={fieldsOnly ? undefined : submit}
         className="grid min-w-0 grid-cols-1 gap-5 rounded-2xl border bg-white p-4 sm:grid-cols-2 sm:p-6 [&>label]:min-w-0 [&>div]:min-w-0"
       >
         {!themeOnly && <>
@@ -316,74 +331,17 @@ export default function ContractorSettings({ themeOnly = false }) {
             className={input}
           />
         </label>
-        <div className="text-sm font-medium sm:col-span-2">
-          Company logo
-          <div className="mt-2 flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center">
-            {form.company_logo_url && (
-              <span className={`grid shrink-0 place-items-center overflow-hidden border bg-white ${
-                form.company_logo_shape === "ROUND"
-                  ? "h-20 w-20 rounded-full"
-                  : "h-20 w-36 rounded-xl"
-              }`}>
-                <img
-                  src={form.company_logo_url}
-                  alt="Company logo"
-                  className={`h-full w-full ${
-                    form.company_logo_shape === "ROUND"
-                      ? "object-cover"
-                      : "object-contain p-1"
-                  }`}
-                />
-              </span>
-            )}
-            <div className="min-w-0 flex-1 space-y-3">
-              <span className="flex items-center gap-2 rounded-xl border border-dashed p-3">
-                <Upload className="h-5 w-5 shrink-0 text-slate-400" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="w-full min-w-0 text-sm"
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      company_logo: event.target.files?.[0] || null,
-                    }))
-                  }
-                />
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["RECTANGLE", "Rectangle", "Best for wide company logos"],
-                  ["ROUND", "Round", "Best for badges and icons"],
-                ].map(([value, label, hint]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        company_logo_shape: value,
-                      }))
-                    }
-                    className={`rounded-xl border p-3 text-left transition ${
-                      form.company_logo_shape === value
-                        ? "border-blue-600 bg-blue-50 text-blue-900"
-                        : "border-slate-200 bg-white text-slate-700"
-                    }`}
-                  >
-                    <b className="block text-sm">{label}</b>
-                    <small className="mt-1 block text-xs opacity-70">{hint}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="sm:col-span-2">
+          <ProfileImageControl className="contractor-profile-image" label="Company logo" file={form.company_logo} existingUrl={form.company_logo_url} position={form.company_logo_position} shape={form.company_logo_shape === "ROUND" ? "circle" : "rectangle"} fit={form.company_logo_shape === "ROUND" ? "cover" : "contain"} onFileChange={(company_logo) => setForm((current) => ({ ...current, company_logo }))} onPositionChange={(company_logo_position) => setForm((current) => ({ ...current, company_logo_position }))} />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {[["RECTANGLE", "Rectangle", "Best for wide company logos"], ["ROUND", "Round", "Best for badges and icons"]].map(([value, label, hint]) => <button key={value} type="button" aria-pressed={form.company_logo_shape === value} onClick={() => setForm((current) => ({ ...current, company_logo_shape: value }))} className={`rounded-xl border p-3 text-left transition ${form.company_logo_shape === value ? "border-blue-600 bg-blue-50 text-blue-900" : "border-slate-200 bg-white text-slate-700"}`}><b className="block text-sm">{label}</b><small className="mt-1 block text-xs opacity-70">{hint}</small></button>)}
           </div>
         </div>
         </>}
         {themeOnly && <>
         <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
           <h2 className="text-lg font-bold">App theme</h2>
-          <p className="mt-1 text-xs text-slate-500">Choose the colors used across your contractor workspace. PDF colors are set separately below.</p>
+           {!fieldsOnly && <p className="mt-1 text-xs text-slate-500">Choose the colors used across your contractor workspace. PDF colors are set separately below.</p>}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#176b9b] ring-2 ring-[#e8f3f8]" : "border-slate-200"}`}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
           </div>
@@ -392,9 +350,9 @@ export default function ContractorSettings({ themeOnly = false }) {
           </div>
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"><span className="grid h-10 w-10 place-items-center rounded-lg text-sm font-bold text-white" style={{ background: form.app_primary_color }}>BP</span><span className="text-sm font-semibold" style={{ color: form.app_primary_color }}>Buttons and selected navigation</span><span className="ml-auto h-5 w-10 rounded-full" style={{ background: form.app_accent_color }} /></div>
         </div>
-        <div className="sm:col-span-2">
+        <div className={`sm:col-span-2 ${fieldsOnly ? "msp-appearance-card" : ""}`}>
           <p className="text-sm font-medium">Quotation and invoice PDF style</p>
-          <p className="mt-1 text-xs text-slate-500">Choose the theme, text color, and font used on both downloaded documents.</p>
+           {!fieldsOnly && <p className="mt-1 text-xs text-slate-500">Choose the theme, text color, and font used on both downloaded documents.</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-4">
             {pdfColorTemplates.map((template) => (
               <button
@@ -522,7 +480,7 @@ export default function ContractorSettings({ themeOnly = false }) {
                 <div className="relative flex justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      {previewDocument === "INVOICE" && form.company_logo_url && <img src={form.company_logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" />}
+                  {previewDocument === "INVOICE" && form.company_logo_url && <img src={form.company_logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" style={profileImageStyle(form.company_logo_position)} />}
                       <p className="truncate text-sm font-extrabold uppercase">{form.company_name || "Your company"}</p>
                     </div>
                     <p className="mt-1 max-w-52 truncate text-[10px] opacity-80">{form.office_address || "Company address"}</p>
@@ -550,12 +508,12 @@ export default function ContractorSettings({ themeOnly = false }) {
                 </div>
                 <div className="ml-auto flex w-fit overflow-hidden rounded-lg border border-slate-200 text-[10px] font-bold"><span className="px-3 py-2" style={{ color: previewBodyText }}>{previewDocument === "AREA_REPORT" ? "NET WALL AREA" : `${previewDocument} TOTAL`}</span><span className="px-3 py-2" style={{ backgroundColor: previewPrimary, color: previewText }}>{previewDocument === "AREA_REPORT" ? "420 sq.ft" : "₹ 12,500"}</span></div>
                 <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-[9px] text-slate-500" style={{ borderColor: previewPrimary }}>
-                  {previewDocument === "INVOICE" ? <strong className="truncate" style={{ color: previewBodyText }}>{form.company_name || "Your company"}</strong> : form.company_logo_url ? <img src={form.company_logo_url} alt="Company logo preview" className={`h-8 w-12 object-contain ${form.company_logo_shape === "ROUND" ? "rounded-full" : "rounded"}`} /> : <span>Company logo</span>}
-                  <span>Powered by Bharath Painters · Page 1</span>
+                  {previewDocument === "INVOICE" ? <strong className="truncate" style={{ color: previewBodyText }}>{form.company_name || "Your company"}</strong> : form.company_logo_url ? <img src={form.company_logo_url} alt="Company logo preview" className={`h-8 w-12 object-contain ${form.company_logo_shape === "ROUND" ? "rounded-full" : "rounded"}`} style={profileImageStyle(form.company_logo_position)} /> : <span>Company logo</span>}
+                  <span>Powered by Bharath Apps · Page 1</span>
                 </div>
               </div>
             </div>
-            <p className="mt-3 text-xs text-slate-500">Sample content shows the selected style. Save to use it on downloaded quotations, invoices, and area calculation reports.</p>
+             {!fieldsOnly && <p className="mt-3 text-xs text-slate-500">Sample content shows the selected style. Save to use it on downloaded quotations, invoices, and area calculation reports.</p>}
           </div>
         </div>
         </>}
@@ -581,17 +539,11 @@ export default function ContractorSettings({ themeOnly = false }) {
           />
           <span className="mt-1 block text-xs font-normal text-slate-500">Separate locations with commas. Each location appears on your shared profile.</span>
         </label>
-        <label className="text-sm font-medium sm:col-span-2">Work skills
-          <textarea name="work_skills" value={form.work_skills} onChange={update} rows="2" placeholder="Interior painting, Waterproofing, Wood polish" className={input} />
+        <label className="text-sm font-medium sm:col-span-2">Other skills & service notes (free text)
+          <textarea name="work_skills" value={form.work_skills} onChange={update} rows="2" placeholder="Other skills or service notes outside the structured service catalogue" className={input} />
           <span className="mt-1 block text-xs font-normal text-slate-500">Separate skills with commas.</span>
         </label>
-        <div className="sm:col-span-2">
-          <p className="text-sm font-medium">Owner photo for digital card</p>
-          <div className="mt-2 flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center">
-            {form.profile_photo_url ? <img src={form.profile_photo_url} alt="Owner" className="h-20 w-20 rounded-xl object-cover" /> : <span className="grid h-20 w-20 place-items-center rounded-xl bg-slate-100 text-xs text-slate-500">No photo</span>}
-            <input type="file" accept="image/*" onChange={(event) => setForm((current) => ({ ...current, profile_photo: event.target.files?.[0] || null }))} className="w-full min-w-0 text-sm sm:flex-1" />
-          </div>
-        </div>
+        <div className="sm:col-span-2"><ProfileImageControl className="contractor-profile-image" label="Owner photo for digital card" file={form.profile_photo} existingUrl={form.profile_photo_url} position={form.profile_photo_position} shape="rounded" onFileChange={(profile_photo) => setForm((current) => ({ ...current, profile_photo }))} onPositionChange={(profile_photo_position) => setForm((current) => ({ ...current, profile_photo_position }))} /></div>
         <div className="border-t pt-5 sm:col-span-2">
           <h2 className="font-bold">Contact and tax details</h2>
         </div>
@@ -643,17 +595,6 @@ export default function ContractorSettings({ themeOnly = false }) {
             min="0"
             name="years_in_business"
             value={form.years_in_business}
-            onChange={update}
-            className={input}
-          />
-        </label>
-        <label className="text-sm font-medium">
-          Number of workers / Paint Applicators
-          <input
-            type="number"
-            min="0"
-            name="number_of_painters"
-            value={form.number_of_painters}
             onChange={update}
             className={input}
           />
@@ -815,7 +756,7 @@ export default function ContractorSettings({ themeOnly = false }) {
           </span>
         </div>
         </>}
-        <div className="flex border-t pt-5 sm:col-span-2 sm:justify-end">
+        {!fieldsOnly && <div className="flex border-t pt-5 sm:col-span-2 sm:justify-end">
           <button
             disabled={saving}
             className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:w-auto"
@@ -823,8 +764,8 @@ export default function ContractorSettings({ themeOnly = false }) {
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : themeOnly ? "Save theme settings" : "Save contractor details"}
           </button>
-        </div>
-      </form>
+        </div>}
+      </FormContainer>
     {socialModal && (
       <div
         role="dialog"

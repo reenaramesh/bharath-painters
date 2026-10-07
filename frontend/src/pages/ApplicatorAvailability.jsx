@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import api from "../api/client";
+import useAuth from "../context/useAuth";
 
 function dateKey(date) {
   const year = date.getFullYear();
@@ -17,6 +18,8 @@ function calendarCells(month) {
 }
 
 export default function ApplicatorAvailability() {
+  const { user } = useAuth();
+  const profession = user?.branding?.employee_singular_label || "Employee";
   const today = useMemo(() => new Date(), []);
   const lastBlockDate = useMemo(() => { const value = new Date(today); value.setDate(value.getDate() + 45); return value; }, [today]);
   const [data, setData] = useState(null);
@@ -45,7 +48,7 @@ export default function ApplicatorAvailability() {
   function selectDate(date) { setSelected(date); if (date.getMonth() !== month.getMonth() || date.getFullYear() !== month.getFullYear()) setMonth(new Date(date.getFullYear(), date.getMonth(), 1)); }
   if (!data) return <p className="p-12 text-center text-slate-500">{error || "Loading availability..."}</p>;
 
-  return <div className="space-y-6"><header><p className="text-sm font-semibold text-amber-600">Paint Applicator portal</p><h1 className="mt-1 text-3xl font-bold">My Availability</h1><p className="mt-2 flex items-center gap-1 text-slate-500"><MapPin className="h-4 w-4" />Current location: {data.current_location || "Not selected in profile"}</p></header>{error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+  return <div className="space-y-6"><header><p className="text-sm font-semibold text-amber-600">{profession} workspace</p><h1 className="mt-1 text-3xl font-bold">My Availability</h1><p className="mt-2 flex items-center gap-1 text-slate-500"><MapPin className="h-4 w-4" />Current location: {data.current_location || "Not selected in profile"}</p></header>{error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     <form onSubmit={blockDates} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 lg:flex-row lg:items-end"><div><h2 className="text-lg font-bold">Block unavailable dates</h2><p className="mt-1 text-sm text-slate-500">Select today or any date within the next 45 days.</p></div><label className="lg:ml-auto"><span className="mb-1 block text-sm font-semibold">From</span><input required type="date" min={dateKey(today)} max={dateKey(lastBlockDate)} value={blockForm.start_date} onChange={(event) => setBlockForm((old) => ({ ...old, start_date: event.target.value, end_date: old.end_date < event.target.value ? event.target.value : old.end_date }))} className="rounded-xl border px-4 py-3" /></label><label><span className="mb-1 block text-sm font-semibold">To</span><input required type="date" min={blockForm.start_date} max={dateKey(lastBlockDate)} value={blockForm.end_date} onChange={(event) => setBlockForm((old) => ({ ...old, end_date: event.target.value }))} className="rounded-xl border px-4 py-3" /></label><label className="min-w-52 flex-1"><span className="mb-1 block text-sm font-semibold">Reason (optional)</span><input value={blockForm.reason} maxLength={180} onChange={(event) => setBlockForm((old) => ({ ...old, reason: event.target.value }))} placeholder="Personal work, leave..." className="w-full rounded-xl border px-4 py-3" /></label><button disabled={saving} className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : "Block dates"}</button></div></form>
     <div className="flex flex-col items-start gap-5 lg:flex-row">
       <section className="w-full shrink-0 overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ maxWidth: 430 }}>

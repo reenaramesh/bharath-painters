@@ -8,7 +8,9 @@ from django.utils import timezone
 
 
 def bharath_profile_url(user, base_url=None):
-    root = (base_url or settings.BHARATH_PUBLIC_BACKEND_URL).rstrip("/")
+    from .email_setup import active_setup
+    config = active_setup() if not base_url else None
+    root = (base_url or (config.backend_url if config else settings.BHARATH_PUBLIC_BACKEND_URL)).rstrip("/")
     return f"{root}/api/accounts/verify-page/{user.bharath_id}/"
 
 

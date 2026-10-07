@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { CalendarDays, MapPin, Phone, Plus, RefreshCw } from "lucide-react";
 import api from "../api/client";
 import { stageLabel } from "../utils/opportunityOptions";
@@ -240,12 +239,6 @@ export default function SiteVisits() {
                       <Phone className="h-4 w-4" /> Call
                     </a>
                   )}
-                  <Link
-                    to={`/opportunities/${visit.opportunity}`}
-                    className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
-                  >
-                    View Opportunity
-                  </Link>
                 </div>
                 {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
                   <select

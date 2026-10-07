@@ -44,7 +44,7 @@ const shortcutsByRole = {
     { label: "Earnings", icon: IndianRupee, to: "/in-house-earnings" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
     { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
-    { label: "Profile", icon: Paintbrush, to: "/applicator-profile" },
+    { label: "Settings", icon: Paintbrush, to: "/settings" },
   ],
   CUSTOMER: [
     { label: "Quotations", icon: FileText, to: "/customer-quotations" },
@@ -58,7 +58,7 @@ const shortcutsByRole = {
   ],
   ADMIN: [
     { label: "Contractors", icon: BriefcaseBusiness, to: "/contractors" },
-    { label: "Painters", icon: Paintbrush, to: "/painters" },
+    { label: "Employees", icon: Paintbrush, to: "/painters" },
     { label: "Connections", icon: UserRoundCheck, to: "/customer-connections" },
     { label: "Billing", icon: Banknote, to: "/billing" },
     { label: "Revenue", icon: IndianRupee, to: "/revenue" },
@@ -212,7 +212,7 @@ function QrScanner({ close }) {
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div>
             <h2 className="text-lg font-bold">Scan QR</h2>
-            <p className="text-xs text-slate-500">Scan a Bharath Painters profile or document QR.</p>
+            <p className="text-xs text-slate-500">Scan a Bharath Apps profile or document QR.</p>
           </div>
           <button type="button" onClick={() => { stopCamera(); close(); }} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100" aria-label="Close scanner">
             <X className="h-5 w-5" />

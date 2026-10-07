@@ -1,0 +1,414 @@
+.crm-page {
+  --crm-ink: #172033;
+  --crm-muted: #596579;
+  color: var(--crm-ink);
+  min-width: 0;
+}
+
+.crm-page :is(a, button):focus-visible {
+  outline: 3px solid var(--app-primary, #176b9b);
+  outline-offset: 3px;
+}
+
+.crm-page :is(button, select, input:not([type="checkbox"]), textarea) {
+  min-height: 44px;
+}
+
+.crm-page button {
+  min-width: 44px;
+}
+
+.crm-page a {
+  min-height: 44px;
+}
+
+.crm-page .bp-page-header {
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+}
+
+.crm-page .bp-page-header h1 {
+  color: var(--crm-ink);
+  font-size: clamp(1.55rem, 3vw, 2rem);
+  line-height: 1.2;
+}
+
+.crm-page .bp-page-description {
+  margin-top: 6px;
+  color: var(--crm-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.crm-page .bp-page-actions {
+  flex: 0 0 auto;
+}
+
+.crm-page .bp-section-card {
+  min-width: 0;
+  border-radius: 14px;
+}
+
+.crm-page .bp-section-card > header h2 {
+  font-size: 17px;
+}
+
+.crm-page .bp-section-card > header p {
+  color: var(--crm-muted);
+  font-size: 14px;
+}
+
+.crm-page .bp-badge {
+  min-height: 28px;
+  align-items: center;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.crm-page .bp-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.crm-customers-page .crm-add-customer {
+  padding-inline: 16px;
+}
+
+.crm-customers-page :is(a, button)[aria-label] {
+  min-width: 44px;
+}
+
+.crm-customers-page nav button,
+.crm-leads-page button,
+.crm-opportunities-page button {
+  min-height: 44px;
+}
+
+.crm-customers-page .crm-directory-state {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+}
+
+.crm-customers-page .crm-directory-state .bp-state {
+  width: 100%;
+  min-height: 160px;
+}
+
+.crm-customers-page .crm-compact-badge {
+  display: inline-flex;
+  min-height: 26px;
+  padding: 4px 9px;
+}
+
+.crm-customers-page .crm-table-badge {
+  display: inline-flex;
+}
+
+.crm-customers-page [data-mobile-table="keep"] button,
+.crm-customers-page [data-mobile-table="keep"] a {
+  min-height: 44px;
+}
+
+.crm-customers-page .overflow-x-auto table :is(th, td) {
+  vertical-align: middle;
+}
+
+.crm-customer-detail .bp-page-header {
+  margin-bottom: 0;
+}
+
+.crm-customer-detail :is(section, details) {
+  border-radius: 14px;
+}
+
+.crm-customer-detail :is(a, button) {
+  min-height: 44px;
+}
+
+.crm-customer-detail .bp-badge {
+  display: inline-flex;
+}
+
+.crm-leads-page,
+.crm-opportunities-page,
+.crm-opportunity-detail {
+  --crm-accent: var(--app-primary, #176b9b);
+}
+
+.crm-leads-page :is(input, select),
+.crm-opportunities-page :is(input, select) {
+  border-color: #cbd3df;
+  border-radius: 10px;
+  color: var(--crm-ink);
+  font-size: 14px;
+}
+
+.crm-leads-page :is(input, select):focus,
+.crm-opportunities-page :is(input, select):focus {
+  border-color: var(--crm-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--crm-accent) 14%, transparent);
+}
+
+.crm-lead-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--crm-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.crm-leads-page .bg-red-50[role="alert"],
+.crm-opportunities-page .bp-state-error,
+.crm-opportunity-detail .bp-state-error {
+  border-radius: 12px;
+}
+
+.crm-opportunities-page .crm-opportunity-stat {
+  min-height: 104px;
+  border: 1px solid #e2e7ef;
+  border-radius: 14px;
+  background: white;
+  padding: 16px;
+}
+
+.crm-opportunities-page .crm-opportunity-stat .bp-stat-icon {
+  display: none;
+}
+
+.crm-opportunities-page .crm-opportunity-stat > div {
+  min-width: 0;
+}
+
+.crm-opportunities-page .crm-opportunity-stat p {
+  color: var(--crm-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.crm-opportunities-page .crm-opportunity-stat strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 25px;
+}
+
+.crm-opportunities-page .crm-filters-card > header {
+  padding-bottom: 12px;
+}
+
+.crm-opportunities-page .crm-filters-card .bp-section-card-body {
+  padding-top: 12px;
+}
+
+.crm-opportunities-page .crm-filters-card label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--crm-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.crm-opportunities-page .crm-filters-card input[type="search"],
+.crm-opportunities-page .crm-filters-card input:not([type="date"]) {
+  min-width: 220px;
+}
+
+.crm-opportunities-page .crm-records-card > header {
+  padding: 16px 20px;
+}
+
+.crm-opportunities-page .crm-records-card table {
+  min-width: 1200px;
+}
+
+.crm-opportunities-page .crm-records-card th {
+  color: #4c586c;
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+
+.crm-opportunities-page .crm-records-card td {
+  font-size: 14px;
+}
+
+.crm-opportunities-page .crm-records-card td .text-xs {
+  font-size: 13px;
+}
+
+.crm-opportunity-mobile-list {
+  display: none;
+}
+
+.crm-opportunity-card {
+  min-width: 0;
+  padding: 16px;
+  box-shadow: 0 1px 3px #1720330a;
+}
+
+.crm-opportunity-card .crm-opportunity-card-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e8ebf0;
+}
+
+.crm-opportunity-card .crm-opportunity-card-metadata > span {
+  min-width: 0;
+  color: var(--crm-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.crm-opportunity-card .crm-opportunity-card-metadata strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #778196;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.crm-opportunity-card .crm-opportunity-call {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  color: var(--crm-accent, #176b9b);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.crm-opportunity-detail .bp-page-header .bp-badge {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.crm-opportunity-detail > section,
+.crm-opportunity-detail > .grid > section {
+  border-radius: 14px;
+}
+
+.crm-opportunity-detail :is(button, select, input, textarea, a[href^="tel:"]) {
+  min-height: 44px;
+}
+
+.crm-opportunity-detail [class*="text-xs"] {
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .crm-page {
+    gap: 18px;
+  }
+
+  .crm-page .bp-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .crm-page .bp-page-actions,
+  .crm-page .bp-page-actions .bp-button {
+    width: 100%;
+  }
+
+  .crm-customers-page .crm-add-customer {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .crm-customers-page .crm-customer-status {
+    align-self: flex-start;
+  }
+
+  .crm-customers-page .md\:hidden a,
+  .crm-customers-page .md\:hidden button {
+    min-height: 44px;
+  }
+
+  .crm-opportunities-page .grid.grid-cols-2 {
+    gap: 9px;
+  }
+
+  .crm-opportunities-page .crm-opportunity-stat {
+    min-height: 92px;
+    padding: 13px;
+  }
+
+  .crm-opportunities-page .crm-opportunity-stat p {
+    font-size: 13px;
+  }
+
+  .crm-opportunities-page .crm-opportunity-stat strong {
+    font-size: 23px;
+  }
+
+  .crm-opportunities-page .crm-filters-card > header {
+    padding: 16px 16px 8px;
+  }
+
+  .crm-opportunities-page .crm-filters-card .bp-section-card-body {
+    padding: 10px 16px 16px;
+  }
+
+  .crm-opportunities-page .crm-filters-card .relative.min-w-\[220px\] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .crm-opportunities-page .crm-filters-card label {
+    flex-wrap: wrap;
+  }
+
+  .crm-opportunities-page .crm-filters-card label input[type="date"] {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .crm-opportunities-page .crm-records-card > header {
+    padding: 14px 16px;
+  }
+
+  .crm-opportunity-mobile-list {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .crm-opportunities-page .crm-records-card > .bp-section-card-body > .overflow-x-auto {
+    display: none;
+  }
+
+  .crm-opportunity-detail > .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crm-opportunity-detail .bp-page-header .bp-page-actions {
+    width: auto;
+  }
+}
+
+@media (max-width: 390px) {
+  .crm-customers-page .crm-add-customer {
+    font-size: 13px;
+    padding-inline: 10px;
+  }
+
+  .crm-opportunities-page .grid.grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crm-opportunity-detail > .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

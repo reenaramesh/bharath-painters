@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { systemCopy } from '../tools/transliteration/vite-plugin.mjs'
 
 export default defineConfig({
   plugins: [
+    systemCopy(),
     react(),
     tailwindcss(),
   ],

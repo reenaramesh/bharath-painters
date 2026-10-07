@@ -3,6 +3,8 @@ import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react"
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./finance-pages.css";
 
 const money = (v) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
@@ -47,6 +49,8 @@ export default function Invoices() {
     [dateTo, setDateTo] = useState(initialDates.to),
     [editing, setEditing] = useState(null),
     [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [loadFailed, setLoadFailed] = useState(false),
     [saving, setSaving] = useState(false),
     [paymentSaving, setPaymentSaving] = useState(false),
     [paymentDraft, setPaymentDraft] = useState({ received_date: dateKey(new Date()), amount: "", payment_mode: "", payment_reference: "", notes: "" });
@@ -60,6 +64,7 @@ export default function Invoices() {
   const [tab, setTab] = useState("details");
   useEffect(() => { setTab("details"); }, [editing?.id]);
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [{ data }, customerResponse, propertyResponse] = await Promise.all([
         api.get("/quotations/invoices/"), api.get("/quotations/customers/"), api.get("/quotations/properties/"),
@@ -73,8 +78,12 @@ export default function Invoices() {
         if (found) setEditing({ ...found, base_items: found.base_items || found.items || [], measurement_adjustments: found.measurement_adjustments || [] });
       }
       setError("");
+      setLoadFailed(false);
     } catch {
       setError("Invoices could not be loaded.");
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
     }
   }, [params]);
   useEffect(() => {
@@ -233,15 +242,12 @@ export default function Invoices() {
   }
   const previewTotals = calculateInvoicePreview(editing);
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-sm font-semibold text-amber-600">Customer billing</p><h1 className="mt-1 text-3xl font-bold">Invoices</h1><p className="mt-2 text-slate-500">Create final quotation invoices or direct lump-sum invoices.</p></div>
-        <button type="button" onClick={() => { setCreateDraft(newLumpSumInvoice()); setCreating(true); setError(""); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4" />New lump-sum invoice</button>
-      </header>
+    <div className="space-y-6 finance-page contractor-invoices-page">
+      <PageHeader eyebrow="Customer billing" title="Invoices" description="Create final quotation invoices or direct lump-sum invoices." actions={<Button onClick={() => { setCreateDraft(newLumpSumInvoice()); setCreating(true); setError(""); }}><Plus className="h-4 w-4" />New lump-sum invoice</Button>} />
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        loadFailed ? <ErrorState message={error} onRetry={load} className="finance-inline-error" /> : <p className="finance-alert finance-alert-error" role="alert">{error}</p>
       )}
-      <section className="overflow-hidden rounded-2xl border bg-white">
+      <SectionCard title="Invoice register" description={`${visible.length} ${visible.length === 1 ? "invoice" : "invoices"} matching your filters`} className="finance-invoice-list" bodyClassName="p-0">
         <div className="flex flex-col gap-3 border-b p-3">
           <div className="flex flex-col gap-2 md:flex-row">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
@@ -257,7 +263,8 @@ export default function Invoices() {
           </div>
           {datePreset === "CUSTOM" && <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><label className="text-xs font-semibold text-slate-500">From<input type="date" value={dateFrom} onChange={(e)=>setDateFrom(e.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900" /></label><label className="text-xs font-semibold text-slate-500">To<input type="date" value={dateTo} onChange={(e)=>setDateTo(e.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900" /></label></div>}
         </div>
-        <div className="grid gap-3 p-3 md:hidden">
+        {loading ? <LoadingState label="Loading invoices..." className="finance-loading" /> : <>
+        <div className="finance-invoice-cards grid gap-3 p-3 md:hidden">
           {visible.map((invoice) => (
             <article
               key={invoice.id}
@@ -269,13 +276,11 @@ export default function Invoices() {
                     <h2 className="truncate font-bold text-slate-950">
                       {invoice.invoice_number}
                     </h2>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      From {invoice.quotation_number} · {invoice.invoice_date}
-                    </p>
+                   <p className="mt-1 truncate text-sm text-slate-500">
+                      {invoice.quotation_number ? `From ${invoice.quotation_number} · ` : "Direct invoice · "}{formatInvoiceDate(invoice.invoice_date)}
+                   </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${invoice.status === "PAID" ? "bg-emerald-50 text-emerald-700" : invoice.status === "CANCELLED" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
-                    {invoice.status.replaceAll("_", " ")}
-                  </span>
+                  <StatusBadge status={invoice.status} label={labelInvoiceStatus(invoice.status)} tone={invoiceTone(invoice.status)} />
                 </div>
                 <div className="mt-4 rounded-xl bg-slate-50 p-3">
                   <p className="truncate text-sm font-bold text-slate-800">
@@ -285,7 +290,7 @@ export default function Invoices() {
                     {invoice.property_name || "Property not specified"}
                   </p>
                 </div>
-                <div className="mt-3 grid grid-cols-3 divide-x rounded-xl border border-slate-200 py-3 text-center">
+                <div className="finance-invoice-amounts mt-3 grid grid-cols-3 divide-x rounded-xl border border-slate-200 py-3 text-center">
                   <InvoiceAmount label="Total" value={invoice.grand_total} />
                   <InvoiceAmount label="Paid" value={invoice.amount_paid} paid />
                   <InvoiceAmount label="Due" value={invoice.balance_due} due />
@@ -313,7 +318,7 @@ export default function Invoices() {
             </article>
           ))}
         </div>
-        <div className="hidden overflow-x-auto md:block" data-mobile-table="keep">
+        <div className="finance-invoice-table hidden overflow-x-auto md:block" data-mobile-table="keep">
           <table className="w-full min-w-[850px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -327,7 +332,7 @@ export default function Invoices() {
                   "Balance",
                   "Action",
                 ].map((x) => (
-                  <th key={x} className="p-4">
+                  <th key={x} className={`p-4 ${["Total", "Paid", "Balance"].includes(x) ? "text-right" : ""}`}>
                     {x}
                   </th>
                 ))}
@@ -339,7 +344,7 @@ export default function Invoices() {
                   <td className="p-4">
                     <b>{x.invoice_number}</b>
                     <small className="block text-slate-500">
-                      From {x.quotation_number}
+                      {x.quotation_number ? `From ${x.quotation_number}` : "Direct invoice"}
                     </small>
                   </td>
                   <td className="p-4">
@@ -348,17 +353,17 @@ export default function Invoices() {
                       {x.property_name}
                     </small>
                   </td>
-                  <td className="p-4">{x.invoice_date}</td>
-                  <td className="p-4">{x.status.replaceAll("_", " ")}</td>
-                  <td className="p-4 font-bold">{money(x.grand_total)}</td>
-                  <td className="p-4">{money(x.amount_paid)}</td>
-                  <td className="p-4 font-bold text-amber-700">
+                  <td className="p-4">{formatInvoiceDate(x.invoice_date)}</td>
+                  <td className="p-4"><StatusBadge status={x.status} label={labelInvoiceStatus(x.status)} tone={invoiceTone(x.status)} /></td>
+                  <td className="finance-amount p-4 text-right font-bold">{money(x.grand_total)}</td>
+                  <td className="finance-amount p-4 text-right text-emerald-700">{money(x.amount_paid)}</td>
+                  <td className="finance-amount p-4 text-right font-bold text-amber-700">
                     {money(x.balance_due)}
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <button onClick={() => setEditing({ ...x, base_items: x.base_items || x.items || [], measurement_adjustments: x.measurement_adjustments || [] })} className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white">{x.can_edit ? "View / Edit" : "View"}</button>
-                      {x.status !== "CANCELLED" && Number(x.amount_paid) > 0 && <button onClick={() => downloadReceipt(x)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"><ReceiptText className="h-4 w-4" />Receipt</button>}
+                      <button onClick={() => setEditing({ ...x, base_items: x.base_items || x.items || [], measurement_adjustments: x.measurement_adjustments || [] })} className="min-h-11 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">{x.can_edit ? "View / Edit" : "View invoice"}</button>
+                      {x.status !== "CANCELLED" && Number(x.amount_paid) > 0 && <button onClick={() => downloadReceipt(x)} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><ReceiptText className="h-4 w-4" />Receipt</button>}
                     </div>
                   </td>
                 </tr>
@@ -366,12 +371,9 @@ export default function Invoices() {
             </tbody>
           </table>
         </div>
-        {!visible.length && (
-          <p className="p-12 text-center text-slate-400">
-            No invoices found. Convert a completed quotation or create a lump-sum invoice.
-          </p>
-        )}
-      </section>
+        {!loadFailed && !visible.length && <EmptyState title="No invoices match these filters" description="Convert a completed quotation or create a lump-sum invoice." />}
+        </>}
+      </SectionCard>
       {creating && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 p-3 sm:p-6">
           <form onSubmit={createInvoice} className="mx-auto flex max-h-[94vh] max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -408,7 +410,7 @@ export default function Invoices() {
             </div>
             <div className="flex flex-wrap gap-2 border-b px-5 py-3">
               {[["details", "Details"], ["items", "Line items & adjustments"], ["payments", "Payments"]].map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === key ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold ${tab === key ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                   {label}{key === "payments" && ` (${(editing.payments || []).length})`}
                 </button>
               ))}
@@ -430,12 +432,12 @@ export default function Invoices() {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                  <table className="finance-payment-history w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-100 text-xs uppercase text-slate-500"><tr><th className="p-3">Date</th><th className="p-3">Mode</th><th className="p-3">Reference</th><th className="p-3 text-right">Amount</th><th className="p-3"></th></tr></thead>
-                  <tbody className="divide-y">{(editing.payments || []).map((payment) => <tr key={payment.id}><td className="p-3">{payment.received_date}</td><td className="p-3">{String(payment.payment_mode).replaceAll("_", " ")}</td><td className="p-3">{payment.payment_reference || "—"}</td><td className="p-3 text-right font-bold">{money(payment.amount)}</td><td className="p-3 text-right"><button type="button" onClick={() => deletePayment(payment.id)} className="rounded-lg p-2 text-red-600 hover:bg-red-50" title="Delete payment"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody>
+                  <tbody className="divide-y">{(editing.payments || []).map((payment) => <tr key={payment.id}><td className="p-3">{formatInvoiceDate(payment.received_date)}</td><td className="p-3"><StatusBadge status={payment.payment_mode} label={String(payment.payment_mode || "OTHER").replaceAll("_", " ")} tone="neutral" /></td><td className="p-3">{payment.payment_reference || "—"}</td><td className="finance-amount p-3 text-right font-bold">{money(payment.amount)}</td><td className="p-3 text-right"><button type="button" onClick={() => deletePayment(payment.id)} className="rounded-lg p-2 text-red-600 hover:bg-red-50" title="Delete payment"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody>
                   <tfoot className="border-t-2 bg-slate-50"><tr><td colSpan="3" className="p-3 text-right font-bold">Total received</td><td className="p-3 text-right font-extrabold text-emerald-700">{money(editing.amount_paid)}</td><td className="p-3"></td></tr><tr><td colSpan="3" className="p-3 text-right font-bold">Balance</td><td className="p-3 text-right font-extrabold text-amber-700">{money(editing.balance_due)}</td><td className="p-3"></td></tr></tfoot>
                 </table>
-                {!(editing.payments || []).length && <p className="p-5 text-center text-sm text-slate-500">No payments recorded yet.</p>}
+                {!(editing.payments || []).length && <EmptyState title="No payments recorded yet" description="Payments added to this invoice will appear here." />}
               </div>
             </section>
             </div>
@@ -701,13 +703,13 @@ export default function Invoices() {
             </div>
             </fieldset>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-b-2xl bg-slate-950 p-4 text-white">
+            <div className="finance-invoice-editor-footer flex flex-wrap items-center justify-between gap-4 rounded-b-2xl bg-slate-950 p-4 text-white">
               <span>Subtotal {money(previewTotals.subtotal)}</span>
               <span>GST {money(previewTotals.gst)}</span>
               <span className="text-emerald-400">Paid {money(editing.amount_paid)}</span>
               <span className="text-amber-300">Balance {money(editing.balance_due)}</span>
               <b>Grand total {money(previewTotals.grandTotal)}</b>
-              <button type="button" onClick={download} className="flex items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 font-semibold"><Eye className="h-4 w-4" />View PDF</button>
+              <button type="button" onClick={download} className="flex min-h-11 items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 font-semibold"><Eye className="h-4 w-4" />View / print PDF</button>
               {editing.status !== "CANCELLED" && Number(editing.amount_paid) > 0 && <button type="button" onClick={() => downloadReceipt(editing)} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold"><ReceiptText className="h-4 w-4" />Receipt</button>}
               {!editing.can_edit && !["PAID", "CANCELLED"].includes(editing.status) && <button type="button" onClick={cancelInvoice} className="rounded-lg border border-red-300 px-4 py-2.5 font-semibold text-red-200">Cancel invoice</button>}
               {editing.can_edit && <button
@@ -832,4 +834,22 @@ function calculateCreateTotal(invoice) {
 function AdjustmentTotal({ label, rows, surface }) {
   const value = rows.filter((row) => row.surface === surface).reduce((sum, row) => sum + adjustmentArea(row) * (row.action === "REMOVE" ? -1 : 1), 0);
   return <span><b>{label}:</b> {value >= 0 ? "+" : ""}{value.toFixed(0)} sq ft</span>;
+}
+
+function labelInvoiceStatus(value) {
+  return String(value || "Unknown").replaceAll("_", " ");
+}
+
+function invoiceTone(value) {
+  if (["PAID", "COMPLETED"].includes(value)) return "success";
+  if (["OVERDUE", "CANCELLED"].includes(value)) return "danger";
+  if (["PART_PAID", "ISSUED", "PENDING"].includes(value)) return "warning";
+  if (value === "REFUNDED") return "info";
+  return "neutral";
+}
+
+function formatInvoiceDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

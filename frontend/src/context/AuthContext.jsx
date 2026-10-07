@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("bharath_access", data.access);
     localStorage.setItem("bharath_refresh", data.refresh);
     localStorage.setItem("bharath_user", JSON.stringify(data.user));
+    localStorage.setItem(`bp-language-user-${data.user.id}`, data.user.preferred_language || "en");
     sessionStorage.removeItem(`bp-connection-reminder-${data.user?.id || "guest"}`);
     setUser(data.user);
     return data.user;
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("bharath_access", data.access);
     localStorage.setItem("bharath_refresh", data.refresh);
     localStorage.setItem("bharath_user", JSON.stringify(data.user));
+    localStorage.setItem(`bp-language-user-${data.user.id}`, data.user.preferred_language || "en");
     sessionStorage.removeItem(`bp-connection-reminder-${data.user?.id || "guest"}`);
     setUser(data.user);
     return data.user;

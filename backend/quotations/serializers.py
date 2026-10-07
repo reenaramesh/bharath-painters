@@ -4,6 +4,7 @@ from datetime import date
 from django.conf import settings
 from django.core.serializers import python
 from django.db import transaction, models
+from django.db.models import Q
 from rest_framework import serializers
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
@@ -28,6 +29,8 @@ from .models import (
     QuotationItem, WorkChange, WorkChangeItem,
     CustomerWorkHistory,
     WorkPhoto, PropertyRoom, PropertyMeasurement, ActivityLog,
+    ProjectScope,
+    ContractorConnection,
 )
 
 
@@ -896,6 +899,8 @@ class QuotationItemSerializer(serializers.ModelSerializer):
 
             "description",
             "coats",
+            "included_areas",
+            "specification_details",
 
             "calculation_method",
             "is_additional_service",
@@ -962,6 +967,23 @@ class QuotationItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "coats": "At least one coat is required."
             })
+
+        included_areas = data.get("included_areas") or []
+        if not isinstance(included_areas, list) or any(not isinstance(area, str) or not area.strip() for area in included_areas):
+            raise serializers.ValidationError({"included_areas": "Included areas must be a list of non-empty area names."})
+        data["included_areas"] = list(dict.fromkeys(area.strip() for area in included_areas))
+        if included_areas and not data.get("is_additional_service", False):
+            category = data.get("service_category")
+            if not category and not str(data.get("custom_service_category", "")).strip():
+                raise serializers.ValidationError({"service_category": "Select a type of service for measured work."})
+            category_name = (getattr(category, "name", "") or data.get("custom_service_category", "")).lower()
+            if "paint" in category_name and not data.get("paint_type") and not str(data.get("custom_product_type", "")).strip():
+                raise serializers.ValidationError({"paint_type": "Select a paint material for measured painting work."})
+            product = data.get("paint_type")
+            if product and category and product.service_category_id and product.service_category_id != category.id:
+                raise serializers.ValidationError({"paint_type": "Choose a material available for the selected service."})
+            if not data.get("unit") and not str(data.get("custom_unit", "")).strip():
+                raise serializers.ValidationError({"unit": "Select a unit for measured work."})
 
         # -------------------------------------------------
         # LUMPSUM
@@ -1276,6 +1298,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "connection",
             "lead",
             "property",
+            "customer_contact",
             "measurement_record",
 
             "quotation_type",
@@ -1330,6 +1353,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "contractor_details",
             "customer_details",
             "connection",
+            "customer_contact",
             "quotation_number",
             "revision_of",
             "version_number",
@@ -1425,6 +1449,27 @@ class QuotationSerializer(serializers.ModelSerializer):
             if any(item.get("calculation_method") not in allowed for item in items):
                 raise serializers.ValidationError({"items": "Manual quotations support quantity or lump-sum lines only."})
 
+        from .specification_validation import validate_grouped_specifications
+        validate_grouped_specifications(attrs.get("items", []) or [], measurement_record)
+
+        seen_measured_work = {}
+        for item in attrs.get("items", []) or []:
+            areas = set(item.get("included_areas") or [])
+            if not areas:
+                continue
+            fingerprint = tuple(
+                getattr(item.get(field), "pk", item.get(field))
+                for field in (
+                    "service_category", "custom_service_category", "service_type",
+                    "paint_type", "custom_product_type", "paint_brand", "custom_brand",
+                    "color", "description", "coats", "unit", "custom_unit", "rate",
+                    "calculation_method", "is_additional_service",
+                )
+            )
+            if areas.intersection(seen_measured_work.get(fingerprint, set())):
+                raise serializers.ValidationError({"items": "The same work is listed more than once for an included area."})
+            seen_measured_work.setdefault(fingerprint, set()).update(areas)
+
         return attrs
 
     def get_revision_changes(self, obj):
@@ -1505,6 +1550,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "email": contractor.email,
             "company_logo": logo,
             "company_logo_shape": current("company_logo_shape", "RECTANGLE"),
+            "company_logo_position": current("company_logo_position", {"x": 50, "y": 50, "zoom": 1}),
             "office_address": current("office_address"),
             "service_areas": current("service_areas"),
             "gst_number": current("gst_number"),
@@ -2821,3 +2867,229 @@ class MeasurementSurfaceSerializer(serializers.ModelSerializer):
 
 
     
+
+class ProjectScopeSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True, default="")
+    work_description_name = serializers.CharField(source="work_description.name", read_only=True, default="")
+    unit_name = serializers.CharField(source="unit.name", read_only=True, default="")
+    shared_work_orders = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectScope
+        fields = [
+            "id",
+            "quotation",
+            "reference",
+            "title",
+            "category",
+            "category_name",
+            "work_description",
+            "work_description_name",
+            "unit",
+            "unit_name",
+            "measurement_record",
+            "measurement_version",
+            "quantity",
+            "unit_rate",
+            "amount",
+            "status",
+            "handling",
+            "category_name_snapshot",
+            "work_description_snapshot",
+            "unit_name_snapshot",
+            "target_start_date",
+            "target_end_date",
+            "notes",
+            "sort_order",
+            "shared_work_orders",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "reference", "amount", "created_at", "updated_at"]
+
+    def validate_quotation(self, value):
+        # The quotation is chosen once on create; a scope must never migrate to
+        # another project because its work order links would silently follow.
+        if self.instance is not None and value != self.instance.quotation:
+            raise serializers.ValidationError("A scope cannot be moved to another project.")
+        return value
+
+    def get_shared_work_orders(self, obj):
+        # Only the contractor who owns the project and the contractor who
+        # received the work may learn that a scope was shared, never anyone else.
+        viewer = self.context.get("viewer")
+        if not viewer:
+            return []
+        return list(
+            obj.shared_on_work_orders.filter(
+                Q(work_order__main_contractor=viewer) | Q(work_order__receiving_contractor=viewer)
+            ).values_list("work_order_id", flat=True)
+        )
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("title"):
+            raise serializers.ValidationError({"title": "Give this scope a name."})
+        work_description = attrs.get("work_description") or getattr(self.instance, "work_description", None)
+        category = attrs.get("category") or getattr(self.instance, "category", None)
+        unit = attrs.get("unit") or getattr(self.instance, "unit", None)
+        if work_description and category and work_description.service_category_id != category.id:
+            raise serializers.ValidationError(
+                {"work_description": "The sub-service does not belong to that service category."}
+            )
+        if not category and not work_description:
+            raise serializers.ValidationError({"category": "Pick a service for this scope."})
+        if unit and category and category.units.exists() and unit not in category.units.all():
+            raise serializers.ValidationError({"unit": "That unit is not offered by this service."})
+        return attrs
+
+    def create(self, validated_data):
+        scope = ProjectScope(**validated_data)
+        scope.calculate_amount()
+        scope.save()
+        return scope
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.calculate_amount()
+        instance.save()
+        return instance
+
+
+class ContractorConnectionSerializer(serializers.ModelSerializer):
+    requester_details = serializers.SerializerMethodField()
+    requester_name = serializers.SerializerMethodField()
+    requester_role = serializers.CharField(source="requester.get_role_display", read_only=True)
+    requester_company = serializers.SerializerMethodField()
+    requester_services = serializers.SerializerMethodField()
+    recipient_name = serializers.SerializerMethodField()
+    recipient_company = serializers.SerializerMethodField()
+    other_party = serializers.SerializerMethodField()
+    viewer_authority = serializers.SerializerMethodField()
+    can_send_work_order = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContractorConnection
+        fields = [
+            "id",
+            "requester",
+            "requester_name",
+            "requester_role",
+            "requester_company",
+            "requester_services",
+            "requester_details",
+            "recipient",
+            "recipient_name",
+            "recipient_company",
+            "status",
+            "status_before_block",
+            "discover_method",
+            "message",
+            "rejection_reason",
+            "requested_at",
+            "accepted_at",
+            "rejected_at",
+            "blocked_at",
+            "disconnected_at",
+            "last_request_at",
+            "request_count",
+            "is_favourite",
+            "is_blocked",
+            "completed_work_orders",
+            "average_rating",
+            "other_party",
+            "viewer_authority",
+            "can_send_work_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "requester",
+            "status",
+            "status_before_block",
+            "requested_at",
+            "accepted_at",
+            "rejected_at",
+            "blocked_at",
+            "disconnected_at",
+            "last_request_at",
+            "request_count",
+            "rejection_reason",
+            "completed_work_orders",
+            "average_rating",
+            "created_at",
+            "updated_at",
+        ]
+
+    def _provider(self, user):
+        profile = getattr(user, "provider_profile", None)
+        return profile
+
+    def get_requester_name(self, obj):
+        return obj.requester.get_full_name() or obj.requester.username
+
+    def get_requester_details(self, obj):
+        user = obj.requester
+        profile = getattr(user, "contractor_profile", None)
+        provider = self._provider(user)
+        return {
+            "company_name": getattr(profile, "company_name", ""),
+            "owner_name": getattr(profile, "owner_name", "") or user.get_full_name(),
+            "mobile": user.mobile,
+            "bharath_id": user.bharath_id,
+            "service_areas": getattr(profile, "service_areas", "") or getattr(provider, "service_areas", ""),
+            "work_skills": getattr(profile, "work_skills", ""),
+        }
+
+    def get_requester_company(self, obj):
+        company = getattr(getattr(obj.requester, "contractor_profile", None), "company_name", "")
+        if company:
+            return company
+        profile = self._provider(obj.requester)
+        if profile and profile.core_service:
+            return profile.core_service.name
+        return getattr(getattr(obj.requester, "contractor_profile", None), "company_name", "")
+
+    def get_requester_services(self, obj):
+        profile = self._provider(obj.requester)
+        if not profile:
+            return []
+        return list(
+            ServiceCategory.objects.filter(
+                id__in=profile.offered_service_ids()
+            ).values_list("name", flat=True)
+        )
+
+    def get_recipient_name(self, obj):
+        return obj.recipient.get_full_name() or obj.recipient.username
+
+    def get_recipient_company(self, obj):
+        profile = self._provider(obj.recipient)
+        if profile and profile.core_service:
+            return profile.core_service.name
+        return getattr(getattr(obj.recipient, "contractor_profile", None), "company_name", "")
+
+    def get_other_party(self, obj):
+        viewer = self.context.get("viewer")
+        if not viewer:
+            return None
+        return obj.recipient_id if obj.requester_id == viewer.id else obj.requester_id
+
+    def get_viewer_authority(self, obj):
+        viewer = self.context.get("viewer")
+        if not viewer:
+            return None
+        if obj.requester_id == viewer.id:
+            return "REQUESTER"
+        if obj.recipient_id == viewer.id:
+            return "RECIPIENT"
+        return None
+
+    def get_can_send_work_order(self, obj):
+        viewer = self.context.get("viewer")
+        return bool(
+            viewer
+            and obj.status == ContractorConnection.Status.CONNECTED
+            and obj.requester_id == viewer.id
+        )

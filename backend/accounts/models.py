@@ -98,6 +98,7 @@ class BharathUser(AbstractUser):
         blank=True,
         null=True
     )
+    profile_photo_position = models.JSONField(default=dict, blank=True)
 
     verification_status = models.CharField(
         max_length=20,
@@ -189,6 +190,7 @@ class PasswordResetOTP(models.Model):
         RECOVERY_EMAIL = "RECOVERY_EMAIL", "Recovery email verification"
         REGISTRATION_EMAIL = "REGISTRATION_EMAIL", "Registration email verification"
         CUSTOMER_ACTIVATION = "CUSTOMER_ACTIVATION", "Customer activation email verification"
+        ADMIN_TEST = "ADMIN_TEST", "Admin test (no authentication access)"
 
     user = models.ForeignKey(BharathUser, on_delete=models.CASCADE, related_name="password_reset_otps")
     purpose = models.CharField(max_length=30, choices=Purpose.choices, default=Purpose.PASSWORD_RESET)
@@ -196,8 +198,76 @@ class PasswordResetOTP(models.Model):
     code_hash = models.CharField(max_length=128)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
+    max_attempts = models.PositiveSmallIntegerField(default=5)
     is_used = models.BooleanField(default=False)
     verified_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+
+class EmailOTPSetup(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    provider = models.CharField(max_length=20, choices=[("DJANGO", "Django email / SMTP"), ("RESEND", "Resend"), ("SENDGRID", "SendGrid")], default="DJANGO")
+    encrypted_api_key = models.TextField(blank=True, editable=False)
+    sender_domain = models.CharField(max_length=253, blank=True)
+    from_email = models.EmailField(blank=True)
+    from_name = models.CharField(max_length=150, default="Bharath Painters")
+    frontend_url = models.URLField(blank=True)
+    backend_url = models.URLField(blank=True)
+    otp_length = models.PositiveSmallIntegerField(default=6)
+    expiry_minutes = models.PositiveSmallIntegerField(default=10)
+    resend_seconds = models.PositiveIntegerField(default=60)
+    max_attempts = models.PositiveSmallIntegerField(default=5)
+    max_per_hour = models.PositiveSmallIntegerField(default=5)
+    is_active = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Email & OTP Setup"
+        verbose_name_plural = "Email & OTP Setup"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="email_setup_singleton")]
+
+    def __str__(self):
+        return "Email & OTP Setup"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from urllib.parse import urlsplit
+        errors = {}
+        for field, low, high in [("otp_length", 6, 10), ("expiry_minutes", 1, 60), ("resend_seconds", 1, 3600), ("max_attempts", 1, 20), ("max_per_hour", 1, 100)]:
+            if not low <= getattr(self, field) <= high:
+                errors[field] = f"Choose a value between {low} and {high}."
+        if any(c in self.from_name for c in "\r\n"):
+            errors["from_name"] = "Line breaks are not allowed."
+        if self.sender_domain and self.from_email and self.from_email.rsplit("@", 1)[-1].lower() != self.sender_domain.lower():
+            errors["from_email"] = "The from email must belong to the sender domain."
+        if self.is_active:
+            for field in ("sender_domain", "from_email", "frontend_url", "backend_url"):
+                if not getattr(self, field):
+                    errors[field] = "Required before activation."
+            for field in ("frontend_url", "backend_url"):
+                url = urlsplit(getattr(self, field))
+                if url.username or url.password or url.query or url.fragment:
+                    errors[field] = "Use a public URL without credentials, query or fragment."
+            if self.provider != "DJANGO":
+                from .email_setup import decrypt_api_key
+                try:
+                    if not decrypt_api_key(self.encrypted_api_key):
+                        raise ValueError()
+                except Exception:
+                    errors["provider"] = "A valid encrypted API key and server encryption key are required."
+        if errors:
+            raise ValidationError(errors)
+
+
+class EmailDeliveryLog(models.Model):
+    recipient = models.EmailField()
+    purpose = models.CharField(max_length=30)
+    provider = models.CharField(max_length=20)
+    status = models.CharField(max_length=12, choices=[("ACCEPTED", "Accepted by provider"), ("FAILED", "Failed")])
+    error_code = models.CharField(max_length=40, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -388,6 +458,7 @@ class ContractorProfile(models.Model):
         choices=LogoShape.choices,
         default=LogoShape.RECTANGLE,
     )
+    company_logo_position = models.JSONField(default=dict, blank=True)
     pdf_color_template = models.CharField(
         max_length=12,
         choices=PdfColorTemplate.choices,
@@ -568,3 +639,159 @@ class ContractorCustomerReview(models.Model):
 
     def __str__(self):
         return f"{self.customer_id} rated {self.contractor_id}: {self.rating}/5"
+
+
+class ProviderProfile(models.Model):
+    """Multi-trade layer shared by contractors and employees.
+
+    A provider has one core service, which is the only thing that sets the
+    workspace name and role labels, plus any number of additional services.
+    Additional services never rename the workspace, so a cleaning contractor
+    who also takes painting work keeps the Cleaning workspace and role labels.
+    """
+
+    class SetupStep(models.TextChoices):
+        CORE_SERVICE = "CORE_SERVICE", "Core service"
+        ADDITIONAL_SERVICES = "ADDITIONAL_SERVICES", "Additional services"
+        ABOUT = "ABOUT", "About"
+        SERVICE_AREAS = "SERVICE_AREAS", "Service areas"
+        PUBLISH = "PUBLISH", "Publish"
+
+    user = models.OneToOneField(
+        BharathUser,
+        on_delete=models.CASCADE,
+        related_name="provider_profile",
+    )
+
+    core_service = models.ForeignKey(
+        "quotations.ServiceCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="provider_core_services",
+    )
+    additional_services = models.ManyToManyField(
+        "quotations.ServiceCategory",
+        blank=True,
+        related_name="provider_additional_services",
+    )
+
+    headline = models.CharField(max_length=180, blank=True)
+    about = models.TextField(blank=True)
+    service_areas = models.TextField(blank=True)
+    base_location = models.CharField(max_length=180, blank=True)
+    years_in_business = models.PositiveIntegerField(default=0)
+    team_size = models.PositiveIntegerField(default=0)
+
+    workspace_name_override = models.CharField(max_length=150, blank=True)
+    tagline = models.CharField(max_length=180, blank=True)
+
+    accepts_subcontract_work = models.BooleanField(default=False)
+    network_opt_in = models.BooleanField(default=True)
+    is_draft = models.BooleanField(default=True)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    brand_snapshot = models.JSONField(default=dict, blank=True)
+    rating_average = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    rating_count = models.PositiveIntegerField(default=0)
+    completed_work_orders = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+
+    def __str__(self):
+        return f"Provider profile for {self.user_id}"
+
+    @property
+    def completion_percent(self):
+        checks = (
+            bool(self.core_service_id),
+            self.additional_services.exists() or bool(self.core_service_id),
+            bool(self.about.strip()),
+            bool(self.service_areas.strip() or self.base_location.strip()),
+        )
+        return round(100 * sum(1 for check in checks if check) / len(checks))
+
+    def resolved_branding(self):
+        """Workspace labels, always derived from the core service."""
+        from quotations.models import ServiceCategory
+
+        if not self.core_service_id:
+            return {
+                "platform_name": "Bharath Apps",
+                "workspace_name": "Bharath Apps",
+                "contractor_label": "Contractor",
+                "employee_singular_label": "Employee",
+                "employee_plural_label": "Employees",
+                "icon": ServiceCategory.Icon.GENERAL,
+            }
+        branding = dict(self.core_service.branding())
+        branding.setdefault("platform_name", "Bharath Apps")
+        if self.workspace_name_override.strip():
+            branding["workspace_name"] = self.workspace_name_override.strip()
+        return branding
+
+    def offered_service_ids(self):
+        ids = set()
+        if self.core_service_id:
+            ids.add(self.core_service_id)
+        ids.update(self.additional_services.values_list("id", flat=True))
+        return ids
+
+
+class ProviderServiceClaim(models.Model):
+    """Sub-service a provider offers inside one of their categories."""
+
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="service_claims",
+    )
+    category = models.ForeignKey(
+        "quotations.ServiceCategory",
+        on_delete=models.CASCADE,
+        related_name="provider_claims",
+    )
+    work_description = models.ForeignKey(
+        "quotations.WorkDescription",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="provider_claims",
+    )
+    is_active = models.BooleanField(default=True)
+    note = models.CharField(max_length=180, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["category__sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("provider", "category", "work_description"),
+                name="unique_provider_service_claim",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.provider_id} offers {self.work_description_id or self.category_id}"
+
+    def clean(self):
+        if not self.provider_id or not self.category_id:
+            return
+        offered = self.provider.offered_service_ids()
+        if self.category_id not in offered:
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError(
+                {"category": "This service is not part of the provider's profile."}
+            )
+        if self.work_description_id and self.work_description.service_category_id != self.category_id:
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError(
+                {"work_description": "The sub-service does not belong to this service category."}
+            )

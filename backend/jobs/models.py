@@ -119,6 +119,13 @@ class WorkSchedule(models.Model):
         CONFIRMED = "CONFIRMED", "Payment confirmed"
 
     quotation = models.OneToOneField("quotations.Quotation", on_delete=models.CASCADE, related_name="work_schedule")
+    customer_contact = models.ForeignKey(
+        "quotations.PropertyContact",
+        on_delete=models.SET_NULL,
+        related_name="work_schedules_as_contact",
+        null=True,
+        blank=True,
+    )
     proposed_start_date = models.DateField()
     proposed_end_date = models.DateField()
     previous_start_date = models.DateField(null=True, blank=True)

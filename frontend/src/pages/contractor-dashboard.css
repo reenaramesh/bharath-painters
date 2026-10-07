@@ -2,87 +2,136 @@
 .contractor-shell .bp-sidebar { background: #f1f3ff; border-color: var(--app-soft); }
 .contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: white; }
 .contractor-shell .bp-sidebar nav a[aria-current="page"]::before { display: none; }
-.contractor-dashboard { display: flex; flex-direction: column; gap: 24px; color: #121b2e; font-size: 14px; }
-.contractor-dashboard h1,.contractor-dashboard h2,.contractor-dashboard h3 { font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; }
-.contractor-dashboard h2 { font-size: 17px; letter-spacing: -.025em; }
-.contractor-dashboard h3 { font-size: 14px; }
-.contractor-dashboard p { color: #646477; font-size: 12px; line-height: 1.6; }
-.contractor-dashboard a,.contractor-dashboard button { transition: background .15s, box-shadow .15s; }
-.contractor-dashboard a:focus-visible,.contractor-dashboard button:focus-visible { outline: 3px solid var(--app-primary); outline-offset: 4px; }
-.contractor-greeting { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 12px; background: white; box-shadow: 0 1px 4px #121b2e08; }
-.contractor-avatar { display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; background: var(--app-soft); color: var(--app-primary); border-radius: 12px; font-size: 26px; font-weight: 800; }
-.contractor-greeting-copy { flex: 1; min-width: 0; }
-.contractor-greeting h1 { font-size: 24px; line-height: 1.4; overflow-wrap: anywhere; }
-.contractor-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #646477; }
-.contractor-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; padding: 11px 14px; background: white; color: #753800; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-.contractor-secondary { background: var(--app-soft); color: var(--app-primary); cursor: pointer; }
-.contractor-notice { display: flex; align-items: center; gap: 16px; padding: 20px; background: #984b00; border-radius: 12px; color: white; }
-.contractor-notice > div { flex: 1; }
-.contractor-notice .contractor-eyebrow,.contractor-notice p { color: #ffdcc6; }
-.contractor-notice > svg { flex-shrink: 0; }
-.contractor-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
-.contractor-metric { padding: 18px; background: white; border-radius: 12px; box-shadow: 0 1px 4px #121b2e08; }
-.contractor-metric > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.contractor-icon { display: grid; place-items: center; width: 40px; height: 40px; background: var(--app-soft); color: var(--app-primary); border-radius: 10px; flex-shrink: 0; }
-.contractor-metric:nth-child(2) .contractor-icon { background: #dae2ff; color: #0054cd; }
-.contractor-metric:nth-child(4) .contractor-icon { background: #ffdcc6; color: #753800; }
-.contractor-metric > strong { display: block; margin-top: 12px; font-size: 28px; line-height: 1.2; font-weight: 800; }
-.contractor-metric p { margin-top: 6px; }
-.contractor-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.contractor-section-title h2 { font: 800 11px Inter,sans-serif; letter-spacing: .1em; text-transform: uppercase; }
-.contractor-section-title > span { font-size: 11px; color: #777587; }
+.contractor-dashboard { display: flex; flex-direction: column; gap: 24px; min-width: 0; color: #172033; font-size: 15px; }
+.contractor-dashboard :is(h1,h2,h3) { font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 750; letter-spacing: -.025em; }
+.contractor-dashboard p { color: #596579; font-size: 14px; line-height: 1.55; }
+.contractor-dashboard :is(a,button) { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.contractor-dashboard :is(a,button):focus-visible { outline: 3px solid var(--app-primary); outline-offset: 3px; }
+.contractor-dashboard .bp-page-header { align-items: center; gap: 16px; margin: 0; }
+.contractor-dashboard .bp-page-header h1 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; }
+.contractor-dashboard .bp-page-description { margin-top: 6px; font-size: 15px; }
+.contractor-dashboard .bp-eyebrow { color: var(--app-primary); }
+.contractor-dashboard .bp-button { min-height: 44px; flex-shrink: 0; }
+.contractor-priority { display: grid; gap: 12px; }
+.contractor-priority-item { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 18px 20px; border: 1px solid #f1c4bc; border-radius: 14px; background: #fff7f5; color: #172033; text-decoration: none; }
+.contractor-priority-item > div { flex: 1; min-width: 0; }
+.contractor-priority-item h2 { margin: 7px 0 3px; font-size: 17px; }
+.contractor-priority-item p { margin: 0; }
+.contractor-priority-icon { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 12px; background: #fde8e3; color: #9b3020; }
+.contractor-priority-item .bp-badge { flex-shrink: 0; }
+.contractor-profile-prompt { border-color: var(--app-line); background: var(--app-soft); }
+.contractor-profile-prompt .contractor-priority-icon { background: white; color: var(--app-primary); }
+.contractor-priority-label { color: var(--app-primary); font-size: 13px; font-weight: 700; }
+.contractor-panel-link { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 6px; color: var(--app-primary); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.contractor-overview { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.contractor-stat-link { min-width: 0; border-radius: 14px; text-decoration: none; }
+.contractor-stat-link:hover { box-shadow: 0 4px 18px color-mix(in srgb, var(--app-primary) 12%, transparent); transform: translateY(-1px); }
+.contractor-stat-link .bp-stat-card { height: 100%; border-radius: 14px; }
+.contractor-stat-link .bp-stat-card p { font-size: 14px; }
+.contractor-stat-link .bp-stat-card small { color: #596579; font-size: 13px; }
+.contractor-section-heading { margin-bottom: 12px; }
+.contractor-section-heading h2 { font-size: 19px; }
+.contractor-section-heading p { margin-top: 3px; }
 .contractor-tools-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
-.contractor-tools-grid > a { display: flex; align-items: center; gap: 10px; padding: 16px 12px; border-radius: 12px; background: var(--app-soft); }
-.contractor-tools-grid > a > div { flex: 1; }
-.contractor-tools-grid > a > svg { color: var(--app-primary); flex-shrink: 0; }
-.contractor-tools-grid p { font-size: 10px; margin-top: 3px; }
-.contractor-tools-grid .contractor-icon { background: white; }
-.contractor-tools-grid a:hover,.contractor-metric:hover { box-shadow: 0 3px 14px color-mix(in srgb, var(--app-primary) 12%, transparent); }
-.contractor-workspace { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(0,1fr); gap: 24px; align-items: start; }
-.contractor-panel { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px #121b2e08; }
-.contractor-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 1px solid #f1f3ff; }
-.contractor-panel-head p { margin-top: 3px; }
-.contractor-panel-head > a { display: inline-flex; gap: 5px; align-items: center; color: var(--app-primary); font-size: 11px; font-weight: 700; white-space: nowrap; }
-.contractor-quotes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 16px; }
-.contractor-quote { background: var(--bp-canvas); padding: 16px; border: 1px solid var(--app-soft); border-radius: 10px; min-width: 0; }
-.contractor-quote:hover { background: #f1f3ff; }
-.contractor-quote-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
-.contractor-quote h3 { overflow-wrap: anywhere; }
-.contractor-status { display: inline-block; max-width: 100%; border-radius: 6px; padding: 4px 7px; font-size: 9px; font-weight: 800; background: var(--app-soft); color: var(--app-primary); text-transform: uppercase; overflow-wrap: anywhere; }
-.contractor-status.is-success { background: #e5f5ee; color: #16724a; }
-.contractor-quote-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin: 16px 0; font-size: 11px; color: #777587; }
-.contractor-quote-meta strong { color: #121b2e; font-size: 15px; }
-.contractor-quote-link { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--app-line); padding-top: 12px; color: var(--app-primary); font-size: 12px; font-weight: 700; }
-.contractor-add { display: flex; gap: 7px; align-items: center; justify-content: center; margin: 0 16px 16px; padding: 12px; border-radius: 8px; background: var(--app-primary); color: white; font-weight: 700; font-size: 12px; }
-.contractor-add:hover { background: var(--app-primary); }
-.contractor-timeline { padding: 20px; }
-.contractor-task { position: relative; padding: 0 0 24px 23px; border-left: 2px solid var(--app-soft); margin-left: 5px; }
-.contractor-task:last-child { border-color: transparent; padding-bottom: 0; }
-.contractor-timeline-dot { position: absolute; top: 4px; left: -6px; width: 10px; height: 10px; background: var(--app-primary); border: 2px solid white; box-shadow: 0 0 0 2px var(--app-soft); border-radius: 50%; }
-.is-overdue .contractor-timeline-dot { background: #984b00; box-shadow: 0 0 0 2px #ffdcc6; }
-.contractor-task-date { color: var(--app-primary); font-size: 10px; font-weight: 700; }
-.is-overdue .contractor-task-date { color: #984b00; }
-.contractor-task h3 { margin: 4px 0; }
-.contractor-call { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; color: var(--app-primary); font-size: 11px; }
-.contractor-empty { padding: 28px 16px; text-align: center; grid-column: 1 / -1; }
-.contractor-customer { display: flex; gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #f1f3ff; }
-.contractor-customer:hover { background: var(--bp-canvas); }
-.contractor-customer > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.contractor-customer-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--app-soft); color: var(--app-primary); font-weight: 800; }
-.contractor-attention { padding: 24px; background: var(--app-primary); color: white; border-radius: 12px; }
-.contractor-attention .contractor-eyebrow,.contractor-attention > p { color: #dad7ff; }
-.contractor-attention h2 { font-size: 24px; margin: 10px 0; }
-.contractor-attention > p { margin-bottom: 22px; }
-.contractor-attention > a { display: flex; align-items: center; gap: 10px; padding: 14px 12px; margin-top: 8px; border-radius: 8px; background: #ffffff14; font-size: 12px; }
-.contractor-attention > a:hover { background: #ffffff25; }
-.contractor-attention > a span { flex: 1; }
-.contractor-pipeline > div { display: grid; grid-template-columns: repeat(auto-fit,minmax(110px,1fr)); gap: 12px; padding: 16px; }
-.contractor-pipeline > div > a { padding: 14px; border-radius: 8px; background: #f1f3ff; }
-.contractor-pipeline span { font-size: 11px; color: #646477; }
-.contractor-pipeline strong { display: block; margin-top: 8px; font-size: 24px; }
-.contractor-error { padding: 16px; background: #ffdad6; border-radius: 8px; }
-@media(max-width:1200px) { .contractor-tools-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .contractor-workspace { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); } .contractor-quotes { grid-template-columns: 1fr; } }
-@media(max-width:767px) { .contractor-dashboard { gap: 18px; } .contractor-greeting { padding: 16px; flex-wrap: wrap; gap: 12px; } .contractor-greeting-copy { flex-basis: calc(100% - 68px); } .contractor-greeting h1 { font-size: 22px; } .contractor-greeting .contractor-button { margin-left: auto; } .contractor-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; } .contractor-metric { padding: 14px; } .contractor-metric .contractor-icon { width: 30px; height: 30px; } .contractor-eyebrow { font-size: 9px; } .contractor-notice { flex-wrap: wrap; padding: 16px; } .contractor-notice > div { flex-basis: calc(100% - 44px); } .contractor-notice .contractor-button { width: 100%; } .contractor-workspace { grid-template-columns: minmax(0,1fr); gap: 18px; } .contractor-section-title > span { display: none; } .contractor-tools-grid > a { flex-direction: column; align-items: flex-start; padding: 14px; } .contractor-tools-grid > a > svg { display: none; } .contractor-tools-grid { gap: 10px; } .contractor-panel-head { padding: 16px; } .contractor-customer { padding: 14px 16px; } }
+.contractor-tools-grid > a { display: flex; min-width: 0; min-height: 84px; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--app-line); border-radius: 14px; background: white; color: #172033; text-decoration: none; }
+.contractor-tools-grid > a:hover { border-color: var(--app-primary); background: var(--app-soft); }
+.contractor-tools-grid > a > span:nth-child(2) { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.contractor-tools-grid > a > svg { flex: 0 0 auto; color: var(--app-primary); }
+.contractor-tools-grid strong { font-size: 15px; }
+.contractor-action-hint { color: #596579; font-size: 13px; line-height: 1.35; }
+.contractor-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 12px; background: var(--app-soft); color: var(--app-primary); }
+.contractor-workspace { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); gap: 20px; align-items: start; }
+.contractor-panel.bp-section-card { min-width: 0; overflow: hidden; border-radius: 14px; }
+.contractor-panel.bp-section-card > header { min-height: 76px; align-items: center; gap: 12px; }
+.contractor-panel.bp-section-card > header h2 { font-size: 18px; }
+.contractor-panel.bp-section-card > header p { margin-top: 4px; font-size: 14px; }
+.contractor-panel.bp-section-card > header .contractor-panel-link { flex-shrink: 0; }
+.contractor-panel.bp-section-card > .contractor-quote-list,.contractor-panel.bp-section-card > .contractor-customer-list,.contractor-panel.bp-section-card > .contractor-communication { padding: 0; }
+.contractor-quote { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-quote:hover,.contractor-customer:hover,.contractor-communication > a:hover { background: var(--app-soft); }
+.contractor-quote-main,.contractor-customer-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.contractor-quote-main strong,.contractor-customer-main strong { overflow-wrap: anywhere; font-size: 15px; }
+.contractor-quote-main > span,.contractor-customer-main > span { overflow-wrap: anywhere; color: #596579; font-size: 14px; }
+.contractor-quote-side { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 7px; }
+.contractor-quote-side > strong { font-size: 15px; }
+.contractor-inline-action { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 8px; margin: 12px 16px 16px; border-radius: 10px; background: var(--app-primary); color: var(--app-on-primary); font-weight: 700; text-decoration: none; }
+.contractor-inline-action:hover { filter: brightness(.94); }
+.contractor-timeline { padding: 18px 20px !important; }
+.contractor-task { position: relative; margin-left: 5px; padding: 0 0 22px 23px; border-left: 2px solid var(--app-line); }
+.contractor-task:last-child { padding-bottom: 0; border-left-color: transparent; }
+.contractor-timeline-dot { position: absolute; top: 5px; left: -6px; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; background: var(--app-primary); box-shadow: 0 0 0 2px var(--app-soft); }
+.contractor-task.is-overdue .contractor-timeline-dot { background: #a23425; box-shadow: 0 0 0 2px #fde8e3; }
+.contractor-task-content { min-width: 0; }
+.contractor-task-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.contractor-task-date { color: var(--app-primary); font-size: 14px; font-weight: 700; }
+.contractor-task-content > a { display: inline-block; min-height: 36px; padding-top: 4px; color: #172033; text-decoration: none; }
+.contractor-task-content > a strong { font-size: 15px; }
+.contractor-task-content p { overflow-wrap: anywhere; }
+.contractor-call { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; margin-top: 4px; color: var(--app-primary); font-weight: 650; text-decoration: none; }
+.contractor-customer { display: flex; min-height: 68px; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-customer-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; background: var(--app-soft); color: var(--app-primary); font-weight: 800; }
+.contractor-communication { padding: 8px 16px 16px !important; }
+.contractor-communication > a { display: flex; min-height: 60px; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-communication > a > span:nth-child(2) { flex: 1; font-size: 14px; font-weight: 650; }
+.contractor-communication > a > strong { min-width: 32px; text-align: center; font-size: 18px; }
+.contractor-communication > a > svg:last-child { color: var(--app-primary); }
+.contractor-request-list { padding-top: 16px; }
+.contractor-request-list h3 { margin-bottom: 6px; font-size: 15px; }
+.contractor-request-list > a { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-request-list > a > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.contractor-request-list > a strong { overflow-wrap: anywhere; font-size: 14px; }
+.contractor-request-list > a > span > span { color: #596579; font-size: 13px; }
+.contractor-pipeline-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 12px; }
+.contractor-pipeline-stage { display: block; min-width: 0; min-height: 92px; padding: 14px; border: 1px solid var(--app-line); border-radius: 12px; background: white; color: #172033; text-decoration: none; }
+.contractor-pipeline-stage:hover { background: var(--app-soft); }
+.contractor-pipeline-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.contractor-pipeline-title > svg { flex: 0 0 auto; color: var(--app-primary); }
+.contractor-pipeline-stage > strong { display: block; margin-top: 10px; font-size: 24px; }
+.contractor-subscription { display: flex; flex-direction: column; gap: 8px; }
+.contractor-subscription-note { display: flex; align-items: center; gap: 6px; padding-left: 4px; color: #596579; font-size: 13px; }
+.contractor-dashboard .bp-state { min-height: 150px; padding: 24px; }
+.contractor-dashboard .bp-badge { max-width: 100%; overflow-wrap: anywhere; }
+@media(max-width:1100px) { .contractor-tools-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .contractor-workspace { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 16px; } }
+@media(max-width:767px) {
+  .contractor-dashboard { gap: 18px; }
+  .contractor-dashboard .bp-page-header { align-items: flex-start; }
+  .contractor-dashboard .bp-page-description { font-size: 14px; }
+  .contractor-priority-item { align-items: flex-start; flex-wrap: wrap; gap: 12px; padding: 15px; }
+  .contractor-priority-item > div { flex: 1 1 calc(100% - 56px); }
+  .contractor-priority-item > .contractor-panel-link { width: 100%; justify-content: flex-start; }
+  .contractor-overview { gap: 10px; }
+  .contractor-stat-link .bp-stat-card { min-height: 130px; padding: 14px; }
+  .contractor-stat-link .bp-stat-card p { font-size: 13px; }
+  .contractor-stat-link .bp-stat-card small { font-size: 12px; }
+  .contractor-tools-grid { gap: 10px; }
+  .contractor-tools-grid > a { min-height: 90px; gap: 9px; padding: 11px; }
+  .contractor-tools-grid .contractor-icon { width: 38px; height: 38px; flex-basis: 38px; }
+  .contractor-tools-grid strong { font-size: 14px; }
+  .contractor-action-hint { font-size: 12px; }
+  .contractor-tools-grid > a > svg { display: none; }
+  .contractor-workspace { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .contractor-panel.bp-section-card > header { align-items: flex-start; padding: 16px; }
+  .contractor-panel.bp-section-card > header h2 { font-size: 17px; }
+  .contractor-panel.bp-section-card > header .contractor-panel-link { min-height: 40px; font-size: 13px; }
+  .contractor-quote { gap: 9px; padding: 13px; }
+  .contractor-quote .contractor-icon { width: 36px; height: 36px; flex-basis: 36px; }
+  .contractor-quote-main strong,.contractor-customer-main strong { font-size: 14px; }
+  .contractor-quote-main > span,.contractor-customer-main > span { font-size: 13px; }
+  .contractor-quote-side > strong { font-size: 14px; }
+  .contractor-timeline { padding: 16px !important; }
+  .contractor-customer { padding: 10px 14px; }
+  .contractor-customer .bp-badge { font-size: 12px; }
+  .contractor-pipeline-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; padding: 14px !important; }
+  .contractor-pipeline-stage { min-height: 84px; padding: 11px; }
+}
+@media(max-width:390px) {
+  .contractor-dashboard .bp-page-header { align-items: flex-start; flex-direction: column; }
+  .contractor-dashboard .bp-page-actions { width: 100%; }
+  .contractor-dashboard .bp-page-actions .bp-button { width: 100%; }
+  .contractor-tools-grid > a { align-items: flex-start; flex-direction: column; }
+  .contractor-tools-grid > a > span:nth-child(2) { min-height: 42px; }
+  .contractor-customer { flex-wrap: wrap; }
+}
 
 /* Continue the contractor visual system through workflows and dialogs. */
 .contractor-shell main { --contractor-primary: var(--app-primary); --contractor-primary-container: var(--app-primary); --contractor-canvas: var(--bp-canvas); --contractor-line: var(--app-line); }
@@ -114,6 +163,7 @@
   --app-on-primary: #ffffff;
   --app-soft: color-mix(in srgb, var(--app-accent) 12%, white);
   --app-line: color-mix(in srgb, var(--app-accent) 28%, white);
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
   --bp-brand: var(--app-primary);
   --bp-brand-dark: color-mix(in srgb, var(--app-primary) 78%, black);
   --color-indigo-50: var(--app-soft);
@@ -146,7 +196,10 @@
 .contractor-shell main :is(button, a)[class*="bg-violet-700"],
 .contractor-shell main :is(button, a)[class*="bg-blue-700"],
 .contractor-shell main :is(button, a)[class*="bg-[#0056d2]"],
+.contractor-shell main :is(button, a)[class*="bg-slate-900"],
 .contractor-shell main :is(button, a)[class*="bg-[#176b9b]"] { background-color: var(--app-primary); color: var(--app-on-primary); }
+.contractor-shell main :is(button, a)[class*="hover:bg-slate-800"]:hover { background-color: color-mix(in srgb, var(--app-primary) 88%, black); }
+.contractor-shell main :is(button, a)[class*="border-slate-900"] { border-color: var(--app-primary); }
 .contractor-shell main :is(button, a)[class*="text-[#0056d2]"],
 .contractor-shell main :is(button, a)[class*="text-[#176b9b]"],
 .contractor-shell main :is(button, a)[class*="text-blue-600"],

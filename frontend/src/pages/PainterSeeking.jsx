@@ -18,6 +18,7 @@ import useAuth from "../context/useAuth";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
 import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import "./painter-portal.css";
 import {
   paintingSkillOptions as skillOptions,
   WORK_REQUIREMENTS_PATH,
@@ -210,7 +211,7 @@ export default function PainterSeeking() {
     }
   }
   return (
-    <div className="space-y-6">
+    <div className={`painter-portal-page painter-work-network-page space-y-6 ${isPainter ? "is-painter" : ""}`}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-600">Work Network</p>

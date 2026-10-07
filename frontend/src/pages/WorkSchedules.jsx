@@ -14,6 +14,8 @@ import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
+import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./jobs-schedules.css";
 
 const filters = [
   "ALL",
@@ -22,13 +24,6 @@ const filters = [
   "IN_PROGRESS",
   "CANCELLED",
 ];
-const statusStyle = {
-  PENDING: "bg-amber-50 text-amber-700",
-  CONFIRMED: "bg-blue-50 text-blue-700",
-  IN_PROGRESS: "bg-violet-50 text-violet-700",
-  COMPLETED: "bg-emerald-50 text-emerald-700",
-  CANCELLED: "bg-red-50 text-red-700",
-};
 const todayKey = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -44,6 +39,7 @@ const tomorrowKey = () => {
 export default function WorkSchedules() {
   const { user } = useAuth();
   const [params] = useSearchParams();
+  const propertyId = params.get("property_id") || "";
   const [items, setItems] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [painters, setPainters] = useState([]);
@@ -73,11 +69,12 @@ export default function WorkSchedules() {
   const load = useCallback(async () => {
     try {
       const calls = [
-        api.get("/jobs/work-schedules/"),
+        api.get("/jobs/work-schedules/", { params: propertyId ? { property_id: propertyId } : {} }),
         api.get(
           user.role === "CUSTOMER"
             ? "/quotations/customer-portal/quotations/"
             : "/quotations/?include_converted=true",
+          user.role === "CUSTOMER" && propertyId ? { params: { property_id: propertyId } } : {},
         ),
       ];
       if (user.role === "CONTRACTOR") calls.push(api.get("/jobs/my-team/"));
@@ -93,7 +90,7 @@ export default function WorkSchedules() {
     } catch {
       setError("Work schedules could not be loaded.");
     }
-  }, [user.role]);
+  }, [user.role, propertyId]);
   useEffect(() => {
     load();
     const timer = window.setInterval(load, 15000);
@@ -159,6 +156,10 @@ export default function WorkSchedules() {
       return sort.direction === "asc" ? result : -result;
     });
   }, [items, filter, search, datePreset, dateFrom, dateTo, sort]);
+  const completedSchedules = useMemo(
+    () => items.filter((item) => item.status === "COMPLETED").slice().sort((a, b) => String(b.work_completed_at || b.end_date || "").localeCompare(String(a.work_completed_at || a.end_date || ""))),
+    [items],
+  );
   function changeSort(key) {
     setSort((current) => ({
       key,
@@ -203,6 +204,18 @@ export default function WorkSchedules() {
       ),
     [items],
   );
+  const customerUpcoming = useMemo(
+    () => items
+      .filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status) && !item.needs_reschedule)
+      .sort((first, second) => String(first.start_date || "").localeCompare(String(second.start_date || "")))[0],
+    [items],
+  );
+  const customerJourney = user.role === "CUSTOMER" ? [
+    { label: "Quotation accepted", active: items.length > 0 },
+    { label: "Dates agreed", active: items.some((item) => ["CONFIRMED", "IN_PROGRESS"].includes(item.status)) },
+    { label: "Work started", active: items.some((item) => item.status === "IN_PROGRESS") },
+    { label: "Completed", active: items.some((item) => item.status === "COMPLETED") },
+  ] : [];
 
   async function propose(e) {
     e.preventDefault();
@@ -398,51 +411,62 @@ export default function WorkSchedules() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 jobs-schedules-page bp-work-schedules-page">
       <MobilePageBack />
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Project planning
-          </p>
-          <h1 className="mt-1 text-3xl font-bold">Work schedules</h1>
-          <p className="mt-2 text-slate-500">
-            One organized record for dates, advance payment, Paint Applicators,
-            and work progress.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"} description={user.role === "CUSTOMER" ? "See the planned dates, payment status and progress for your projects." : "Coordinate work dates, assigned crew, payment status and progress."} actions={<div className="flex flex-col gap-2 sm:flex-row">
           {user.role === "CONTRACTOR" && (
             <Link
               to="/work-reschedules"
-              className="flex items-center justify-center gap-2 rounded-xl border bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+              className="bp-button bp-button-secondary inline-flex items-center justify-center gap-2"
             >
               <CalendarDays className="h-4 w-4" />
               Reschedule work
             </Link>
           )}
           {schedulable.length > 0 && (
-            <button
+            <Button
+              type="button"
               onClick={() => setShowForm((value) => !value)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
             >
               <Plus className="h-4 w-4" />
-              {showForm ? "Close form" : "Schedule quotation"}
-            </button>
+              {showForm ? "Close form" : user.role === "CUSTOMER" ? "Choose work dates" : "Schedule quotation"}
+            </Button>
           )}
-        </div>
-      </header>
-      {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+      </div>} />
+      {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
+      {user.role === "CUSTOMER" && (
+        <section className="customer-schedule-journey" aria-label="Project journey">
+          <div className="customer-schedule-journey-heading">
+            <div>
+              <p className="customer-schedule-kicker">Your project journey</p>
+              <h2>From accepted quotation to finished work</h2>
+            </div>
+            {customerUpcoming && (
+              <div className="customer-schedule-next">
+                <span>Next scheduled work</span>
+                <strong>{formatDate(customerUpcoming.start_date)}</strong>
+                <small>{customerUpcoming.property || "Your property"}</small>
+              </div>
+            )}
+          </div>
+          <ol className="customer-schedule-steps">
+            {customerJourney.map((step, index) => (
+              <li key={step.label} className={step.active ? "is-active" : ""}>
+                <span className="customer-schedule-step-marker">{index + 1}</span>
+                <span>{step.label}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
-      <section className="rounded-2xl border bg-white">
+      <SectionCard title={datePreset === "UPCOMING" ? "Upcoming work" : "Schedule records"} description="Dates, payment, team assignments and next actions." className="schedule-list-card" bodyClassName="p-0">
         <div className="flex flex-col gap-3 border-b p-3 xl:flex-row xl:items-center">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
-            <input
+      <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search quotation, customer, or property"
+              placeholder={user.role === "CUSTOMER" ? "Search quotation or property" : "Search quotation, customer, or property"}
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
@@ -463,6 +487,7 @@ export default function WorkSchedules() {
               <button
                 key={value}
                 onClick={() => setFilter(value)}
+                aria-pressed={filter === value}
                 className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold ${filter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}
               >
                 {label(value)}{" "}
@@ -488,13 +513,13 @@ export default function WorkSchedules() {
           </div>
         )}
         {visible.length ? (
-          <div className="overflow-x-auto">
+          <div className="schedule-grid-scroll overflow-x-auto">
             <div className="hidden min-w-[1120px] grid-cols-[minmax(220px,1.4fr)_180px_130px_155px_120px_230px_44px] gap-4 bg-slate-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 lg:grid">
-              <SortHeader label="Quotation / customer" column="quotation" sort={sort} onSort={changeSort} />
+              <SortHeader label={user.role === "CUSTOMER" ? "Quotation / property" : "Quotation / customer"} column="quotation" sort={sort} onSort={changeSort} />
               <SortHeader label="Work dates" column="dates" sort={sort} onSort={changeSort} />
               <SortHeader label="Schedule" column="schedule" sort={sort} onSort={changeSort} />
               <SortHeader label="Payment" column="payment" sort={sort} onSort={changeSort} />
-              <SortHeader label="Paint Applicators" column="painters" sort={sort} onSort={changeSort} />
+              <SortHeader label={user.role === "CUSTOMER" ? "Work team" : "Paint Applicators"} column="painters" sort={sort} onSort={changeSort} />
               <span>Next action</span>
               <span />
             </div>
@@ -520,12 +545,17 @@ export default function WorkSchedules() {
             </div>
           </div>
         ) : (
-          <div className="p-14 text-center">
-            <CalendarDays className="mx-auto h-10 w-10 text-slate-300" />
-            <p className="mt-3 text-slate-500">No schedules match this view.</p>
-          </div>
+          <EmptyState title="No schedules match this view" description="Try another date range or schedule status." />
         )}
-      </section>
+      </SectionCard>
+      {user.role === "CONTRACTOR" && completedSchedules.length > 0 && <SectionCard title="Completed schedules" description="Finished work is kept separate from active commitments." className="completed-schedules-card" bodyClassName="p-0">
+        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{completedSchedules.slice(0, 6).map((item) => <article key={item.id} className="completed-schedule-card rounded-xl border p-4">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-bold text-slate-900">{item.quotation_number}</p><p className="mt-1 truncate text-sm text-slate-700">{item.customer} · {item.property}</p></div><StatusBadge status={item.status} tone="success" /></div>
+          <p className="mt-3 text-sm text-slate-600">{formatDate(item.start_date)} – {formatDate(item.end_date)}</p>
+          <p className="mt-1 text-sm text-slate-500">{item.painters?.length || 0} assigned</p>
+          {item.work_completed_at && <p className="mt-1 text-sm text-slate-500">Completed {new Date(item.work_completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>}
+        </article>)}</div>
+      </SectionCard>}
       {showForm && (
         <ScheduleModal onClose={() => setShowForm(false)}>
           <ScheduleForm
@@ -591,7 +621,7 @@ function ProjectRow({
   const paid = item.payment_status === "CONFIRMED";
   const ready = item.painters.length > 0;
   const nextAction =
-    item.status === "PENDING" && !myAccepted ? (
+    item.status === "PENDING" && !myAccepted && (role !== "CUSTOMER" || item.property_access?.permissions?.approve_quotations) ? (
       <Action onClick={() => onAccept(item.id)} disabled={saving} primary>
         Accept dates
       </Action>
@@ -616,7 +646,7 @@ function ProjectRow({
           Payment received
         </Action>
       </>
-    ) : role === "CUSTOMER" && item.payment_status === "AWAITING_PAYMENT" ? (
+    ) : role === "CUSTOMER" && item.property_access?.permissions?.make_payment && item.payment_status === "AWAITING_PAYMENT" ? (
       <Action onClick={() => onPayment(item, "SUBMIT")} primary>
         Pay advance
       </Action>
@@ -651,7 +681,7 @@ function ProjectRow({
       <span className="text-sm text-slate-400">No action required</span>
     );
   return (
-    <article className="bg-white">
+    <article className={`bg-white ${role === "CUSTOMER" ? "customer-schedule-record" : ""}`}>
       <div className="p-4 lg:hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -659,40 +689,39 @@ function ProjectRow({
               {item.quotation_number}
             </h2>
             <p className="mt-1 truncate text-sm font-semibold text-slate-700">
-              {item.customer}
+              {role === "CUSTOMER" ? item.property : item.customer}
             </p>
             <p className="mt-0.5 truncate text-xs text-slate-500">
-              {item.property}
+              {role === "CUSTOMER" ? `With ${item.contractor}` : item.property}
             </p>
           </div>
           <Status value={item.status} />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Work dates</p>
-            <p className="mt-1 text-xs font-bold text-slate-800">{item.start_date}</p>
-            <p className="mt-0.5 text-[11px] text-slate-500">to {item.end_date}</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Work dates</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{formatDate(item.start_date)}</p>
+            <p className="mt-0.5 text-sm text-slate-600">to {formatDate(item.end_date)}</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payment</p>
-            <p className={`mt-1 truncate text-xs font-bold ${paid ? "text-emerald-700" : "text-amber-700"}`}>
-              {label(item.payment_status)}
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              {item.advance_amount ? `₹${Number(item.advance_amount).toLocaleString("en-IN")}` : "No advance"}
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Payment</p>
+            <div className="mt-1"><StatusBadge status={item.payment_status} label={role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)} tone={paid ? "success" : "warning"} /></div>
+            <p className="mt-1 text-sm text-slate-600">
+              {item.advance_amount ? `₹${Number(item.advance_amount).toLocaleString("en-IN")}` : role === "CUSTOMER" ? "No advance recorded" : "No advance"}
             </p>
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Paint Applicators</p>
-            <p className="mt-0.5 text-xs font-semibold text-slate-700">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{role === "CUSTOMER" ? "Work team" : "Paint Applicators"}</p>
+            <p className="mt-0.5 text-sm font-semibold text-slate-700">
               {item.painters.length || 0} assigned
             </p>
           </div>
           <button
             onClick={onToggle}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700"
+            aria-expanded={expanded}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700"
           >
             {expanded ? "Hide details" : "View details"}
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -706,20 +735,16 @@ function ProjectRow({
         <div className="min-w-0">
           <h2 className="truncate font-bold">{item.quotation_number}</h2>
           <p className="mt-1 truncate text-sm text-slate-500">
-            {item.customer} | {item.property}
+            {role === "CUSTOMER" ? `${item.property} · With ${item.contractor}` : `${item.customer} | ${item.property}`}
           </p>
         </div>
         <div>
-          <p className="text-sm font-semibold">{item.start_date}</p>
-          <p className="mt-1 text-xs text-slate-400">to {item.end_date}</p>
+          <p className="text-sm font-semibold">{formatDate(item.start_date)}</p>
+          <p className="mt-1 text-sm text-slate-500">to {formatDate(item.end_date)}</p>
         </div>
         <Status value={item.status} />
         <div>
-          <p
-            className={`text-sm font-semibold ${paid ? "text-emerald-700" : "text-amber-700"}`}
-          >
-            {label(item.payment_status)}
-          </p>
+          <StatusBadge status={item.payment_status} label={role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)} tone={paid ? "success" : "warning"} />
           {item.advance_amount && (
             <p className="mt-1 text-xs text-slate-500">
               ₹{Number(item.advance_amount).toLocaleString("en-IN")}
@@ -739,7 +764,7 @@ function ProjectRow({
           )}
         </button>
         <div className="flex flex-wrap items-center gap-2">{nextAction}</div>
-        <button onClick={onToggle} className="rounded-lg border p-2">
+        <button onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Hide" : "View"} details for ${item.quotation_number}`} className="rounded-lg border p-2">
           {expanded ? (
             <ChevronUp className="h-4 w-4" />
           ) : (
@@ -751,7 +776,7 @@ function ProjectRow({
         <div className="grid gap-3 border-t bg-slate-50/60 p-4 md:grid-cols-3 lg:p-5">
           <Detail title="Date approval">
             <p>
-              Customer: <b>{item.customer_accepted ? "Accepted" : "Pending"}</b>
+              {role === "CUSTOMER" ? "You" : "Customer"}: <b>{item.customer_accepted ? "Accepted" : "Pending"}</b>
             </p>
             <p>
               Contractor:{" "}
@@ -768,7 +793,7 @@ function ProjectRow({
           </Detail>
           <Detail title="Advance payment">
             <p>
-              Status: <b>{label(item.payment_status)}</b>
+              Status: <b>{role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)}</b>
             </p>
             {item.advance_amount && (
               <p>
@@ -808,11 +833,11 @@ function ProjectRow({
               </button>
             )}
           </Detail>
-          <Detail title="Paint Applicators and work">
+          <Detail title={role === "CUSTOMER" ? "Work progress" : "Paint Applicators and work"}>
             <p>
               {item.painters.length
                 ? item.painters.map((p) => p.name).join(", ")
-                : "No Paint Applicators assigned"}
+                : role === "CUSTOMER" ? "Work team not assigned yet" : "No Paint Applicators assigned"}
             </p>
             {item.work_started_at && (
               <p className="text-slate-500">
@@ -1051,7 +1076,7 @@ function PaymentActions({ item, role, onPayment }) {
         </p>
       </div>
     );
-  if (role === "CUSTOMER" && item.payment_status === "AWAITING_PAYMENT")
+  if (role === "CUSTOMER" && item.property_access?.permissions?.make_payment && item.payment_status === "AWAITING_PAYMENT")
     return (
       <button
         onClick={() => onPayment(item, "SUBMIT")}
@@ -1076,13 +1101,8 @@ function PaymentActions({ item, role, onPayment }) {
   );
 }
 function Status({ value }) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusStyle[value] || "bg-slate-100 text-slate-600"}`}
-    >
-      {label(value)}
-    </span>
-  );
+  const tone = value === "COMPLETED" ? "success" : value === "CANCELLED" ? "danger" : value === "PENDING" ? "warning" : "info";
+  return <StatusBadge status={value} label={label(value)} tone={tone} />;
 }
 function DateField({ label: fieldLabel, value, onChange, min }) {
   return (
@@ -1106,10 +1126,24 @@ function label(value) {
     .toLowerCase()
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
+function customerPaymentLabel(value) {
+  return ({
+    NOT_REQUESTED: "No advance requested",
+    AWAITING_PAYMENT: "Advance payment due",
+    PENDING_CONFIRMATION: "Payment submitted",
+    CONFIRMED: "Paid",
+  })[value] || label(value);
+}
 function message(error, fallback) {
   return (
     Object.values(error.response?.data || {})
       .flat()
       .join(" ") || fallback
   );
+}
+
+function formatDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

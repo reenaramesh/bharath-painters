@@ -8,17 +8,24 @@ import {
   EyeOff,
   MapPin,
   Plus,
+  Share2,
   Trash2,
 } from "lucide-react";
 import api from "../api/client";
+import useAuth from "../context/useAuth";
 import PropertyForm from "../components/PropertyForm";
+import SharePropertyDialog from "../components/SharePropertyDialog";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
+import { Button, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./quotation-measurement.css";
 
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const [shareOpen, setShareOpen] = useState(false);
   const customerPath = location.state?.customerPath;
   const returnTo = location.state?.returnTo;
   const [property, setProperty] = useState(null);
@@ -116,11 +123,7 @@ export default function PropertyDetail() {
   }
 
   if (!property)
-    return (
-      <div className="p-12 text-center text-slate-500">
-        {error || "Loading property..."}
-      </div>
-    );
+    return error ? <ErrorState message={error} onRetry={load} /> : <LoadingState label="Loading property details..." />;
   const customer = customers.find((item) => item.id === property.customer);
   const roomById = new Map(rooms.map((room) => [room.id, room.name]));
   const totals = measurements.reduce(
@@ -134,36 +137,21 @@ export default function PropertyDetail() {
   );
   const areas = [...new Set(measurements.map((item) => item.work_area))];
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 quotation-measurement-page bp-property-detail">
       <BackButton fallback={backPath} label={returnsToCustomer ? "Back to customer" : "Back to properties"} />
+      <PageHeader eyebrow="Property" title={property.name || property.property_type} description={customer?.name ? `Customer · ${customer.name}` : "Project details and saved area calculations."} />
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
       <section className="overflow-hidden rounded-2xl border bg-white">
-        <div className="flex flex-col gap-4 border-b p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
-          <div className="flex-1">
-            <h2 className="font-bold">Project overview</h2>
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 sm:mt-5 sm:grid-cols-2 xl:grid-cols-4">
-              <Detail label="Owner name" value={customer?.name} />
-              <Detail label="Project name" value={property.name} />
-              <Detail label="Flat number" value={property.flat_number || "—"} />
-              <Detail label="Block / Tower" value={property.block_name || "—"} />
-              <Detail
-                label="Project address"
-                value={[property.address, property.city, property.pincode]
-                  .filter(Boolean)
-                  .join(", ")}
-                className="col-span-2 sm:col-span-1"
-              />
-              <Detail
-                label="Area calculation unit"
-                value={property.linear_unit_label || property.measurement_unit}
-              />
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="border-b p-4 sm:p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <h2 className="shrink-0 font-bold">Project overview</h2>
+
+          <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
+            {user?.role === "CONTRACTOR" && <button type="button" onClick={() => setShareOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#176b9b] px-3 text-sm font-semibold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]"><Share2 aria-hidden="true" className="h-4 w-4" />Share Access</button>}
             {property.google_maps_url && <a href={property.google_maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><MapPin className="h-4 w-4" />Open in Google Maps</a>}
             <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}`} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Create Quotation</Link>
             <button
@@ -184,16 +172,27 @@ export default function PropertyDetail() {
               <EyeOff className="h-4 w-4" />
             </button>
           </div>
-        </div>
-        <div className="flex flex-col gap-3 border-b bg-slate-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-bold">Saved Area Calculations</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Maintain separate Area Calculation records for every site visit or revision.
-            </p>
           </div>
-          <button type="button" onClick={createMeasurement} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Start New</button>
+            <div className="mt-5 grid min-w-0 grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
+              <Detail label="Owner name" value={customer?.name} />
+              <Detail label="Project name" value={property.name} />
+              <Detail label="Flat number" value={property.flat_number || "—"} />
+              <Detail label="Block / Tower" value={property.block_name || "—"} />
+              <Detail
+                label="Project address"
+                value={[property.address, property.city, property.pincode]
+                  .filter(Boolean)
+                  .join(", ")}
+                className="col-span-2 min-w-0 lg:col-span-3"
+              />
+              <Detail
+                label="Area calculation unit"
+                value={property.linear_unit_label || property.measurement_unit}
+              />
+            </div>
         </div>
+        <div className="px-4 pt-4 sm:px-6">
+        <SectionCard title="Saved Area Calculations" description="Separate records for site visits and revisions." className="bp-measurement-records" bodyClassName="p-0" action={<Button onClick={createMeasurement}><Plus className="h-4 w-4" aria-hidden="true" />Start new</Button>}>
         {measurementRecords.length ? (
           <>
           <div className="grid gap-3 p-3 md:hidden">
@@ -207,6 +206,7 @@ export default function PropertyDetail() {
                     <Detail label="Paintable area" value={`${Number(record.total_sqft || 0).toFixed(0)} sq ft`} />
                     <Detail label="Rooms" value={record.room_count || 0} />
                   </div>
+                  <div className="mt-3"><StatusBadge status={record.status} tone={record.status === "LOCKED" ? "success" : record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "warning" : "info"} /></div>
                   <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2 border-t border-slate-100 pt-3">
                     <Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white">
                       {editable ? <Edit3 className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -223,7 +223,7 @@ export default function PropertyDetail() {
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-white text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                  {["Area Calculation ID", "Calculation date", "Total Paintable Area", "Rooms", "Actions"].map((label) => (
+                  {["Area Calculation ID", "Calculation date", "Total Paintable Area", "Rooms", "Status", "Actions"].map((label) => (
                     <th key={label} className="px-5 py-3">
                       {label}
                     </th>
@@ -237,7 +237,8 @@ export default function PropertyDetail() {
                     <td className="px-5 py-4">{new Date(`${record.measured_on}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
                     <td className="px-5 py-4 font-bold">{Number(record.total_sqft || 0).toFixed(0)} sq ft</td>
                     <td className="px-5 py-4">{record.room_count || 0}</td>
-                    <td className="px-5 py-4"><div className="flex items-center gap-2"><Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold"><Eye className="h-4 w-4" />{record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "Edit" : "View"}</Link><button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40"><Download className="h-4 w-4" />PDF</button><button type="button" disabled={record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="rounded-lg border border-red-200 p-2 text-red-600 disabled:cursor-not-allowed disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></div></td>
+                    <td className="px-5 py-4"><StatusBadge status={record.status} tone={record.status === "LOCKED" ? "success" : record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "warning" : "info"} /></td>
+                    <td className="px-5 py-4"><div className="flex items-center gap-2"><Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold"><Eye className="h-4 w-4" />{record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "Edit" : "View"}</Link><button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"><Download className="h-4 w-4" />PDF</button><button type="button" disabled={record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="grid h-11 w-11 place-items-center rounded-lg border border-red-200 text-red-600 disabled:cursor-not-allowed disabled:opacity-30"><Trash2 className="h-4 w-4" /></button></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -249,7 +250,9 @@ export default function PropertyDetail() {
             No Area Calculations yet. Select Start New to begin.
           </p>
         )}
+        </SectionCard></div>
       </section>
+      <SharePropertyDialog open={shareOpen} onClose={() => setShareOpen(false)} propertyId={property.id} propertyName={property.name || property.property_type} />
       <section className="hidden">
         <div className="flex flex-col gap-3 border-b p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>

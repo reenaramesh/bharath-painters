@@ -1,5 +1,4 @@
-from django.conf import settings
-from django.core.mail import send_mail
+from accounts.email_setup import send_configured_email
 from django.core.management.base import BaseCommand, CommandError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -17,12 +16,11 @@ class Command(BaseCommand):
             validate_email(recipient)
         except ValidationError as exc:
             raise CommandError("Enter a valid --to email address.") from exc
-        delivered = send_mail(
+        delivered = send_configured_email(
             "Bharath Painters recovery email test",
             "Recovery email delivery is configured successfully. No OTP or password is included in this message.",
-            settings.DEFAULT_FROM_EMAIL,
-            [recipient],
-            fail_silently=False,
+            recipient,
+            "ADMIN_TEST_EMAIL",
         )
         if delivered != 1:
             raise CommandError("The email backend did not confirm delivery.")

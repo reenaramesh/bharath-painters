@@ -1,4 +1,6 @@
 from datetime import timedelta
+import hashlib
+import secrets
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -545,3 +547,110 @@ class CustomerSelfRegistrationTests(APITestCase):
         self.payload["mobile"] = "1234567890"
         self.assertEqual(self.register().status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(Customer.objects.exists())
+
+    def test_property_invitation_signup_creates_account_contact_and_audit(self):
+        from quotations.models import (
+            Customer, Property, PropertyAccessAudit, PropertyContact, PropertyInvitation,
+        )
+
+        inviter = BharathUser.objects.create_user(
+            mobile="9000000071", password="inviter-pass", role=BharathUser.Roles.CUSTOMER,
+        )
+        inviter_customer = Customer.objects.create(name="Property owner", mobile=inviter.mobile, portal_user=inviter)
+        property_obj = Property.objects.create(customer=inviter_customer, name="Invited property")
+        PropertyContact.objects.get(property=property_obj, customer=inviter_customer)
+        raw_token = secrets.token_urlsafe(32)
+        invitation = PropertyInvitation.objects.create(
+            property=property_obj,
+            invited_by=inviter,
+            invitee_name="New customer",
+            invitee_mobile="+919888877778",
+            role=PropertyContact.Role.TENANT,
+            token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+            expires_at=timezone.now() + timedelta(days=3),
+        )
+        self.payload.update({
+            "name": "New customer",
+            "mobile": "9888877778",
+            "property_invitation_token": raw_token,
+        })
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        customer = Customer.objects.get(normalized_mobile="+919888877778")
+        contact = PropertyContact.objects.get(property=property_obj, customer=customer)
+        invitation.refresh_from_db()
+        self.assertEqual(contact.role, PropertyContact.Role.TENANT)
+        self.assertEqual(customer.portal_user.mobile, "+919888877778")
+        self.assertEqual(invitation.status, PropertyInvitation.Status.ACCEPTED)
+        self.assertTrue(PropertyAccessAudit.objects.filter(
+            invitation=invitation, action="INVITATION_ACCEPTED_DURING_SIGNUP",
+        ).exists())
+        self.assertTrue(response.data["property_invitation_accepted"])
+
+    def test_property_invitation_signup_rejects_wrong_mobile_without_creating_account(self):
+        from quotations.models import Customer, Property, PropertyContact, PropertyInvitation
+
+        inviter = BharathUser.objects.create_user(
+            mobile="9000000072", password="inviter-pass", role=BharathUser.Roles.CUSTOMER,
+        )
+        owner = Customer.objects.create(name="Property owner", mobile=inviter.mobile, portal_user=inviter)
+        property_obj = Property.objects.create(customer=owner)
+        PropertyContact.objects.get(property=property_obj, customer=owner)
+        raw_token = secrets.token_urlsafe(32)
+        PropertyInvitation.objects.create(
+            property=property_obj,
+            invited_by=inviter,
+            invitee_mobile="+919888877778",
+            role=PropertyContact.Role.AUTHORIZED_CONTACT,
+            token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+            expires_at=timezone.now() + timedelta(days=3),
+        )
+        self.payload["property_invitation_token"] = raw_token
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(BharathUser.objects.filter(mobile="+919888877777").exists())
+
+    def test_property_invite_signup_reuses_existing_customer_by_normalized_mobile(self):
+        import hashlib
+        import secrets
+        from quotations.models import Customer, Property, PropertyContact, PropertyInvitation
+
+        owner_user = BharathUser.objects.create_user(
+            mobile="9000000073", password="owner-pass", role=BharathUser.Roles.CUSTOMER,
+        )
+        owner = Customer.objects.create(name="Owner", mobile=owner_user.mobile, portal_user=owner_user)
+        existing = Customer.objects.create(
+            name="Existing CRM Customer", mobile="+91 98888 77777", email="customer@example.com",
+        )
+        property_obj = Property.objects.create(customer=owner, name="Existing-customer property")
+        raw_token = secrets.token_urlsafe(32)
+        invitation = PropertyInvitation.objects.create(
+            property=property_obj,
+            invited_by=owner_user,
+            invitee_customer=existing,
+            invitee_name=existing.name,
+            invitee_mobile=existing.normalized_mobile,
+            role=PropertyContact.Role.AUTHORIZED_CONTACT,
+            access_level=PropertyContact.AccessLevel.FINANCE,
+            relationship=PropertyContact.Relationship.FACILITY_MANAGER,
+            token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+            expires_at=timezone.now() + timedelta(days=3),
+        )
+        self.payload.update({"property_invitation_token": raw_token, "name": "Existing CRM Customer"})
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(Customer.objects.filter(normalized_mobile=existing.normalized_mobile).count(), 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.portal_user.role, BharathUser.Roles.CUSTOMER)
+        contact = PropertyContact.objects.get(property=property_obj, customer=existing)
+        self.assertEqual(contact.access_level, PropertyContact.AccessLevel.FINANCE)
+        self.assertEqual(contact.relationship, PropertyContact.Relationship.FACILITY_MANAGER)
+        self.assertEqual(contact.status, PropertyContact.Status.ACTIVE)
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, PropertyInvitation.Status.ACCEPTED)

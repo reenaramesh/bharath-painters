@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Check, Edit3, Plus, Power, Trash2, X } from "lucide-react";
 import api from "../api/client";
+import "./admin-portal.css";
 import useAuth from "../context/useAuth";
 
 const emptyForm = { name:"", audience:"CONTRACTOR", billing_cycle:"MONTHLY", validity:"ONE_MONTH", price:"0", discount_percentage:"0", job_post_limit:"", quotation_limit:"", employee_limit:"", applicator_access:"NONE", measurement_access:false, register_applicator_access:false, ratings_reviews_access:false, work_schedules_access:false, seeking_applicators_access:false, property_creation_access:false, messages_access:false, job_seeking_post_limit:"", contractor_job_access:false, contractor_visibility:false, booking_requests:false, availability_calendar:false, location_limit:"", features:"", is_active:true };

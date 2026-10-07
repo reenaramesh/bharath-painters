@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import systemCopyPlugin from './ui-plugin.mjs';
+import { systemCopy } from './vite-plugin.mjs';
+const require = createRequire(new URL('../../frontend/package.json', import.meta.url));
+const React = require('react');
+const renderer = require('react-test-renderer');
+const { transformSync } = require('@babel/core');
+const { build } = await import(pathToFileURL(require.resolve('vite')));
+const root = fileURLToPath(new URL('../../frontend', import.meta.url));
+const { transliterate, formatSystemText } = await import(new URL('../../frontend/src/i18n/transliterate.js', import.meta.url));
+for (const script of ['te', 'kn', 'hi', 'ta']) {
+  const protectedText = 'Bharath Apps Bharath Painters Asian Paints person@example.com https://example.com/Save INV-SAVE-001 sqft mm kg 0123456789 #176B9B {name} {{amount}}';
+  assert.equal(transliterate(protectedText, script), protectedText);
+  assert.equal(transliterate('Unknownuncertainword', script), 'Unknownuncertainword');
+  assert.ok(formatSystemText('Customer {name} amount {amount}', script, {name:'Save Painting',amount:'123.45'}).includes('Save Painting'));
+}
+const sample = `function Demo({data}) {return <div><input value={data.name} placeholder="Customer name"/><p>{data.name}</p><p>{\`Save \${data.name}\`}</p><option value="PENDING">Pending</option></div>}`;
+const transformed = transformSync(sample, { configFile: false, babelrc: false, parserOpts: {plugins:['jsx']}, plugins:[systemCopyPlugin] }).code;
+assert.match(transformed, /value=\{data\.name\}/);
+assert.match(transformed, /<p>\{data\.name\}<\/p>/);
+assert.match(transformed, /value="PENDING"/);
+assert.match(transformed, /parts=\{\["Save ", ""\]\}/);
+await build({ root, configFile: false, plugins: [systemCopy()], logLevel: 'error', build: { ssr: 'src/__tests__/transliteration-fixture.jsx', outDir: '.test-build', emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'fixture.mjs' } } } });
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const values = new Map();
+globalThis.localStorage = { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value) };
+globalThis.document = { documentElement: { dataset: {} } };
+globalThis.window = { location: { origin: 'http://localhost:5173' } };
+const { Fixture, changeScript, currentScript, currentError } = await import(pathToFileURL(root + '/.test-build/fixture.mjs'));
+let tree;
+await renderer.act(async () => { tree = renderer.create(React.createElement(Fixture, {user:{id:1, preferred_language:'en'}})); });
+await renderer.act(async () => { tree.root.findByType('input').props.onChange({target:{value:'Customer Save address 123'}}); });
+await renderer.act(async () => { tree.root.findByType('button').props.onClick(); });
+const text = (node) => node.children.map((value) => typeof value === 'string' ? value : text(value)).join('');
+for (const script of ['te', 'kn', 'hi', 'ta', 'en']) {
+  await renderer.act(async () => { changeScript(script); });
+  assert.equal(tree.root.findByType('input').props.value, 'Customer Save address 123');
+  assert.equal(text(tree.root.findByProps({'data-kind':'customer'})), 'Save Painting');
+  assert.equal(text(tree.root.findByProps({'data-kind':'entry'})), 'Customer Save address 123');
+  assert.ok(text(tree.root.findByProps({'data-kind':'interpolation'})).includes('Save Painting'));
+  assert.equal(values.get('bp-language-user-1'), script);
+  assert.equal(currentError(), 'Customer Save Painting could not be saved.');
+  assert.ok(text(tree.root.findByProps({'data-kind':'error'})).includes('Save Painting'));
+  if (script === 'te') assert.equal(text(tree.root.findByType('button')), 'సేవ్');
+}
+await renderer.act(async () => { changeScript('te'); });
+await renderer.act(async () => { tree.update(React.createElement(Fixture, {user:{id:2, preferred_language:'hi'}})); });
+assert.equal(currentScript(), 'hi');
+assert.equal(values.get('bp-language-user-1'), 'te');
+await renderer.act(async () => { tree.unmount(); });
+const glossary = JSON.parse(readFileSync(new URL('../../shared/transliteration/glossary.json', import.meta.url)));
+assert.equal(glossary.te.save, 'సేవ్');
+assert.equal(glossary.te.painting, 'పెయింటింగ్');
+console.log('PASS: source marking, protected data/enum values, interpolation, live switching, unsaved entries and account isolation.');

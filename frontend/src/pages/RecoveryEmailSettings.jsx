@@ -3,6 +3,7 @@ import { CheckCircle2, Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import LanguageSelector from "../components/LanguageSelector";
 
 export default function RecoveryEmailSettings() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export default function RecoveryEmailSettings() {
 
   async function accountAction(action) {
     const warning = action === "delete"
-      ? "Delete your account permanently? This is your own choice. Your sign-in account will be permanently deleted, you will not receive any notifications, and you will need to register again to use Bharath Painters."
+      ? "Delete your account permanently? This is your own choice. Your sign-in account will be permanently deleted, you will not receive any notifications, and you will need to register again to use Bharath Apps."
       : "Temporarily deactivate your account? This is your own choice. You will be signed out and will not receive notifications while the account is inactive.";
     if (!window.confirm(warning)) return;
     setAccountActionBusy(true); setAccountActionError("");
@@ -90,9 +91,15 @@ export default function RecoveryEmailSettings() {
 
   if (loading && !account) return <div className="p-12 text-center text-slate-500">Loading account security...</div>;
   if (!account) return <div className="mx-auto max-w-2xl rounded-2xl border bg-white p-6"><h1 className="text-2xl font-bold">Account Security</h1><p role="alert" className="mt-3 text-sm text-red-700">{error || "Account security details could not be loaded."}</p><button type="button" onClick={load} className="mt-4 rounded-xl bg-[#176b9b] px-4 py-2 text-sm font-bold text-white">Try again</button></div>;
-  return <div className="mx-auto max-w-2xl space-y-6">
-    <header><p className="text-sm font-semibold text-[#176b9b]">Your account</p><h1 className="mt-1 text-3xl font-bold">Account Security</h1><p className="mt-2 text-slate-500">{user?.role === "CUSTOMER" ? "Change your password here. Verify your sign-in email in My Profile." : "Change your password and manage the verified email used for sign-in and account recovery."}</p></header>
-    <form onSubmit={submitPasswordChange} className="space-y-5 rounded-2xl border bg-white p-5 sm:p-6">
+   return <div className={`mx-auto max-w-2xl space-y-6 ${user?.role === "CUSTOMER" ? "customer-security-page" : ""}`}>
+    <LanguageSelector />
+     <header><p className="text-sm font-semibold text-[#176b9b]">Your account</p><h1 className="mt-1 text-3xl font-bold">Account Security</h1><p className="mt-2 text-slate-500">{user?.role === "CUSTOMER" ? "Change your password here. Verify your sign-in email in My Profile." : "Change your password and manage the verified email used for sign-in and account recovery."}</p></header>
+     {user?.role === "CUSTOMER" && <section className="customer-security-pulse" aria-label="Security summary">
+       <div className="is-ready"><span>Password login</span><strong>Protected</strong><small>Change it anytime below</small></div>
+       <div className={account?.verified ? "is-ready" : "is-action"}><span>Recovery email</span><strong>{account?.verified ? "Verified" : "Not verified"}</strong><small>{account?.masked_email || "Manage from My Profile"}</small></div>
+       <div><span>Sign-in recovery</span><strong>Available</strong><small>Use Forgot password if needed</small></div>
+     </section>}
+     <form onSubmit={submitPasswordChange} className="space-y-5 rounded-2xl border bg-white p-5 sm:p-6">
       <div><h2 className="font-bold">Change password</h2><p className="mt-1 text-sm text-slate-500">Enter your current password, then choose a new one.</p></div>
       {changePasswordError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{changePasswordError}</p>}
       {[["Current password", "current_password", "current-password"], ["New password", "new_password", "new-password"], ["Confirm new password", "confirm_password", "new-password"]].map(([label, field, autoComplete]) => <Field key={field} label={label}><span className="relative block"><input required minLength={field === "current_password" ? undefined : 8} type={showChangePasswords ? "text" : "password"} autoComplete={autoComplete} value={changePassword[field]} onChange={(event) => setChangePassword((current) => ({ ...current, [field]: event.target.value }))} className={`${input} pr-12`} /><button type="button" onClick={() => setShowChangePasswords((current) => !current)} aria-label={showChangePasswords ? "Hide passwords" : "Show passwords"} className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showChangePasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></Field>)}
@@ -114,8 +121,8 @@ export default function RecoveryEmailSettings() {
     </form> : <form onSubmit={verify} className="space-y-5 rounded-2xl border bg-white p-5 sm:p-6">
       <div><h2 className="font-bold">Verify Recovery Email</h2><p className="mt-1 text-sm text-slate-500">Enter the code sent to {challenge.masked_email}.</p></div>
       {testOtp && <p className="rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-800">Development OTP: <strong className="tracking-[0.25em]">{testOtp}</strong></p>}
-      <Field label="OTP"><input required inputMode="numeric" autoComplete="one-time-code" maxLength="6" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={`${input} text-center text-xl tracking-[0.35em]`} /></Field>
-      <button disabled={saving || otp.length !== 6} className={button}>{saving ? "Verifying..." : "Verify Email"}</button>
+      <Field label="OTP"><input required inputMode="numeric" autoComplete="one-time-code" maxLength="10" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={`${input} text-center text-xl tracking-[0.35em]`} /></Field>
+      <button disabled={saving || (otp.length < 6 || otp.length > 10)} className={button}>{saving ? "Verifying..." : "Verify Email"}</button>
       <button type="button" disabled={saving} onClick={requestOtp} className="w-full text-sm font-semibold text-[#176b9b] disabled:opacity-50">Resend code</button>
       <button type="button" onClick={() => { setChallenge(null); setOtp(""); setError(""); }} className="w-full text-sm font-semibold text-slate-600">Change email address</button>
     </form>}

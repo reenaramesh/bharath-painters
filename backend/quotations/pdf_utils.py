@@ -300,20 +300,22 @@ def build_quotation_pdf(quotation):
     return buffer.getvalue()
 
 
-def build_invoice_pdf(invoice):
+def build_invoice_pdf(invoice, include_payment_details=True):
     buffer=BytesIO();doc=SimpleDocTemplate(buffer,pagesize=A4,leftMargin=15*mm,rightMargin=15*mm,topMargin=14*mm,bottomMargin=15*mm,title=invoice.invoice_number)
     styles=getSampleStyleSheet();small=ParagraphStyle("invoice-small",parent=styles["BodyText"],fontSize=7.2,leading=9,textColor=DARK);title=ParagraphStyle("invoice-title",parent=styles["Title"],fontSize=23,textColor=colors.white)
     profile=getattr(invoice.contractor,"contractor_profile",None);contractor_data=invoice.contractor_snapshot or {};company=contractor_data.get("company_name") or (profile.company_name if profile else "Bharath Painters")
     banner=Table([[Paragraph("TAX INVOICE" if invoice.tax_mode == "GST" else "INVOICE",title)]],colWidths=[180*mm],style=TableStyle([("BACKGROUND",(0,0),(-1,-1),BLUE),("PADDING",(0,0),(-1,-1),7)]))
     source_number = invoice.quotation_number_snapshot or (invoice.quotation.quotation_number if invoice.quotation_id else "Lump sum")
-    meta=[["Invoice #",invoice.invoice_number,"Invoice date",str(invoice.invoice_date)],["Source",source_number,"Due date",str(invoice.due_date or "-")],["Status",invoice.get_status_display(),"Balance due",f"Rs. {invoice.balance_due:,.0f}"]]
+    meta=[["Invoice #",invoice.invoice_number,"Invoice date",str(invoice.invoice_date)],["Source",source_number,"Due date",str(invoice.due_date or "-")],["Status",invoice.get_status_display(),"Balance due",f"Rs. {invoice.balance_due:,.0f}" if include_payment_details else "-"]]
     meta_table=Table(meta,colWidths=[24*mm,64*mm,24*mm,68*mm],style=TableStyle([("GRID",(0,0),(-1,-1),.5,colors.grey),("BACKGROUND",(0,0),(0,-1),LIGHT_GREY),("BACKGROUND",(2,0),(2,-1),LIGHT_GREY),("FONTNAME",(0,0),(0,-1),"Helvetica-Bold"),("FONTNAME",(2,0),(2,-1),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),7.5),("PADDING",(0,0),(-1,-1),4)]))
     office_address=contractor_data.get("office_address") or (profile.office_address if profile else "")
     bill=Table([[Paragraph(f"<b>FROM</b><br/>{escape(company)}<br/>{escape(office_address)}",small),Paragraph(f"<b>BILL TO</b><br/>{escape(invoice.customer_name)}<br/>{escape(invoice.customer_mobile)}<br/>{escape(invoice.billing_address)}<br/><b>Project:</b> {escape(invoice.property_name)}",small)]],colWidths=[90*mm,90*mm],style=TableStyle([("BOX",(0,0),(-1,-1),.6,colors.grey),("INNERGRID",(0,0),(-1,-1),.5,colors.grey),("VALIGN",(0,0),(-1,-1),"TOP"),("PADDING",(0,0),(-1,-1),6)]))
     rows=[["Sl.","Service","Room / Area","Product","Description","Brand","MOU","Qty","Rate","Amount"]]
     for i,row in enumerate(invoice.items,1):rows.append([str(i),Paragraph(escape(str(row.get("service") or "-")),small),Paragraph(escape(str(row.get("room") or "-")),small),Paragraph(escape(str(row.get("product_type") or "-")),small),Paragraph(escape(str(row.get("description") or "-")),small),Paragraph(escape(str(row.get("brand") or "-")),small),str(row.get("unit") or "-"),str(row.get("quantity") or 0),f"Rs. {Decimal(str(row.get('rate') or 0)):,.0f}",f"Rs. {Decimal(str(row.get('amount') or 0)):,.0f}"])
     table=Table(rows,repeatRows=1,colWidths=[6*mm,21*mm,18*mm,20*mm,37*mm,16*mm,12*mm,12*mm,17*mm,21*mm],style=TableStyle([("GRID",(0,0),(-1,-1),.5,colors.grey),("BACKGROUND",(0,0),(-1,0),LIGHT_BLUE),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("ALIGN",(7,1),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("FONTSIZE",(0,0),(-1,-1),6),("PADDING",(0,0),(-1,-1),3)]))
-    totals=[["Subtotal",f"Rs. {invoice.subtotal:,.0f}"],["Discount",f"Rs. {invoice.discount:,.0f}"],[f"GST {invoice.gst_percentage}%",f"Rs. {invoice.gst_amount:,.0f}"],["Grand total",f"Rs. {invoice.grand_total:,.0f}"],["Amount paid",f"Rs. {invoice.amount_paid:,.0f}"],["Balance due",f"Rs. {invoice.balance_due:,.0f}"]]
+    totals=[["Subtotal",f"Rs. {invoice.subtotal:,.0f}"],["Discount",f"Rs. {invoice.discount:,.0f}"],[f"GST {invoice.gst_percentage}%",f"Rs. {invoice.gst_amount:,.0f}"],["Grand total",f"Rs. {invoice.grand_total:,.0f}"]]
+    if include_payment_details:
+        totals += [["Amount paid",f"Rs. {invoice.amount_paid:,.0f}"],["Balance due",f"Rs. {invoice.balance_due:,.0f}"]]
     total_table=Table(totals,colWidths=[40*mm,35*mm],hAlign="RIGHT",style=TableStyle([("GRID",(0,0),(-1,-1),.6,colors.grey),("BACKGROUND",(0,0),(0,-1),LIGHT_GREY),("FONTNAME",(0,-1),(-1,-1),"Helvetica-Bold"),("ALIGN",(0,0),(-1,-1),"RIGHT"),("PADDING",(0,0),(-1,-1),5)]))
     story=[banner,Spacer(1,3*mm),Paragraph(f"<b>{escape(company)}</b>",styles["Heading2"]),meta_table,Spacer(1,3*mm),bill,Spacer(1,4*mm),table,Spacer(1,3*mm),total_table]
     if invoice.notes:story += [Spacer(1,3*mm),Paragraph(f"<b>Notes:</b> {escape(invoice.notes)}",small)]
@@ -419,6 +421,49 @@ from .professional_pdf import (
     build_quotation_pdf as _professional_quotation_pdf,
 )
 
-build_quotation_pdf = _professional_quotation_pdf
-build_invoice_pdf = _professional_invoice_pdf
-build_measurement_pdf = _professional_measurement_pdf
+_legacy_invoice_pdf = build_invoice_pdf
+_english_invoice_receipt_pdf = build_invoice_receipt_pdf
+_english_advance_receipt_pdf = build_advance_receipt_pdf
+_english_project_receipt_pdf = build_project_receipt_pdf
+
+
+def build_quotation_pdf(quotation, included_sections=None, language="en"):
+    if language == "en":
+        return _professional_quotation_pdf(quotation, included_sections=included_sections)
+    from .indic_pdf import quotation_pdf
+    return quotation_pdf(quotation, language, included_sections)
+
+
+def build_invoice_pdf(invoice, include_payment_details=True, language="en"):
+    if language == "en":
+        return _professional_invoice_pdf(invoice) if include_payment_details else _legacy_invoice_pdf(invoice, include_payment_details=False)
+    from .indic_pdf import invoice_pdf
+    return invoice_pdf(invoice, language, include_payment_details)
+
+
+def build_measurement_pdf(property_obj, measurement_record=None, language="en"):
+    if language == "en":
+        return _professional_measurement_pdf(property_obj, measurement_record)
+    from .indic_pdf import measurement_pdf
+    return measurement_pdf(property_obj, measurement_record, language)
+
+
+def build_invoice_receipt_pdf(invoice, language="en"):
+    if language == "en":
+        return _english_invoice_receipt_pdf(invoice)
+    from .indic_pdf import receipt_pdf
+    return receipt_pdf(invoice, language, "invoice")
+
+
+def build_advance_receipt_pdf(schedule, language="en"):
+    if language == "en":
+        return _english_advance_receipt_pdf(schedule)
+    from .indic_pdf import receipt_pdf
+    return receipt_pdf(schedule, language, "advance")
+
+
+def build_project_receipt_pdf(receipt, language="en"):
+    if language == "en":
+        return _english_project_receipt_pdf(receipt)
+    from .indic_pdf import receipt_pdf
+    return receipt_pdf(receipt, language, "project")

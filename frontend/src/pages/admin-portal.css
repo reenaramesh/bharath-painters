@@ -1,0 +1,86 @@
+.admin-shell main {
+  --admin-accent: var(--app-primary, #176b9b);
+  --admin-line: var(--bp-line, #dce3eb);
+  --admin-soft: color-mix(in srgb, var(--admin-accent) 6%, white);
+  min-width: 0;
+  color: var(--bp-ink, #172033);
+}
+
+.admin-shell main :is(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--admin-accent) 72%, white);
+  outline-offset: 2px;
+}
+
+.admin-shell main :is(button, a) { min-height: 44px; }
+.admin-shell main :is(input, select, textarea) { min-height: 44px; border-color: var(--admin-line); border-radius: 12px; }
+.admin-shell main h1 { letter-spacing: -0.035em; }
+
+.admin-shell main > :is(.space-y-6, .space-y-5) > header:not(.bp-page-header) {
+  border: 1px solid var(--admin-line);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--admin-soft), #fff 74%);
+  padding: 20px;
+  box-shadow: var(--bp-shadow);
+}
+
+.admin-shell main :is(section, article, details)[class*="rounded-2xl"][class*="border"],
+.admin-shell main :is(section, article, details)[class*="rounded-xl"][class*="border"] {
+  border-color: var(--admin-line);
+  box-shadow: var(--bp-shadow);
+}
+
+.admin-shell main table { font-variant-numeric: tabular-nums; }
+.admin-shell main table th { white-space: nowrap; }
+.admin-shell main table td { vertical-align: middle; overflow-wrap: anywhere; }
+.admin-shell main :is(table td:last-child, table th:last-child) { text-align: right; }
+
+.admin-shell main [role="dialog"] {
+  max-width: min(100%, 720px);
+}
+
+.admin-shell main :is([role="dialog"], .fixed > div, .fixed > form) :is(button, input, select, textarea) {
+  min-height: 44px;
+}
+
+.admin-shell main .admin-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+}
+
+.admin-shell main .admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-shell main .admin-summary-card {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border: 1px solid var(--admin-line);
+  border-radius: 15px;
+  background: #fff;
+  padding: 15px 16px;
+  box-shadow: var(--bp-shadow);
+}
+
+.admin-shell main .admin-summary-card span { color: var(--bp-muted); font-size: .75rem; font-weight: 750; }
+.admin-shell main .admin-summary-card strong { overflow-wrap: anywhere; color: var(--bp-ink); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.admin-shell main .admin-summary-card small { color: var(--bp-color-text); font-size: .8125rem; }
+
+@media (max-width: 767px) {
+  .admin-shell main > :is(.space-y-6, .space-y-5) > header:not(.bp-page-header) { padding: 16px; }
+  .admin-shell main .admin-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .admin-shell main .admin-summary-card { padding: 11px 10px; }
+  .admin-shell main .admin-summary-card span { font-size: .6875rem; line-height: 1.25; }
+  .admin-shell main .admin-summary-card strong { font-size: 1.1rem; }
+  .admin-shell main .admin-summary-card small { display: none; }
+  .admin-shell main table td,
+  .admin-shell main table th { white-space: normal; }
+}

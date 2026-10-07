@@ -6,7 +6,7 @@ from django.utils import timezone
 from .models import (
     Lead, LeadStageHistory, Quotation, ServiceRequest,
     PropertyMeasurement, PropertyRoom, MeasurementSurface, MeasurementOpening,
-    PortalNotification,
+    PortalNotification, Property, PropertyContact,
 )
 
 
@@ -16,6 +16,21 @@ def deliver_browser_push(sender, instance, created, raw=False, **kwargs):
         return
     from .web_push import send_portal_push
     transaction.on_commit(lambda: send_portal_push(instance.pk))
+
+
+@receiver(post_save, sender=Property)
+def create_primary_property_contact(sender, instance, created, raw=False, **kwargs):
+    if not created or raw:
+        return
+    PropertyContact.objects.get_or_create(
+        property_id=instance.pk,
+        customer_id=instance.customer_id,
+        defaults={
+            "role": PropertyContact.Role.PRIMARY,
+            "is_primary": True,
+            "access_level": PropertyContact.AccessLevel.FULL_ACCESS,
+        },
+    )
 
 
 QUOTATION_TO_LEAD = {

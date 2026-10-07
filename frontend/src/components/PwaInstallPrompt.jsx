@@ -54,7 +54,7 @@ export default function PwaInstallPrompt() {
       <div className="flex items-start gap-3 pr-7">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white">{isIos && !installEvent ? <Share2 size={22} /> : <Download size={22} />}</span>
         <div>
-          <p className="font-bold text-slate-950">Install Bharath Painters</p>
+          <p className="font-bold text-slate-950">Install Bharath Apps</p>
           <p className="mt-1 text-sm leading-5 text-slate-600">{isIos && !installEvent ? "Tap Share, then Add to Home Screen. The installed app opens without the browser address bar." : "Add the app to this device for a full-screen experience without the browser address bar."}</p>
         </div>
       </div>

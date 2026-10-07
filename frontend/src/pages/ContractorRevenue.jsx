@@ -14,6 +14,8 @@ import {
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { previewPdf } from "../components/PdfPreview";
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
+import "./finance-pages.css";
 
 const months = [
   "All months",
@@ -49,6 +51,7 @@ export default function ContractorRevenue() {
   const [showReceiptForm, setShowReceiptForm] = useState(false);
   const [savingReceipt, setSavingReceipt] = useState(false);
   const [createdReceipt, setCreatedReceipt] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [receiptForm, setReceiptForm] = useState({
     document_type: "QUOTATION",
     quotation: "",
@@ -61,6 +64,7 @@ export default function ContractorRevenue() {
   });
   const [error, setError] = useState("");
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const { data: response } = await api.get("/billing/contractor-revenue/", {
         params: { year, month: month || undefined },
@@ -69,6 +73,8 @@ export default function ContractorRevenue() {
       setError("");
     } catch {
       setError("Payment and revenue details could not be loaded.");
+    } finally {
+      setLoading(false);
     }
   }, [year, month]);
   useEffect(() => {
@@ -165,38 +171,18 @@ export default function ContractorRevenue() {
   }
   if (user?.role !== "CONTRACTOR") return <Navigate to="/dashboard" replace />;
   return (
-    <div className="min-w-0 space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">
-            Project finance
-          </p>
-          <h1 className="mt-1 text-3xl font-bold">Revenue & receipts</h1>
-          <p className="mt-2 text-slate-500">
-            Track customer payments, advance credits, final invoices and
-            outstanding balances.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setShowReceiptForm(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
-          >
+    <div className="min-w-0 space-y-6 finance-page contractor-revenue-page">
+      <PageHeader eyebrow="Project finance" title="Revenue & receipts" description="Track customer payments, advance credits, final invoices and outstanding balances." actions={<div className="flex flex-wrap gap-2">
+          <Button onClick={() => setShowReceiptForm(true)}>
             <Plus className="h-4 w-4" />
             Record payment
-          </button>
-          <button
-            onClick={load}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold"
-          >
+          </Button>
+          <Button variant="secondary" onClick={load} loading={loading}>
             <RefreshCw className="h-4 w-4" />
             Refresh
-          </button>
-        </div>
-      </header>
-      {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      )}
+          </Button>
+      </div>} />
+      {error && <ErrorState message={error} onRetry={load} className="finance-inline-error" />}
       {createdReceipt && (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
           <div>
@@ -375,39 +361,44 @@ export default function ContractorRevenue() {
           </div>
         </form>
       )}
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <Metric
+      {data === null && loading ? <LoadingState label="Loading revenue and payment history..." className="finance-loading" /> : data && <>
+      <section className="finance-summary-grid grid grid-cols-2 gap-3 xl:grid-cols-5" aria-label="Revenue summary">
+        <StatCard
           icon={IndianRupee}
           label="Total collected"
           value={money(data?.total_collected)}
-          dark
+          tone="success"
+          className="finance-summary-primary"
         />
-        <Metric
+        <StatCard
           icon={ReceiptText}
           label="Advance received"
           value={money(data?.advance_received)}
-          sub="Confirmed receipts"
+          hint="Confirmed receipts"
+          tone="info"
         />
-        <Metric
+        <StatCard
           icon={WalletCards}
           label="Customer credits"
           value={money(data?.credits)}
-          sub="Awaiting final invoice"
+          hint="Awaiting final invoice"
+          tone="brand"
         />
-        <Metric
+        <StatCard
           icon={FileText}
           label="Invoices raised"
           value={money(data?.invoices_raised)}
-          sub={`${data?.invoices_count || 0} final invoice(s)`}
+          hint={`${data?.invoices_count || 0} final invoice(s)`}
+          tone="neutral"
         />
-        <Metric
+        <StatCard
           icon={IndianRupee}
           label="Outstanding"
           value={money(data?.outstanding)}
-          amber
+          tone="warning"
         />
       </section>
-      <section className="rounded-2xl border bg-white p-4">
+      <SectionCard title="Reporting period" description={`Showing ${month ? `${months[month]} ` : "all months "}${year}. Totals follow this selected period.`} className="finance-filter-card" bodyClassName="p-4">
         <div className="flex flex-col gap-3 lg:flex-row">
           <select
             value={year}
@@ -439,17 +430,11 @@ export default function ContractorRevenue() {
             />
           </label>
         </div>
-      </section>
-      <section className="overflow-hidden rounded-2xl border bg-white">
-        <header className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-bold">Payment register</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Advance receipts remain available before the final invoice is
-              created.
-            </p>
-          </div>
-          <div className="flex rounded-xl bg-slate-100 p-1">
+      </SectionCard>
+      <SectionCard title="Payment register" description="Advance receipts remain available before the final invoice is created." className="finance-register-card" bodyClassName="p-0">
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-slate-600">{tab === "RECEIPTS" ? `${receipts.length} matching receipts` : tab === "INVOICES" ? `${invoices.length} matching invoices` : `${dues.length} matching customer balances`}</p>
+          <div className="finance-tabs flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Payment register views">
             <Tab active={tab === "RECEIPTS"} onClick={() => setTab("RECEIPTS")}>
               Receipts {receipts.length}
             </Tab>
@@ -460,7 +445,7 @@ export default function ContractorRevenue() {
               Customer dues {dues.length}
             </Tab>
           </div>
-        </header>
+        </div>
         {tab === "RECEIPTS" ? (
           <Receipts rows={receipts} busy={busy} download={downloadReceipt} />
         ) : tab === "INVOICES" ? (
@@ -468,14 +453,22 @@ export default function ContractorRevenue() {
         ) : (
           <CustomerDues rows={dues} />
         )}
-      </section>
+      </SectionCard>
+      </>}
     </div>
   );
 }
 
 function Receipts({ rows, busy, download }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="finance-table-scroll overflow-x-auto">
+      <div className="finance-mobile-records">
+        {rows.map((row) => <article key={row.id} className="finance-mobile-record">
+          <div className="finance-mobile-record-head"><div><strong>{row.receipt_number || "Pending number"}</strong><span>{row.customer}</span><small>{row.project}</small></div><b className="finance-amount finance-positive">{money(row.amount)}</b></div>
+          <div className="finance-mobile-record-meta"><span>{formatDate(row.date)}</span><span>{label(row.mode)}</span><span>{row.reference || "No reference"}</span></div>
+          <div className="finance-mobile-record-actions"><span>{row.document}</span><Button variant="secondary" onClick={() => download(row)} disabled={busy === row.id} loading={busy === row.id}><Download className="h-4 w-4" />Preview receipt</Button></div>
+        </article>)}
+      </div>
       <table className="w-full min-w-[940px] text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
@@ -492,7 +485,7 @@ function Receipts({ rows, busy, download }) {
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="p-4">
-                {new Date(row.date).toLocaleDateString("en-IN")}
+                {formatDate(row.date)}
               </td>
               <td className="p-4">
                 <b>{row.receipt_number || "Pending number"}</b>
@@ -506,19 +499,19 @@ function Receipts({ rows, busy, download }) {
               </td>
               <td className="p-4">{row.document}</td>
               <td className="p-4">
-                {label(row.mode)}
+                <StatusBadge status={row.mode} label={label(row.mode)} tone="neutral" />
                 <small className="block text-slate-500">
                   {row.reference || "—"}
                 </small>
               </td>
-              <td className="p-4 text-right text-base font-bold text-emerald-700">
+              <td className="finance-amount p-4 text-right text-base font-bold text-emerald-700">
                 {money(row.amount)}
               </td>
               <td className="p-4 text-right">
                 <button
                   disabled={busy === row.id}
                   onClick={() => download(row)}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"
                 >
                   <Download className="h-4 w-4" />
                   PDF
@@ -528,17 +521,19 @@ function Receipts({ rows, busy, download }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && (
-        <p className="p-10 text-center text-sm text-slate-400">
-          No payment receipts found.
-        </p>
-      )}
+      {!rows.length && <EmptyState title="No payment receipts found" description="Receipts matching this period and search will appear here." />}
     </div>
   );
 }
 function Invoices({ rows }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="finance-table-scroll overflow-x-auto">
+      <div className="finance-mobile-records">
+        {rows.map((row) => <article key={row.id} className="finance-mobile-record">
+          <div className="finance-mobile-record-head"><div><strong>{row.invoice_number}</strong><span>{row.customer}</span><small>{row.project}</small></div><div className="finance-mobile-amount-status"><StatusBadge status={row.status} label={label(row.status)} tone={invoiceTone(row.status)} /><b className="finance-amount">{money(row.total)}</b></div></div>
+          <div className="finance-mobile-record-meta"><span>{formatDate(row.date)}</span><span>Paid {money(row.paid)}</span><span>Balance {money(row.balance)}</span></div>
+        </article>)}
+      </div>
       <table className="w-full min-w-[850px] text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
@@ -554,35 +549,38 @@ function Invoices({ rows }) {
         <tbody className="divide-y">
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className="p-4">{row.date}</td>
+              <td className="p-4">{formatDate(row.date)}</td>
               <td className="p-4 font-semibold">{row.invoice_number}</td>
               <td className="p-4">
                 <b>{row.customer}</b>
                 <small className="block text-slate-500">{row.project}</small>
               </td>
-              <td className="p-4">{label(row.status)}</td>
-              <td className="p-4 text-right font-bold">{money(row.total)}</td>
-              <td className="p-4 text-right text-emerald-700">
+              <td className="p-4"><StatusBadge status={row.status} label={label(row.status)} tone={invoiceTone(row.status)} /></td>
+              <td className="finance-amount p-4 text-right font-bold">{money(row.total)}</td>
+              <td className="finance-amount p-4 text-right text-emerald-700">
                 {money(row.paid)}
               </td>
-              <td className="p-4 text-right text-amber-700">
+              <td className="finance-amount p-4 text-right text-amber-700">
                 {money(row.balance)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {!rows.length && (
-        <p className="p-10 text-center text-sm text-slate-400">
-          No final invoices found.
-        </p>
-      )}
+      {!rows.length && <EmptyState title="No final invoices found" description="Invoices raised in this period will appear here." />}
     </div>
   );
 }
 function CustomerDues({ rows }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="finance-table-scroll overflow-x-auto">
+      <div className="finance-mobile-records">
+        {rows.map((row) => <article key={row.customer_id} className="finance-mobile-record">
+          <div className="finance-mobile-record-head"><div><strong>{row.customer}</strong><span>{[row.bharath_id, row.mobile].filter(Boolean).join(" · ")}</span><small>{row.projects.join(", ") || "No project listed"}</small></div><b className="finance-amount finance-warning">{money(row.due)} due</b></div>
+          <div className="finance-mobile-record-meta"><span>{row.invoice_count} due invoice(s)</span><span>Billed {money(row.billed)}</span><span>Received {money(row.received)}</span></div>
+          {row.invoices.length > 0 && <p className="finance-mobile-reference">Invoices: {row.invoices.join(", ")}</p>}
+        </article>)}
+      </div>
       <table className="w-full min-w-[980px] text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
@@ -610,48 +608,48 @@ function CustomerDues({ rows }) {
                   {row.invoices.join(", ")}
                 </small>
               </td>
-              <td className="p-4 text-right font-semibold">
+              <td className="finance-amount p-4 text-right font-semibold">
                 {money(row.billed)}
               </td>
-              <td className="p-4 text-right text-emerald-700">
+              <td className="finance-amount p-4 text-right text-emerald-700">
                 {money(row.received)}
               </td>
-              <td className="p-4 text-right text-base font-bold text-amber-700">
+              <td className="finance-amount p-4 text-right text-base font-bold text-amber-700">
                 {money(row.due)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {!rows.length && (
-        <p className="p-10 text-center text-sm text-slate-400">
-          No customer balances are due.
-        </p>
-      )}
-    </div>
-  );
-}
-function Metric({ icon: Icon, label: name, value, sub, dark, amber }) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${dark ? "bg-slate-950 text-white" : amber ? "border-amber-200 bg-amber-50" : "bg-white"}`}
-    >
-      <Icon className="h-5 w-5" />
-      <p className="mt-3 text-xs opacity-70">{name}</p>
-      <p className="mt-1 break-words text-xl font-bold">{value}</p>
-      {sub && <p className="mt-1 text-[11px] opacity-70">{sub}</p>}
+      {!rows.length && <EmptyState title="No customer balances are due" description="Outstanding balances will appear here when invoices have an amount due." />}
     </div>
   );
 }
 function Tab({ active, onClick, children }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded-lg px-3 py-2 text-xs font-bold ${active ? "bg-slate-950 text-white" : "text-slate-600"}`}
     >
       {children}
     </button>
   );
+}
+
+function formatDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function invoiceTone(value) {
+  if (["PAID", "COMPLETED"].includes(value)) return "success";
+  if (["OVERDUE", "CANCELLED"].includes(value)) return "danger";
+  if (["PART_PAID", "ISSUED", "PENDING"].includes(value)) return "warning";
+  if (["REFUNDED"].includes(value)) return "info";
+  return "neutral";
 }
 function filterRows(rows = [], query, fields) {
   const value = query.trim().toLowerCase();

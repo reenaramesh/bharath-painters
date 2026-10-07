@@ -21,6 +21,8 @@ import { CUSTOMER_STATUSES } from "../constants/customers";
 import MobilePageBack from "../components/MobilePageBack";
 import useAuth from "../context/useAuth";
 import { buildCustomerWelcomeMessage, whatsappNumber } from "../utils/welcomeMessages";
+import { Button, EmptyState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import "./crm-pages.css";
 
 const statusColors = {
   NEW: "bg-blue-50 text-blue-700",
@@ -68,23 +70,38 @@ export default function Customers() {
     setLoading(true);
     setError("");
     try {
-      const [customerResponse, propertyResponse, connectionResponse, serviceResponse] = await Promise.all([
-        api.get("/quotations/customers/", { params: { include_saved: 1 } }),
-        api.get("/quotations/properties/"),
-        api.get("/quotations/contractor/customer-connections/"),
-        api.get("/quotations/service-categories/").catch(() => ({ data: [] })),
-      ]);
+      // Customer records are the primary content. A temporary failure in a
+      // secondary panel (properties/connections) must not hide the directory.
+      const customerResponse = await api.get("/quotations/customers/", { params: { include_saved: 1 } });
       const customerData = customerResponse.data;
-      const propertyData = propertyResponse.data;
       const customerRows = Array.isArray(customerData) ? customerData : customerData.results || [];
       setCustomers(customerRows.filter(item => !item.is_saved_contact));
       setSavedContacts(customerRows.filter(item => item.is_saved_contact));
-      setProperties(
-        Array.isArray(propertyData) ? propertyData : propertyData.results || [],
-      );
-      setConnections(connectionResponse.data.results || []);
-      setContractorServices(serviceResponse.data.results || serviceResponse.data || []);
-    } catch {
+      const [propertyResult, connectionResult, serviceResult] = await Promise.allSettled([
+        api.get("/quotations/properties/"),
+        api.get("/quotations/contractor/customer-connections/"),
+        api.get("/quotations/service-categories/"),
+      ]);
+      if (propertyResult.status === "fulfilled") {
+        const propertyData = propertyResult.value.data;
+        setProperties(Array.isArray(propertyData) ? propertyData : propertyData.results || []);
+      } else {
+        setProperties([]);
+        console.warn("Customer directory loaded without property details.", propertyResult.reason?.response?.status || propertyResult.reason?.message);
+      }
+      if (connectionResult.status === "fulfilled") {
+        setConnections(connectionResult.value.data.results || connectionResult.value.data || []);
+      } else {
+        setConnections([]);
+        console.warn("Customer directory loaded without connection details.", connectionResult.reason?.response?.status || connectionResult.reason?.message);
+      }
+      if (serviceResult.status === "fulfilled") {
+        setContractorServices(serviceResult.value.data.results || serviceResult.value.data || []);
+      } else {
+        setContractorServices([]);
+      }
+    } catch (requestError) {
+      console.error("Customer records request failed.", requestError.response?.status || requestError.message);
       setError("Customers could not be loaded. Please try again.");
     } finally {
       setLoading(false);
@@ -136,7 +153,7 @@ export default function Customers() {
       .map((item) => ({
         id: item.customer?.id || `pending-${item.id}`,
         connection_id: item.id,
-        name: item.customer?.name || item.customer?.masked_customer_id || "Bharath Painters customer",
+        name: item.customer?.name || item.customer?.masked_customer_id || "Bharath Apps customer",
         mobile: item.customer?.mobile || item.customer?.masked_mobile || "",
         bharath_id: item.customer?.masked_customer_id || "",
         status: "PENDING",
@@ -333,12 +350,9 @@ export default function Customers() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 crm-page crm-customers-page">
       <MobilePageBack />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
-        </div>
+      <PageHeader eyebrow="Customer relationships" title="Customers" description="Find customer records, contact details and property activity." actions={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -362,17 +376,16 @@ export default function Customers() {
           >
             <Upload className="h-5 w-5" />
           </button>
-          <button
+          <Button variant="primary"
             type="button"
             onClick={() => setShowConnectionFlow(true)}
             aria-label="Add customer"
-            title="Add customer"
-            className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800"
+            className="crm-add-customer"
           >
-            <Plus className="h-5 w-5" />
-          </button>
+            <Plus className="h-4 w-4" aria-hidden="true" />Add customer
+          </Button>
         </div>
-      </div>
+      } />
 
       {error && (
         <div
@@ -473,9 +486,7 @@ export default function Customers() {
                             <h2 className="truncate text-base font-bold text-slate-950">
                               {customer.name}
                             </h2>
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>
-                              {label(customer.status)}
-                            </span>
+                            <StatusBadge status={customer.status} label={label(customer.status)} tone={customerStatusTone(customer.status)} className="crm-compact-badge" />
                           </div>
                           <p className="mt-1 text-xs font-medium text-slate-500">
                             {customer.bharath_id || "No customer ID"} · {customer.mobile}
@@ -605,11 +616,7 @@ export default function Customers() {
                               <p className="truncate font-semibold text-slate-900">
                                 {customer.name}
                               </p>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}
-                              >
-                                {label(customer.status)}
-                              </span>
+                              <StatusBadge status={customer.status} label={label(customer.status)} tone={customerStatusTone(customer.status)} className="crm-compact-badge" />
                             </div>
                             <p className="mt-1 truncate text-xs text-slate-500">
                               {customer.bharath_id || "No customer ID"} ·{" "}
@@ -864,6 +871,13 @@ function formatWhatsAppNumber(value) {
   if (!digits) return "";
   return digits.length === 10 ? `91${digits}` : digits;
 }
+function customerStatusTone(value) {
+  if (["WON"].includes(value)) return "success";
+  if (["LOST"].includes(value)) return "danger";
+  if (["PENDING", "FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
+  if (["NEW", "CONTACTED", "SITE_VISIT", "QUOTATION_SENT"].includes(value)) return "info";
+  return "neutral";
+}
 function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
   const active = sort.key === sortKey;
   const centered = sortKey === "propertyCount";
@@ -892,8 +906,8 @@ function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
 }
 
 function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, activateCustomer, activatingCustomerId }) {
-  if (loading) return <div className="p-12 text-center text-slate-500">Loading customers...</div>;
-  if (!customers.length) return <div className="p-14 text-center"><Users className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 font-semibold text-slate-900">No customers found</h2><p className="mt-1 text-sm text-slate-500">Add your first customer or change the current filters.</p></div>;
+  if (loading) return <div className="crm-directory-state"><LoadingState label="Loading customers..." /></div>;
+  if (!customers.length) return <EmptyState title="No customers found" description="Add your first customer or change the current filters." className="crm-directory-state" />;
 
   const sorted = [...customers].sort((first, second) =>
     String(first.name || "").localeCompare(String(second.name || ""), undefined, { sensitivity: "base" }),

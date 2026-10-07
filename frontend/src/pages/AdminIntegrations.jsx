@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, KeyRound, MapPin } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import "./admin-portal.css";
 
 const endpoint = "/quotations/admin-integrations/google-maps/";
 

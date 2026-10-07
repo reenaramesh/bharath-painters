@@ -1,0 +1,35 @@
+.connection-dialog input:not([type="radio"]):not([type="range"]),
+.connection-dialog select,
+.connection-dialog textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.connection-dialog :is(input, select, textarea):focus-visible {
+  outline: 2px solid #176b9b;
+  outline-offset: 2px;
+}
+
+.connection-dialog textarea {
+  resize: vertical;
+}
+
+.connection-dialog input.contractor-distance-slider {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  accent-color: #176b9b;
+  cursor: pointer;
+}

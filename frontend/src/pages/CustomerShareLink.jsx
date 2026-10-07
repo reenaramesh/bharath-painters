@@ -31,8 +31,8 @@ export default function CustomerShareLink() {
 
   async function submit(action) {
     if (busy) return;
-    if (action === "activate" && (!emailChallenge?.challenge_id || otp.length !== 6)) {
-      setError("Verify your email with the 6-digit code before activating your account.");
+    if (action === "activate" && (!emailChallenge?.challenge_id || (otp.length < 6 || otp.length > 10))) {
+      setError("Verify your email with the verification code before activating your account.");
       return;
     }
     if (action === "activate" && password !== confirmPassword) {
@@ -74,7 +74,7 @@ export default function CustomerShareLink() {
 
   return <main className="min-h-screen bg-slate-50 p-4 sm:p-8">
     <section className="mx-auto max-w-xl rounded-3xl border bg-white p-6 shadow-sm sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Bharath Painters</p>
+      <p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Bharath Apps</p>
       <h1 className="mt-2 text-2xl font-extrabold text-slate-950">{details?.purpose === "ACTIVATION" ? "Activate your customer account" : "Contractor connection request"}</h1>
       {details && <p className="mt-3 text-sm leading-6 text-slate-600">Hello {details.customer_name}, {details.contractor_name} {details.purpose === "ACTIVATION" ? "invited you to activate your customer account." : "would like to connect with you."}</p>}
       {details && <p className="mt-2 text-xs text-slate-500">Link expires {new Date(details.expires_at).toLocaleString("en-IN")}.</p>}
@@ -83,11 +83,11 @@ export default function CustomerShareLink() {
       {!success && details?.purpose === "ACTIVATION" && <form onSubmit={(event) => { event.preventDefault(); submit("activate"); }} className="mt-6 space-y-4">
         <label className="block text-sm font-semibold">Your email address<input required type="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailChallenge(null); setOtp(""); }} className="mt-2 w-full rounded-xl border px-4 py-3" /></label>
         <button type="button" disabled={busy || !email.trim()} onClick={requestEmailOtp} className="rounded-xl border border-[#176b9b] px-4 py-2 text-sm font-bold text-[#176b9b] disabled:opacity-50">{emailChallenge ? "Resend email code" : "Send verification code"}</button>
-        {emailChallenge && <div className="space-y-2 rounded-xl bg-sky-50 p-4"><p className="text-sm text-slate-700">Enter the 6-digit code sent to <strong>{emailChallenge.masked_email}</strong>. It expires in 10 minutes.</p>{emailChallenge.test_otp && <p className="text-xs text-amber-800">Development code: <strong>{emailChallenge.test_otp}</strong></p>}<label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className="mt-2 w-full rounded-xl border px-4 py-3" /></label></div>}
+        {emailChallenge && <div className="space-y-2 rounded-xl bg-sky-50 p-4"><p className="text-sm text-slate-700">Enter the verification code sent to <strong>{emailChallenge.masked_email}</strong>. Use it before the expiry shown in your email.</p>{emailChallenge.test_otp && <p className="text-xs text-amber-800">Development code: <strong>{emailChallenge.test_otp}</strong></p>}<label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className="mt-2 w-full rounded-xl border px-4 py-3" /></label></div>}
         <label className="block text-sm font-semibold">Create password<input required minLength={8} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border px-4 py-3" /></label>
         <label className="block text-sm font-semibold">Confirm password<input required minLength={8} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="mt-2 w-full rounded-xl border px-4 py-3" /></label>
         <RegistrationConsent role="CUSTOMER" onConsentChange={setConsent} />
-        <button disabled={busy || !consent.accepted || !emailChallenge || otp.length !== 6} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? "Activating..." : "Activate account"}</button>
+        <button disabled={busy || !consent.accepted || !emailChallenge || (otp.length < 6 || otp.length > 10)} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? "Activating..." : "Activate account"}</button>
       </form>}
       {!success && details?.purpose === "CONNECTION" && <div className="mt-6">
         {!details.account_ready ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Create your customer password first, then sign in to respond. <Link to="/customer-register" state={{ returnTo: location.pathname }} className="font-bold underline">Create password</Link></p> : user?.role !== "CUSTOMER" ? <p className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">Sign in as the customer named above to respond. <Link to="/login" state={{ from: { pathname: location.pathname } }} className="font-bold underline">Sign in</Link></p> : <div className="grid gap-3 sm:grid-cols-3">

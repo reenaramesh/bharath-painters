@@ -1,5 +1,6 @@
+{% load app_script %}{% selected_script as display_script %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ display_script }}">
 <head>
     <meta charset="UTF-8">
     <meta
@@ -7,7 +8,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Bharath Painters - Verification</title>
+    <title>{% system_copy "Bharath Painters - Verification" %}</title>
 
     <style>
         * {
@@ -117,27 +118,28 @@
     </style>
 </head>
 
-<body>
+<body>{% include "accounts/script_selector.html" %}
 
 <div class="container">
 
     <div class="card">
 
         <div class="logo">
-            BHARATH PAINTERS
+            {% system_copy "BHARATH PAINTERS" %}
         </div>
 
         {% if verified %}
 
             <div class="verified">
-                ✓ VERIFIED PROFESSIONAL
+                {% system_copy "✓ VERIFIED PROFESSIONAL" %}
             </div>
 
             {% if profile_photo %}
                 <img
                     src="{{ profile_photo }}"
                     class="profile {% if logo_shape == 'RECTANGLE' %}rectangle{% endif %}"
-                    alt="Profile"
+                    alt="{% system_copy "Profile" %}"
+                    style="object-position:{{ profile_photo_position.x|default:50 }}% {{ profile_photo_position.y|default:50 }}%;transform:scale({{ profile_photo_position.zoom|default:1 }});transform-origin:{{ profile_photo_position.x|default:50 }}% {{ profile_photo_position.y|default:50 }}%"
                 >
             {% endif %}
 
@@ -153,7 +155,7 @@
 
                 <div class="row">
                     <span class="label">
-                        Bharath ID
+                        {% system_copy "Bharath ID" %}
                     </span>
 
                     <span class="value">
@@ -163,17 +165,17 @@
 
                 <div class="row">
                     <span class="label">
-                        Status
+                        {% system_copy "Status" %}
                     </span>
 
                     <span class="value">
-                        Verified
+                        {% system_copy "Verified" %}
                     </span>
                 </div>
 
                 <div class="row">
                     <span class="label">
-                        Verified At
+                        {% system_copy "Verified At" %}
                     </span>
 
                     <span class="value">
@@ -183,11 +185,11 @@
 
                 <div class="row">
                     <span class="label">
-                        Badge
+                        {% system_copy "Badge" %}
                     </span>
 
                     <span class="value">
-                        Active
+                        {% system_copy "Active" %}
                     </span>
                 </div>
 
@@ -201,25 +203,25 @@
             </div>
 
             <a href="#" class="button">
-                ⭐ View Reviews
+                {% system_copy "⭐ View Reviews" %}
             </a>
 
             <a href="#" class="button">
-                🚨 Report / Raise Ticket
+                {% system_copy "🚨 Report / Raise Ticket" %}
             </a>
 
         {% else %}
 
             <div class="warning">
-                ✕ NOT VERIFIED
+                {% system_copy "✕ NOT VERIFIED" %}
             </div>
 
             <p>
-                This Bharath ID could not be verified.
+                {% system_copy "This Bharath ID could not be verified." %}
             </p>
 
             <p>
-                Bharath ID: {{ bharath_id }}
+                {% system_copy "Bharath ID:" %} {{ bharath_id }}
             </p>
 
         {% endif %}

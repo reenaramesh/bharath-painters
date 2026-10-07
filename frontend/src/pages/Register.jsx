@@ -110,7 +110,7 @@ export default function Register() {
         <div className="mt-6 rounded-2xl border bg-white p-6 sm:p-8">
           <h1 className="text-3xl font-bold">Create your account</h1>
           <p className="mt-2 text-slate-500">
-            Choose how you will use Bharath Painters.
+            Choose how you will use Bharath Apps.
           </p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             {[
@@ -124,7 +124,7 @@ export default function Register() {
               >
                 <Icon className="h-5 w-5" />
                 <p className="mt-2 font-semibold">
-                  {value === "CONTRACTOR" ? "Contractor" : "Paint Applicator"}
+                  {value === "CONTRACTOR" ? "Contractor" : "Employee"}
                 </p>
               </button>
             ))}
@@ -135,10 +135,10 @@ export default function Register() {
             </p>
           )}
           {verification ? <form onSubmit={verifyOtp} className="mt-6 space-y-4">
-            <p className="text-sm text-slate-600">Verify your email to enable password recovery. We sent a 6-digit code to <strong>{verification.masked_email || form.email}</strong>.</p>
+            <p className="text-sm text-slate-600">Verify your email to enable password recovery. We sent a verification code to <strong>{verification.masked_email || form.email}</strong>.</p>
             {verification.test_otp && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Development code: <strong>{verification.test_otp}</strong></p>}
-            <label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={input} /></label>
-            <button disabled={saving || otp.length !== 6 || !verification.challenge_id} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50">{saving ? "Verifying..." : "Verify email"}</button>
+            <label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={input} /></label>
+            <button disabled={saving || (otp.length < 6 || otp.length > 10) || !verification.challenge_id} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50">{saving ? "Verifying..." : "Verify email"}</button>
             <button type="button" disabled={saving} onClick={resendOtp} className="text-sm font-semibold text-[#176b9b]">Resend code</button>
           </form> : <>
           <form onSubmit={submit} className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -175,7 +175,7 @@ export default function Register() {
               <label htmlFor="registration-password">Password *</label>
               <span className="relative block"><input required minLength="8" type={showPassword ? "text" : "password"} id="registration-password" name="password" autoComplete="new-password" value={form.password} onChange={update} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span>
             </div>
-            <p className="text-sm text-slate-500 sm:col-span-2">{role === "CONTRACTOR" ? "You can complete your company profile after registration." : "You can add your skills, experience, and preferred work locations to your painter profile after registration."}</p>
+            <p className="text-sm text-slate-500 sm:col-span-2">{role === "CONTRACTOR" ? "You can complete your company profile after registration." : "You can add your professional details, trade, skills, experience, and preferred work locations after registration."}</p>
             <RegistrationConsent role={role} onConsentChange={setConsent} />
             <button
               disabled={saving || !consent.accepted}

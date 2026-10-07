@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import "./admin-portal.css";
 
 const groups = [
   ["accounts", "Accounts"], ["customers", "Customers"],

@@ -1,0 +1,153 @@
+import { visibleNavigation } from "../../config/navigation.js";
+
+// Exercises the real authenticated layout with isolated API fixtures. No real
+// credentials, database changes or business-form submissions are needed.
+export default async function run(page) {
+  const results = [];
+  const check = (condition, message) => { if (!condition) throw new Error(message); results.push(message); };
+  let user = { id: 91001, role: "CONTRACTOR", first_name: "Navigation", last_name: "QA", mobile: "9000000000", is_verified: true, verification_status: "VERIFIED", preferred_language: "en", branding: { workspace_name: "Bharath Plumbing" } };
+  let membership = "in-house", delayMembership = false;
+  let badgeCounts = { messages: 11, support_tickets: 8, work_updates: 3, tasks: 2, service_requests: 1, connection_requests: 5, measurement_access: 4 };
+  const writes = [];
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => {} } });
+  });
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method())) writes.push(request.url());
+    const reply = (data, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    if (path.endsWith("/accounts/me/")) return reply(user);
+    if (path.endsWith("/accounts/contractor-profile/")) return reply({ app_primary_color: "#176B9B", app_accent_color: "#508398" });
+    if (path.endsWith("/accounts/recovery-email/")) return reply({ verified: true, masked_email: "q***@example.test", bharath_id: "QA-ACCOUNT" });
+    if (path.endsWith("/portal-notifications/")) return reply(badgeCounts);
+    if (path.endsWith("/notifications/")) return reply({ results: [], unread_count: 0, pending_connection_count: 0 });
+    if (path.endsWith("/jobs/my-in-house-employment/")) {
+      if (delayMembership) await new Promise((resolve) => setTimeout(resolve, 500));
+      return reply(membership === "in-house" ? { id: 1 } : { detail: "No active in-house membership" }, membership === "in-house" ? 200 : membership === "unavailable" ? 503 : 404);
+    }
+    if (path.endsWith("/jobs/applicator-bookings/")) return reply({ results: [], notification_count: 6 });
+    return reply({ results: [] });
+  });
+  const load = async (role, employment = "in-house") => {
+    user = { ...user, role, id: 91001 + ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN", "SUPPORT"].indexOf(role) };
+    membership = employment;
+    await page.evaluate((record) => { localStorage.setItem("bharath_user", JSON.stringify(record)); localStorage.setItem("bharath_access", "isolated-ui-fixture"); localStorage.removeItem("bharath_refresh"); localStorage.setItem("bp-sidebar-collapsed", "0"); }, user);
+    await page.goto("http://localhost:5173/account-security");
+    await page.waitForSelector(".bp-workspace-nav", { state: "attached" });
+    await page.getByRole("heading", { name: "Account Security", exact: true }).waitFor();
+    if (role === "PAINTER") await page.waitForFunction(() => !document.querySelector(".ws-nav-loading"));
+  };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const role of ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN", "SUPPORT"]) {
+    await load(role);
+    const actual = await page.locator(".bp-workspace-nav a[data-destination]").evaluateAll((elements) => elements.map((element) => element.getAttribute("href")));
+    const expected = visibleNavigation(role, "in-house").map((entry) => entry.route);
+    check(JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort()), `${role}: live destinations match approved role configuration`);
+    check(new Set(actual).size === actual.length, `${role}: no duplicate live destinations`);
+    check(await page.locator(".bp-workspace-nav [aria-current=page]").count() === 1, `${role}: account footer active state`);
+    check(await page.locator(".bp-workspace-nav .ws-nav-account [aria-current=page]").getAttribute("href") === "/account-security", `${role}: Account Security selected`);
+    check(await page.locator(".ws-nav-brand strong").innerText() === "Bharath Apps", `${role}: parent branding`);
+  }
+  await load("PAINTER", "freelance");
+  await page.waitForSelector(".bp-workspace-nav a[href='/jobs']");
+  check(await page.locator(".bp-workspace-nav a[href='/in-house-applicators']").count() === 0, "Independent employee does not get My Employment");
+  await page.setViewportSize({ width: 390, height: 844 });
+  check(await page.locator("nav[aria-label='Mobile quick navigation'] a[href='/jobs']").count() === 1, "Independent employee mobile quick nav agrees with sidebar");
+  await load("PAINTER", "in-house");
+  check(await page.locator("nav[aria-label='Mobile quick navigation'] a[href='/jobs']").count() === 0, "In-house employee mobile quick nav hides independent jobs");
+  check(await page.locator("nav[aria-label='Mobile quick navigation'] a[href='/in-house-applicators']").count() === 1, "In-house employee mobile quick nav shows employment");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await load("PAINTER", "unavailable");
+  check(await page.locator(".bp-workspace-nav a[href='/jobs']").count() === 0, "Membership network error does not grant independent work links");
+  membership = "in-house"; delayMembership = true;
+  await page.reload();
+  await page.getByText("Loading employment…", { exact: true }).waitFor();
+  check(await page.locator(".bp-workspace-nav a[href='/jobs']").count() === 0, "Loading membership does not expose independent jobs");
+  await page.waitForSelector(".bp-workspace-nav a[href='/in-house-applicators']");
+  delayMembership = false;
+  await load("CONTRACTOR");
+  await page.waitForFunction(() => document.querySelector(".bp-workspace-nav a[href='/messages'] .ws-nav-badge")?.textContent === "11");
+  check(await page.locator(".bp-workspace-nav a[href='/messages'] .ws-nav-badge").innerText() === "11", "Message badge uses API fixture count, not preview mock count");
+  badgeCounts = { ...badgeCounts, messages: 17 };
+  await page.evaluate(() => window.dispatchEvent(new Event("portal-counts-changed")));
+  await page.waitForFunction(() => document.querySelector(".bp-workspace-nav a[href='/messages'] .ws-nav-badge")?.textContent === "17");
+  check(true, "Badge updates on existing portal-counts-changed event");
+  check(await page.locator(".bp-workspace-nav").evaluate((el) => el.getBoundingClientRect().width) === 250, "Live expanded width is 250px");
+  const sales = page.getByRole("button", { name: "Customers & Sales", exact: true });
+  await sales.click();
+  check(await sales.getAttribute("aria-expanded") === "false", "Live inactive group collapses");
+  await page.reload(); await page.waitForSelector(".bp-workspace-nav");
+  check(await sales.getAttribute("aria-expanded") === "false", "Live group preference persists");
+  await sales.click();
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  await page.waitForSelector(".bp-workspace-nav.is-rail");
+  check(await page.locator(".bp-workspace-nav").evaluate((el) => el.getBoundingClientRect().width) === 72, "Live rail width is 72px");
+  const overview = page.getByRole("button", { name: "Overview", exact: true });
+  await overview.focus(); await page.keyboard.press("Enter");
+  await page.waitForSelector(".ws-nav-flyout");
+  await page.waitForFunction(() => document.querySelector(".ws-nav-flyout a") === document.activeElement);
+  check(await page.locator(".ws-nav-flyout a").first().evaluate((el) => document.activeElement === el), "First rail group receives keyboard focus");
+  await page.keyboard.press("Escape");
+  check(await overview.evaluate((el) => document.activeElement === el), "Rail Escape returns focus to opener");
+  await page.getByRole("button", { name: "Finance", exact: true }).click();
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/sidebar-live-rail.png" });
+  await page.keyboard.press("Escape");
+  await page.reload(); await page.waitForSelector(".bp-workspace-nav.is-rail");
+  check(true, "Live collapse preference persists");
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/sidebar-live-desktop.png" });
+  await page.emulateMedia({ colorScheme: "dark" });
+  check(await page.locator(".bp-workspace-nav").evaluate((el) => getComputedStyle(el).backgroundColor) === "rgb(23, 34, 53)", "Live sidebar honours dark appearance");
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/sidebar-live-dark.png" });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const draft = page.locator("main input[autocomplete='new-password']").first();
+  await draft.fill("unsaved-fixture-value");
+  const opener = page.getByRole("button", { name: "Open navigation", exact: true });
+  await opener.click();
+  await page.getByRole("dialog", { name: "Workspace navigation", exact: true }).waitFor();
+  check(await page.evaluate(() => document.body.style.overflow === "hidden" && document.querySelector(".bp-workspace-nav").nextElementSibling.inert), "Live mobile drawer locks scroll and makes content inert");
+  const logout = page.locator(".ws-nav-account button[aria-label='Logout']");
+  await logout.focus(); await page.keyboard.press("Tab");
+  check(await page.getByRole("button", { name: "Close navigation", exact: true }).evaluate((el) => el === document.activeElement), "Live mobile forward focus trap");
+  await page.keyboard.press("Shift+Tab");
+  check(await logout.evaluate((el) => el === document.activeElement), "Live mobile backward focus trap");
+  await page.screenshot({ path: "C:/Projects/Bharath Painters Application/output/design-previews/sidebar-live-mobile.png" });
+  await page.keyboard.press("Escape");
+  check(await opener.evaluate((el) => el === document.activeElement), "Live Escape returns focus to hamburger");
+  check(await draft.inputValue() === "unsaved-fixture-value", "Opening and closing navigation preserves unsaved form input");
+  await opener.click();
+  await page.locator(".ws-nav-account button[aria-label='Share App']").click();
+  await page.getByRole("dialog", { name: "Share Bharath Painters App" }).waitFor();
+  await page.waitForFunction(() => document.querySelector("[data-share-app-dialog] button") === document.activeElement);
+  check(await page.getByRole("button", { name: "Close sharing" }).evaluate((el) => el === document.activeElement), "Share dialog receives keyboard focus above drawer");
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Share Bharath Painters App" }).waitFor({ state: "hidden" });
+  check(await page.getByRole("dialog", { name: "Workspace navigation" }).count() === 1, "Share Escape closes nested dialog without closing drawer");
+  await page.keyboard.press("Escape");
+  await opener.click(); await page.locator(".ws-nav-backdrop").click({ position: { x: 350, y: 400 } });
+  check(await page.getByRole("dialog", { name: "Workspace navigation" }).count() === 0, "Live backdrop closes drawer");
+  await opener.click(); await page.locator(".bp-workspace-nav a[href='/account-security']").click();
+  await page.waitForFunction(() => !document.querySelector(".bp-workspace-nav.is-mobile-open"));
+  check(true, "Committed navigation closes drawer");
+  await opener.click(); await page.setViewportSize({ width: 1440, height: 640 });
+  await page.waitForFunction(() => !document.querySelector(".bp-workspace-nav.is-mobile-open"));
+  check(await page.evaluate(() => document.body.style.overflow !== "hidden"), "Crossing desktop breakpoint releases scroll lock");
+  check(await page.locator(".ws-nav-scroll").evaluate((el) => el.scrollHeight > el.clientHeight), "Short desktop sidebar list scrolls");
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 640 });
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Live layout has no horizontal overflow at ${width}px`);
+  }
+  check(writes.length === 0, "Navigation verification made no API writes");
+  check(pageErrors.length === 0, "No uncaught page exceptions in live navigation");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator(".ws-nav-account button[aria-label='Logout']").click();
+  await page.waitForURL("**/login");
+  check(await page.evaluate(() => localStorage.getItem("bharath_user") === null && localStorage.getItem("bharath_access") === null), "Live logout clears session and returns to Login");
+  return { passed: results.length, results, apiMode: "isolated fixtures; production layout/components; expected missing-membership 404 and network-error 503 exercised", writes, pageErrors };
+}

@@ -1,0 +1,471 @@
+.quotation-measurement-page {
+  min-width: 0;
+  color: #172033;
+}
+
+.quotation-measurement-page :is(a, button):focus-visible {
+  outline: 3px solid var(--app-primary, #176b9b);
+  outline-offset: 3px;
+}
+
+.quotation-measurement-page :is(button, select, input:not([type="checkbox"]), textarea) {
+  min-height: 44px;
+}
+
+.quotation-measurement-page button,
+.quotation-measurement-page a {
+  min-height: 44px;
+}
+
+.quotation-measurement-page .bp-page-header {
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+}
+
+.quotation-measurement-page .bp-page-header h1 {
+  color: #172033;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.2;
+}
+
+.quotation-measurement-page .bp-page-description {
+  color: #596579;
+  font-size: 15px;
+}
+
+.quotation-measurement-page .bp-button {
+  min-height: 44px;
+}
+
+.quotation-measurement-page .bp-badge {
+  min-height: 30px;
+  white-space: normal;
+}
+
+.quotation-primary-action.bp-button {
+  border-color: var(--app-primary, #176b9b);
+  background: var(--app-primary, #176b9b);
+  color: var(--app-on-primary, #fff);
+}
+
+.quotation-primary-action.bp-button:hover:not(:disabled) {
+  filter: brightness(.94);
+}
+
+.quotation-validation-message {
+  border: 1px solid #f4b8b4;
+  background: #fff1f0;
+  color: #8c261e;
+}
+
+.bp-quotation-list .quotation-status-summary > button {
+  min-height: 96px;
+}
+
+.bp-quotation-list .quotation-status-summary > button:focus-visible {
+  outline-offset: 2px;
+}
+
+.bp-quotation-list .quotation-results-card > header {
+  padding: 16px 20px;
+}
+
+.bp-quotation-list .quotation-results-card > header h2 {
+  font-size: 18px;
+}
+
+.bp-quotation-list .quotation-results-card > header p {
+  color: #596579;
+  font-size: 14px;
+}
+
+.bp-quotation-list .quotation-results-card > .bp-section-card-body {
+  padding: 0;
+}
+
+.bp-quotation-list .quotation-results-card input,
+.bp-quotation-list .quotation-results-card select {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.bp-quotation-list .quotation-results-card table th {
+  font-size: 12px;
+}
+
+.bp-quotation-list .quotation-results-card table td {
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.bp-quotation-list .quotation-results-card table td .bp-badge {
+  font-size: 12px;
+}
+
+.bp-quotation-list .quotation-results-card .bp-state {
+  min-height: 150px;
+}
+
+.bp-quotation-builder .bp-page-header .bp-page-actions {
+  flex: 0 0 auto;
+}
+
+.bp-quotation-builder .bp-page-header .bp-badge {
+  font-size: 14px;
+}
+
+.bp-quotation-builder .quotation-financial-controls {
+  border-color: #dce7ed;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.bp-quotation-builder .quotation-financial-controls > header {
+  padding: 14px 16px;
+}
+
+.bp-quotation-builder .quotation-financial-controls > header h2 {
+  color: #193750;
+  font-size: 16px;
+}
+
+.bp-quotation-builder .quotation-financial-controls > header p {
+  color: #596579;
+  font-size: 14px;
+}
+
+.bp-quotation-builder .quotation-financial-controls .bp-section-card-body {
+  padding: 16px;
+}
+
+.bp-quotation-builder .quotation-totals-workspace > .grid > div:last-child {
+  min-width: 0;
+}
+
+.bp-quotation-builder .bp-page-header + .grid > div > p {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.bp-quotation-builder .grid.grid-cols-4 > div {
+  min-width: 0;
+}
+
+.bp-quotation-builder .quotation-status-summary p,
+.bp-quotation-builder .quotation-status-summary strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-quotation-builder input,
+.bp-quotation-builder select,
+.bp-quotation-builder textarea {
+  font-size: 14px;
+}
+
+.bp-quotation-builder .bp-button {
+  padding-block: 12px;
+}
+
+.bp-quotation-detail .quotation-toolbar :is(a, button) {
+  min-height: 44px;
+}
+
+.bp-quotation-detail .quotation-number-header {
+  align-items: center;
+}
+
+.bp-quotation-detail .quotation-number-header .bp-page-header {
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.bp-quotation-detail .quotation-number-header .bp-page-header h1 {
+  overflow-wrap: anywhere;
+  font-size: 1.25rem;
+}
+
+.bp-quotation-detail .quotation-number-header .bp-page-description {
+  font-size: 14px;
+}
+
+.bp-quotation-detail .quotation-items > .grid button,
+.bp-quotation-detail .quotation-items [data-mobile-table="keep"] button {
+  min-height: 44px;
+}
+
+.bp-quotation-detail .quotation-items table td {
+  font-size: 14px;
+  vertical-align: top;
+}
+
+.bp-quotation-detail .quotation-totals {
+  padding: 20px;
+}
+
+.bp-quotation-detail .quotation-totals > div:last-child {
+  font-size: 20px;
+}
+
+.bp-quotation-detail .quotation-items .quotation-number-header,
+.bp-quotation-detail .quotation-items .quotation-totals {
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-quotation-edit .bp-page-header {
+  margin-bottom: 0;
+}
+
+.bp-quotation-edit .quotation-edit-rooms > header {
+  padding: 16px 20px;
+}
+
+.bp-quotation-edit .quotation-edit-rooms > header h2 {
+  font-size: 17px;
+}
+
+.bp-quotation-edit .quotation-edit-rooms > header p {
+  font-size: 14px;
+}
+
+.bp-quotation-edit .quotation-edit-rooms .bp-section-card-body {
+  background: #fafbff;
+}
+
+.bp-quotation-edit .quotation-edit-rooms label {
+  min-width: 0;
+}
+
+.bp-quotation-edit .quotation-edit-rooms label p {
+  font-size: 14px;
+}
+
+.bp-quotation-edit form input,
+.bp-quotation-edit form select,
+.bp-quotation-edit form textarea {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.bp-quotation-edit form button,
+.bp-quotation-edit form a {
+  min-height: 44px;
+}
+
+.bp-quotation-edit form .grid.grid-cols-4 > article {
+  min-width: 0;
+}
+
+.bp-quotation-edit form .text-\[9px\],
+.bp-quotation-edit form .text-\[10px\] {
+  font-size: 12px;
+}
+
+.bp-quotation-edit form .text-xs.tabular-nums {
+  font-size: 14px;
+}
+
+.bp-property-detail .bp-page-header {
+  align-items: center;
+}
+
+.bp-property-detail > section:first-of-type > div:first-child {
+  min-width: 0;
+}
+
+.bp-property-detail .bp-measurement-records {
+  min-width: 0;
+  border-color: #e2e7ef;
+}
+
+.bp-property-detail .bp-measurement-records > header {
+  background: #f8fafc;
+}
+
+.bp-property-detail .bp-measurement-records > header h2 {
+  font-size: 17px;
+}
+
+.bp-property-detail .bp-measurement-records > header p {
+  font-size: 14px;
+}
+
+.bp-property-detail .bp-measurement-records > header .bp-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.bp-property-detail .bp-measurement-records table {
+  min-width: 900px;
+}
+
+.bp-property-detail .bp-measurement-records table th {
+  font-size: 12px;
+}
+
+.bp-property-detail .bp-measurement-records table td {
+  font-size: 14px;
+}
+
+.bp-property-detail .bp-measurement-records .bp-badge {
+  font-size: 12px;
+}
+
+.bp-measurement-calculator .bp-badge {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.bp-measurement-calculator :is(button, a)[aria-label],
+.bp-measurement-calculator :is(button, a)[title] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.bp-measurement-calculator .text-\[9px\],
+.bp-measurement-calculator .text-\[10px\],
+.bp-measurement-calculator .text-\[11px\] {
+  font-size: 13px;
+}
+
+.bp-measurement-calculator .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-measurement-calculator .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bp-measurement-calculator input[type="number"],
+.bp-measurement-calculator select {
+  font-size: 14px;
+}
+
+@media (max-width: 767px) {
+  .quotation-measurement-page .bp-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quotation-measurement-page .bp-page-actions {
+    width: 100%;
+  }
+
+  .bp-quotation-list .bp-page-actions > a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .bp-quotation-list .quotation-status-summary > button {
+    min-height: 88px;
+    padding: 12px;
+  }
+
+  .bp-quotation-list .quotation-results-card > header {
+    padding: 14px 16px;
+  }
+
+  .bp-quotation-list .quotation-results-card .px-4 {
+    padding-inline: 12px;
+  }
+
+  .bp-quotation-detail .quotation-number-header .bp-page-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .bp-quotation-detail .quotation-number-header .bp-page-actions {
+    width: auto;
+  }
+
+  .bp-quotation-detail .quotation-items .quotation-totals {
+    max-width: none;
+    padding: 16px;
+  }
+
+  .bp-quotation-edit .quotation-edit-rooms > header {
+    align-items: flex-start;
+    padding: 15px 16px;
+  }
+
+  .bp-property-detail .bp-measurement-records > header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .bp-property-detail .bp-measurement-records > header .bp-page-actions,
+  .bp-property-detail .bp-measurement-records > header .bp-button {
+    width: 100%;
+  }
+
+  .bp-measurement-calculator .text-xs,
+  .bp-measurement-calculator .text-sm {
+    line-height: 1.45;
+  }
+}
+
+/* One aligned surface row, with a compact wrapped layout on narrow cards. */
+.quotation-surface-card { container-type: inline-size; }
+.quotation-surface-row, .quotation-surface-columns {
+  display: grid;
+  grid-template-columns: minmax(160px, .8fr) 90px minmax(0, 4fr);
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: #fff;
+}
+.quotation-surface-row.is-selected { background: #f0f7fb; }
+.quotation-surface-name { display: flex; align-items: center; min-width: 0; gap: 4px; }
+.quotation-surface-check, .quotation-surface-edit {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; flex-shrink: 0;
+}
+.quotation-surface-title { min-height: 44px; min-width: 0; text-align: left; font-size: 14px; font-weight: 700; color: #193750; overflow-wrap: anywhere; }
+.quotation-surface-edit { color: #176b9b; }
+.quotation-surface-area { white-space: nowrap; text-align: right; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #193750; }
+.quotation-surface-area small { font-size: 11px; font-weight: 600; color: #64748b; }
+.quotation-surface-materials { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) 90px; gap: 12px; min-width: 0; }
+.quotation-surface-materials > label { color: #64748b; }
+.quotation-surface-materials select { background: #fff; font-size: 14px; color: #193750; }
+.quotation-surface-materials select:focus { outline: 2px solid #176b9b; outline-offset: 2px; }
+@container (max-width: 620px) {
+  .quotation-surface-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
+  .quotation-surface-materials { grid-column: 1 / -1; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quotation-surface-materials select { padding-inline: 8px; font-size: 16px; }
+}
+
+.quotation-surface-header { background: #245b75; color: #fff; }
+.quotation-surface-columns { padding-block: 10px; background: transparent; color: #fff; border-top: 1px solid #ffffff26; font-size: 12px; font-weight: 700; }
+.quotation-surface-columns > span:first-child { padding-left: 48px; }
+@container (min-width: 621px) {
+  .quotation-surface-materials .quotation-material-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .quotation-surface-materials select { margin-top: 0; }
+}
+@container (max-width: 620px) {
+  .quotation-surface-columns { display: none; }
+}
+
+/* Measured quotation lines carry Step 2 specifications into pricing. */
+.quotation-measured-rates { container-type: inline-size; }
+.quotation-rate-columns, .quotation-rate-row { display: grid; grid-template-columns: 30px minmax(90px, .85fr) minmax(105px, 1fr) minmax(120px, 1.25fr) minmax(130px, 1.4fr) 70px 45px 100px 100px 44px; align-items: center; gap: 12px; padding: 12px 16px; }
+.quotation-rate-columns { border-top: 1px solid #ffffff26; font-size: 12px; font-weight: 700; }
+.quotation-rate-row { background: #f0f7fb; font-size: 14px; color: #334155; }
+.quotation-rate-row > * { min-width: 0; overflow-wrap: anywhere; }
+.quotation-rate-area small { font-size: 11px; color: #64748b; }
+.quotation-rate-input input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #fff; font-size: 16px; }
+.quotation-rate-input input:focus { outline: 2px solid #176b9b; outline-offset: 2px; }
+.quotation-rate-edit { display: flex; gap: 6px; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border: 1px solid #cbdce6; border-radius: 10px; color: #176b9b; background: white; }
+.quotation-rate-edit-text { display: none; }
+.quotation-rate-mobile-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@container (max-width: 1100px) {
+  .quotation-rate-columns { display: none; }
+  .quotation-rate-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .quotation-rate-mobile-label { position: static; display: block; width: auto; height: auto; clip-path: none; white-space: normal; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; }
+  .quotation-rate-description { grid-column: 1 / -1; }
+  .quotation-rate-edit { justify-self: end; padding-inline: 12px; }
+  .quotation-rate-edit-text { display: inline; font-weight: 700; }
+}

@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+{% block object-tools-items %}
+{{ block.super }}
+{% if original %}
+<li><a href="{% url 'admin:accounts_emailotpsetup_test' original.pk 'email' %}">Send Test Email</a></li>
+<li><a href="{% url 'admin:accounts_emailotpsetup_test' original.pk 'otp' %}">Send Test OTP</a></li>
+<li><a href="{% url 'admin:accounts_emaildeliverylog_changelist' %}">Delivery logs</a></li>
+{% endif %}
+{% endblock %}

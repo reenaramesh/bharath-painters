@@ -64,7 +64,7 @@ export default function ProfileCard() {
         </p>
         <h1 className="mt-1 text-3xl font-bold">My Bharath Profile</h1>
         <p className="mt-2 text-slate-500">
-          Scan or share your verified Bharath Painters identity.
+          Scan or share your verified Bharath Apps identity.
         </p>
       </header>
       <section className="overflow-hidden rounded-3xl border bg-white shadow-sm">

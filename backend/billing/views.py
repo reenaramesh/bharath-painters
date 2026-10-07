@@ -19,6 +19,8 @@ from accounts.models import BharathUser
 from jobs.models import WorkSchedule
 from quotations.models import Invoice, InvoicePayment, PortalNotification, ProjectReceipt, Quotation
 from quotations.pdf_utils import build_project_receipt_pdf
+from quotations.document_languages import document_language
+from quotations.property_access import PropertyPermission, accessible_properties
 from .models import Advertisement, BillingNotification, BillingPlan, PackageRequest, Subscription
 from .services import billing_summary, plan_data
 from .serializers import BillingPlanSerializer
@@ -289,6 +291,24 @@ class BillingDocumentView(APIView):
         if not item:
             return Response({"detail": "Billing document not found."}, status=status.HTTP_404_NOT_FOUND)
         is_receipt = item.payment_status == PackageRequest.PaymentStatus.CONFIRMED
+        language = document_language(request)
+        if language != "en":
+            from quotations.indic_pdf import render_document, currency_words
+            from quotations.transliteration import system_text, format_system_text
+            from quotations.document_languages import standard_label
+            reference = item.receipt_number if is_receipt else item.invoice_number
+            period = format_system_text("{start} to {end}", language, start=item.requested_start_date, end=item.requested_end_date or system_text("Ongoing", language))
+            metadata = [("customer", item.user.get_full_name() or item.user.mobile), ("mobile", item.user.mobile),
+                ("package", item.plan.name), ("period", period),
+                ("payment_status", system_text(item.get_payment_status_display(), language)),
+                ("mode", standard_label(language, item.payment_mode) if item.payment_mode else system_text("Pending", language)),
+                ("reference", item.payment_reference or "-")]
+            pdf_bytes = render_document(language, "receipt" if is_receipt else "package_invoice", reference,
+                "BHARATH PAINTERS", metadata, ["amount"], [(f"INR {item.amount}",)],
+                [("total_words", system_text(currency_words(item.amount), language))], notes=system_text("This is a computer-generated document.", language))
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{reference}-{language}.pdf"'
+            return response
         buffer = BytesIO(); pdf = canvas.Canvas(buffer, pagesize=A4); pdf.setTitle(item.receipt_number if is_receipt else item.invoice_number)
         pdf.setFont("Helvetica-Bold", 18); pdf.drawString(50, 790, "BHARATH PAINTERS"); pdf.setFont("Helvetica-Bold", 14); pdf.drawString(50, 755, "PAYMENT RECEIPT" if is_receipt else "PACKAGE INVOICE")
         lines = [("Document no.", item.receipt_number if is_receipt else item.invoice_number), ("Customer", item.user.get_full_name() or item.user.mobile), ("Mobile", item.user.mobile), ("Package", item.plan.name), ("Period", f"{item.requested_start_date} to {item.requested_end_date or 'Ongoing'}"), ("Amount", f"INR {item.amount}"), ("Payment status", item.get_payment_status_display()), ("Payment mode", item.payment_mode or "Pending"), ("Reference", item.payment_reference or "-")]
@@ -616,7 +636,7 @@ class ContractorProjectReceiptPdfView(APIView):
         receipt = ProjectReceipt.objects.select_related("quotation__customer", "quotation__property", "contractor__contractor_profile").filter(pk=pk, contractor=request.user).first()
         if not receipt:
             return Response({"detail": "Receipt not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_project_receipt_pdf(receipt), content_type="application/pdf")
+        response = HttpResponse(build_project_receipt_pdf(receipt, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{receipt.receipt_number}.pdf"'
         return response
 
@@ -627,18 +647,31 @@ class CustomerProjectFinanceView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        payment_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).values("pk")
+        invoice_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_INVOICES).values("pk")
         advances = WorkSchedule.objects.filter(
-            quotation__customer__portal_user=request.user,
+            Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
+            | Q(quotation__property_id__in=payment_property_ids),
             payment_status=WorkSchedule.PaymentStatus.CONFIRMED,
             advance_amount__gt=0,
         ).select_related("quotation", "quotation__property", "quotation__contractor")
         quotation_receipts = ProjectReceipt.objects.filter(
-            quotation__customer__portal_user=request.user,
+            Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
+            | Q(quotation__property_id__in=payment_property_ids),
         ).select_related("quotation", "quotation__property", "quotation__contractor")
         invoices = Invoice.objects.filter(
-            quotation__customer__portal_user=request.user,
+            Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
+            | Q(quotation__property_id__in=invoice_property_ids)
+            | Q(site_property_id__in=invoice_property_ids),
             quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
         ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation", "contractor")
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            if not accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).filter(pk=property_id).exists():
+                return Response({"detail": "Payment access is not available for this property."}, status=status.HTTP_403_FORBIDDEN)
+            advances = advances.filter(quotation__property_id=property_id)
+            quotation_receipts = quotation_receipts.filter(quotation__property_id=property_id)
+            invoices = invoices.filter(Q(quotation__property_id=property_id) | Q(site_property_id=property_id))
         invoice_payments = InvoicePayment.objects.filter(
             invoice__in=invoices,
         ).exclude(
@@ -695,12 +728,18 @@ class CustomerProjectReceiptPdfView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
+        if request.user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
+        payment_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).values("pk")
         receipt = ProjectReceipt.objects.select_related(
             "quotation__customer", "quotation__property", "contractor__contractor_profile",
-        ).filter(pk=pk, quotation__customer__portal_user=request.user).first()
+        ).filter(pk=pk).filter(
+            Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
+            | Q(quotation__property_id__in=payment_property_ids)
+        ).first()
         if not receipt:
             return Response({"detail": "Receipt not found."}, status=status.HTTP_404_NOT_FOUND)
-        response = HttpResponse(build_project_receipt_pdf(receipt), content_type="application/pdf")
+        response = HttpResponse(build_project_receipt_pdf(receipt, language=document_language(request)), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{receipt.receipt_number}.pdf"'
         return response
 

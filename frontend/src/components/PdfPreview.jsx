@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download,
   Eye,
@@ -8,6 +8,9 @@ import {
   X,
 } from "lucide-react";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import api, { pdfRequests } from "../api/client";
+import { languages, useLanguage } from "../i18n/LanguageContext";
+import useAuth from '../context/useAuth';
 
 const PREVIEW_EVENT = "bharath-painters:preview-pdf";
 
@@ -18,14 +21,29 @@ export function previewPdf(blob, filename = "document.pdf") {
 }
 
 export default function PdfPreviewHost() {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const viewerId = user?.id;
   const [preview, setPreview] = useState(null);
+  const [changingLanguage, setChangingLanguage] = useState(false);
+  const generation = useRef(0);
   const [notice, setNotice] = useState("");
   const frameRef = useRef(null);
+  const close = useCallback(() => {
+    generation.current += 1;
+    setChangingLanguage(false);
+    setPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }, []);
+  useEffect(() => { close(); }, [viewerId, close]);
 
   useEffect(() => {
     const open = (event) => {
       const { blob, filename } = event.detail || {};
       if (!blob) return;
+      generation.current += 1;
       setNotice("");
       setPreview((current) => {
         if (current?.url) URL.revokeObjectURL(current.url);
@@ -33,6 +51,8 @@ export default function PdfPreviewHost() {
           url: URL.createObjectURL(blob),
           blob,
           filename: filename || "document.pdf",
+          request: pdfRequests.get(blob),
+          language: pdfRequests.get(blob)?.params?.document_language || "en",
         };
       });
     };
@@ -52,13 +72,23 @@ export default function PdfPreviewHost() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [preview]);
+  }, [preview, close]);
 
-  function close() {
-    setPreview((current) => {
-      if (current?.url) URL.revokeObjectURL(current.url);
-      return null;
-    });
+  async function changePdfLanguage(language) {
+    if (!preview?.request) return;
+    const requestId = ++generation.current;
+    setChangingLanguage(true); setNotice("");
+    try {
+      const { data } = await api({ ...preview.request, params: { ...preview.request.params, document_language: language } });
+      if (requestId !== generation.current) return;
+      setPreview((current) => {
+        if (!current) return null;
+        URL.revokeObjectURL(current.url);
+        return { ...current, blob: data, url: URL.createObjectURL(data), language,
+          filename: current.filename.replace(/(?:-(en|kn|te|hi|ta))?\.pdf$/i, `-${language}.pdf`) };
+      });
+    } catch { if (requestId === generation.current) setNotice("The requested PDF language could not be generated. The previous PDF remains available."); }
+    finally { if (requestId === generation.current) setChangingLanguage(false); }
   }
 
   function download() {
@@ -128,6 +158,7 @@ export default function PdfPreviewHost() {
           <button
             type="button"
             onClick={print}
+            disabled={changingLanguage}
             title="Print PDF"
             aria-label="Print PDF"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 p-0 text-sm font-bold text-slate-700 sm:w-auto sm:px-3"
@@ -148,6 +179,7 @@ export default function PdfPreviewHost() {
           <button
             type="button"
             onClick={download}
+            disabled={changingLanguage}
             title="Download PDF"
             aria-label="Download PDF"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 p-0 text-sm font-bold text-white sm:w-auto sm:px-4"
@@ -164,6 +196,14 @@ export default function PdfPreviewHost() {
             <X className="h-5 w-5" />
           </button>
         </header>
+        {preview.request && <div className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
+          <label htmlFor="preview-pdf-language" className="text-sm font-semibold">{t("pdfLanguage")}</label>
+          <select id="preview-pdf-language" value={preview.language} disabled={changingLanguage} onChange={(event) => changePdfLanguage(event.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-sm">
+            {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
+          </select>
+          <p className="text-xs text-slate-600">English words displayed in your selected script. This PDF selection does not change your dashboard.</p>
+          <span role="status" className="text-sm text-slate-600">{changingLanguage ? t("saving") : ""}</span>
+        </div>}
         {notice && (
           <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-800">
             {notice}

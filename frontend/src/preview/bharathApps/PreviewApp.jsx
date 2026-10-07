@@ -43,6 +43,7 @@ import {
   ScreenWorkOutsourced,
   ScreenWorkReceived,
 } from "./screens/outsourcing";
+import { ScreenMergedBusinessProfile } from "./screens/mergedProfile";
 
 // ---------------------------------------------------------------------------
 // Screen registry — grouped to mirror the intended platform navigation.
@@ -175,6 +176,19 @@ const SCREENS = [
       },
     ],
   },
+  {
+    group: "Proposed merge",
+    items: [
+      {
+        id: "merged-profile",
+        letter: "M",
+        label: "Merged business profile",
+        icon: Building2,
+        personas: ["main", "receiving", "employee"],
+        Component: ScreenMergedBusinessProfile,
+      },
+    ],
+  },
 ];
 
 const DEMO_STEPS = [
@@ -267,10 +281,6 @@ function PreviewInner() {
     };
   }, []);
 
-  const activeScreen = useMemo(
-    () => SCREENS.flatMap((g) => g.items).find((s) => s.id === screenId),
-    [screenId],
-  );
   const visibleGroups = useMemo(
     () =>
       SCREENS.map((g) => ({ ...g, items: g.items.filter((i) => i.personas.includes(personaId)) })).filter(
@@ -278,6 +288,17 @@ function PreviewInner() {
       ),
     [personaId],
   );
+
+  // A screen is only ever rendered for a persona that is allowed to see it.
+  // Switching persona while a restricted screen is open (for example Admin →
+  // Main contractor while the catalogue is showing) must fall back rather than
+  // leave that screen mounted.
+  const visibleScreens = useMemo(() => visibleGroups.flatMap((g) => g.items), [visibleGroups]);
+  const activeScreen = useMemo(() => {
+    const permitted = visibleScreens.find((s) => s.id === screenId);
+    if (permitted) return permitted;
+    return visibleScreens.find((s) => s.id === "branding") ?? visibleScreens[0];
+  }, [screenId, visibleScreens]);
 
   const Active = activeScreen?.Component;
   const isAdmin = personaId === "admin";

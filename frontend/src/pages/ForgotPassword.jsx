@@ -6,7 +6,7 @@ import api from "../api/client";
 const roles = [
   ["CUSTOMER", "Customer"],
   ["CONTRACTOR", "Contractor"],
-  ["PAINTER", "Paint Applicator"],
+  ["PAINTER", "Employee"],
   ["ADMIN", "Administrator"],
   ["SUPPORT", "Support staff"],
 ];
@@ -119,11 +119,11 @@ export default function ForgotPassword() {
         </div>}
 
         {step === "OTP" && <form onSubmit={verifyOtp} className="mt-6 space-y-4">
-          <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">OTP sent to <strong className="text-slate-950">{account?.masked_email}</strong>. It expires in 10 minutes.</div>
+          <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">OTP sent to <strong className="text-slate-950">{account?.masked_email}</strong>. Use it before the expiry shown in your email.</div>
           {testOtp && <div className="rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-800"><span className="font-semibold">Development OTP: </span><strong className="tracking-[0.25em]">{testOtp}</strong></div>}
-          <Field label="6-digit OTP"><input required autoComplete="one-time-code" inputMode="numeric" maxLength="6" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={`${input} text-center text-xl tracking-[0.35em]`} /></Field>
+          <Field label="Email OTP"><input required autoComplete="one-time-code" inputMode="numeric" maxLength="10" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={`${input} text-center text-xl tracking-[0.35em]`} /></Field>
           {error && <Error>{error}</Error>}
-          <button disabled={loading || otp.length !== 6} className={button}>{loading ? "Verifying..." : "Verify OTP"}</button>
+          <button disabled={loading || (otp.length < 6 || otp.length > 10)} className={button}>{loading ? "Verifying..." : "Verify OTP"}</button>
           <button type="button" disabled={loading} onClick={sendOtp} className="w-full text-sm font-semibold text-slate-600">Resend OTP</button>
         </form>}
 

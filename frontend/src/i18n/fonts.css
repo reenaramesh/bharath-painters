@@ -1,0 +1,12 @@
+@font-face { font-family: 'Bharath Telugu'; src: url('/fonts/NotoSansTelugu.ttf') format('truetype'); font-display: swap; }
+@font-face { font-family: 'Bharath Kannada'; src: url('/fonts/NotoSansKannada.ttf') format('truetype'); font-display: swap; }
+@font-face { font-family: 'Bharath Hindi'; src: url('/fonts/NotoSansDevanagari.ttf') format('truetype'); font-display: swap; }
+@font-face { font-family: 'Bharath Tamil'; src: url('/fonts/NotoSansTamil.ttf') format('truetype'); font-display: swap; }
+html[data-script='te'] { --script-font: 'Bharath Telugu'; }
+html[data-script='kn'] { --script-font: 'Bharath Kannada'; }
+html[data-script='hi'] { --script-font: 'Bharath Hindi'; }
+html[data-script='ta'] { --script-font: 'Bharath Tamil'; }
+html[data-script]:not([data-script='en']) body { font-family: var(--script-font), 'Bharath Telugu', 'Bharath Kannada', 'Bharath Hindi', 'Bharath Tamil', system-ui, sans-serif; }
+html[data-script]:not([data-script='en']) body :is(h1, h2, h3, h4) { font-family: inherit; letter-spacing: normal; }
+html[data-script]:not([data-script='en']) :is(button, input, textarea, select) { font-family: inherit; }
+html[data-script]:not([data-script='en']) :is(h1, h2, h3, button, label, th, p) { overflow-wrap: break-word; }

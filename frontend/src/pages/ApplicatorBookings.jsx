@@ -3,6 +3,7 @@ import { CalendarDays, ChevronDown, MapPin, Phone, Search } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
+import "./painter-portal.css";
 
 const statusStyle = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -126,7 +127,7 @@ export default function ApplicatorBookings() {
       : historyResults.filter((item) => item.status === filter);
 
   return (
-    <div className="space-y-6">
+    <div className={`painter-portal-page painter-bookings-page space-y-6 ${painter ? "is-painter" : ""}`}>
       <MobilePageBack />
       <header>
         <h1 className="text-3xl font-bold">
@@ -269,6 +270,8 @@ export default function ApplicatorBookings() {
           </form>
         </details>
       )}
+
+      {painter && <section className="painter-booking-focus" aria-label="Booking summary"><div className="is-action"><span>Waiting for your response</span><strong>{pendingItems.length}</strong><small>New booking requests</small></div><div><span>Confirmed</span><strong>{data.results.filter((item) => item.status === "CONFIRMED").length}</strong><small>Accepted bookings</small></div><div><span>History</span><strong>{historyResults.length}</strong><small>Past booking records</small></div></section>}
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
 

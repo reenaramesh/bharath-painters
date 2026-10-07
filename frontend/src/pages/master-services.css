@@ -1,0 +1,259 @@
+.master-services-page {
+  --master-accent: var(--bp-brand);
+  min-width: 0;
+}
+
+.master-services-page .bp-page-header {
+  align-items: center;
+}
+
+.master-services-page .bp-page-header h1 {
+  letter-spacing: -0.035em;
+}
+
+.master-services-page .bp-page-description {
+  max-width: 760px;
+}
+
+.master-services-page .master-data-card {
+  min-width: 0;
+  border-radius: 16px;
+}
+
+.master-services-page .master-data-card > header {
+  min-height: 80px;
+  align-items: center;
+}
+
+.master-services-page .master-section-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.master-services-page .master-section-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--master-accent) 9%, white);
+  color: var(--master-accent);
+}
+
+.master-services-page .master-section-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.master-services-page .master-data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.master-services-page .master-data-actions .bp-button {
+  min-height: 44px;
+}
+
+.master-services-page .master-data-actions .bp-button[aria-pressed="true"] {
+  border-color: var(--bp-brand);
+  background: var(--bp-brand);
+  color: var(--bp-color-on-brand);
+}
+
+.master-services-page .master-data-alert {
+  border: 1px solid #fecdca;
+  border-radius: 12px;
+  background: #fef3f2;
+  padding: 12px 16px;
+  color: #912018;
+  font-size: 0.875rem;
+}
+
+.master-services-page .master-data-state {
+  min-height: 176px;
+}
+
+.master-services-page nav button {
+  min-height: 44px;
+}
+
+.master-services-page nav button[aria-current="true"] {
+  box-shadow: 0 5px 16px -12px #172033;
+}
+
+.master-services-page :is(input, select, textarea) {
+  min-width: 0;
+  min-height: 44px;
+  border-color: var(--bp-line);
+  border-radius: var(--bp-radius-control);
+}
+
+.master-services-page :is(input, select, textarea):focus-visible,
+.master-services-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid var(--bp-focus-ring);
+  outline-offset: 2px;
+}
+
+.master-services-page .master-category-filters {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.master-services-page .master-category-filters button,
+.master-services-page .master-data-card .bp-section-card-body > div > div > button {
+  min-height: 40px;
+}
+
+.master-services-page .master-category-filters button[aria-pressed="true"],
+.master-services-page .master-data-card .bp-section-card-body > div > div > button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.master-services-page .master-data-card .availability-toggle,
+.master-services-page .master-data-card .master-availability-toggle {
+  min-height: 44px;
+}
+
+.master-services-page .master-availability-toggle button {
+  min-height: 44px;
+  padding-inline: 12px;
+  font-size: 0.8125rem;
+}
+
+.master-services-page .master-data-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+
+.master-services-page .master-data-table {
+  min-width: 800px;
+}
+
+.master-services-page .master-data-table th {
+  white-space: nowrap;
+}
+
+.master-services-page .master-data-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.master-services-page .master-data-table .master-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.master-services-page .master-item-actions button,
+.master-services-page .master-reorder-controls button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.master-services-page .master-price-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.master-services-page .master-card-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #eaecf0;
+  padding-top: 9px;
+  color: var(--bp-muted);
+  font-size: 0.8125rem;
+}
+
+.master-services-page .master-card-price strong {
+  color: var(--bp-ink);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.master-services-page .master-product-features {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.master-services-page .master-data-card .bp-section-card-body > form button,
+.master-services-page .master-data-card .bp-section-card-body > div button,
+.master-services-page .master-data-card .bp-section-card-body a {
+  min-height: 44px;
+}
+
+.master-services-page .master-data-card table thead {
+  background: #f8fafc;
+  color: #475467;
+}
+
+.master-services-page .master-data-card table tbody td {
+  vertical-align: middle;
+}
+
+@media (max-width: 767px) {
+  .master-services-page .bp-page-header {
+    align-items: flex-start;
+  }
+
+  .master-services-page .bp-page-header .bp-page-actions {
+    width: 100%;
+  }
+
+  .master-services-page .master-data-card > header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .master-services-page .master-data-actions {
+    width: 100%;
+  }
+
+  .master-services-page .master-data-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .master-services-page .master-data-card .bp-section-card-body > .flex.flex-wrap {
+    align-items: stretch;
+  }
+
+  .master-services-page .master-data-card .bp-section-card-body > .flex.flex-wrap > label {
+    min-width: 100%;
+  }
+
+  .master-services-page .master-data-card .bp-section-card-body > form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .master-services-page .master-data-card .bp-section-card-body > form > div:last-of-type {
+    align-items: stretch;
+  }
+
+  .master-services-page .master-data-card .bp-section-card-body > form > div:last-of-type > button:first-child {
+    min-height: 44px;
+  }
+
+  .master-services-page .master-item-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .master-services-page *,
+  .master-services-page *::before,
+  .master-services-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

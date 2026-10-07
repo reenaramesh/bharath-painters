@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  CalendarClock,
-  IndianRupee,
-  Phone,
-  Plus,
-  Search,
-  Target,
-} from "lucide-react";
+import { Phone, Plus, Search } from "lucide-react";
 import api from "../api/client";
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatCard as SharedStatCard, StatusBadge } from "../components/ui";
+import "./crm-pages.css";
 import {
   OPPORTUNITY_STAGES,
-  STAGE_STYLES,
   SOURCE_OPTIONS,
   PRIORITY_OPTIONS,
   stageLabel,
@@ -74,46 +68,27 @@ export default function Opportunities() {
   );
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Sales</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">
-            Sales Opportunities
-          </h1>
-          <p className="mt-2 text-slate-500">
-            Every service enquiry is a separate opportunity, even for an
-            existing client.
-          </p>
-        </div>
-        <button
+    <div className="space-y-6 crm-page crm-opportunities-page">
+      <PageHeader eyebrow="Sales pipeline" title="Sales Opportunities" description="Track each service enquiry through its own sales journey." actions={<Button
           onClick={() => navigate("/opportunities/new")}
-          className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+          aria-label="Create a sales opportunity"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           New Opportunity
-        </button>
-      </header>
+        </Button>} />
 
-      {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}{" "}
-          <button onClick={load} className="ml-2 font-semibold underline">
-            Retry
-          </button>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={load} />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Open" value={counts.open} tone="slate" />
-        <StatCard label="New" value={counts.new} tone="blue" />
-        <StatCard label="Follow-up due" value={counts.followUp} tone="amber" />
-        <StatCard label="Quotation sent" value={counts.quotation} tone="cyan" />
-        <StatCard label="Won" value={counts.won} tone="emerald" />
-        <StatCard label="Lost" value={counts.lost} tone="red" />
+        <SharedStatCard label="Open" value={counts.open} className="crm-opportunity-stat" />
+        <SharedStatCard label="New" value={counts.new} tone="info" className="crm-opportunity-stat" />
+        <SharedStatCard label="Follow-up due" value={counts.followUp} tone="warning" className="crm-opportunity-stat" />
+        <SharedStatCard label="Quotation sent" value={counts.quotation} tone="brand" className="crm-opportunity-stat" />
+        <SharedStatCard label="Won" value={counts.won} tone="success" className="crm-opportunity-stat" />
+        <SharedStatCard label="Lost" value={counts.lost} tone="danger" className="crm-opportunity-stat" />
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <SectionCard title="Find opportunities" description="Search and refine the pipeline" className="crm-filters-card" bodyClassName="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -203,20 +178,15 @@ export default function Opportunities() {
             />
           </label>
         </div>
-      </div>
+      </SectionCard>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((key) => (
-            <div key={key} className="h-24 animate-pulse rounded-2xl bg-white" />
-          ))}
-        </div>
-      ) : items.length ? (
-        <section className="overflow-hidden rounded-2xl border bg-white">
+      {loading ? <LoadingState label="Loading opportunities..." /> : items.length ? (
+        <SectionCard title="Opportunity records" description={`${items.length} matching ${items.length === 1 ? "opportunity" : "opportunities"}`} className="crm-records-card" bodyClassName="p-0">
+          <div className="crm-opportunity-mobile-list">{items.map((item) => <OpportunityCard key={item.id} item={item} />)}</div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left text-sm">
+            <table className="w-full min-w-[1200px] text-left text-sm">
               <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Opportunity</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
+                <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Opportunity</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Source</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
               </thead>
               <tbody className="divide-y">{items.map((item) => (
                 <tr key={item.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/opportunities/${item.id}`)}>
@@ -224,7 +194,9 @@ export default function Opportunities() {
                   <td className="px-4 py-4 font-bold">{item.title}</td>
                   <td className="px-4 py-4"><p className="font-semibold">{item.customer_name}</p><p className="text-xs text-slate-500">{item.customer_mobile}</p></td>
                   <td className="px-4 py-4 text-slate-600">{item.property_name || item.service_name || "-"}</td>
-                  <td className="px-4 py-4"><span className={`rounded-full px-3 py-1 text-xs font-bold ${STAGE_STYLES[item.stage] || "bg-slate-100 text-slate-600"}`}>{stageLabel(item.stage)}</span></td>
+                  <td className="px-4 py-4"><StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} /></td>
+                  <td className="px-4 py-4"><StatusBadge status={item.priority} label={priorityLabel(item.priority)} tone={item.priority === "HIGH" ? "danger" : item.priority === "MEDIUM" ? "warning" : "neutral"} /></td>
+                  <td className="px-4 py-4">{sourceLabel(item.source)}</td>
                   <td className="px-4 py-4 text-right font-semibold" data-sort-value={item.estimated_value || 0}>{item.estimated_value ? money(item.estimated_value) : "-"}</td>
                   <td className="px-4 py-4" data-sort-value={item.next_follow_up || ""}>{item.next_follow_up ? new Date(item.next_follow_up).toLocaleDateString("en-GB") : "-"}</td>
                   <td className="px-4 py-4"><Link to={`/opportunities/${item.id}`} onClick={(event) => event.stopPropagation()} className="inline-flex rounded-lg border px-3 py-2 font-semibold">View</Link></td>
@@ -232,24 +204,9 @@ export default function Opportunities() {
               ))}</tbody>
             </table>
           </div>
-        </section>
+        </SectionCard>
       ) : (
-        <div className="rounded-2xl border bg-white p-12 text-center">
-          <Target className="mx-auto h-10 w-10 text-slate-300" />
-          <p className="mt-3 font-semibold text-slate-900">
-            No opportunities yet.
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            Create your first sales opportunity to start tracking enquiries.
-          </p>
-          <Link
-            to="/opportunities/new"
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" />
-            New Opportunity
-          </Link>
-        </div>
+        <EmptyState title="No opportunities found" description="Create an opportunity or adjust the current filters." />
       )}
     </div>
   );
@@ -276,7 +233,7 @@ export function StatCard({ label, value, tone = "slate" }) {
 
 export function OpportunityCard({ item }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
+    <article className="crm-opportunity-card rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-xs font-semibold text-slate-400">
@@ -289,13 +246,7 @@ export function OpportunityCard({ item }) {
             {item.title}
           </Link>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-            STAGE_STYLES[item.stage] || "bg-slate-100 text-slate-600"
-          }`}
-        >
-          {stageLabel(item.stage)}
-        </span>
+        <StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} />
       </div>
       <p className="mt-2 text-sm font-semibold text-slate-700">
         {item.customer_name}
@@ -304,26 +255,29 @@ export function OpportunityCard({ item }) {
       <p className="mt-0.5 truncate text-sm text-slate-500">
         {item.property_name || item.service_name}
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-        {item.estimated_value && (
-          <span className="flex items-center gap-1 font-semibold text-slate-700">
-            <IndianRupee className="h-3.5 w-3.5" />
-            {money(item.estimated_value)}
-          </span>
-        )}
-        {item.next_follow_up && (
-          <span className="flex items-center gap-1">
-            <CalendarClock className="h-3.5 w-3.5" />
-            {new Date(item.next_follow_up).toLocaleDateString()}
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <Phone className="h-3.5 w-3.5" />
-          <a href={`tel:${item.customer_mobile}`} className="hover:text-slate-800">
-            Call
-          </a>
-        </span>
+      <div className="crm-opportunity-card-metadata">
+        <span><strong>Estimated value</strong>{item.estimated_value ? money(item.estimated_value) : "Not set"}</span>
+        <span><strong>Priority</strong>{priorityLabel(item.priority)}</span>
+        <span><strong>Source</strong>{sourceLabel(item.source)}</span>
+        <span><strong>Next follow-up</strong>{item.next_follow_up ? new Date(item.next_follow_up).toLocaleDateString("en-IN") : "Not scheduled"}</span>
       </div>
-    </div>
+      {item.customer_mobile && <a href={`tel:${item.customer_mobile}`} aria-label={`Call ${item.customer_name}`} className="crm-opportunity-call"><Phone className="h-4 w-4" aria-hidden="true" />Call customer</a>}
+    </article>
   );
+}
+
+function sourceLabel(value) {
+  return SOURCE_OPTIONS.find(([option]) => option === value)?.[1] || stageLabel(value) || "Not recorded";
+}
+
+function priorityLabel(value) {
+  return PRIORITY_OPTIONS.find(([option]) => option === value)?.[1] || "Not set";
+}
+
+function opportunityTone(value) {
+  if (["WON", "COMPLETED"].includes(value)) return "success";
+  if (["LOST", "CANCELLED"].includes(value)) return "danger";
+  if (["FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
+  if (["NEW", "CONTACTED", "SITE_VISIT", "MEASUREMENT", "QUOTATION", "IN_PROGRESS"].includes(value)) return "info";
+  return "neutral";
 }

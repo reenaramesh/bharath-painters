@@ -16,6 +16,8 @@ import {
 import api from "../api/client";
 import CustomerForm from "../components/CustomerForm";
 import BackButton from "../components/BackButton";
+import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import "./crm-pages.css";
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -151,7 +153,7 @@ export default function CustomerDetail() {
       setFollowUp({ follow_up_type: "CALL", comment: "", next_follow_up: "" });
       setShowFollowUp(false);
       if (isSiteVisit && whatsappUrl) {
-        const visitMessage = `Bharath Painters site visit is scheduled for ${formatSiteVisitDate(followUp.next_follow_up)}. Please contact the contractor if the schedule needs clarification.`;
+        const visitMessage = `Bharath Apps site visit is scheduled for ${formatSiteVisitDate(followUp.next_follow_up)}. Please contact the contractor if the schedule needs clarification.`;
         const target = `${whatsappUrl}?text=${encodeURIComponent(visitMessage)}`;
         if (whatsappWindow) whatsappWindow.location.href = target;
         else window.open(target, "_blank", "noopener,noreferrer");
@@ -193,23 +195,16 @@ export default function CustomerDetail() {
   }
 
   if (loading)
-    return (
-      <div className="p-12 text-center text-slate-500">Loading customer...</div>
-    );
+    return <div className="crm-page crm-customer-detail"><LoadingState label="Loading customer details..." /></div>;
   if (!customer)
     return (
-      <div className="rounded-xl bg-red-50 p-5 text-red-700">
-        {error}
-        <button onClick={load} className="ml-3 font-semibold">
-          Retry
-        </button>
-      </div>
+      <div className="crm-page crm-customer-detail"><ErrorState message={error} onRetry={load} /></div>
     );
-  if (customer.is_saved_contact) return <div className="space-y-6">
+  if (customer.is_saved_contact) return <div className="space-y-6 crm-page crm-customer-detail">
     <BackButton fallback="/customers" label="Back to customers" />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
-    <section className="rounded-2xl border bg-white p-6"><div className="flex flex-wrap items-center gap-3"><p className="text-sm font-bold text-indigo-600">Customer profile</p><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"}</span></div><h1 className="mt-2 text-3xl font-bold">{customer.name}</h1><p className="mt-2 text-slate-600">{customer.mobile}</p><p className="mt-4 text-sm text-slate-500">{customer.connection_status === "PENDING" ? "You can prepare properties, Area Calculations, and quotation drafts for this customer. Drafts stay private and cannot be sent until the customer approves your connection." : "Your contact details are saved. Send a connection request to prepare customer-specific work."}</p>
+    <section className="rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} /><p className="mt-4 text-sm text-slate-500">{customer.connection_status === "PENDING" ? "You can prepare properties, Area Calculations, and quotation drafts for this customer. Drafts stay private and cannot be sent until the customer approves your connection." : "Your contact details are saved. Send a connection request to prepare customer-specific work."}</p>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
       <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
     </section>
@@ -251,7 +246,7 @@ export default function CustomerDetail() {
   const whatsappUrl = getWhatsAppUrl(customer.whatsapp || customer.mobile);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 crm-page crm-customer-detail">
       <BackButton fallback="/customers" label="Back to customers" />
       {error && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -269,17 +264,7 @@ export default function CustomerDetail() {
           {customer.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">
-              {customer.name}
-            </h1>
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-700">
-              {customer.bharath_id}
-            </span>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-              {customer.status.replaceAll("_", " ")}
-            </span>
-          </div>
+          <PageHeader eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
           <p className="mt-2 flex items-center gap-2 text-slate-500">
             <Phone className="h-4 w-4" />
             {customer.mobile}
@@ -623,4 +608,12 @@ function formatSiteVisitDate(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function customerStatusTone(value) {
+  if (value === "WON") return "success";
+  if (value === "LOST") return "danger";
+  if (["PENDING", "FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
+  if (["NEW", "CONTACTED", "SITE_VISIT", "QUOTATION_SENT"].includes(value)) return "info";
+  return "neutral";
 }

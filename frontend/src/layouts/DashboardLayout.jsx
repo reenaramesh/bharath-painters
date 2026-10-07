@@ -1,21 +1,29 @@
 import useAuth from "../context/useAuth";
+import LanguageSelector from "../components/LanguageSelector";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import GlobalTableSorting from "../components/GlobalTableSorting";
 import MobileTableDialogs from "../components/MobileTableDialogs";
 import CustomerConnectionPrompt from "../components/CustomerConnectionPrompt";
 import MobileBottomNav from "../components/MobileBottomNav";
+import useEmploymentStatus from "../hooks/useEmploymentStatus";
 import "../pages/contractor-dashboard.css";
+import "../pages/customer-portal.css";
 
 export default function DashboardLayout() {
   const { user } = useAuth();
-  const messagesPage = useLocation().pathname === "/messages";
+  const employmentStatus = useEmploymentStatus(user);
+  const pathname = useLocation().pathname;
+  const messagesPage = pathname === "/messages";
   const contractorWorkspace = user?.role === "CONTRACTOR";
   const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const navigationOpenerRef = useRef(null);
+  const navigationBackgroundRef = useRef(null);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
   const [appColors, setAppColors] = useState(null);
   useEffect(() => {
     if (!themedWorkspace) return undefined;
@@ -37,37 +45,44 @@ export default function DashboardLayout() {
     return () => { active = false; window.removeEventListener("bp-app-theme-changed", onThemeChange); };
   }, [contractorWorkspace, themedWorkspace, user?.id, user?.app_primary_color, user?.app_accent_color]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem("bp-sidebar-collapsed") === "1",
+    () => { try { return localStorage.getItem("bp-sidebar-collapsed") === "1"; } catch { return false; } },
   );
   const toggleSidebar = () =>
     setSidebarCollapsed((value) => {
       const next = !value;
-      localStorage.setItem("bp-sidebar-collapsed", next ? "1" : "0");
+      try { localStorage.setItem("bp-sidebar-collapsed", next ? "1" : "0"); } catch { /* Collapse still works without storage. */ }
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-hidden bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
-      <GlobalTableSorting />
-      <MobileTableDialogs />
-      <CustomerConnectionPrompt />
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
         mobileOpen={mobileNavOpen}
-        closeMobile={() => setMobileNavOpen(false)}
+        closeMobile={closeMobileNav}
+        backgroundRef={navigationBackgroundRef}
+        openerRef={navigationOpenerRef}
+        employmentStatus={employmentStatus}
       />
 
-      <div className={`min-w-0 flex-1 ${messagesPage ? "flex min-h-0 flex-col" : ""}`}>
+      <div ref={navigationBackgroundRef} className={`min-w-0 flex-1 ${messagesPage ? "flex min-h-0 flex-col" : ""}`}>
+        <GlobalTableSorting />
+        <MobileTableDialogs />
+        <CustomerConnectionPrompt />
         <Topbar
           openMenu={() => setMobileNavOpen(true)}
           toggleSidebar={toggleSidebar}
+          sidebarCollapsed={sidebarCollapsed}
+          menuButtonRef={navigationOpenerRef}
+          mobileMenuOpen={mobileNavOpen}
         />
 
-        <main className={`mx-auto w-full max-w-[1640px] px-3 pb-28 pt-4 sm:px-4 md:p-6 xl:p-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
+        <main className={`bp-page-container w-full pb-28 pt-4 md:py-6 xl:py-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
+          {["/dashboard", "/customer-dashboard", "/applicator", "/admin-dashboard", "/support-workspace"].includes(pathname) && <div className="mb-4 flex justify-end"><LanguageSelector /></div>}
           <Outlet />
         </main>
+        <MobileBottomNav employmentStatus={employmentStatus} />
       </div>
-      <MobileBottomNav />
     </div>
   );
 }

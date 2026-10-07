@@ -2,8 +2,11 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import api from "../api/client";
+import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import SearchableSelect from "../components/SearchableSelect";
+import { Button, ErrorState, LoadingState, PageHeader, SectionCard } from "../components/ui";
+import "./quotation-measurement.css";
 
 export default function QuotationEdit() {
   const { id } = useParams();
@@ -283,6 +286,8 @@ export default function QuotationEdit() {
             color: item.color || null,
             description: item.description,
             coats: Number(item.coats) || 1,
+            included_areas: Array.isArray(item.included_areas) ? item.included_areas : [],
+            specification_details: item.specification_details || {},
             calculation_method: item.calculation_method,
             is_additional_service: Boolean(item.is_additional_service),
             custom_unit: item.unit ? "" : item.custom_unit || "",
@@ -312,23 +317,11 @@ export default function QuotationEdit() {
     }
   }
   if (!form)
-    return (
-      <p className="p-12 text-center text-slate-500">
-        {error || "Loading quotation..."}
-      </p>
-    );
+    return error ? <ErrorState message={error} /> : <LoadingState label="Loading quotation for editing..." />;
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 quotation-measurement-page bp-quotation-edit">
       <BackButton fallback={`/quotations/${id}`} label="Back to quotation" />
-      <div>
-        <p className="text-sm font-semibold text-amber-600">
-          Quotation management
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">Edit quotation</h1>
-        <p className="mt-2 text-slate-500">
-          Change quantities or rates and remove unwanted line items.
-        </p>
-      </div>
+      <PageHeader eyebrow="Quotation management" title="Edit quotation" description="Review room selections, line details and pricing before saving." />
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -338,12 +331,7 @@ export default function QuotationEdit() {
         onSubmit={submit}
         className="grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
       >
-        <div className="sm:col-span-2 rounded-2xl border border-violet-200 bg-violet-50/60 p-4 sm:p-5">
-          <h2 className="font-bold">Property rooms</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Select the measured rooms required in this quotation. Walls and
-            ceilings remain separate for pricing.
-          </p>
+        <SectionCard title="Property rooms" description="Select the measured rooms required in this quotation. Walls and ceilings remain separate for pricing." className="quotation-edit-rooms sm:col-span-2" bodyClassName="p-4 sm:p-5">
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" onClick={() => propertyRooms.forEach((room) => { if (!isRoomSelected(room.id)) toggleRoom(room.id); })} className="rounded-lg border border-violet-300 bg-white px-3 py-2 text-xs font-bold text-violet-800">Select all rooms</button>
             <button type="button" onClick={() => setSelectedRoomIds([])} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700">Clear all</button>
@@ -368,7 +356,7 @@ export default function QuotationEdit() {
               </label>
             ))}
           </div>
-        </div>
+        </SectionCard>
         <div className="sm:col-span-2">
           <h2 className="font-bold">{isLumpSum ? "Lump Sum services" : "Final full-house quotation lines"}</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -415,7 +403,7 @@ export default function QuotationEdit() {
                       <td className="p-3">
                         <EditSearchableProductType label="" placeholder="Search service" emptyText="No matching services" value={item.service_type || ""} options={services} onChange={(value) => updateService(item.id, value)} controlClass="w-48 rounded-lg border px-3 py-2" />
                       </td>
-                      <td className="p-3 font-semibold text-slate-700">{room?.name || "Full House"}</td>
+                      <td className="p-3 font-semibold text-slate-700">{quotationRoomAreaLabel(item) || room?.name || "Full House"}</td>
                       <td className="p-3"><span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">{room?.room_type_name || "General"}</span></td>
                       <td className="p-3">
                         <EditSearchableProductType label="" value={item.paint_type || ""} options={paintTypes.filter((paintType) => !item.service_category || String(paintType.service_category) === String(item.service_category))} onChange={(value) => updateProductType(item.id, value)} controlClass="w-40 rounded-lg border px-3 py-2" />
@@ -509,7 +497,7 @@ export default function QuotationEdit() {
               return (
                 <article key={"mobile-edit-" + item.id} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${editQuotationMissingFields(item).length ? "border-red-400 ring-2 ring-red-100" : "border-slate-200"}`}>
                   <header className="flex items-start justify-between gap-3 bg-slate-950 px-4 py-3 text-white">
-                    <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">{serviceName}</p><h3 className="mt-1 truncate font-bold">{room?.name || "Full House"}</h3><p className="mt-0.5 truncate text-xs text-slate-300">{productName}</p></div>
+                    <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">{serviceName}</p><h3 className="mt-1 truncate font-bold">{quotationRoomAreaLabel(item) || room?.name || "Full House"}</h3><p className="mt-0.5 truncate text-xs text-slate-300">{productName}</p></div>
                     <button type="button" onClick={() => setMobileItemId(item.id)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/30 px-3 py-2 text-xs font-bold"><Pencil className="h-3.5 w-3.5" />Edit</button>
                   </header>
                   <div className="grid grid-cols-4 gap-px bg-slate-200">
@@ -671,13 +659,10 @@ export default function QuotationEdit() {
         <label className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm sm:col-span-2"><input type="checkbox" checked={form.show_product_key_features} onChange={(event) => setForm((value) => ({ ...value, show_product_key_features: event.target.checked }))} className="mt-0.5 h-4 w-4" /><span><b className="block text-emerald-950">Include selected product details</b><span className="mt-1 block text-xs text-emerald-800">Each selected product and its key features will appear only once in Product details.</span></span></label>
         <label className="text-sm font-medium sm:col-span-2">Work procedures and safety<textarea rows="5" name="work_procedures" value={form.work_procedures} onChange={update} className={input} /></label>
         <div className="flex justify-end border-t pt-5 sm:col-span-2">
-          <button
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60"
-          >
+          <Button type="submit" loading={saving} className="flex items-center gap-2 px-5">
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save changes"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -722,21 +707,22 @@ function EditQuotationMobileDialog({ item, room, roomOptions, assignRoom, servic
     (entry.propertyRoomId && String(entry.propertyRoomId) === String(item.property_room)) ||
     (entry.masterRoomId && entry.name === item.custom_room_name),
   )?.key || "";
-  const roomMissing = !selectedRoomKey && !/full house|full exterior/i.test(item.description || "");
+  const groupedRoom = ["group", "special"].includes(item.specification_details?.kind);
+  const roomMissing = !groupedRoom && !selectedRoomKey && !/full house|full exterior/i.test(item.description || "");
   const control = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100";
   const requiredControl = (missing) => `${control} ${missing ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-100" : ""}`;
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section role="dialog" aria-modal="true" aria-label="Services and rates" className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-slate-50 shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
         <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white px-4 py-4">
-          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Services & rates</p><h2 className="truncate text-lg font-bold">{room?.name || "Full House"}</h2></div>
+          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Services & rates</p><h2 className="truncate text-lg font-bold">{quotationRoomAreaLabel(item) || room?.name || "Full House"}</h2></div>
           <button type="button" onClick={close} aria-label="Close editor" className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button>
         </header>
         <div className="space-y-4 p-4 pb-28">
           <div className="grid gap-3 sm:grid-cols-2">
             <EditSearchableProductType label="Type of service" placeholder="Search type of service" emptyText="No matching services" value={item.service_category || ""} options={categories} onChange={(value) => { updateItem(item.id, "service_category", value); const selectedService = services.find((entry) => String(entry.id) === String(item.service_type)); if (selectedService && String(selectedService.category_master) !== String(value)) updateItem(item.id, "service_type", ""); updateItem(item.id, "paint_type", ""); }} controlClass={requiredControl(!item.service_category)} />
             <label className="block text-sm font-semibold">Room / Area
-              <SearchableSelect value={selectedRoomKey} options={roomOptions.map((entry) => ({ ...entry, value: entry.key, label: entry.name }))} onChange={(value) => assignRoom(item.id, value)} placeholder="Search room / area" invalid={roomMissing} className={requiredControl(roomMissing)} />
+              <SearchableSelect value={selectedRoomKey} options={[...(groupedRoom ? [{ value: "", label: quotationRoomAreaLabel(item) }] : []), ...roomOptions.map((entry) => ({ ...entry, value: entry.key, label: entry.name }))]} onChange={(value) => assignRoom(item.id, value)} placeholder="Search room / area" invalid={roomMissing} className={requiredControl(roomMissing)} />
             </label>
           </div>
           <EditSearchableDescription value={item.description || ""} options={descriptionOptions} onChange={(value) => updateItem(item.id, "description", value)} controlClass={requiredControl(!String(item.description || "").trim())} />
@@ -786,7 +772,7 @@ function EditSearchableDescription({ value, options, onChange, controlClass }) {
 function editQuotationMissingFields(item) {
   const missing = [];
   if (!item.service_category) missing.push("service_category");
-  const hasRoom = Boolean(item.room || item.property_room || String(item.custom_room_name || "").trim());
+  const hasRoom = Boolean(item.room || item.property_room || String(item.custom_room_name || "").trim() || ["group", "special"].includes(item.specification_details?.kind));
   if (!hasRoom && !/full house|full exterior/i.test(item.description || "")) missing.push("room");
   if (!String(item.description || "").trim()) missing.push("description");
   if (!item.unit) missing.push("unit");

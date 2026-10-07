@@ -3,6 +3,8 @@ import { ArrowLeft, CalendarClock, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import { Button, EmptyState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import "./jobs-schedules.css";
 
 const dateKey = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -102,8 +104,8 @@ export default function WorkReschedules() {
   }
 
   return (
-    <div className="space-y-6">
-      <header>
+    <div className="space-y-6 jobs-schedules-page bp-work-reschedules-page">
+      <div>
         <Link
           to="/work-schedules"
           className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
@@ -111,15 +113,8 @@ export default function WorkReschedules() {
           <ArrowLeft className="h-4 w-4" />
           Back to Work Schedules
         </Link>
-        <p className="text-sm font-semibold text-amber-600">
-          Schedule changes
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">Reschedule work</h1>
-        <p className="mt-2 text-slate-500">
-          Pending approvals and schedules whose dates have crossed are managed
-          here.
-        </p>
-      </header>
+        <PageHeader eyebrow="Schedule changes" title="Reschedule work" description="Review pending approvals and schedules whose planned dates have passed." />
+      </div>
 
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
@@ -127,7 +122,7 @@ export default function WorkReschedules() {
         </p>
       )}
 
-      <section className="overflow-hidden rounded-2xl border bg-white">
+      <SectionCard title="Schedules needing review" description={`${visible.length} schedules match your search.`} className="reschedule-list-card" bodyClassName="p-0">
         <div className="border-b p-4">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -139,8 +134,15 @@ export default function WorkReschedules() {
             />
           </label>
         </div>
-        <div className="overflow-x-auto">
+        <div>
           {visible.length ? (
+            <>
+            <div className="grid gap-3 p-3 md:hidden">{visible.map((item) => <article key={item.id} className={`rounded-xl border p-4 ${item.needs_reschedule ? "border-red-200 bg-red-50/40" : "bg-white"}`}>
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold text-slate-900">{item.quotation_number}</p><p className="mt-1 truncate text-sm font-semibold text-slate-700">{item.customer}</p><p className="mt-0.5 truncate text-sm text-slate-600">{item.property}</p></div><StatusBadge status={item.needs_reschedule ? "OVERDUE" : item.status} label={item.needs_reschedule ? "Dates crossed" : item.status === "CONFIRMED" ? "Confirmed" : "Pending approval"} tone={item.needs_reschedule ? "danger" : item.status === "CONFIRMED" ? "info" : "warning"} /></div>
+              <p className="mt-3 text-sm font-semibold text-slate-800">{formatScheduleDate(item.start_date)} – {formatScheduleDate(item.end_date)}</p>
+              <Button variant={item.needs_reschedule ? "danger" : "secondary"} onClick={() => edit(item)} className="mt-3 w-full justify-center"><CalendarClock className="h-4 w-4" aria-hidden="true" />{item.needs_reschedule ? "Reschedule now" : "Change dates"}</Button>
+            </article>)}</div>
+            <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[850px] text-left text-sm">
               <thead className="border-b bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
@@ -177,30 +179,18 @@ export default function WorkReschedules() {
                       className="px-5 py-4"
                       data-sort-value={item.start_date}
                     >
-                      <p className="font-semibold">{item.start_date}</p>
-                      <p className="text-xs text-slate-400">
-                        to {item.end_date}
+                      <p className="font-semibold">{formatScheduleDate(item.start_date)}</p>
+                      <p className="text-sm text-slate-500">
+                        to {formatScheduleDate(item.end_date)}
                       </p>
                     </td>
                     <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                          item.needs_reschedule
-                            ? "bg-red-100 text-red-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {item.needs_reschedule
-                          ? "Dates crossed - reschedule"
-                          : item.status === "CONFIRMED"
-                            ? "Confirmed"
-                            : "Pending approval"}
-                      </span>
+                      <StatusBadge status={item.needs_reschedule ? "OVERDUE" : item.status} label={item.needs_reschedule ? "Dates crossed – reschedule" : item.status === "CONFIRMED" ? "Confirmed" : "Pending approval"} tone={item.needs_reschedule ? "danger" : item.status === "CONFIRMED" ? "info" : "warning"} />
                     </td>
                     <td className="px-5 py-4">
                       <button
                         onClick={() => edit(item)}
-                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 font-semibold ${
+                        className={`flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 font-semibold ${
                           item.needs_reschedule
                             ? "bg-red-600 text-white"
                             : "border"
@@ -216,13 +206,13 @@ export default function WorkReschedules() {
                 ))}
               </tbody>
             </table>
+            </div>
+            </>
           ) : (
-            <p className="p-12 text-center text-slate-400">
-              No schedules are waiting for changes.
-            </p>
+            <EmptyState title="No schedules need changes" description="Pending approvals and date adjustments will appear here." />
           )}
         </div>
-      </section>
+      </SectionCard>
 
       {editing && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
@@ -306,4 +296,10 @@ function DateField({ label, value, onChange, min }) {
       />
     </label>
   );
+}
+
+function formatScheduleDate(value) {
+  if (!value) return "Date not set";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

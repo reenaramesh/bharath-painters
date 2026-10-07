@@ -16,9 +16,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import PushAlertControl from "./PushAlertControl";
 import { languages, useLanguage } from "../i18n/LanguageContext";
+import { ScriptKnownText } from '../i18n/ScriptText';
 import { resolveBackTarget } from "../utils/navigation";
 
-export default function Topbar({ openMenu, toggleSidebar }) {
+export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = false, menuButtonRef, mobileMenuOpen = false }) {
   const { user, logout, refreshUser } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
@@ -29,10 +30,15 @@ export default function Topbar({ openMenu, toggleSidebar }) {
   const [unread, setUnread] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
   const profileMenuRef = useRef(null);
   useEffect(() => {
-    if (user?.preferred_language && user.preferred_language !== language) setLanguage(user.preferred_language);
-  }, [language, setLanguage, user?.preferred_language]);
+    const breakpoint = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDesktopLayout(breakpoint.matches);
+    sync();
+    breakpoint.addEventListener("change", sync);
+    return () => breakpoint.removeEventListener("change", sync);
+  }, []);
   async function chooseLanguage(value) {
     setLanguage(value);
     try {
@@ -44,13 +50,13 @@ export default function Topbar({ openMenu, toggleSidebar }) {
   }
   const loadNotifications = useCallback(async () => {
     try {
-      const { data } = await api.get("/quotations/notifications/");
+      const { data } = await api.get("/quotations/notifications/", { params: { display_script: language } });
       setNotifications(data.results || []);
       setUnread(Math.max(data.unread_count || 0, data.pending_connection_count || 0));
     } catch {
       /* keep header usable */
     }
-  }, []);
+  }, [language]);
   useEffect(() => {
     loadNotifications();
     const timer = window.setInterval(loadNotifications, 15000);
@@ -87,9 +93,11 @@ export default function Topbar({ openMenu, toggleSidebar }) {
     navigate(item.link);
   }
   async function readNotification(item) {
-    if (!item.is_read)
-      await api.patch("/quotations/notifications/", { id: item.id });
     setOpen(false);
+    if (!item.is_read) {
+      try { await api.patch("/quotations/notifications/", { id: item.id }); }
+      catch { /* viewing the destination should still work if this update fails */ }
+    }
     await loadNotifications();
     if (item.link) navigate(item.link);
   }
@@ -111,6 +119,10 @@ export default function Topbar({ openMenu, toggleSidebar }) {
     .map((part) => part.replaceAll("-", " "));
   const dashboardPath = user?.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard";
   const isDashboardHome = ["/dashboard", "/customer-dashboard", "/applicator"].includes(location.pathname);
+  const navigationExpanded = desktopLayout ? !sidebarCollapsed : mobileMenuOpen;
+  const navigationLabel = desktopLayout
+    ? sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+    : mobileMenuOpen ? "Close navigation" : "Open navigation";
   const goBack = () => {
     const { target } = resolveBackTarget({
       location,
@@ -120,14 +132,18 @@ export default function Topbar({ openMenu, toggleSidebar }) {
     navigate(target);
   };
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-3 shadow-sm shadow-slate-200/70 backdrop-blur-xl sm:h-[72px] sm:px-4 md:px-7">
+    <header className="bp-topbar flex items-center justify-between px-3 sm:px-4 md:px-7">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <button
+          type="button"
+          ref={menuButtonRef}
           onClick={() =>
             window.innerWidth >= 1024 ? toggleSidebar() : openMenu()
           }
-          aria-label="Open navigation"
-          className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+          aria-label={t(navigationLabel)}
+          aria-controls="workspace-navigation"
+          aria-expanded={navigationExpanded}
+          className="bp-shell-icon-button"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -137,7 +153,7 @@ export default function Topbar({ openMenu, toggleSidebar }) {
             onClick={goBack}
             aria-label="Go back"
             title="Back"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
+            className="bp-shell-icon-button"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -147,45 +163,46 @@ export default function Topbar({ openMenu, toggleSidebar }) {
           onClick={() => navigate(dashboardPath)}
           aria-label="Home"
           title="Home"
-          className="hidden rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:block"
+          className="bp-shell-icon-button hidden md:grid"
         >
           <Home className="h-5 w-5" />
         </button>
 
-        <p className="max-w-[170px] truncate text-sm font-semibold capitalize text-slate-800 md:hidden">
+        <p className="max-w-[170px] truncate text-sm font-semibold capitalize text-[var(--bp-ink)] md:hidden">
           {page}
         </p>
         <div className="hidden items-center gap-2 md:flex">
           <div className="mr-4 hidden min-w-36 lg:block">
-            <p className="text-[11px] font-semibold capitalize text-slate-400">
-              Dashboard{" "}
+            <p className="text-xs font-semibold capitalize text-[var(--bp-muted)]">
+              {t("Workspace")}{" "}
               {crumbs.length > 1 && (
                 <span> / {crumbs.slice(0, -1).join(" / ")}</span>
               )}
             </p>
-            <p className="mt-0.5 text-sm font-semibold capitalize text-slate-800">
+            <p className="mt-0.5 text-sm font-semibold capitalize text-[var(--bp-ink)]">
               {page}
             </p>
           </div>
-          <div className="relative flex w-72 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 shadow-sm transition focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgb(99_102_241_/_0.12)]">
-            <Search className="w-4 h-4 text-slate-500" />
+          <div className="bp-topbar-search relative flex w-56 items-center gap-2 border px-3.5 py-2.5 lg:w-72">
+            <Search className="w-4 h-4 shrink-0 text-[var(--bp-muted)]" aria-hidden="true" />
 
             <input
               type="search"
+              aria-label={t("Search customers, quotations, and properties")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search customers, quotes, properties..."
-              className="bg-transparent outline-none text-sm w-full"
+              className="w-full min-w-0 bg-transparent text-sm"
             />
             {results.length > 0 && (
-              <div className="absolute left-0 top-12 z-50 w-[420px] overflow-hidden rounded-xl border bg-white shadow-2xl">
+              <div className="absolute left-0 top-12 z-50 w-[min(26.25rem,calc(100vw-2rem))] overflow-hidden rounded-xl border bg-[var(--bp-card)] shadow-2xl">
                 {results.map((item, index) => (
                   <button
                     key={`${item.type}-${item.link}-${index}`}
                     onClick={() => chooseResult(item)}
                     className="flex w-full items-center gap-3 border-b px-4 py-3 text-left hover:bg-slate-50"
                   >
-                    <span className="rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase text-indigo-600">
+                    <span className="rounded-md bg-[color-mix(in_srgb,var(--app-primary,#176b9b)_10%,white)] px-2 py-1 text-xs font-bold uppercase text-[var(--app-primary,#176b9b)]">
                       {item.type}
                     </span>
                     <span>
@@ -200,39 +217,40 @@ export default function Topbar({ openMenu, toggleSidebar }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-4">
-        <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 text-slate-600 shadow-sm" title={t("Language")}>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
+        <label className="bp-topbar-language flex min-w-0 items-center gap-2 border bg-[var(--bp-card)] px-2 text-[var(--bp-muted)]" title={t("Language")}>
           <Languages className="h-4 w-4 shrink-0" />
-          <select value={language} onChange={(event) => chooseLanguage(event.target.value)} aria-label={t("Language")} className="max-w-24 bg-transparent text-xs font-semibold outline-none sm:max-w-32">
-            {languages.map(([code, nativeName, englishName]) => <option key={code} value={code}>{nativeName} · {englishName}</option>)}
+          <select value={language} onChange={(event) => chooseLanguage(event.target.value)} aria-label={t("Language")} className="max-w-24 bg-transparent text-xs font-semibold text-[var(--bp-ink)] outline-none sm:max-w-32">
+            {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
           </select>
         </label>
         <div className="relative shrink-0">
           <button
             type="button"
             aria-label={t("Notifications")}
+            aria-controls="topbar-notifications-panel"
             aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
-            className="relative rounded-lg border border-transparent p-2.5 hover:border-slate-200 hover:bg-slate-100"
+            className="bp-shell-icon-button relative"
           >
             <Bell className="w-5 h-5 text-slate-600" />
             {unread > 0 && (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+              <span aria-label={`${unread} unread notifications`} className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-xs font-bold text-white">
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
           </button>
           {open && (
-            <div className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] sm:max-h-[min(80vh,560px)]">
+            <div id="topbar-notifications-panel" className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border border-[var(--bp-line)] bg-[var(--bp-card)] shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] sm:max-h-[min(80vh,560px)]">
               <div className="flex items-center justify-between border-b p-4">
                 <div>
                   <h2 className="font-bold">{t("Notifications")}</h2>
-                  <p className="text-xs text-slate-500">{unread} unread</p>
+                  <p className="text-sm text-[var(--bp-muted)]">{unread} unread</p>
                 </div>
                 {unread > 0 && (
                   <button
                     onClick={readAll}
-                    className="text-xs font-semibold text-indigo-600"
+                    className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[var(--app-primary,var(--bp-brand))] hover:bg-[var(--bp-color-surface-muted)]"
                   >
                       {t("Mark all read")}
                   </button>
@@ -248,21 +266,19 @@ export default function Topbar({ openMenu, toggleSidebar }) {
                       className={`block w-full border-b p-4 text-left hover:bg-slate-50 ${item.is_read ? "bg-white" : "bg-indigo-50/60"}`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <strong className="min-w-0 break-words text-sm">{item.title}</strong>
-                        {!item.is_read && (
-                          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                        )}
+                        <strong className="min-w-0 break-words text-sm">{item.event_type === "MESSAGE" ? "New message" : <ScriptKnownText source={item.title} />}</strong>
+                        {!item.is_read && <span className="bp-topbar-unread shrink-0">Unread</span>}
                       </div>
-                      <p className="mt-1 line-clamp-2 break-words text-xs text-slate-600">
-                        {item.message}
+                      <p className="mt-1 line-clamp-2 break-words text-sm text-[var(--bp-muted)]">
+                        {item.event_type === "MESSAGE" ? "Open your inbox to view it." : <ScriptKnownText source={item.message} />}
                       </p>
-                      <p className="mt-2 text-[10px] text-slate-400">
+                      <p className="mt-2 text-xs text-[var(--bp-muted)]">
                         {new Date(item.created_at).toLocaleString()}
                       </p>
                     </button>
                   ))
                 ) : (
-                  <div className="p-10 text-center text-sm text-slate-400">
+                  <div className="p-10 text-center text-sm text-[var(--bp-muted)]">
                     No notifications yet.
                   </div>
                 )}
@@ -273,11 +289,14 @@ export default function Topbar({ openMenu, toggleSidebar }) {
 
         <div ref={profileMenuRef} className="relative">
           <button
+            type="button"
             onClick={() => setProfileOpen((value) => !value)}
+            aria-label={t("Profile menu")}
             aria-expanded={profileOpen}
-            className="flex items-center gap-2 rounded-xl p-1.5 text-left hover:bg-slate-100"
+            aria-controls="topbar-profile-menu"
+            className="bp-topbar-profile flex items-center gap-2 text-left hover:bg-[var(--bp-color-surface-muted)]"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/30 ring-2 ring-white">
+            <div className="bp-topbar-avatar flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold shadow-sm ring-2 ring-white">
               {name.charAt(0).toUpperCase()}
             </div>
 
@@ -291,14 +310,14 @@ export default function Topbar({ openMenu, toggleSidebar }) {
             <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
           </button>
           {profileOpen && (
-            <div className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border bg-white shadow-2xl">
+            <div id="topbar-profile-menu" className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-[var(--bp-line)] bg-[var(--bp-card)] shadow-2xl">
               <div className="border-b p-4">
                 <p className="font-bold">{name}</p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-sm text-[var(--bp-muted)]">
                   {user?.mobile} · {user?.role}
                 </p>
                 {user?.bharath_id && (
-                  <p className="mt-1 text-xs font-semibold text-indigo-600">
+                  <p className="mt-1 text-sm font-semibold text-[var(--app-primary,var(--bp-brand))]">
                     {user.bharath_id}
                   </p>
                 )}
@@ -306,31 +325,32 @@ export default function Topbar({ openMenu, toggleSidebar }) {
               <div className="p-2">
                 {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
                   <button
+                    type="button"
                     onClick={() => {
                       setProfileOpen(false);
-                      navigate(user?.role === "CONTRACTOR" ? "/settings" : "/appearance");
+                      navigate(["CONTRACTOR", "PAINTER"].includes(user?.role) ? "/settings" : "/appearance");
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-slate-50"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)]"
                   >
                     <Settings className="h-4 w-4" />
                     {t("Profile settings")}
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => {
                     setProfileOpen(false);
-                    navigate(
-                      user?.role === "PAINTER" ? "/applicator-profile" : "/profile",
-                    );
+                    navigate("/profile");
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-slate-50"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)]"
                 >
                   <UserRound className="h-4 w-4" />
                   {t("My account")}
                 </button>
                 <button
+                  type="button"
                   onClick={logout}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--bp-color-danger)] hover:bg-[var(--bp-color-danger-surface)]"
                 >
                   <LogOut className="h-4 w-4" />
                   {t("Logout")}

@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Search, UserPlus } from "lucide-react";
-import api from "../api/client";
+import { ArrowRight, ExternalLink, Search, UserPlus } from "lucide-react";
+import api, { API_BASE_URL } from "../api/client";
 import useAuth from "../context/useAuth";
+import { Button, SectionCard, StatusBadge } from "../components/ui";
+import "../pages/customer-connections.css";
 
 export default function ContractorConnectSearch({ onConnected }) {
   const { user } = useAuth();
@@ -16,36 +18,172 @@ export default function ContractorConnectSearch({ onConnected }) {
     setError("");
     setResult(null);
     try {
-      const { data } = await api.get("/quotations/customer/contractors/search/", { params: { mobile } });
+      const { data } = await api.get("/quotations/customer/contractors/search/", {
+        params: { mobile },
+      });
       setResult(data);
     } catch (requestError) {
-      setError(requestError.response?.data?.mobile || requestError.response?.data?.detail || "Contractor search failed.");
-    } finally { setBusy(false); }
+      setError(
+        requestError.response?.data?.mobile ||
+          requestError.response?.data?.detail ||
+          "Contractor search failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function connect() {
     setBusy(true);
     setError("");
     try {
-      await api.post("/quotations/customer/contractors/connect/", { mobile: result.mobile });
-      setResult(current => ({ ...current, connection_status: "CONNECTED", can_connect: false }));
+      await api.post("/quotations/customer/contractors/connect/", {
+        mobile: result.mobile,
+      });
+      setResult((current) => ({
+        ...current,
+        connection_status: "CONNECTED",
+        can_connect: false,
+      }));
       await onConnected();
       window.dispatchEvent(new Event("portal-counts-changed"));
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "The contractor could not be connected.");
-    } finally { setBusy(false); }
+      setError(
+        requestError.response?.data?.detail ||
+          "The contractor could not be connected.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const invitation = `Hello, I would like to connect with you on Bharath Painters. Register as a contractor here: ${window.location.origin}/register. My customer mobile number is ${user?.mobile || "available from me"}. After registration, we can connect and share quotations and project updates.`;
+  const invitation = `Hello, I would like to connect with you on Bharath Apps. Register as a contractor here: ${window.location.origin}/register. My customer mobile number is ${user?.mobile || "available from me"}. After registration, we can connect and share quotations and project updates.`;
   const invitationNumber = String(result?.mobile || "").replace(/[^0-9]/g, "");
+  const contractor = result?.contractor || {};
+  const profileUrl = contractor.contractor_id
+    ? new URL(
+        `${API_BASE_URL.replace(/\/$/, "")}/accounts/verify-page/${encodeURIComponent(contractor.contractor_id)}/`,
+        window.location.origin,
+      ).href
+    : "";
 
-  return <section className="rounded-2xl border bg-white p-5 sm:p-6">
-    <h2 className="flex items-center gap-2 text-lg font-bold"><UserPlus className="h-5 w-5 text-indigo-600" />Find your contractor</h2>
-    <p className="mt-2 text-sm text-slate-500">Enter your known contractor's mobile number to connect. If they have not registered, invite them to join.</p>
-    <form onSubmit={search} className="mt-4 flex flex-col gap-3 sm:flex-row"><input required disabled={busy} inputMode="tel" aria-label="Contractor mobile number" placeholder="Contractor mobile number" value={mobile} onChange={event => { setMobile(event.target.value); setResult(null); setError(""); }} className="min-w-0 flex-1 rounded-xl border px-4 py-3 outline-none focus:border-indigo-500" /><button disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50"><Search className="h-4 w-4" />{busy ? "Please wait..." : "Search"}</button></form>
-    {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    {result?.state === "FOUND" && <div className="mt-4 rounded-xl bg-indigo-50 p-4"><h3 className="font-bold">{result.contractor.business_name}</h3><p className="mt-1 text-sm text-slate-600">{result.contractor.contractor_id || result.contractor.name} ? {result.mobile}</p>{result.connection_status === "CONNECTED" ? <p role="status" className="mt-3 font-semibold text-emerald-700">Connected. This contractor is in My contractors.</p> : result.can_connect ? <><p className="mt-3 text-sm text-slate-600">Connecting gives this contractor permission to create and share records for their work with you.</p><button type="button" onClick={connect} disabled={busy} className="mt-3 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? "Connecting..." : "Connect contractor"}</button></> : <p className="mt-3 text-sm text-slate-600">This contractor is blocked on your account.</p>}</div>}
-    {result?.state === "NOT_FOUND" && <div className="mt-4 rounded-xl bg-amber-50 p-4"><h3 className="font-bold">Contractor not registered</h3><p className="mt-2 text-sm text-slate-600">Invite {result.mobile} to register. Choose a channel to review and send the invitation.</p><div className="mt-4 flex flex-wrap gap-3"><a href={`https://wa.me/${invitationNumber}?text=${encodeURIComponent(invitation)}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white">Invite via WhatsApp</a><a href={`sms:+${invitationNumber}?body=${encodeURIComponent(invitation)}`} className="rounded-xl border bg-white px-4 py-3 text-sm font-bold">Invite via SMS</a></div></div>}
-    {result?.state === "UNAVAILABLE" && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{result.message}</p>}
-  </section>;
+  return (
+    <SectionCard
+      title="Find your contractor"
+      description="Search by the mobile number you already know. If they are not registered, you can invite them."
+      className="contractor-search-card"
+    >
+      <form onSubmit={search} className="contractor-search-form">
+        <label className="contractor-search-field">
+          <span>Contractor mobile number</span>
+          <input
+            required
+            disabled={busy}
+            inputMode="tel"
+            autoComplete="tel"
+            aria-label="Contractor mobile number"
+            placeholder="Enter mobile number"
+            value={mobile}
+            onChange={(event) => {
+              setMobile(event.target.value);
+              setResult(null);
+              setError("");
+            }}
+          />
+        </label>
+        <Button type="submit" loading={busy} className="contractor-search-submit">
+          <Search aria-hidden="true" />
+          Search
+        </Button>
+      </form>
+
+      {error && <p role="alert" className="connections-alert mt-4">{error}</p>}
+
+      {result?.state === "FOUND" && (
+        <div className="contractor-search-result">
+          <div className="contractor-search-result-main">
+            <span className="contractor-search-result-icon" aria-hidden="true">
+              <UserPlus />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="contractor-search-result-heading">
+                <div className="min-w-0">
+                  <h3>{contractor.business_name || "Contractor"}</h3>
+                  <p>{contractor.contractor_id || contractor.name || "Contractor profile"} · {result.mobile}</p>
+                </div>
+                {contractor.is_verified && (
+                  <StatusBadge status="VERIFIED" label="Verified" tone="success" />
+                )}
+              </div>
+              {profileUrl && (
+                <a href={profileUrl} target="_blank" rel="noreferrer" className="contractor-search-profile-link">
+                  View contractor profile <ExternalLink aria-hidden="true" />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {result.connection_status === "CONNECTED" ? (
+            <p role="status" className="contractor-search-result-status is-connected">
+              <StatusBadge status="CONNECTED" label="Connected" tone="success" />
+              <span>This contractor is in your connected list.</span>
+              <ArrowRight aria-hidden="true" />
+            </p>
+          ) : result.connection_status === "BLOCKED" || !result.can_connect ? (
+            <p role="status" className="contractor-search-result-status">
+              <StatusBadge status={result.connection_status || "UNAVAILABLE"} label={connectionLabel(result.connection_status)} tone={result.connection_status === "BLOCKED" ? "danger" : "neutral"} />
+              <span>{result.connection_status === "BLOCKED" ? "This contractor is blocked on your account." : connectionLabel(result.connection_status)}</span>
+            </p>
+          ) : (
+            <div className="contractor-search-connect">
+              <p>Connecting lets this contractor create and share records for work they do with you.</p>
+              <Button onClick={connect} loading={busy}>
+                <UserPlus aria-hidden="true" />
+                Connect contractor
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {result?.state === "NOT_FOUND" && (
+        <div className="contractor-search-invitation">
+          <div>
+            <StatusBadge status="PENDING" label="Not registered yet" tone="warning" />
+            <h3 className="mt-2">Invite this contractor</h3>
+            <p>Send an invitation to {result.mobile}. Review the message before choosing a channel.</p>
+          </div>
+          <div className="contractor-search-invitation-actions">
+            <a
+              href={`https://wa.me/${invitationNumber}?text=${encodeURIComponent(invitation)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="bp-button bp-button-primary"
+            >
+              Invite via WhatsApp
+            </a>
+            <a
+              href={`sms:+${invitationNumber}?body=${encodeURIComponent(invitation)}`}
+              className="bp-button bp-button-secondary"
+            >
+              Invite via SMS
+            </a>
+          </div>
+        </div>
+      )}
+
+      {result?.state === "UNAVAILABLE" && (
+        <p role="status" className="contractor-search-unavailable">{result.message}</p>
+      )}
+    </SectionCard>
+  );
+}
+
+function connectionLabel(status) {
+  return ({
+    PENDING: "Connection request pending",
+    RECONNECT_PENDING: "Reconnection request pending",
+    REJECTED: "Previous request declined",
+    BLOCKED: "Blocked",
+  })[status] || "Connection unavailable";
 }

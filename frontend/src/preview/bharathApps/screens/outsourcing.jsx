@@ -703,54 +703,66 @@ export function ScreenPayments() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard
+<SectionCard
           title="Customer → Main contractor"
           description={fin.customerToMain.invoiceNumber}
           action={<Pill tone={fin.customerToMain.status === "PAID" ? "success" : "warning"}>{fin.customerToMain.status.replaceAll("_", " ")}</Pill>}
         >
-          <div className="space-y-2">
-            {fin.customerToMain.lines.map((l, i) => (
-              <div key={i} className="flex items-start justify-between gap-2 rounded-lg border border-[#e5e9f2] bg-white px-3 py-2">
-                <p className="min-w-0 text-[0.76rem] font-semibold text-[#172033]">{l.descriptionSnapshot}</p>
-                <p className="shrink-0 text-[0.78rem] font-bold text-[#172033]">{money(l.amount)}</p>
+          {/* The end-customer quotation is the main contractor's own commercial
+              document. The receiving contractor is told it exists but is never
+              shown its lines, total, payments or balance — a DeniedPanel below
+              alone would still have leaked every figure above it. */}
+          {!isMain && !isCustomer ? (
+            <DeniedPanel title="Not available">
+              You have no visibility of the customer-to-main-contractor ledger. Your own invoice, the agreed subcontract price
+              and your payment status are on the right.
+            </DeniedPanel>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {fin.customerToMain.lines.map((l, i) => (
+                  <div key={i} className="flex items-start justify-between gap-2 rounded-lg border border-[#e5e9f2] bg-white px-3 py-2">
+                    <p className="min-w-0 text-[0.76rem] font-semibold text-[#172033]">{l.descriptionSnapshot}</p>
+                    <p className="shrink-0 text-[0.78rem] font-bold text-[#172033]">{money(l.amount)}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-[#e5e9f2] pt-2.5">
-            <span className="text-[0.78rem] font-bold text-[#475467]">Invoice total</span>
-            <span className="font-extrabold text-[#172033]">{money(fin.customerToMain.total)}</span>
-          </div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#e5e9f2] pt-2.5">
+                <span className="text-[0.78rem] font-bold text-[#475467]">Invoice total</span>
+                <span className="font-extrabold text-[#172033]">{money(fin.customerToMain.total)}</span>
+              </div>
 
-          <div className="mt-3 space-y-1.5">
-            <p className="text-[0.68rem] font-bold uppercase tracking-wide text-[#98a2b3]">Payments recorded</p>
-            {fin.customerToMain.payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#f4f6fa] px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-[0.74rem] font-semibold text-[#172033]">{fmtDate(p.date)} · {p.mode}</p>
-                  <p className="font-mono text-[0.66rem] text-[#98a2b3]">{p.reference}</p>
+              <div className="mt-3 space-y-1.5">
+                <p className="text-[0.68rem] font-bold uppercase tracking-wide text-[#98a2b3]">Payments recorded</p>
+                {fin.customerToMain.payments.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#f4f6fa] px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-[0.74rem] font-semibold text-[#172033]">{fmtDate(p.date)} · {p.mode}</p>
+                      <p className="font-mono text-[0.66rem] text-[#98a2b3]">{p.reference}</p>
+                    </div>
+                    <p className="shrink-0 text-[0.78rem] font-bold text-[#172033]">{money(p.amount)}</p>
+                  </div>
+                ))}
+              </div>
+              <dl className="mt-3 space-y-1 border-t border-[#e5e9f2] pt-2.5">
+                <div className="flex justify-between text-[0.76rem]"><dt className="text-[#667085]">Received</dt><dd className="font-bold">{money(customerPaid)}</dd></div>
+                <div className="flex justify-between text-[0.76rem]"><dt className="text-[#667085]">Balance</dt><dd className="font-bold">{money(customerBalance)}</dd></div>
+              </dl>
+
+              {isMain && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={() => dispatch({ type: "RECORD_CUSTOMER_PAYMENT", amount: Math.min(customerBalance, 100000), mode: "UPI" })}
+                    disabled={customerBalance === 0}
+                  >
+                    <ReceiptText size={13} /> Record payment of {money(Math.min(customerBalance, 100000))}
+                  </Button>
+                  <UnsupportedNote>Simulated receipt. No payment gateway and no money transfer.</UnsupportedNote>
                 </div>
-                <p className="shrink-0 text-[0.78rem] font-bold text-[#172033]">{money(p.amount)}</p>
-              </div>
-            ))}
-          </div>
-          <dl className="mt-3 space-y-1 border-t border-[#e5e9f2] pt-2.5">
-            <div className="flex justify-between text-[0.76rem]"><dt className="text-[#667085]">Received</dt><dd className="font-bold">{money(customerPaid)}</dd></div>
-            <div className="flex justify-between text-[0.76rem]"><dt className="text-[#667085]">Balance</dt><dd className="font-bold">{money(customerBalance)}</dd></div>
-          </dl>
-
-          {isMain && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                onClick={() => dispatch({ type: "RECORD_CUSTOMER_PAYMENT", amount: Math.min(customerBalance, 100000), mode: "UPI" })}
-                disabled={customerBalance === 0}
-              >
-                <ReceiptText size={13} /> Record payment of {money(Math.min(customerBalance, 100000))}
-              </Button>
-              <UnsupportedNote>Simulated receipt. No payment gateway and no money transfer.</UnsupportedNote>
-            </div>
+              )}
+              {isCustomer && <UnsupportedNote>You see your own invoices and receipts only. Nothing about the subcontractor.</UnsupportedNote>}
+            </>
           )}
-          {isCustomer && <UnsupportedNote>You see your own invoices and receipts only. Nothing about the subcontractor.</UnsupportedNote>}
-          {isReceiving && <DeniedPanel title="Not available">You have no visibility of the customer-to-main-contractor ledger.</DeniedPanel>}
         </SectionCard>
 
         {/* The main-to-receiving ledger is never rendered for the end customer:

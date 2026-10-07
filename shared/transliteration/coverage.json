@@ -1,0 +1,1806 @@
+{
+  "routes": [
+    "/preview/settings",
+    "/preview/subcontract-work-orders",
+    "/preview/sidebar",
+    "/preview/bharath-apps",
+    "/login",
+    "/register",
+    "/customer-register",
+    "/customer-link/:token",
+    "/join/property/:token",
+    "/forgot-password",
+    "/dashboard",
+    "/applicator",
+    "/customer-dashboard",
+    "/customer/connections",
+    "/customer/profile",
+    "/customer/connection-requests",
+    "/profile",
+    "/customer-reviews",
+    "/completed-projects",
+    "/account-security",
+    "/appearance",
+    "/contractors",
+    "/painters",
+    "/customers",
+    "/customers/:id",
+    "/customers/:id/quotations",
+    "/invoices",
+    "/tasks",
+    "/messages",
+    "/colors-shades",
+    "/service-requests",
+    "/support-tickets",
+    "/support-workspace",
+    "/support-staff",
+    "/admin-integrations",
+    "/measurement-access",
+    "/customer-quotations",
+    "/customer-quotations/:id",
+    "/customer-invoices",
+    "/customer-properties",
+    "/customer-properties/:id",
+    "/customer-properties/:id/access",
+    "/work-schedules",
+    "/work-changes",
+    "/work-reschedules",
+    "/completed-work",
+    "/leads",
+    "/site-visits",
+    "/painter-seeking",
+    "/find-painter",
+    "/painter-assignments",
+    "/jobs",
+    "/job-activity",
+    "/applicator-team",
+    "/in-house-applicators",
+    "/in-house-applicators/new",
+    "/in-house-applicators/:id",
+    "/in-house-earnings",
+    "/work-reviews",
+    "/billing",
+    "/packages",
+    "/revenue",
+    "/customer-connections",
+    "/contractor-revenue",
+    "/my-packages",
+    "/activity-log",
+    "/measurement-trial",
+    "/applicator-availability",
+    "/applicator-bookings",
+    "/properties",
+    "/properties/:id",
+    "/properties/:id/measurements",
+    "/master-services",
+    "/contractor-network",
+    "/subcontract-work-orders",
+    "/subcontract-work-orders/:id",
+    "/settings",
+    "/provider-profile",
+    "/applicator-profile",
+    "/contractor-theme",
+    "/quotations",
+    "/quotations/new",
+    "/quotations/new-measured",
+    "/quotations/:id",
+    "/quotations/new-manual",
+    "/quotations/:id/edit",
+    "/work-photos",
+    "/reports",
+    "*"
+  ],
+  "files": [
+    {
+      "file": "frontend/src/App.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/AdminDirectoryModal.jsx",
+      "marked_display_sites": 8,
+      "static_source_segments": 7
+    },
+    {
+      "file": "frontend/src/components/ApplicatorPerson.jsx",
+      "marked_display_sites": 5,
+      "static_source_segments": 5
+    },
+    {
+      "file": "frontend/src/components/BackButton.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/BusinessSettingsForm.jsx",
+      "marked_display_sites": 69,
+      "static_source_segments": 60
+    },
+    {
+      "file": "frontend/src/components/ChatColourPicker.jsx",
+      "marked_display_sites": 18,
+      "static_source_segments": 16
+    },
+    {
+      "file": "frontend/src/components/ContractorConnectionCard.jsx",
+      "marked_display_sites": 24,
+      "static_source_segments": 26
+    },
+    {
+      "file": "frontend/src/components/ContractorConnectSearch.jsx",
+      "marked_display_sites": 20,
+      "static_source_segments": 21
+    },
+    {
+      "file": "frontend/src/components/ContractorDigitalCard.jsx",
+      "marked_display_sites": 36,
+      "static_source_segments": 36
+    },
+    {
+      "file": "frontend/src/components/ContractorInboxRequests.jsx",
+      "marked_display_sites": 10,
+      "static_source_segments": 8
+    },
+    {
+      "file": "frontend/src/components/ContractorInvitation.jsx",
+      "marked_display_sites": 12,
+      "static_source_segments": 11
+    },
+    {
+      "file": "frontend/src/components/CustomerAds.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/CustomerConnectionFlow.jsx",
+      "marked_display_sites": 10,
+      "static_source_segments": 11
+    },
+    {
+      "file": "frontend/src/components/CustomerConnectionPrompt.jsx",
+      "marked_display_sites": 11,
+      "static_source_segments": 11
+    },
+    {
+      "file": "frontend/src/components/CustomerForm.jsx",
+      "marked_display_sites": 20,
+      "static_source_segments": 19
+    },
+    {
+      "file": "frontend/src/components/DirectoryPagination.jsx",
+      "marked_display_sites": 9,
+      "static_source_segments": 8
+    },
+    {
+      "file": "frontend/src/components/GlobalTableSorting.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/IndiaLocationPicker.jsx",
+      "marked_display_sites": 9,
+      "static_source_segments": 7
+    },
+    {
+      "file": "frontend/src/components/LanguageSelector.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/MobileBottomNav.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/MobileDashboardShortcuts.jsx",
+      "marked_display_sites": 17,
+      "static_source_segments": 16
+    },
+    {
+      "file": "frontend/src/components/MobilePageBack.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/MobileTableDialogs.jsx",
+      "marked_display_sites": 4,
+      "static_source_segments": 4
+    },
+    {
+      "file": "frontend/src/components/PackageAssignments.jsx",
+      "marked_display_sites": 49,
+      "static_source_segments": 49
+    },
+    {
+      "file": "frontend/src/components/PackageRequests.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 22
+    },
+    {
+      "file": "frontend/src/components/PainterDigitalCard.jsx",
+      "marked_display_sites": 20,
+      "static_source_segments": 20
+    },
+    {
+      "file": "frontend/src/components/PdfPreview.jsx",
+      "marked_display_sites": 15,
+      "static_source_segments": 14
+    },
+    {
+      "file": "frontend/src/components/ProfileImageControl.jsx",
+      "marked_display_sites": 16,
+      "static_source_segments": 12
+    },
+    {
+      "file": "frontend/src/components/ProjectScopesPanel.jsx",
+      "marked_display_sites": 47,
+      "static_source_segments": 50
+    },
+    {
+      "file": "frontend/src/components/PropertyForm.jsx",
+      "marked_display_sites": 42,
+      "static_source_segments": 43
+    },
+    {
+      "file": "frontend/src/components/ProtectedRoute.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/ProviderProfileRoute.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/PushAlertControl.jsx",
+      "marked_display_sites": 7,
+      "static_source_segments": 7
+    },
+    {
+      "file": "frontend/src/components/PwaInstallPrompt.jsx",
+      "marked_display_sites": 5,
+      "static_source_segments": 5
+    },
+    {
+      "file": "frontend/src/components/RegistrationConsent.jsx",
+      "marked_display_sites": 27,
+      "static_source_segments": 25
+    },
+    {
+      "file": "frontend/src/components/RoomForm.jsx",
+      "marked_display_sites": 9,
+      "static_source_segments": 9
+    },
+    {
+      "file": "frontend/src/components/RoomMeasurementForm.jsx",
+      "marked_display_sites": 67,
+      "static_source_segments": 57
+    },
+    {
+      "file": "frontend/src/components/RouteErrorBoundary.jsx",
+      "marked_display_sites": 4,
+      "static_source_segments": 4
+    },
+    {
+      "file": "frontend/src/components/SearchableSelect.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/ShareAppButton.jsx",
+      "marked_display_sites": 8,
+      "static_source_segments": 9
+    },
+    {
+      "file": "frontend/src/components/SharePropertyDialog.jsx",
+      "marked_display_sites": 42,
+      "static_source_segments": 37
+    },
+    {
+      "file": "frontend/src/components/Sidebar.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/components/StatCard.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/SubcontractAdditionalWorkPanel.jsx",
+      "marked_display_sites": 14,
+      "static_source_segments": 13
+    },
+    {
+      "file": "frontend/src/components/SubcontractBillingPanel.jsx",
+      "marked_display_sites": 26,
+      "static_source_segments": 24
+    },
+    {
+      "file": "frontend/src/components/SubcontractQuotePanel.jsx",
+      "marked_display_sites": 46,
+      "static_source_segments": 46
+    },
+    {
+      "file": "frontend/src/components/SubcontractTeamPanel.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 22
+    },
+    {
+      "file": "frontend/src/components/Topbar.jsx",
+      "marked_display_sites": 11,
+      "static_source_segments": 12
+    },
+    {
+      "file": "frontend/src/components/ui.jsx",
+      "marked_display_sites": 6,
+      "static_source_segments": 5
+    },
+    {
+      "file": "frontend/src/components/VerifiedContractorRoute.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/components/WhatsAppAppChooser.jsx",
+      "marked_display_sites": 13,
+      "static_source_segments": 13
+    },
+    {
+      "file": "frontend/src/components/WorkNetworkTabs.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/context/AuthContext.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/layouts/DashboardLayout.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/main.jsx",
+      "marked_display_sites": 0,
+      "static_source_segments": 0
+    },
+    {
+      "file": "frontend/src/pages/ActivityLog.jsx",
+      "marked_display_sites": 42,
+      "static_source_segments": 41
+    },
+    {
+      "file": "frontend/src/pages/AdminBilling.jsx",
+      "marked_display_sites": 4,
+      "static_source_segments": 3
+    },
+    {
+      "file": "frontend/src/pages/AdminCustomerConnections.jsx",
+      "marked_display_sites": 26,
+      "static_source_segments": 23
+    },
+    {
+      "file": "frontend/src/pages/AdminDashboard.jsx",
+      "marked_display_sites": 96,
+      "static_source_segments": 94
+    },
+    {
+      "file": "frontend/src/pages/AdminIntegrations.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 23
+    },
+    {
+      "file": "frontend/src/pages/AdminRevenue.jsx",
+      "marked_display_sites": 28,
+      "static_source_segments": 26
+    },
+    {
+      "file": "frontend/src/pages/AppearanceSettings.jsx",
+      "marked_display_sites": 17,
+      "static_source_segments": 13
+    },
+    {
+      "file": "frontend/src/pages/ApplicatorAvailability.jsx",
+      "marked_display_sites": 35,
+      "static_source_segments": 36
+    },
+    {
+      "file": "frontend/src/pages/ApplicatorBookings.jsx",
+      "marked_display_sites": 41,
+      "static_source_segments": 40
+    },
+    {
+      "file": "frontend/src/pages/ApplicatorProfile.jsx",
+      "marked_display_sites": 30,
+      "static_source_segments": 27
+    },
+    {
+      "file": "frontend/src/pages/ApplicatorTeam.jsx",
+      "marked_display_sites": 34,
+      "static_source_segments": 33
+    },
+    {
+      "file": "frontend/src/pages/Billing.jsx",
+      "marked_display_sites": 71,
+      "static_source_segments": 73
+    },
+    {
+      "file": "frontend/src/pages/Chat.jsx",
+      "marked_display_sites": 109,
+      "static_source_segments": 116
+    },
+    {
+      "file": "frontend/src/pages/ColorsShades.jsx",
+      "marked_display_sites": 38,
+      "static_source_segments": 34
+    },
+    {
+      "file": "frontend/src/pages/ComingSoon.jsx",
+      "marked_display_sites": 2,
+      "static_source_segments": 2
+    },
+    {
+      "file": "frontend/src/pages/CompletedWork.jsx",
+      "marked_display_sites": 33,
+      "static_source_segments": 35
+    },
+    {
+      "file": "frontend/src/pages/ContractorBusinessSettings.jsx",
+      "marked_display_sites": 1,
+      "static_source_segments": 1
+    },
+    {
+      "file": "frontend/src/pages/ContractorCompletedProjects.jsx",
+      "marked_display_sites": 44,
+      "static_source_segments": 42
+    },
+    {
+      "file": "frontend/src/pages/ContractorDashboard.jsx",
+      "marked_display_sites": 34,
+      "static_source_segments": 43
+    },
+    {
+      "file": "frontend/src/pages/ContractorNetwork.jsx",
+      "marked_display_sites": 55,
+      "static_source_segments": 55
+    },
+    {
+      "file": "frontend/src/pages/ContractorPackages.jsx",
+      "marked_display_sites": 54,
+      "static_source_segments": 53
+    },
+    {
+      "file": "frontend/src/pages/ContractorRevenue.jsx",
+      "marked_display_sites": 88,
+      "static_source_segments": 98
+    },
+    {
+      "file": "frontend/src/pages/Contractors.jsx",
+      "marked_display_sites": 11,
+      "static_source_segments": 9
+    },
+    {
+      "file": "frontend/src/pages/ContractorSettings.jsx",
+      "marked_display_sites": 129,
+      "static_source_segments": 115
+    },
+    {
+      "file": "frontend/src/pages/CustomerConnections.jsx",
+      "marked_display_sites": 45,
+      "static_source_segments": 46
+    },
+    {
+      "file": "frontend/src/pages/CustomerContractorReviews.jsx",
+      "marked_display_sites": 21,
+      "static_source_segments": 23
+    },
+    {
+      "file": "frontend/src/pages/CustomerDashboard.jsx",
+      "marked_display_sites": 53,
+      "static_source_segments": 72
+    },
+    {
+      "file": "frontend/src/pages/CustomerDetail.jsx",
+      "marked_display_sites": 55,
+      "static_source_segments": 53
+    },
+    {
+      "file": "frontend/src/pages/CustomerInvoices.jsx",
+      "marked_display_sites": 79,
+      "static_source_segments": 87
+    },
+    {
+      "file": "frontend/src/pages/CustomerProfile.jsx",
+      "marked_display_sites": 46,
+      "static_source_segments": 45
+    },
+    {
+      "file": "frontend/src/pages/CustomerProperties.jsx",
+      "marked_display_sites": 26,
+      "static_source_segments": 29
+    },
+    {
+      "file": "frontend/src/pages/CustomerPropertyDetail.jsx",
+      "marked_display_sites": 72,
+      "static_source_segments": 79
+    },
+    {
+      "file": "frontend/src/pages/CustomerQuotation.jsx",
+      "marked_display_sites": 79,
+      "static_source_segments": 79
+    },
+    {
+      "file": "frontend/src/pages/CustomerQuotationHistory.jsx",
+      "marked_display_sites": 29,
+      "static_source_segments": 27
+    },
+    {
+      "file": "frontend/src/pages/CustomerQuotations.jsx",
+      "marked_display_sites": 33,
+      "static_source_segments": 42
+    },
+    {
+      "file": "frontend/src/pages/CustomerRegister.jsx",
+      "marked_display_sites": 15,
+      "static_source_segments": 19
+    },
+    {
+      "file": "frontend/src/pages/Customers.jsx",
+      "marked_display_sites": 87,
+      "static_source_segments": 83
+    },
+    {
+      "file": "frontend/src/pages/CustomerShareLink.jsx",
+      "marked_display_sites": 28,
+      "static_source_segments": 26
+    },
+    {
+      "file": "frontend/src/pages/Dashboard.jsx",
+      "marked_display_sites": 38,
+      "static_source_segments": 38
+    },
+    {
+      "file": "frontend/src/pages/FindPainter.jsx",
+      "marked_display_sites": 14,
+      "static_source_segments": 13
+    },
+    {
+      "file": "frontend/src/pages/ForgotPassword.jsx",
+      "marked_display_sites": 33,
+      "static_source_segments": 29
+    },
+    {
+      "file": "frontend/src/pages/InHouseApplicators.jsx",
+      "marked_display_sites": 21,
+      "static_source_segments": 20
+    },
+    {
+      "file": "frontend/src/pages/InHouseEarnings.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 22
+    },
+    {
+      "file": "frontend/src/pages/InHouseEmployeeCreate.jsx",
+      "marked_display_sites": 26,
+      "static_source_segments": 24
+    },
+    {
+      "file": "frontend/src/pages/InHouseEmployeeDetail.jsx",
+      "marked_display_sites": 41,
+      "static_source_segments": 39
+    },
+    {
+      "file": "frontend/src/pages/Invoices.jsx",
+      "marked_display_sites": 177,
+      "static_source_segments": 184
+    },
+    {
+      "file": "frontend/src/pages/JobActivity.jsx",
+      "marked_display_sites": 42,
+      "static_source_segments": 48
+    },
+    {
+      "file": "frontend/src/pages/Jobs.jsx",
+      "marked_display_sites": 73,
+      "static_source_segments": 82
+    },
+    {
+      "file": "frontend/src/pages/JoinProperty.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 21
+    },
+    {
+      "file": "frontend/src/pages/Leads.jsx",
+      "marked_display_sites": 45,
+      "static_source_segments": 46
+    },
+    {
+      "file": "frontend/src/pages/Login.jsx",
+      "marked_display_sites": 28,
+      "static_source_segments": 30
+    },
+    {
+      "file": "frontend/src/pages/ManualQuotationBuilder.jsx",
+      "marked_display_sites": 92,
+      "static_source_segments": 88
+    },
+    {
+      "file": "frontend/src/pages/MasterServices.jsx",
+      "marked_display_sites": 97,
+      "static_source_segments": 83
+    },
+    {
+      "file": "frontend/src/pages/MeasurementAccess.jsx",
+      "marked_display_sites": 53,
+      "static_source_segments": 59
+    },
+    {
+      "file": "frontend/src/pages/MeasurementCalculator.jsx",
+      "marked_display_sites": 183,
+      "static_source_segments": 182
+    },
+    {
+      "file": "frontend/src/pages/MeasurementTrial.jsx",
+      "marked_display_sites": 120,
+      "static_source_segments": 115
+    },
+    {
+      "file": "frontend/src/pages/NewOpportunity.jsx",
+      "marked_display_sites": 44,
+      "static_source_segments": 43
+    },
+    {
+      "file": "frontend/src/pages/Opportunities.jsx",
+      "marked_display_sites": 41,
+      "static_source_segments": 45
+    },
+    {
+      "file": "frontend/src/pages/OpportunityDetail.jsx",
+      "marked_display_sites": 57,
+      "static_source_segments": 58
+    },
+    {
+      "file": "frontend/src/pages/PainterAssignments.jsx",
+      "marked_display_sites": 19,
+      "static_source_segments": 17
+    },
+    {
+      "file": "frontend/src/pages/Painters.jsx",
+      "marked_display_sites": 18,
+      "static_source_segments": 16
+    },
+    {
+      "file": "frontend/src/pages/PainterSeeking.jsx",
+      "marked_display_sites": 91,
+      "static_source_segments": 88
+    },
+    {
+      "file": "frontend/src/pages/ProfileCard.jsx",
+      "marked_display_sites": 13,
+      "static_source_segments": 12
+    },
+    {
+      "file": "frontend/src/pages/Properties.jsx",
+      "marked_display_sites": 74,
+      "static_source_segments": 77
+    },
+    {
+      "file": "frontend/src/pages/PropertyAccess.jsx",
+      "marked_display_sites": 30,
+      "static_source_segments": 33
+    },
+    {
+      "file": "frontend/src/pages/PropertyDetail.jsx",
+      "marked_display_sites": 47,
+      "static_source_segments": 46
+    },
+    {
+      "file": "frontend/src/pages/ProviderProfile.jsx",
+      "marked_display_sites": 67,
+      "static_source_segments": 86
+    },
+    {
+      "file": "frontend/src/pages/QuotationBuilder.jsx",
+      "marked_display_sites": 207,
+      "static_source_segments": 203
+    },
+    {
+      "file": "frontend/src/pages/QuotationDetail.jsx",
+      "marked_display_sites": 130,
+      "static_source_segments": 126
+    },
+    {
+      "file": "frontend/src/pages/QuotationEdit.jsx",
+      "marked_display_sites": 102,
+      "static_source_segments": 102
+    },
+    {
+      "file": "frontend/src/pages/QuotationReset.jsx",
+      "marked_display_sites": 3,
+      "static_source_segments": 3
+    },
+    {
+      "file": "frontend/src/pages/Quotations.jsx",
+      "marked_display_sites": 28,
+      "static_source_segments": 30
+    },
+    {
+      "file": "frontend/src/pages/RecoveryEmailSettings.jsx",
+      "marked_display_sites": 55,
+      "static_source_segments": 54
+    },
+    {
+      "file": "frontend/src/pages/Register.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 23
+    },
+    {
+      "file": "frontend/src/pages/Reports.jsx",
+      "marked_display_sites": 23,
+      "static_source_segments": 22
+    },
+    {
+      "file": "frontend/src/pages/ServiceRequests.jsx",
+      "marked_display_sites": 55,
+      "static_source_segments": 60
+    },
+    {
+      "file": "frontend/src/pages/Settings.jsx",
+      "marked_display_sites": 3,
+      "static_source_segments": 5
+    },
+    {
+      "file": "frontend/src/pages/SiteVisits.jsx",
+      "marked_display_sites": 31,
+      "static_source_segments": 29
+    },
+    {
+      "file": "frontend/src/pages/SubcontractWorkOrderDetail.jsx",
+      "marked_display_sites": 46,
+      "static_source_segments": 48
+    },
+    {
+      "file": "frontend/src/pages/SubcontractWorkOrders.jsx",
+      "marked_display_sites": 47,
+      "static_source_segments": 42
+    },
+    {
+      "file": "frontend/src/pages/SupportStaff.jsx",
+      "marked_display_sites": 20,
+      "static_source_segments": 19
+    },
+    {
+      "file": "frontend/src/pages/SupportTickets.jsx",
+      "marked_display_sites": 78,
+      "static_source_segments": 75
+    },
+    {
+      "file": "frontend/src/pages/SupportWorkspace.jsx",
+      "marked_display_sites": 49,
+      "static_source_segments": 44
+    },
+    {
+      "file": "frontend/src/pages/Tasks.jsx",
+      "marked_display_sites": 46,
+      "static_source_segments": 45
+    },
+    {
+      "file": "frontend/src/pages/WorkChanges.jsx",
+      "marked_display_sites": 77,
+      "static_source_segments": 83
+    },
+    {
+      "file": "frontend/src/pages/WorkPhotos.jsx",
+      "marked_display_sites": 46,
+      "static_source_segments": 54
+    },
+    {
+      "file": "frontend/src/pages/WorkReschedules.jsx",
+      "marked_display_sites": 26,
+      "static_source_segments": 32
+    },
+    {
+      "file": "frontend/src/pages/WorkReviews.jsx",
+      "marked_display_sites": 14,
+      "static_source_segments": 13
+    },
+    {
+      "file": "frontend/src/pages/WorkSchedules.jsx",
+      "marked_display_sites": 102,
+      "static_source_segments": 116
+    }
+  ],
+  "english_fallbacks": [
+    [
+      "bharath",
+      50
+    ],
+    [
+      "ft",
+      47
+    ],
+    [
+      "sq",
+      43
+    ],
+    [
+      "pdf",
+      42
+    ],
+    [
+      "id",
+      42
+    ],
+    [
+      "pin",
+      33
+    ],
+    [
+      "apps",
+      31
+    ],
+    [
+      "gst",
+      26
+    ],
+    [
+      "whatsapp",
+      22
+    ],
+    [
+      "qr",
+      19
+    ],
+    [
+      "mou",
+      17
+    ],
+    [
+      "google",
+      12
+    ],
+    [
+      "otp",
+      12
+    ],
+    [
+      "km",
+      11
+    ],
+    [
+      "maps",
+      11
+    ],
+    [
+      "sl",
+      9
+    ],
+    [
+      "api",
+      9
+    ],
+    [
+      "qty",
+      8
+    ],
+    [
+      "specific",
+      6
+    ],
+    [
+      "listed",
+      6
+    ],
+    [
+      "re",
+      6
+    ],
+    [
+      "difference",
+      6
+    ],
+    [
+      "hsn",
+      6
+    ],
+    [
+      "sac",
+      6
+    ],
+    [
+      "paintable",
+      6
+    ],
+    [
+      "m",
+      5
+    ],
+    [
+      "related",
+      5
+    ],
+    [
+      "validity",
+      5
+    ],
+    [
+      "estimate",
+      5
+    ],
+    [
+      "expected",
+      5
+    ],
+    [
+      "upi",
+      5
+    ],
+    [
+      "unblock",
+      5
+    ],
+    [
+      "mb",
+      5
+    ],
+    [
+      "needed",
+      5
+    ],
+    [
+      "forgot",
+      5
+    ],
+    [
+      "percentage",
+      5
+    ],
+    [
+      "procedures",
+      5
+    ],
+    [
+      "revised",
+      5
+    ],
+    [
+      "republish",
+      4
+    ],
+    [
+      "replace",
+      4
+    ],
+    [
+      "receive",
+      4
+    ],
+    [
+      "directory",
+      4
+    ],
+    [
+      "camera",
+      4
+    ],
+    [
+      "empty",
+      4
+    ],
+    [
+      "does",
+      4
+    ],
+    [
+      "target",
+      4
+    ],
+    [
+      "acceptance",
+      4
+    ],
+    [
+      "wages",
+      4
+    ],
+    [
+      "process",
+      4
+    ],
+    [
+      "otps",
+      4
+    ],
+    [
+      "hex",
+      4
+    ],
+    [
+      "whitefield",
+      4
+    ],
+    [
+      "emergency",
+      4
+    ],
+    [
+      "balances",
+      4
+    ],
+    [
+      "credit",
+      4
+    ],
+    [
+      "directly",
+      4
+    ],
+    [
+      "direct",
+      4
+    ],
+    [
+      "contract",
+      4
+    ],
+    [
+      "approximate",
+      3
+    ],
+    [
+      "asked",
+      3
+    ],
+    [
+      "why",
+      3
+    ],
+    [
+      "via",
+      3
+    ],
+    [
+      "sms",
+      3
+    ],
+    [
+      "gstin",
+      3
+    ],
+    [
+      "ongoing",
+      3
+    ],
+    [
+      "effective",
+      3
+    ],
+    [
+      "automatically",
+      3
+    ],
+    [
+      "different",
+      3
+    ],
+    [
+      "nobody",
+      3
+    ],
+    [
+      "which",
+      3
+    ],
+    [
+      "places",
+      3
+    ],
+    [
+      "within",
+      3
+    ],
+    [
+      "refer",
+      3
+    ],
+    [
+      "bengaluru",
+      3
+    ],
+    [
+      "unlimited",
+      3
+    ],
+    [
+      "sensitive",
+      3
+    ],
+    [
+      "https",
+      3
+    ],
+    [
+      "get",
+      3
+    ],
+    [
+      "excluded",
+      3
+    ],
+    [
+      "options",
+      3
+    ],
+    [
+      "ll",
+      3
+    ],
+    [
+      "excel",
+      3
+    ],
+    [
+      "present",
+      3
+    ],
+    [
+      "hours",
+      3
+    ],
+    [
+      "stages",
+      3
+    ],
+    [
+      "dropdowns",
+      3
+    ],
+    [
+      "whether",
+      3
+    ],
+    [
+      "tomorrow",
+      3
+    ],
+    [
+      "matches",
+      3
+    ],
+    [
+      "replies",
+      3
+    ],
+    [
+      "tickets",
+      3
+    ],
+    [
+      "introduction",
+      2
+    ],
+    [
+      "pincode",
+      2
+    ],
+    [
+      "center",
+      2
+    ],
+    [
+      "drop",
+      2
+    ],
+    [
+      "community",
+      2
+    ],
+    [
+      "references",
+      2
+    ],
+    [
+      "grievances",
+      2
+    ],
+    [
+      "managed",
+      2
+    ],
+    [
+      "return",
+      2
+    ],
+    [
+      "reuse",
+      2
+    ],
+    [
+      "kept",
+      2
+    ],
+    [
+      "counted",
+      2
+    ],
+    [
+      "where",
+      2
+    ],
+    [
+      "reporting",
+      2
+    ],
+    [
+      "while",
+      2
+    ],
+    [
+      "referred",
+      2
+    ],
+    [
+      "remains",
+      2
+    ],
+    [
+      "messenger",
+      2
+    ],
+    [
+      "top",
+      2
+    ],
+    [
+      "between",
+      2
+    ],
+    [
+      "most",
+      2
+    ],
+    [
+      "downloadable",
+      2
+    ],
+    [
+      "caught",
+      2
+    ],
+    [
+      "crm",
+      2
+    ],
+    [
+      "distances",
+      2
+    ],
+    [
+      "content",
+      2
+    ],
+    [
+      "reports",
+      2
+    ],
+    [
+      "pan",
+      2
+    ],
+    [
+      "uses",
+      2
+    ],
+    [
+      "expenditure",
+      2
+    ],
+    [
+      "taxes",
+      2
+    ],
+    [
+      "xlsx",
+      2
+    ],
+    [
+      "template",
+      2
+    ],
+    [
+      "invited",
+      2
+    ],
+    [
+      "remaining",
+      2
+    ],
+    [
+      "employment",
+      2
+    ],
+    [
+      "esi",
+      2
+    ],
+    [
+      "pf",
+      2
+    ],
+    [
+      "responses",
+      2
+    ],
+    [
+      "coordinate",
+      2
+    ],
+    [
+      "subject",
+      2
+    ],
+    [
+      "during",
+      2
+    ],
+    [
+      "arrows",
+      2
+    ],
+    [
+      "directions",
+      2
+    ],
+    [
+      "revoke",
+      2
+    ],
+    [
+      "editor",
+      2
+    ],
+    [
+      "scheduling",
+      2
+    ],
+    [
+      "financial",
+      2
+    ],
+    [
+      "progresses",
+      2
+    ],
+    [
+      "compact",
+      1
+    ],
+    [
+      "unsaved",
+      1
+    ],
+    [
+      "placeholder",
+      1
+    ],
+    [
+      "wants",
+      1
+    ],
+    [
+      "us",
+      1
+    ],
+    [
+      "detected",
+      1
+    ],
+    [
+      "handling",
+      1
+    ],
+    [
+      "communities",
+      1
+    ],
+    [
+      "brigade",
+      1
+    ],
+    [
+      "because",
+      1
+    ],
+    [
+      "checkbox",
+      1
+    ],
+    [
+      "pooja",
+      1
+    ],
+    [
+      "entering",
+      1
+    ],
+    [
+      "signup",
+      1
+    ],
+    [
+      "charges",
+      1
+    ],
+    [
+      "rejects",
+      1
+    ],
+    [
+      "rejection",
+      1
+    ],
+    [
+      "defect",
+      1
+    ],
+    [
+      "want",
+      1
+    ],
+    [
+      "chooser",
+      1
+    ],
+    [
+      "remember",
+      1
+    ],
+    [
+      "ip",
+      1
+    ],
+    [
+      "events",
+      1
+    ],
+    [
+      "integrations",
+      1
+    ],
+    [
+      "geocoding",
+      1
+    ],
+    [
+      "apis",
+      1
+    ],
+    [
+      "basis",
+      1
+    ],
+    [
+      "marathahalli",
+      1
+    ],
+    [
+      "polish",
+      1
+    ],
+    [
+      "prices",
+      1
+    ],
+    [
+      "limits",
+      1
+    ],
+    [
+      "edited",
+      1
+    ],
+    [
+      "replying",
+      1
+    ],
+    [
+      "pdfs",
+      1
+    ],
+    [
+      "reported",
+      1
+    ],
+    [
+      "destination",
+      1
+    ],
+    [
+      "gl",
+      1
+    ],
+    [
+      "always",
+      1
+    ],
+    [
+      "bagmane",
+      1
+    ],
+    [
+      "located",
+      1
+    ],
+    [
+      "approx",
+      1
+    ],
+    [
+      "aa",
+      1
+    ],
+    [
+      "bpm",
+      1
+    ],
+    [
+      "sep",
+      1
+    ],
+    [
+      "brq",
+      1
+    ],
+    [
+      "inv",
+      1
+    ],
+    [
+      "ifsc",
+      1
+    ],
+    [
+      "yourname",
+      1
+    ],
+    [
+      "okhdfcbank",
+      1
+    ],
+    [
+      "reconnection",
+      1
+    ],
+    [
+      "optionally",
+      1
+    ],
+    [
+      "products",
+      1
+    ],
+    [
+      "duplicate",
+      1
+    ],
+    [
+      "invalid",
+      1
+    ],
+    [
+      "hello",
+      1
+    ],
+    [
+      "focus",
+      1
+    ],
+    [
+      "yourself",
+      1
+    ],
+    [
+      "ot",
+      1
+    ],
+    [
+      "hrs",
+      1
+    ],
+    [
+      "convert",
+      1
+    ],
+    [
+      "actual",
+      1
+    ],
+    [
+      "recording",
+      1
+    ],
+    [
+      "nos",
+      1
+    ],
+    [
+      "accepting",
+      1
+    ],
+    [
+      "enquiries",
+      1
+    ],
+    [
+      "td",
+      1
+    ],
+    [
+      "recovered",
+      1
+    ],
+    [
+      "units",
+      1
+    ],
+    [
+      "karnataka",
+      1
+    ],
+    [
+      "resistance",
+      1
+    ],
+    [
+      "switches",
+      1
+    ],
+    [
+      "choices",
+      1
+    ],
+    [
+      "reception",
+      1
+    ],
+    [
+      "uncheck",
+      1
+    ],
+    [
+      "trial",
+      1
+    ],
+    [
+      "reduce",
+      1
+    ],
+    [
+      "alternate",
+      1
+    ],
+    [
+      "won",
+      1
+    ],
+    [
+      "refine",
+      1
+    ],
+    [
+      "travelling",
+      1
+    ],
+    [
+      "anywhere",
+      1
+    ],
+    [
+      "india",
+      1
+    ],
+    [
+      "associated",
+      1
+    ],
+    [
+      "specialist",
+      1
+    ],
+    [
+      "usual",
+      1
+    ],
+    [
+      "selectable",
+      1
+    ],
+    [
+      "actually",
+      1
+    ],
+    [
+      "just",
+      1
+    ],
+    [
+      "edges",
+      1
+    ],
+    [
+      "into",
+      1
+    ],
+    [
+      "preserved",
+      1
+    ],
+    [
+      "interface",
+      1
+    ],
+    [
+      "deactivation",
+      1
+    ],
+    [
+      "pauses",
+      1
+    ],
+    [
+      "good",
+      1
+    ],
+    [
+      "receiving",
+      1
+    ],
+    [
+      "whenever",
+      1
+    ],
+    [
+      "unassigned",
+      1
+    ],
+    [
+      "cases",
+      1
+    ],
+    [
+      "unlinked",
+      1
+    ],
+    [
+      "narrow",
+      1
+    ],
+    [
+      "several",
+      1
+    ],
+    [
+      "jpg",
+      1
+    ],
+    [
+      "png",
+      1
+    ],
+    [
+      "images",
+      1
+    ],
+    [
+      "eligible",
+      1
+    ]
+  ],
+  "notes": [
+    "Marks system source literals; dynamic data stays unchanged.",
+    "Counts are static provenance checks, not a claim that every runtime string has been reviewed.",
+    "Dynamic backend errors, notifications with interpolated data, custom catalogue names, and mixed-origin helper strings need manual audit."
+  ]
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ChevronDown, Download, RefreshCw, Search, Users } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import "./admin-portal.css";
 
 const actionStyle = {
   CREATE: "bg-emerald-50 text-emerald-700",

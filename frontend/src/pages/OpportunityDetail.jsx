@@ -13,12 +13,13 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import BackButton from "../components/BackButton";
+import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import "./crm-pages.css";
 import {
   LOST_REASON_OPTIONS,
   OPPORTUNITY_STAGES,
   PRIORITY_OPTIONS,
   SOURCE_OPTIONS,
-  STAGE_STYLES,
   stageLabel,
   money,
 } from "../utils/opportunityOptions";
@@ -198,30 +199,19 @@ export default function OpportunityDetail() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 crm-page crm-opportunity-detail">
         <BackButton fallback="/opportunities" label="Back to opportunities" />
-        <div className={`${card} animate-pulse`}>
-          <div className="h-8 w-64 rounded bg-slate-100" />
-          <div className="mt-4 h-4 w-96 rounded bg-slate-100" />
-        </div>
+        <LoadingState label="Loading opportunity details..." />
       </div>
     );
   }
 
   if (error || !item) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 crm-page crm-opportunity-detail">
         <BackButton fallback="/opportunities" label="Back to opportunities" />
-        <div className="rounded-2xl border bg-white p-12 text-center">
-          <Target className="mx-auto h-10 w-10 text-slate-300" />
-          <p className="mt-3 font-semibold text-slate-900">{error}</p>
-          <div className="mt-5 flex justify-center gap-2">
-            <button
-              onClick={load}
-              className="rounded-xl border px-4 py-2.5 text-sm font-semibold hover:border-slate-900"
-            >
-              Retry
-            </button>
+        <div className="crm-detail-error"><ErrorState message={error || "Opportunity not found."} onRetry={load} />
+          <div className="mt-3 flex justify-center">
             <Link
               to="/opportunities"
               className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
@@ -238,25 +228,10 @@ export default function OpportunityDetail() {
     item.next_follow_up && new Date(item.next_follow_up) <= new Date();
 
   return (
-    <div className="space-y-6">
+      <div className="space-y-6 crm-page crm-opportunity-detail">
       <BackButton fallback="/opportunities" label="Back to opportunities" />
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-amber-600">Sales</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">{item.title}</h1>
-          <p className="mt-2 font-mono text-xs font-semibold text-slate-500">
-            {item.reference_no || `OPP-${item.id}`}
-          </p>
-        </div>
-        <span
-          className={`w-fit rounded-full px-4 py-2 text-sm font-bold ${
-            STAGE_STYLES[item.stage] || "bg-slate-100 text-slate-600"
-          }`}
-        >
-          {stageLabel(item.stage)}
-        </span>
-      </header>
+      <PageHeader eyebrow="Sales opportunity" title={item.title} description={item.reference_no || `OPP-${item.id}`} actions={<StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} />} />
 
       {formError && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -661,4 +636,12 @@ function Detail({ icon: Icon, title, children }) {
       </p>
     </div>
   );
+}
+
+function opportunityTone(value) {
+  if (["WON", "COMPLETED"].includes(value)) return "success";
+  if (["LOST", "CANCELLED"].includes(value)) return "danger";
+  if (["FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
+  if (["NEW", "CONTACTED", "SITE_VISIT", "MEASUREMENT", "QUOTATION", "IN_PROGRESS"].includes(value)) return "info";
+  return "neutral";
 }

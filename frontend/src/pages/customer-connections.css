@@ -1,0 +1,810 @@
+.customer-connections-page {
+  --connection-accent: var(--bp-brand);
+  min-width: 0;
+  color: var(--bp-ink);
+}
+
+.customer-connections-page .bp-page-header {
+  align-items: center;
+}
+
+.customer-connections-page .bp-page-header h1 {
+  letter-spacing: -0.035em;
+}
+
+.customer-connections-page .bp-page-description {
+  max-width: 720px;
+}
+
+.customer-connections-page .bp-section-card {
+  min-width: 0;
+  border-radius: 16px;
+}
+
+.customer-connections-page .bp-section-card > header {
+  min-height: 72px;
+}
+
+.customer-connections-page :is(button, a, input):focus-visible {
+  outline: 3px solid var(--bp-focus-ring);
+  outline-offset: 2px;
+}
+
+.customer-connections-page button,
+.customer-connections-page a[role="button"] {
+  min-height: 44px;
+}
+
+.customer-connections-page .connections-alert {
+  border: 1px solid #fecdca;
+  border-radius: 12px;
+  background: #fef3f2;
+  padding: 12px 16px;
+  color: #912018;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.customer-connections-page .connections-state {
+  min-height: 180px;
+}
+
+.customer-connections-page .contractor-search-card {
+  border-color: color-mix(in srgb, var(--connection-accent) 20%, white);
+}
+
+.customer-connections-page .contractor-search-card > header {
+  align-items: flex-start;
+}
+
+.customer-connections-page .contractor-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.customer-connections-page .contractor-search-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--bp-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.customer-connections-page .contractor-search-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--bp-line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 14px;
+  color: var(--bp-ink);
+  font: inherit;
+  font-weight: 400;
+}
+
+.customer-connections-page .contractor-search-submit {
+  min-width: 112px;
+  min-height: 48px;
+}
+
+.customer-connections-page .contractor-search-result {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  border: 1px solid var(--bp-line);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 15px;
+}
+
+.customer-connections-page .contractor-search-result-main {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.customer-connections-page .contractor-search-result-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--connection-accent) 9%, white);
+  color: var(--connection-accent);
+}
+
+.customer-connections-page .contractor-search-result-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.customer-connections-page .contractor-search-result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.customer-connections-page .contractor-search-result-heading > div {
+  min-width: 0;
+}
+
+.customer-connections-page .contractor-search-result-heading h3 {
+  overflow-wrap: anywhere;
+  color: var(--bp-ink);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.customer-connections-page .contractor-search-result-heading p {
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+  color: var(--bp-muted);
+  font-size: 0.875rem;
+}
+
+.customer-connections-page .contractor-search-profile-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--connection-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.customer-connections-page .contractor-search-profile-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.customer-connections-page .contractor-search-result-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  border-top: 1px solid var(--bp-line);
+  padding-top: 12px;
+  color: var(--bp-color-text);
+  font-size: 0.875rem;
+}
+
+.customer-connections-page .contractor-search-result-status > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.customer-connections-page .contractor-search-result-status > svg {
+  width: 17px;
+  height: 17px;
+  color: var(--bp-color-success);
+}
+
+.customer-connections-page .contractor-search-connect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--bp-line);
+  padding-top: 12px;
+}
+
+.customer-connections-page .contractor-search-connect p {
+  min-width: 0;
+  flex: 1;
+  color: var(--bp-color-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.customer-connections-page .contractor-search-connect .bp-button {
+  min-height: 44px;
+}
+
+.customer-connections-page .contractor-search-invitation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  border: 1px solid #fedf89;
+  border-radius: 14px;
+  background: #fffaeb;
+  padding: 15px;
+}
+
+.customer-connections-page .contractor-search-invitation > div:first-child {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.customer-connections-page .contractor-search-invitation h3 {
+  color: var(--bp-ink);
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.customer-connections-page .contractor-search-invitation p {
+  margin-top: 4px;
+  color: #69410b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.customer-connections-page .contractor-search-invitation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-connections-page .contractor-search-invitation-actions > * {
+  min-height: 44px;
+}
+
+.customer-connections-page .contractor-search-unavailable {
+  margin-top: 14px;
+  border: 1px solid #fedf89;
+  border-radius: 12px;
+  background: #fffaeb;
+  padding: 12px 14px;
+  color: #69410b;
+  font-size: 0.875rem;
+}
+
+.customer-connections-page .customer-connection-tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  border: 1px solid var(--bp-line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 7px;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.customer-connections-page .customer-connection-tabs button {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: var(--bp-color-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.customer-connections-page .customer-connection-tabs button[aria-pressed="true"] {
+  border-color: var(--connection-accent);
+  background: var(--connection-accent);
+  color: #fff;
+}
+
+.customer-connections-page .customer-connection-tabs button > span {
+  display: inline-grid;
+  min-width: 24px;
+  min-height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-connections-page .customer-connection-tabs button[aria-pressed="true"] > span {
+  background: rgb(255 255 255 / 0.2);
+  color: #fff;
+}
+
+.customer-connections-page .connection-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.customer-connections-page .connection-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 1px solid var(--bp-line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: var(--bp-shadow);
+}
+
+.customer-connections-page .connection-card-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.customer-connections-page .connection-card-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--connection-accent) 8%, white);
+  color: var(--connection-accent);
+}
+
+.customer-connections-page .connection-card-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.customer-connections-page .connection-card-identity {
+  min-width: 0;
+  flex: 1;
+}
+
+.customer-connections-page .connection-card-identity h2 {
+  overflow-wrap: anywhere;
+  color: var(--bp-ink);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.customer-connections-page .connection-card-identity p {
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+  color: var(--bp-muted);
+  font-size: 0.8125rem;
+}
+
+.customer-connections-page .connection-verification {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--bp-color-success-surface);
+  padding: 5px 10px;
+  color: var(--bp-color-success);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.customer-connections-page .connection-verification svg {
+  width: 15px;
+  height: 15px;
+}
+
+.customer-connections-page .connection-date {
+  margin-top: 12px;
+  color: var(--bp-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-connections-page .connection-activity-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.customer-connections-page .connection-metric {
+  display: grid;
+  min-width: 0;
+  min-height: 64px;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 8px;
+  text-align: center;
+}
+
+.customer-connections-page .connection-metric b {
+  color: var(--bp-ink);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-connections-page .connection-metric span {
+  color: var(--bp-muted);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+.customer-connections-page .connection-cooldown {
+  margin-top: 10px;
+  border-radius: 10px;
+  background: #fffaeb;
+  padding: 9px 11px;
+  color: #69410b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.customer-connections-page .connection-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.customer-connections-page .connection-card-actions > * {
+  min-height: 44px;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.customer-connections-page .connection-card-actions .connection-view-action {
+  flex: 1 1 100%;
+}
+
+.customer-connections-page .connection-card-actions .bp-button-danger {
+  flex: 0 1 auto;
+}
+
+.customer-connections-page .contractor-dialog-backdrop {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.customer-connections-page .contractor-profile-dialog {
+  max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
+.customer-connections-page .contractor-profile-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.customer-connections-page .contractor-dialog-close {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.customer-connections-page .contractor-dialog-close:hover {
+  background: rgb(255 255 255 / 0.24);
+}
+
+.customer-connections-page .contractor-identity-id {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  padding: 5px 10px;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-connections-page .contractor-dialog-connection-status {
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.customer-connections-page .contractor-profile-body {
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+.customer-connections-page .contractor-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.customer-connections-page .contractor-profile-stats .connection-metric {
+  min-height: 78px;
+  padding: 9px 6px;
+}
+
+.customer-connections-page .contractor-profile-stats .connection-metric b {
+  color: var(--connection-accent);
+  font-size: 1.125rem;
+}
+
+.customer-connections-page .contractor-profile-stats .connection-metric span {
+  font-size: 0.75rem;
+}
+
+.customer-connections-page .contractor-public-rating {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  border: 1px solid #fedf89;
+  border-radius: 12px;
+  background: #fffaeb;
+  padding: 10px 12px;
+  color: #69410b;
+  font-size: 0.875rem;
+}
+
+.customer-connections-page .contractor-public-rating svg {
+  width: 18px;
+  height: 18px;
+  fill: #f5b942;
+  color: #b54708;
+}
+
+.customer-connections-page .contractor-public-rating strong {
+  color: #542c06;
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-connections-page .contractor-public-rating span {
+  color: #69410b;
+}
+
+.customer-connections-page .contractor-profile-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  border: 1px solid var(--bp-line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 15px;
+}
+
+.customer-connections-page .contractor-profile-info {
+  min-width: 0;
+}
+
+.customer-connections-page .contractor-profile-info dt {
+  color: var(--bp-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customer-connections-page .contractor-profile-info dd {
+  overflow-wrap: anywhere;
+  margin-top: 5px;
+  color: var(--bp-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.customer-connections-page .contractor-profile-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.customer-connections-page .contractor-profile-links > * {
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+  gap: 7px;
+  padding-inline: 10px;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.customer-connections-page .contractor-profile-links svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+}
+
+.customer-connections-page .contractor-dialog-request-actions {
+  margin-top: 9px;
+}
+
+.customer-connections-page .contractor-dialog-request-actions > * {
+  width: 100%;
+  min-height: 44px;
+}
+
+.customer-connections-page .contractor-dialog-cooldown,
+.customer-connections-page .contractor-dialog-share-status {
+  margin-top: 11px;
+  border-radius: 10px;
+  background: #fffaeb;
+  padding: 10px 12px;
+  color: #69410b;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.customer-connections-page .contractor-dialog-share-status {
+  background: var(--bp-color-info-surface);
+  color: var(--bp-color-info);
+}
+
+.customer-connections-page .contractor-dialog-danger-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.customer-connections-page .contractor-dialog-danger-action button {
+  min-height: 44px;
+  color: var(--bp-color-danger);
+}
+
+@media (max-width: 767px) {
+  .customer-connections-page .bp-page-header {
+    align-items: flex-start;
+  }
+
+  .customer-connections-page .contractor-search-card > header {
+    padding: 16px;
+  }
+
+  .customer-connections-page .contractor-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-connections-page .contractor-search-submit {
+    width: 100%;
+  }
+
+  .customer-connections-page .contractor-search-result {
+    padding: 12px;
+  }
+
+  .customer-connections-page .contractor-search-result-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .customer-connections-page .contractor-search-connect {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .customer-connections-page .contractor-search-connect .bp-button {
+    width: 100%;
+  }
+
+  .customer-connections-page .contractor-search-invitation-actions {
+    width: 100%;
+  }
+
+  .customer-connections-page .contractor-search-invitation-actions > * {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .customer-connections-page .customer-connection-tabs {
+    margin-inline: -2px;
+  }
+
+  .customer-connections-page .customer-connection-tabs button {
+    flex: 1 0 auto;
+    padding-inline: 12px;
+  }
+
+  .customer-connections-page .customer-connections-list > header {
+    padding: 15px 16px;
+  }
+
+  .customer-connections-page .connection-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .customer-connections-page .connection-card {
+    padding: 14px;
+  }
+
+  .customer-connections-page .connection-card-actions > * {
+    flex: 1 1 calc(50% - 8px);
+    padding-inline: 10px;
+    font-size: 0.8125rem;
+  }
+
+  .customer-connections-page .connection-card-actions .connection-view-action {
+    flex-basis: 100%;
+  }
+
+  .customer-connections-page .contractor-dialog-backdrop {
+    align-items: end;
+    padding: 0;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .customer-connections-page .contractor-profile-dialog {
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-bottom)));
+    border-radius: 24px 24px 0 0;
+  }
+
+  .customer-connections-page .contractor-profile-header {
+    padding: 17px 16px;
+  }
+
+  .customer-connections-page .contractor-profile-body {
+    padding: 16px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .customer-connections-page .contractor-profile-stats {
+    gap: 6px;
+  }
+
+  .customer-connections-page .contractor-profile-stats .connection-metric {
+    min-height: 72px;
+    padding-inline: 4px;
+  }
+
+  .customer-connections-page .contractor-profile-stats .connection-metric span {
+    font-size: 0.6875rem;
+  }
+
+  .customer-connections-page .contractor-profile-details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 13px;
+  }
+
+  .customer-connections-page .contractor-profile-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-connections-page .contractor-dialog-danger-action {
+    justify-content: stretch;
+  }
+
+  .customer-connections-page .contractor-dialog-danger-action button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 359px) {
+  .customer-connections-page .connection-card-heading {
+    flex-wrap: wrap;
+  }
+
+  .customer-connections-page .connection-card-heading .bp-badge {
+    margin-left: 55px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-connections-page *,
+  .customer-connections-page *::before,
+  .customer-connections-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

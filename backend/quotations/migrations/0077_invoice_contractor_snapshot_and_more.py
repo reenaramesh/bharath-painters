@@ -111,6 +111,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('quotations', '0076_quotation_show_product_key_features'),
+        ('accounts', '0002_contractorprofile_painterprofile'),
     ]
 
     operations = [

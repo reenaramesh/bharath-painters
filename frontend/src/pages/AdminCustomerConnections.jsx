@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { History, RefreshCw, Search, UsersRound, X } from "lucide-react";
 import api from "../api/client";
+import "./admin-portal.css";
 
 export default function AdminCustomerConnections() {
   const [items, setItems] = useState([]);

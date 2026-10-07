@@ -1,5 +1,8 @@
 """Shared professional A4 PDF design for quotations, invoices and measurement reports."""
 
+from .quotation_pdf_labels import quotation_room_area_label
+
+
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from pathlib import Path
@@ -873,7 +876,7 @@ def build_quotation_pdf(quotation, included_sections=None):
     for serial, item in enumerate(quotation.items.select_related("room", "service_type", "paint_type", "paint_brand", "unit").all(), 1):
         category = item.service_category_name_snapshot or item.custom_service_category or (item.service_category.name if item.service_category else "")
         service = item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else "")
-        room = item.room.name if item.room else ""
+        room = quotation_room_area_label(item)
         product = item.product_type_name_snapshot or item.custom_product_type or (item.paint_type.name if item.paint_type else "")
         brand = item.brand_name_snapshot or item.custom_brand or (item.paint_brand.name if item.paint_brand else "")
         unit = item.unit_name_snapshot or item.custom_unit or (item.unit.name if item.unit else "")

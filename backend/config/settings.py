@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     'jobs',
     'quotations',
     'billing',
+    'outsourcing',
 
     'rest_framework',
 
@@ -294,6 +295,7 @@ EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_SETUP_ENCRYPTION_KEY = os.environ.get("EMAIL_SETUP_ENCRYPTION_KEY", "")
 EMAIL_PORT = _env_int("EMAIL_PORT", 587)
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")

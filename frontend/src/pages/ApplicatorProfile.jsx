@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Camera, MapPin, QrCode, Save, Settings } from "lucide-react";
+import { BadgeCheck, MapPin, QrCode, Save, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
+import useAuth from "../context/useAuth";
+import ProfileImageControl from "../components/ProfileImageControl";
+import "./painter-portal.css";
 
 const skills = [
   "Interior Painting",
@@ -31,7 +34,8 @@ const locations = [
 ];
 const input = "mt-2 w-full rounded-xl border px-3 py-3 font-normal";
 
-export default function ApplicatorProfile() {
+export default function ApplicatorProfile({ embedded = false }) {
+  const { user, refreshUser } = useAuth();
   const [form, setForm] = useState(null),
     [photo, setPhoto] = useState(null),
     [error, setError] = useState(""),
@@ -83,12 +87,14 @@ export default function ApplicatorProfile() {
         "permanent_address",
         "current_location",
       ].forEach((field) => payload.append(field, form[field] ?? ""));
+      payload.append("profile_photo_position", JSON.stringify(form.profile_photo_position || { x: 50, y: 50, zoom: 1 }));
       if (photo) payload.append("profile_photo", photo);
       const { data } = await api.patch("/jobs/applicator-profile/", payload, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setForm(data);
       setPhoto(null);
+      await refreshUser().catch(() => setError("Profile saved, but account details could not refresh. Reload to refresh your name and photo."));
       setSuccess("Painter profile saved successfully.");
     } catch (requestError) {
       setError(
@@ -111,18 +117,21 @@ export default function ApplicatorProfile() {
     onChange: (event) => setForm({ ...form, [name]: event.target.value }),
   });
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="painter-portal-page painter-profile-page mx-auto max-w-4xl space-y-6">
       {success && <div role="status" className="fixed right-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-5 py-4 text-sm font-semibold text-emerald-800 shadow-xl">✓ {success}</div>}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className={embedded ? "" : "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"}>
         <div>
           <p className="text-sm font-semibold text-[#176b9b]">
-            Paint Applicator portal
+            {user?.branding?.employee_singular_label || "Employee"} profile
           </p>
-          <h1 className="mt-1 text-3xl font-bold">Painter profile</h1>
+          <h2 className={embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold"}>
+            Personal details
+          </h2>
           <p className="mt-2 text-slate-500">
             Keep the basic information contractors need.
           </p>
         </div>
+        {embedded ? null : (
         <div className="flex flex-wrap gap-2">
           <Link to="/appearance" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#176b9b] px-4 py-3 text-sm font-bold text-[#176b9b]">
             <Settings className="h-5 w-5" />App theme
@@ -131,33 +140,16 @@ export default function ApplicatorProfile() {
             <QrCode className="h-5 w-5" />View & share QR profile
           </Link>
         </div>
+        )}
       </header>
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
       <section className="rounded-2xl border border-[#d7e4ea] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 border-b pb-6 sm:flex-row sm:items-center">
-          <label className="relative grid h-24 w-24 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[#14374a] text-white">
-            {photo || form.profile_photo ? (
-              <img
-                src={photo ? URL.createObjectURL(photo) : form.profile_photo}
-                alt="Profile"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <Camera className="h-7 w-7" />
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              capture="user"
-              onChange={(event) => setPhoto(event.target.files?.[0] || null)}
-              className="hidden"
-            />
-            <span className="absolute inset-x-0 bottom-0 bg-slate-950/75 py-1 text-center text-[10px]">
-              Photo
-            </span>
-          </label>
+          <div className="w-full max-w-sm shrink-0">
+            <ProfileImageControl label="Profile photo" file={photo} existingUrl={form.profile_photo} position={form.profile_photo_position} shape="circle" capture="user" onFileChange={setPhoto} onPositionChange={(profile_photo_position) => setForm((current) => ({ ...current, profile_photo_position }))} />
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold">{form.name}</h2>
@@ -185,7 +177,9 @@ export default function ApplicatorProfile() {
               ))}
             </select>
           </Field>
-          <Field label="Skills" wide>
+          <Field label="Other skills (free text)" wide>
+            <textarea {...field("skills")} className={input} rows={2} placeholder="Keep any existing skills, including skills outside the trade catalogue" />
+            {!embedded && (
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {skills.map((skill) => (
                 <button
@@ -199,6 +193,7 @@ export default function ApplicatorProfile() {
                 </button>
               ))}
             </div>
+            )}
           </Field>
           <Field label="Preferred work locations" wide>
             <input {...field("preferred_locations")} placeholder="For example: Whitefield, Marathahalli" className={input} />
@@ -224,6 +219,7 @@ export default function ApplicatorProfile() {
           </Field>
           <Field label="Current work-seeking location">
             <select {...field("current_location")} className={input}>
+              {form.current_location && !locations.includes(form.current_location) && <option value={form.current_location}>{form.current_location}</option>}
               {locations.map((location) => (
                 <option key={location} value={location}>
                   {location || "Select current location"}

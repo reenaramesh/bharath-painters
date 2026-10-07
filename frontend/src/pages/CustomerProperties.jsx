@@ -1,157 +1,129 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, ChevronRight, MapPin, Ruler } from "lucide-react";
+import { Building2, ChevronRight, MapPin } from "lucide-react";
 import api from "../api/client";
+import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard } from "../components/ui";
 
 export default function CustomerProperties() {
   const [items, setItems] = useState([]);
+  const [shareRequests, setShareRequests] = useState([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api
-      .get("/quotations/customer-portal/properties/")
-      .then(({ data }) => setItems(data))
-      .catch(() => setError("Properties could not be loaded."));
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [propertiesResponse, sharesResponse] = await Promise.all([
+        api.get("/quotations/customer-portal/properties/"),
+        api.get("/quotations/customer-portal/property-share-requests/"),
+      ]);
+      setItems(propertiesResponse.data);
+      setShareRequests(sharesResponse.data);
+      setError("");
+    } catch {
+      setError("Properties could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const measuredCount = items.filter((item) => Number(item.surfaces || 0) > 0).length;
+  const totalRooms = items.reduce((sum, item) => sum + Number(item.rooms || 0), 0);
+
+  async function respondToShare(contactId, action) {
+    setNotice("");
+    setError("");
+    try {
+      await api.post(`/quotations/customer-portal/property-share-requests/${contactId}/respond/`, { action });
+      setNotice(action === "ACCEPT" ? "Property access accepted." : "Property access declined.");
+      await load();
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Your response could not be saved.");
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-amber-600">Customer portal</p>
-        <h1 className="mt-1 text-3xl font-bold">My properties</h1>
-        <p className="mt-2 text-slate-500">
-          Properties and Area Calculations recorded by your connected
-          contractors.
-        </p>
-      </header>
-      {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      )}
-      <section className="overflow-hidden rounded-2xl border bg-white">
-        {items.length ? (
-          <>
-            <div className="grid gap-3 p-3 md:hidden">
-              {items.map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/customer-properties/${item.id}`}
-                  className="block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition active:scale-[0.99]"
-                >
-                  <div className="flex items-start justify-between gap-3 bg-slate-950 p-4 text-white">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                        {item.property_type || "Property"}
-                      </p>
-                      <h2 className="mt-1 truncate text-base font-bold">
-                        {item.name || "Unnamed property"}
-                      </h2>
-                      <p className="mt-1 truncate text-xs text-slate-300">
-                        {item.contractor_name || "Contractor"}
-                      </p>
-                    </div>
-                    <Building2 className="h-5 w-5 shrink-0 text-slate-300" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-px bg-slate-200">
-                    <div className="bg-white p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                        Area type
-                      </p>
-                      <p className="mt-1 text-sm font-bold">
-                        {item.measurement_type || "Not specified"}
-                      </p>
-                    </div>
-                    <div className="bg-white p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                        Recorded
-                      </p>
-                      <p className="mt-1 text-sm font-bold">
-                        {item.rooms || 0} rooms
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {item.surfaces || 0} surfaces
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 border-t bg-slate-50 p-3">
-                    <p className="min-w-0 truncate text-xs text-slate-600">
-                      <MapPin className="mr-1 inline h-3.5 w-3.5" />
-                      {[
-                        item.flat_number,
-                        item.block_name,
-                        item.address,
-                        item.city,
-                        item.pincode,
-                      ]
-                        .filter(Boolean)
-                        .join(", ") || "Address not added"}
-                    </p>
-                    <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-blue-700">
-                      View <ChevronRight className="h-4 w-4" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <div
-              className="hidden overflow-x-auto md:block"
-              data-mobile-table="keep"
-            >
-              <table className="w-full min-w-[680px] text-left text-sm">
-                <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-5 py-3">Property</th>
-                    <th className="px-5 py-3">Contractor</th>
-                    <th className="px-5 py-3">Address</th>
-                    <th className="px-5 py-3">Area calculation type</th>
-                    <th className="px-5 py-3" data-no-sort="true">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-4 font-bold">
-                        {item.name || "Unnamed property"}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        {item.contractor_name || "—"}
-                      </td>
-                      <td className="max-w-sm px-5 py-4 text-slate-600">
-                        {[
-                          item.flat_number,
-                          item.block_name,
-                          item.address,
-                          item.city,
-                          item.pincode,
-                        ]
-                          .filter(Boolean)
-                          .join(", ") || "Address not added"}
-                      </td>
-                      <td className="px-5 py-4">
-                        {item.measurement_type || "—"}
-                      </td>
-                      <td className="px-5 py-4">
-                        <Link
-                          to={`/customer-properties/${item.id}`}
-                          className="inline-flex rounded-lg border px-3 py-2 font-semibold hover:bg-white"
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <div className="p-14 text-center text-slate-400">
-            <Ruler className="mx-auto h-10 w-10" />
-            <p className="mt-3">No synchronized properties yet.</p>
-          </div>
-        )}
+    <div className="customer-properties-page space-y-6">
+      <PageHeader
+        eyebrow="Your projects"
+        title="My properties"
+        description="Places connected to your painting work, with saved measurements and contractor details."
+      />
+      <section className="customer-property-pulse" aria-label="Property summary">
+        <div><span>Saved properties</span><strong>{items.length}</strong><small>Connected to your projects</small></div>
+        <div><span>With measurements</span><strong>{measuredCount}</strong><small>Ready to review</small></div>
+        <div><span>Measured rooms</span><strong>{totalRooms}</strong><small>Across all properties</small></div>
       </section>
+      {notice && <p role="status" aria-live="polite" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
+      {error && !loading && <ErrorState message={error} onRetry={load} />}
+      {!loading && !error && shareRequests.length > 0 && <SectionCard title="Property access requests" description="Review requests from people sharing a property with you." bodyClassName="p-0">
+        <ul className="divide-y divide-slate-200">{shareRequests.map((item) => <li key={item.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div><h2 className="font-bold text-slate-950">{item.property_name}</h2><p className="mt-1 text-sm text-slate-600">{[item.relationship && relationshipName(item.relationship), accessName(item.access_level), item.city].filter(Boolean).join(" · ")}</p></div>
+          <div className="flex gap-2"><button type="button" onClick={() => respondToShare(item.id, "ACCEPT")} className="min-h-11 rounded-xl bg-[#176b9b] px-4 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]">Accept</button><button type="button" onClick={() => respondToShare(item.id, "DECLINE")} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Decline</button></div>
+        </li>)}</ul>
+      </SectionCard>}
+      <SectionCard
+        title="Properties"
+        description={`${items.length} saved ${items.length === 1 ? "property" : "properties"}`}
+        className="customer-properties-list"
+        bodyClassName="p-0"
+      >
+        {loading ? (
+          <LoadingState label="Loading your properties…" />
+        ) : error ? null : items.length ? (
+          <div className="customer-property-grid">
+            {items.map((item) => {
+              const address = [
+                item.flat_number,
+                item.block_name,
+                item.address,
+                item.city,
+                item.pincode,
+              ].filter(Boolean).join(", ");
+              return (
+                <article key={item.id} className="customer-property-card">
+                  <div className="customer-property-card-heading">
+                    <span className="customer-property-icon" aria-hidden="true"><Building2 /></span>
+                    <div className="min-w-0">
+                      <p className="customer-property-type">{item.property_type || "Property"}</p>
+                      <h2>{item.name || "Unnamed property"}</h2>
+                    </div>
+                    <span className="customer-property-type-badge">{item.measurement_type || "Area type not specified"}</span>
+                  </div>
+                  <p className="customer-property-contractor">Project contractor · {item.contractor_name || "Not listed"}</p>
+                  <p className="customer-property-address"><MapPin aria-hidden="true" />{address || "Address not added"}</p>
+                  <div className="customer-property-context">
+                    <span><strong>Area calculation</strong>{item.measurement_type || "Not specified"}</span>
+                    <span><strong>Rooms measured</strong>{item.rooms ?? 0}</span>
+                    <span><strong>Measured surfaces</strong>{item.surfaces ?? 0}</span>
+                  </div>
+                  <Link to={`/customer-properties/${item.id}`} className="customer-property-action">
+                    View property and measurements<ChevronRight aria-hidden="true" />
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title="No properties shared yet"
+            description="Properties and measurements shared by your connected contractors will appear here."
+            className="customer-properties-empty"
+          />
+        )}
+      </SectionCard>
     </div>
   );
+}
+
+function relationshipName(value) {
+  return ({ OWNER: "Owner", TENANT: "Tenant", PROPERTY_MANAGER: "Property manager", FACILITY_MANAGER: "Facility manager", OTHER: "Other" })[value] || "";
+}
+
+function accessName(value) {
+  return ({ VIEW_ONLY: "View only", SITE_COORDINATION: "Site coordination", QUOTATION_APPROVAL: "Quotation & approval", FINANCE: "Finance", PROPERTY_MANAGEMENT: "Property management", FULL_ACCESS: "Full access", CUSTOM: "Custom access" })[value] || "Access requested";
 }

@@ -60,7 +60,7 @@ export default function ChatColourPicker({ onClose, onSend, sending }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="chat-colour-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="chat-colour-picker fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="chat-colour-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b p-4">
           <div><h2 id="chat-colour-title" className="text-xl font-bold text-slate-900">Paint colours</h2><p className="mt-1 text-xs text-slate-500">Search by colour name or brand shade code</p></div>

@@ -27,7 +27,7 @@
 .contractor-stat-link { min-width: 0; border-radius: 14px; text-decoration: none; }
 .contractor-stat-link:hover { box-shadow: 0 4px 18px color-mix(in srgb, var(--app-primary) 12%, transparent); transform: translateY(-1px); }
 .contractor-stat-link .bp-stat-card { height: 100%; border-radius: 14px; }
-.contractor-stat-link .bp-stat-card p { font-size: 14px; }
+.contractor-stat-link .bp-stat-card p { font-size: 14px; white-space: nowrap; }
 .contractor-stat-link .bp-stat-card small { color: #596579; font-size: 13px; }
 .contractor-section-heading { margin-bottom: 12px; }
 .contractor-section-heading h2 { font-size: 19px; }
@@ -101,8 +101,10 @@
   .contractor-priority-item > div { flex: 1 1 calc(100% - 56px); }
   .contractor-priority-item > .contractor-panel-link { width: 100%; justify-content: flex-start; }
   .contractor-overview { gap: 10px; }
-  .contractor-stat-link .bp-stat-card { min-height: 130px; padding: 14px; }
-  .contractor-stat-link .bp-stat-card p { font-size: 11px; }
+  .contractor-stat-link .bp-stat-card { min-height: 130px; padding: 10px 6px; flex-direction: column-reverse; justify-content: center; gap: 10px; text-align: center; }
+  .contractor-stat-link .bp-stat-card p { font-size: .625rem; }
+  .contractor-stat-link .bp-stat-icon { width: 30px; height: 30px; flex-basis: 30px; }
+  .contractor-stat-link .bp-stat-icon svg { width: 18px; height: 18px; }
   .contractor-stat-link .bp-stat-card small { font-size: 12px; }
   .contractor-tools-grid { gap: 10px; }
   .contractor-tools-grid > a { min-height: 90px; gap: 9px; padding: 11px; }
@@ -255,8 +257,11 @@
   .contractor-dashboard .contractor-tools-grid strong { font-size: 13px; }
 }
 
-.contractor-dashboard .contractor-tools-grid strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
-@media (max-width: 639px) { .contractor-dashboard .contractor-tools-grid strong { font-size: clamp(10px, 2.7vw, 12px); } }
-
-.contractor-dashboard .contractor-tools-grid strong { font-size: 11px; }
-@media (max-width: 639px) { .contractor-dashboard .contractor-tools-grid strong { font-size: 10px; } }
+.contractor-dashboard .contractor-tools-grid strong { white-space: nowrap; font-size: .75rem; }
+@media (max-width: 1023px) {
+  .contractor-dashboard .contractor-tools-grid > a { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; padding: 12px 6px; text-align: center; }
+  .contractor-dashboard .contractor-tools-grid > a > span:nth-child(2) { grid-row: 1; width: 100%; }
+  .contractor-dashboard .contractor-tools-grid .contractor-icon { grid-row: 2; }
+  .contractor-dashboard .contractor-tools-grid > a > svg { display: none; }
+  .contractor-dashboard .contractor-tools-grid strong { font-size: .6875rem; }
+}

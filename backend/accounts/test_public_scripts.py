@@ -18,7 +18,8 @@ class PublicScriptTests(SimpleTestCase):
                 if name == 'digital_card':
                     self.assertIn('Save Painting Company', html)
                     self.assertIn('Customer Save', html)
-                    self.assertIn('name="document_language"', html)
+                    self.assertNotIn('<select', html)
+                    self.assertNotIn('public-pdf-script', html)
                     self.assertIn('https://example.com/BP-SAVE-1/pdf/', html)
                     if script == 'te': self.assertIn('డౌన్‌లోడ్ PDF', html)
                 if name == 'painter_card': self.assertIn('Customer Save', html)
@@ -27,3 +28,15 @@ class PublicScriptTests(SimpleTestCase):
         request = RequestFactory().get('/verify-page/BP-SAVE-1/', {'document_language':'unknown'})
         html = render_to_string('accounts/verify.html', {'verified':False, 'bharath_id':'BP-SAVE-1', 'request':request})
         self.assertIn('lang="en"', html)
+
+    def test_shared_contractor_card_keeps_images_in_banner_and_actions_by_name(self):
+        card = {'title': 'Public Company', 'owner_name': 'Owner', 'bharath_id': 'BP-C-1',
+                'owner_photo': '/owner.png', 'logo': '/logo.png', 'projects': [],
+                'owner_photo_position': {}, 'logo_position': {}}
+        html = render_to_string('accounts/digital_card.html', {'card': card, 'qr_image': '/qr.png', 'pdf_url': '/card.pdf'})
+        cover = html.split('<div class="cover">', 1)[1].split('<div class="identity">', 1)[0]
+        for image in ('/owner.png', '/logo.png', '/qr.png'):
+            self.assertIn(image, cover)
+        self.assertIn('class="brand"', cover)
+        self.assertIn('class="profile-details"', html)
+        self.assertNotIn('<select', html)

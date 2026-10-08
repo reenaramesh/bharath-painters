@@ -1129,10 +1129,12 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     openings = [opening for surface in surfaces for opening in surface.openings.all()]
 
     def distinct_opening_total(candidate_surfaces, candidate_openings, opening_type, surface_type):
-        typed_openings = [x for x in candidate_openings if x.opening_type == opening_type]
+        typed_openings = [x for x in candidate_openings if x.opening_type == opening_type and x.area > 0]
         total_area = sum((property_obj.area_to_sqft(x.quantity * x.width * x.height) for x in typed_openings), Decimal("0"))
         total_quantity = sum((Decimal(x.quantity) for x in typed_openings), Decimal("0"))
         for surface in (x for x in candidate_surfaces if x.surface_type == surface_type):
+            if surface.gross_area <= 0:
+                continue
             duplicate = any(
                 opening.surface.room_id == surface.room_id
                 and opening.quantity == surface.quantity
@@ -1152,11 +1154,19 @@ def build_measurement_pdf(property_obj, measurement_record=None):
         Spacer(1, 10),
         _cards(_measurement_info_card("Customer", [property_obj.customer.name, property_obj.customer.mobile], s), _measurement_info_card("Property", [property_obj.name or property_obj.get_property_type_display(), property_obj.get_property_type_display(), address], s), palette=palette),
         Spacer(1, 2*mm),
-        _summary_cards([("Net wall area", area(wall)), ("Net ceiling area", area(ceiling)), ("Other areas", area(other))], s, palette=palette),
-        Spacer(1, 1*mm),
-        _summary_cards([("Window area", area(window_area)), ("Window qty", quantity(window_quantity)), ("Door area", area(door_area)), ("Door qty", quantity(door_quantity))], s, palette=palette),
-        Spacer(1, 2*mm),
     ]
+    measured_cards = [(label, area(value)) for label, value in [
+        ("Net wall area", wall), ("Net ceiling area", ceiling), ("Other areas", other),
+    ] if value > 0]
+    if measured_cards:
+        story.extend([_summary_cards(measured_cards, s, palette=palette), Spacer(1, 1*mm)])
+    opening_cards = []
+    if window_area > 0:
+        opening_cards.extend([("Window area", area(window_area)), ("Window qty", quantity(window_quantity))])
+    if door_area > 0:
+        opening_cards.extend([("Door area", area(door_area)), ("Door qty", quantity(door_quantity))])
+    if opening_cards:
+        story.extend([_summary_cards(opening_cards, s, palette=palette), Spacer(1, 2*mm)])
     rooms = list(room_scope.select_related("room_type"))
     groups = [(room.name, [x for x in surfaces if x.room_id == room.id]) for room in rooms]
     unassigned = [x for x in surfaces if not x.room_id]
@@ -1201,67 +1211,41 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             "windows": window_total,
         }
 
-    populated_groups = [(name, room_surfaces, room_values(room_surfaces)) for name, room_surfaces in groups if room_surfaces]
-    wall_groups = [group for group in populated_groups if any(group[2][key] for key in ("wall_gross", "doors", "windows", "wall_deductions", "wall_additions", "net_walls"))]
-    ceiling_groups = [group for group in populated_groups if any(group[2][key] for key in ("ceiling_gross", "ceiling_deductions", "ceiling_additions", "net_ceiling"))]
-    wall_rows = [["Room / Area", "Walls", "Doors", "Windows", "Deductions", "Additions", "Net Walls"]]
-    ceiling_rows = [["Room / Area", "Ceiling", "Deductions", "Additions", "Net Ceiling"]]
-    surface_rows = [["Room / Area", "Category", "Lines", "Gross", "Deductions", "Additions", "Net Area"]]
-    for room_name, _, values in wall_groups:
-        wall_rows.append([Paragraph(_text(room_name), s["body"]), area(values["wall_gross"]), area(values["doors"]), area(values["windows"]), area(values["wall_deductions"]), area(values["wall_additions"]), area(values["net_walls"])])
-    for room_name, _, values in ceiling_groups:
-        ceiling_rows.append([Paragraph(_text(room_name), s["body"]), area(values["ceiling_gross"]), area(values["ceiling_deductions"]), area(values["ceiling_additions"]), area(values["net_ceiling"])])
+    populated_groups = [(name, room_surfaces, room_values(room_surfaces)) for name, room_surfaces in groups if any(surface.gross_area > 0 or surface.addition_area > 0 or surface.deduction_area > 0 or any(opening.area > 0 for opening in surface.openings.all()) for surface in room_surfaces)]
+    # One shared room list for every measured surface, including balconies/custom areas.
+    column_specs = [
+        ("Walls", "net_walls", "wall_present"),
+        ("Ceilings", "net_ceiling", "ceiling_present"),
+        ("Doors", "doors", "doors"),
+        ("Windows", "windows", "windows"),
+    ]
+    for _, _, values in populated_groups:
+        values["wall_present"] = any(values[key] > 0 for key in ("wall_gross", "wall_deductions", "wall_additions"))
+        values["ceiling_present"] = any(values[key] > 0 for key in ("ceiling_gross", "ceiling_deductions", "ceiling_additions"))
+        values["other_measured"] = sum((surface.net_area for surface in values["other_surfaces"]
+            if surface.surface_type not in {"DOOR", "WINDOW"}), Decimal("0"))
+        values["other_gross"] = sum((surface.gross_area for surface in values["other_surfaces"]
+            if surface.surface_type not in {"DOOR", "WINDOW"}), Decimal("0"))
+        values["other_present"] = any(surface.gross_area > 0 or surface.deduction_area > 0 or surface.addition_area > 0
+            for surface in values["other_surfaces"] if surface.surface_type not in {"DOOR", "WINDOW"})
+        values["room_net"] = values["net_walls"] + values["net_ceiling"] + values["other_area"]
+    column_specs.append(("Other surfaces", "other_measured", "other_present"))
+    visible_columns = [spec for spec in column_specs if any(values[spec[2]] > 0 for _, _, values in populated_groups)]
+    common_rows = [["Room / Area", *[label for label, _, _ in visible_columns], "Net Area"]]
     for room_name, _, values in populated_groups:
-        for category, grouped_surfaces in values["surface_groups"].items():
-            surface_rows.append([
-                Paragraph(_text(room_name), s["bold"]),
-                Paragraph(_text(category), s["body"]),
-                str(len(grouped_surfaces)),
-                area(sum((surface.gross_area for surface in grouped_surfaces), Decimal("0"))),
-                area(sum((surface.deduction_area for surface in grouped_surfaces), Decimal("0"))),
-                area(sum((surface.addition_area for surface in grouped_surfaces), Decimal("0"))),
-                area(sum((surface.net_area for surface in grouped_surfaces), Decimal("0"))),
-            ])
-    if len(wall_rows) > 1:
-        wall_rows.append([
-            Paragraph("ALL ROOMS TOTAL", s["bold"]),
-            area(sum((x[2]["wall_gross"] for x in wall_groups), Decimal("0"))),
-            area(sum((x[2]["doors"] for x in wall_groups), Decimal("0"))),
-            area(sum((x[2]["windows"] for x in wall_groups), Decimal("0"))),
-            area(sum((x[2]["wall_deductions"] for x in wall_groups), Decimal("0"))),
-            area(sum((x[2]["wall_additions"] for x in wall_groups), Decimal("0"))),
-            area(sum((x[2]["net_walls"] for x in wall_groups), Decimal("0"))),
-        ])
-        wall_table = _data_table(wall_rows, [38*mm, 24*mm, 22*mm, 22*mm, 26*mm, 24*mm, 24*mm], numeric_from=1, font_size=7.1, header_color=palette["dark"], header_text_color=palette["on_dark"], body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
-        wall_table.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), PANEL), ("FONTNAME", (0, -1), (-1, -1), fonts[1])]))
-        story.extend([Paragraph("WALL", s["section"]), wall_table, Spacer(1, 2*mm)])
-    if len(ceiling_rows) > 1:
-        ceiling_rows.append([
-            Paragraph("ALL ROOMS TOTAL", s["bold"]),
-            area(sum((x[2]["ceiling_gross"] for x in ceiling_groups), Decimal("0"))),
-            area(sum((x[2]["ceiling_deductions"] for x in ceiling_groups), Decimal("0"))),
-            area(sum((x[2]["ceiling_additions"] for x in ceiling_groups), Decimal("0"))),
-            area(sum((x[2]["net_ceiling"] for x in ceiling_groups), Decimal("0"))),
-        ])
-        ceiling_table = _data_table(ceiling_rows, [48*mm, 33*mm, 33*mm, 33*mm, 33*mm], numeric_from=1, font_size=7.2, header_color=palette["dark"], header_text_color=palette["on_dark"], body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
-        ceiling_table.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), PANEL), ("FONTNAME", (0, -1), (-1, -1), fonts[1])]))
-        story.extend([Paragraph("CEILING", s["section"]), ceiling_table, Spacer(1, 2*mm)])
-    if len(surface_rows) > 1:
-        surface_rows.append([
-            Paragraph("ALL ROOMS TOTAL", s["bold"]),
-            "",
-            "",
-            area(sum((surface.gross_area for _, _, values in populated_groups for surface in values["other_surfaces"]), Decimal("0"))),
-            area(sum((surface.deduction_area for _, _, values in populated_groups for surface in values["other_surfaces"]), Decimal("0"))),
-            area(sum((surface.addition_area for _, _, values in populated_groups for surface in values["other_surfaces"]), Decimal("0"))),
-            area(sum((x[2]["other_area"] for x in populated_groups), Decimal("0"))),
-        ])
-        surface_table = _data_table(surface_rows, [34*mm, 38*mm, 16*mm, 23*mm, 24*mm, 22*mm, 23*mm], numeric_from=2, font_size=7.0, header_color=palette["dark"], header_text_color=palette["on_dark"], body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
-        surface_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, -1), (-1, -1), PANEL),
-            ("FONTNAME", (0, -1), (-1, -1), fonts[1]),
-        ]))
-        story.extend([Paragraph("SURFACES", s["section"]), surface_table, Spacer(1, 2*mm)])
+        common_rows.append([Paragraph(_text(room_name), s["body"]),
+            *[area(values[key]) if values[presence] > 0 else "-" for _, key, presence in visible_columns],
+            area(values["room_net"])])
+    if len(common_rows) > 1:
+        common_rows.append([Paragraph("ALL ROOMS TOTAL", s["bold"]),
+            *[area(sum((values[key] for _, _, values in populated_groups), Decimal("0"))) for _, key, _ in visible_columns],
+            area(sum((values["room_net"] for _, _, values in populated_groups), Decimal("0")))])
+        numeric_width = 140*mm / (len(visible_columns) + 1)
+        common_table = _data_table(common_rows, [40*mm] + [numeric_width]*(len(visible_columns)+1),
+            numeric_from=1, font_size=7.1, header_color=palette["dark"], header_text_color=palette["on_dark"],
+            body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
+        common_table.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), PANEL), ("FONTNAME", (0, -1), (-1, -1), fonts[1])]))
+        story.extend([Paragraph("ALL ROOM MEASUREMENTS", s["section"]), common_table, Spacer(1, 2*mm)])
 
     story.extend([Paragraph("AREA CALCULATION DETAILS", s["section"])])
     linear = property_obj.linear_unit_label
@@ -1270,6 +1254,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
         linked_surface_ids = {x.linked_surface_id for x in values["openings"] if x.linked_surface_id}
         opening_types = {x.opening_type for x in values["openings"]}
         for surface in room_surfaces:
+            if surface.gross_area <= 0:
+                continue
             if surface.name == "__ROOM_ADJUSTMENTS__":
                 continue
             if surface.id in linked_surface_ids:
@@ -1294,6 +1280,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
                 calculation = " x ".join(factors)
             rows.append([category, Paragraph(_text(surface.name), s["body"]), first_dimension, second_dimension, str(surface.quantity), calculation, "Measured", area(surface.gross_area)])
         for opening in values["openings"]:
+            if opening.area <= 0:
+                continue
             measured_area = property_obj.area_to_sqft(opening.quantity * opening.width * opening.height)
             if opening.effect == "ADD":
                 action = "Add"

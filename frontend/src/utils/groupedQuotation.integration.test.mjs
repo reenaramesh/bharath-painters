@@ -73,10 +73,15 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     }
     const wallsTable = view.root.findAllByType("table")[0];
     const totals = wallsTable.findByType("tfoot");
-    assert.deepEqual(totals.findAllByType("td").slice(0, 2).map(text), ["2,270", "670"]);
+    // Includes the original balcony/utility plus added balcony/utility and exterior rows.
+    assert.deepEqual(totals.findAllByType("td").slice(0, 2).map(text), ["2,720", "800"]);
     const bedroom = wallsTable.findAllByType("tr").find((node) => text(node).startsWith("Bedroom 1"));
     assert.deepEqual(bedroom.findAllByType("td").slice(0, 3).map(text), ["470", "130"]);
-    assert.match(text(view.root.findAllByType("table")[1]), /Door.*Window.*Other/);
+    const otherHeaders = text(view.root.findAllByType("table")[1].findByType("thead"));
+    assert.match(otherHeaders, /Door/);
+    assert.doesNotMatch(otherHeaders, /Window|Other/);
+    assert.doesNotMatch(otherHeaders, /Actions/);
+    assert.equal(view.root.findAllByType("table")[1].findAllByType("button").some((node) => text(node) === "View"), false);
     assert.equal(wallsTable.findAllByType("button").some((node) => text(node) === "View"), false);
     assert.equal(text(wallsTable.findByType("thead")).includes("Deduction"), false);
     await act(async () => bedroom.findByType("button").props.onClick());
@@ -87,7 +92,8 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.deepEqual(records.findByType("tbody").findAllByType("tr")[0].findAllByType("td").map(text), ["12", "10", "27", "0", "120"]);
     assert.equal(view.root.findByProps({ role: "dialog" }).findAllByType("article").length, 0);
     await click("Close");
-    for (const title of ["Balconies", "Utility Areas", "Exterior Measurements"]) assert.equal(view.root.findAllByType("section").filter((node) => node.props["aria-label"] === title).length, 1);
+    for (const title of ["Balconies", "Utility Areas", "Exterior Measurements"]) assert.equal(view.root.findAllByType("section").filter((node) => node.props["aria-label"] === title).length, 0);
+    assert.ok(wallsTable.findAllByType("tr").some((row) => text(row).startsWith("Balcony")));
     await act(async () => view.root.findAllByType("button").find((node) => text(node) === "Front elevation").props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /Front wall/);
     assert.equal(text(view.root.findByProps({ role: "dialog" }).findByType("tbody").findAllByType("td").at(-1)), "100");

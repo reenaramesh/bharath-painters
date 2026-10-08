@@ -50,6 +50,21 @@ class ProfileDashboardTests(TestCase):
         customer_user = BharathUser.objects.create_user(mobile="9888000932", password="test", role="CUSTOMER")
         self.assertEqual(self.client.get(reverse("profile-image", kwargs={"kind": "owner", "object_id": customer_user.pk})).status_code, 404)
 
+    def test_public_qr_survives_missing_upload_without_writing_files_or_database(self):
+        from django.test import RequestFactory
+        self.user.bharath_id = 'BP-C-TEST'
+        self.user.bharath_qr = 'badges/qr/missing.png'
+        self.user.save(update_fields=['bharath_id', 'bharath_qr'])
+        url = _profile_image_url(RequestFactory().get('/'), self.user.bharath_qr)
+        self.assertIn(f'/api/accounts/profile-images/qr/{self.user.pk}/', url)
+        public_client = APIClient()
+        response = public_client.get(reverse('profile-image', kwargs={'kind': 'qr', 'object_id': self.user.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'image/png')
+        self.assertTrue(b''.join(response.streaming_content).startswith(b'\x89PNG'))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.bharath_qr.name, 'badges/qr/missing.png')
+
     def test_dashboard_separates_followups_and_both_sources_of_site_visits(self):
         customer = Customer.objects.create(contractor=self.user, name="Customer", mobile="9888000933")
         when = timezone.now() - timedelta(hours=1)

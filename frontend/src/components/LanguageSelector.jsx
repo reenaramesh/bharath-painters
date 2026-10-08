@@ -3,7 +3,7 @@ import { languages, useLanguage } from "../i18n/LanguageContext";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
 
-export default function LanguageSelector() {
+export default function LanguageSelector({ compact = false }) {
   const id = useId();
   const { language, setLanguage, t } = useLanguage();
   const { user, refreshUser } = useAuth();
@@ -19,12 +19,12 @@ export default function LanguageSelector() {
     } catch { setMessage({ key: "languageSaveFailed" }); }
     finally { setSaving(false); }
   }
-  return <div className="space-y-1">
-    <label htmlFor={id} className="block text-sm font-semibold">{t("language")}</label>
-    <select id={id} value={language} disabled={saving} onChange={(event) => change(event.target.value)} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b]">
+  return <div className={compact ? "relative shrink-0" : "space-y-1"}>
+    <label htmlFor={id} className={compact ? "sr-only" : "block text-sm font-semibold"}>{t("language")}</label>
+    <select id={id} value={language} disabled={saving} onChange={(event) => change(event.target.value)} className={`min-h-11 rounded-lg border border-slate-300 bg-white text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b] ${compact ? "w-20 px-1 text-xs sm:w-28 sm:px-2 sm:text-sm" : "px-3 text-sm"}`}>
       {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
     </select>
     
-    <p role="status" aria-live="polite" className="text-xs text-slate-600">{message ? t(message.key) : ""}</p>
+    <p role="status" aria-live="polite" className={compact ? "sr-only" : "text-xs text-slate-600"}>{message ? t(message.key) : ""}</p>
   </div>;
 }

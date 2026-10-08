@@ -8,6 +8,7 @@ import api from "../api/client";
 import { previewPdf } from "../components/PdfPreview";
 import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
+import { measurementRoomTable } from "../utils/measurementRoomTable";
 
 const SURFACE_TYPES = [
   ["WALL", "Wall"], ["CEILING", "Ceiling"], ["FLOOR", "Floor"],
@@ -53,6 +54,7 @@ function summarize(surfaces) {
     const group = groups.get(key);
     if (visibleSurface(surface)) group.surfaces.push(surface);
     (surface.openings || []).forEach((opening) => {
+      if (number(opening.area) <= 0 && number(opening.effective_deduction) <= 0) return;
       const target = openingKey(opening, surface);
       if (!groups.has(target)) groups.set(target, {
         key: target,
@@ -433,11 +435,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
   const [mobileTab, setMobileTab] = useState("rooms");
   const [expandedAreaId, setExpandedAreaId] = useState("");
   const waitingForFirstSave = isNew && !measurementId;
-  const mobileBreakdown = [...summaries.values()].flatMap((summary) => summary.groups).reduce((result, group) => {
-    const type = group.key === "WALL" ? "Walls" : group.key === "CEILING" ? "Ceilings" : "Other surfaces";
-    result[type] = (result[type] || 0) + group.net;
-    return result;
-  }, {});
+  const roomTable = measurementRoomTable(areas, summaries);
   const goBack = () => {
     if (location.key && location.key !== "default") navigate(-1);
     else navigate(`/properties/${property.id}`);
@@ -481,7 +479,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
     <section className="hidden grid-cols-3 gap-2 sm:gap-4 md:grid">
       <StatCard label="Total measured area" value={areaText(totals.net)} />
       <StatCard label="Total surfaces" value={totals.surfaces} />
-      <StatCard label="Total deductions" value={totals.deductions} />
+      {totals.deductions > 0 && <StatCard label="Total deductions" value={totals.deductions} />}
     </section>
     <section className="md:hidden">
       <nav className="grid grid-cols-2 rounded-xl bg-[#e6edf2] p-1" aria-label="Calculation view">
@@ -496,7 +494,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
             <button type="button" onClick={() => setExpandedAreaId(expanded ? "" : String(area.id))} aria-expanded={expanded} className="flex min-h-[70px] w-full items-center gap-3 p-3 text-left">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eaf4f8] text-[#31728b]"><Layers3 className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{area.name}</strong><small className="mt-1 block text-xs text-slate-500">{summary.surfaceCount ? `${summary.surfaceCount} surfaces · ${summary.deductions} deductions` : "No measurements yet"}</small></span>
-              <span className="shrink-0 text-right text-xs font-extrabold">{areaText(summary.net)}<ChevronRight className={`ml-auto mt-1 h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} /></span>
+              <span className="shrink-0 text-right text-xs font-extrabold">{summary.surfaceCount > 0 && areaText(summary.net)}<ChevronRight className={`ml-auto mt-1 h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} /></span>
             </button>
             {expanded && <div className="border-t border-[#e7edf1] px-4 pb-4 pt-3">
               {summary.groups?.length ? <div className="space-y-1 text-xs text-slate-600">{summary.groups.map((group) => <div key={group.key} className="flex justify-between gap-2"><span>{group.label}</span><b className="text-[#193750]">{areaText(group.net)}</b></div>)}</div> : null}
@@ -505,8 +503,9 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
           </article>;
         })}
         {!areas.length && <div className="rounded-2xl border border-dashed border-[#cbdce6] bg-white p-8 text-center text-sm text-slate-500">Add the first room or area to begin.</div>}
-      </div> : <div className="mt-5 rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm"><h2 className="text-base font-extrabold">Area breakdown</h2><div className="mt-3 divide-y divide-[#e7edf1]">{["Walls", "Ceilings", "Other surfaces"].map((label) => <div key={label} className="flex min-h-12 items-center justify-between text-sm"><span>{label}</span><b>{areaText(mobileBreakdown[label] || 0)}</b></div>)}<div className="flex min-h-12 items-center justify-between text-sm font-extrabold"><span>Total measured area</span><b>{areaText(totals.net)}</b></div></div></div>}
+      </div> : <RoomTotalsTable data={roomTable} />}
     </section>
+    <div className="hidden md:block"><RoomTotalsTable data={roomTable} /></div>
     <section className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
       <div className="flex items-center justify-between gap-3">
         <div><h2 className="text-lg font-extrabold">Areas</h2><p className="hidden text-sm text-slate-500 sm:block">Rooms and custom work areas.</p></div>
@@ -533,6 +532,20 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
     </section>
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden"><button type="button" onClick={() => openArea()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white"><Plus className="h-4 w-4" />Add Room</button></div>
   </div>;
+}
+
+function RoomTotalsTable({ data }) {
+  return <section className="mt-5 overflow-hidden rounded-2xl border border-[#e1e7ef] bg-white shadow-sm">
+    <h2 className="px-4 py-4 text-base font-extrabold">All room measurements</h2>
+    {data.rows.length ? <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Measurements for all rooms and surfaces">
+      <table className="w-full text-left text-xs sm:text-sm">
+        <caption className="sr-only">Rooms, balconies and other areas with measured surfaces only. Values in square feet. Opening columns show measured opening areas for reference; they are already included in the surface adjustments.</caption>
+        <thead className="bg-[#f5f8fc]"><tr><th scope="col" className="p-3">Room / area</th>{data.columns.map((column) => <th key={column.key} scope="col" className="whitespace-nowrap p-3 text-right">{column.label}</th>)}<th scope="col" className="whitespace-nowrap p-3 text-right">Net area</th></tr></thead>
+        <tbody className="divide-y">{data.rows.map((row) => <tr key={row.id}><th scope="row" className="p-3 font-semibold">{row.name}</th>{data.columns.map((column) => <td key={column.key} className="whitespace-nowrap p-3 text-right tabular-nums">{column.key in row.values ? areaText(row.values[column.key]) : "—"}</td>)}<td className="whitespace-nowrap p-3 text-right font-bold tabular-nums">{areaText(row.net)}</td></tr>)}</tbody>
+        <tfoot className="border-t bg-[#eaf4f8] font-bold"><tr><th scope="row" className="p-3">All rooms total</th>{data.columns.map((column) => <td key={column.key} className="whitespace-nowrap p-3 text-right tabular-nums">{areaText(data.totals[column.key])}</td>)}<td className="whitespace-nowrap p-3 text-right tabular-nums">{areaText(data.net)}</td></tr></tfoot>
+      </table>
+    </div> : <p className="px-4 pb-4 text-sm text-slate-500">No measurements saved yet. Add measurements to any room to see them here.</p>}
+  </section>;
 }
 
 function StatCard({ label, value }) {
@@ -662,7 +675,7 @@ function SurfaceTab({ groups, editSurface, deleteSurface, surfaceTypes, saveBatc
     </div>}
     <h3 className="mt-6 font-extrabold">Saved surfaces</h3>
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      {groups.map((group) => <article key={group.key} className="overflow-hidden rounded-xl border border-[#e1e7ef]">
+      {groups.filter((group) => group.surfaces.length > 0).map((group) => <article key={group.key} className="overflow-hidden rounded-xl border border-[#e1e7ef]">
         <header className="flex items-center justify-between bg-[#f5f8fc] px-4 py-3"><div><h3 className="font-extrabold uppercase tracking-wide">{group.label}</h3><p className="text-xs text-slate-500">{group.surfaces.length} measurement{group.surfaces.length === 1 ? "" : "s"}</p></div><button onClick={() => choose(group.label)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-[#176b9b]"><Plus className="mr-1 inline h-3.5 w-3.5" />Add</button></header>
         <div className="divide-y divide-[#e1e7ef]">
           {group.surfaces.map((surface) => <div key={surface.id} className="flex items-center gap-3 px-4 py-3">
@@ -695,7 +708,7 @@ function DeductionTab({ groups, deductions, addDeduction, editDeduction, deleteD
 
 function SummaryTab({ groups, summary, deductions }) {
   return <div className="space-y-4">
-    <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4"><SummaryStat tone="blue" label="Total gross area" value={summary.gross} /><SummaryStat tone="orange" label="Total deductions" value={summary.deductionArea} /><SummaryStat tone="blue" label="Total additions" value={summary.additionArea} /><SummaryStat tone="green" label="Net area" value={summary.net} /></section>
+    <section className="grid grid-cols-2 gap-2 sm:gap-4"><SummaryStat tone="blue" label="Total gross area" value={summary.gross} />{summary.deductionArea > 0 && <SummaryStat tone="orange" label="Total deductions" value={summary.deductionArea} />}{summary.additionArea > 0 && <SummaryStat tone="blue" label="Total additions" value={summary.additionArea} />}<SummaryStat tone="green" label="Net area" value={summary.net} /></section>
     <section className="rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6"><h2 className="font-extrabold">Surface-wise details</h2>
       <div className="mt-3 space-y-2">{groups.map((group) => <div key={group.key} className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-2 rounded-lg border p-3 text-right text-xs sm:text-sm"><b className="text-left">{group.label}</b><span><small className="block text-slate-400">Gross</small>{group.gross.toFixed(0)}</span><span><small className="block text-slate-400">Deduction</small>{group.deduction.toFixed(0)}</span><b><small className="block font-normal text-slate-400">Net</small>{group.net.toFixed(0)}</b></div>)}</div>
     </section>
@@ -721,7 +734,7 @@ function AreaViewDialog({ area, summary, close, edit }) {
     <div className="space-y-4 p-4 sm:p-6">
       <div className="grid grid-cols-3 gap-2">
         <SummaryStat tone="blue" label="Gross area" value={summary?.gross || 0} />
-        <SummaryStat tone="orange" label="Deductions" value={summary?.deductionArea || 0} />
+        {summary?.deductionArea > 0 && <SummaryStat tone="orange" label="Deductions" value={summary.deductionArea} />}
         <SummaryStat tone="green" label="Net area" value={summary?.net || 0} />
       </div>
       <div className="space-y-3">

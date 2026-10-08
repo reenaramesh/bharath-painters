@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, X, Eye } from "lucide-react";
 import { assignedGroup, deleteAssignment, measuredSurfaces, pricedLines, roomContribution, saveGroup, saveSpecial, specificationLines, surfaceLabel, surfaceKey, surfaceOptions, validateSpec, saveGeneralService } from "../utils/groupedQuotation.js";
 import "./special-wall-sheet.css";
 import "./grouped-quotation.css";
+import { quotationMeasurementTables, measuredTotal, measurementBucket, hasMeasurement } from "../utils/quotationMeasurementTables.js";
 const AssignmentContext = createContext(null);
 const number = (value) => Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
@@ -158,23 +159,19 @@ function AssignmentCard({ line, onEdit, onDelete, onContributions }) {
 
 
 function MeasurementTables({ measurement, onView }) {
-  const rows = measurement.rooms.map((room) => ({ ...room, surfaces: measurement.surfaces.filter((surface) => String(surface.room) === String(room.id)) }));
-  const exterior = measurement.surfaces.filter((surface) => surface.work_area === "EXTERIOR");
-  const exteriorRows = [...new Set(exterior.map((surface) => surface.room ? `room:${surface.room}` : `area:${surface.area_group_name || "Exterior"}`))].map((key) => {
-    const surfaces = exterior.filter((surface) => (surface.room ? `room:${surface.room}` : `area:${surface.area_group_name || "Exterior"}`) === key);
-    return { id: key, name: measurement.rooms.find((room) => String(room.id) === String(surfaces[0].room))?.name || surfaces[0].area_group_name || "Exterior", surfaces };
-  });
-  const interior = rows.map((row) => ({ ...row, surfaces: row.surfaces.filter((surface) => surface.work_area !== "EXTERIOR") }));
-  const isBalcony = (row) => /balcon/i.test(`${row.name} ${row.room_type_name || ""}`);
-  const isUtility = (row) => /utility/i.test(`${row.name} ${row.room_type_name || ""}`);
-  const groups = [["Rooms", interior.filter((row) => !isBalcony(row) && !isUtility(row))], ["Balconies", interior.filter(isBalcony)], ["Utility Areas", interior.filter(isUtility)], ["Exterior Measurements", exteriorRows]];
-  const viewRoom = (row) => {
-    const roomId = String(row.id).startsWith("room:") ? String(row.id).slice(5) : row.id;
-    const allRoomSurfaces = measurement.surfaces.filter((surface) => String(surface.room) === String(roomId));
-    onView({ ...row, surfaces: allRoomSurfaces.length ? allRoomSurfaces : row.surfaces });
-  };
-  const sum = (row, type) => row.surfaces.filter((surface) => type === "OTHER" ? !["WALL", "CEILING", "DOOR", "WINDOW"].includes(surface.surface_type) : surface.surface_type === type).reduce((total, surface) => total + Number(surface.net_area || 0), 0);
-  return <div className="gq-surface-tables">{groups.filter(([, entries]) => entries.length).map(([title, entries]) => <section key={title} aria-label={title}><h3>{title}</h3>{[false, true].map((openings) => <div className="gq-measurement-table-card" key={String(openings)}><h4>{openings ? "Doors, Windows & Other Surfaces" : "Walls & Ceilings"}</h4><table className="gq-surface-table" data-mobile-table="keep"><thead><tr><th scope="col">Room / Area</th>{(openings ? ["Door", "Window", "Other"] : ["Net Walls", "Net Ceiling"]).map((label) => <th key={label} scope="col">{label}<small>sqft</small></th>)}{openings && <th scope="col">Actions</th>}</tr></thead><tbody>{entries.map((row) => <tr key={row.id}><th scope="row"><button type="button" className="gq-room-name" onClick={() => viewRoom(row)} aria-haspopup="dialog">{row.name}</button></th>{(openings ? ["DOOR", "WINDOW", "OTHER"] : ["WALL", "CEILING"]).map((type) => <td key={type}>{number(type === "DEDUCTION" ? row.surfaces.reduce((total, surface) => total + Number(surface.deduction_area || 0), 0) : sum(row, type))}</td>)}{openings && <td><button type="button" className="gq-measurement-view" aria-label={`View ${openings ? "all surfaces" : "original measurement records"} for ${row.name}`} onClick={() => viewRoom(row)} aria-haspopup="dialog"><Eye size={16} aria-hidden="true" /><span>View</span></button></td>}</tr>)}</tbody>{!openings && <tfoot><tr><th scope="row">Final net total</th><td>{number(entries.reduce((total, row) => total + sum(row, "WALL"), 0))}</td><td>{number(entries.reduce((total, row) => total + sum(row, "CEILING"), 0))}</td></tr></tfoot>}</table></div>)}</section>)}</div>;
+  const tables = quotationMeasurementTables(measurement);
+  const labels = { WALL: "Net Walls", CEILING: "Net Ceiling", DOOR: "Door", WINDOW: "Window", OTHER: "Other" };
+  return <div className="gq-surface-tables">{tables.map(({title, types, rows}) => <section key={title} aria-label={title} className="gq-measurement-table-card">
+    <h4>{title}</h4>
+    <table className="gq-surface-table" data-mobile-table="keep">
+      <thead><tr><th scope="col">Room / Area</th>{types.map((type) => <th key={type} scope="col">{labels[type]}<small>sqft</small></th>)}</tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.id}>
+        <th scope="row"><button type="button" className="gq-room-name" onClick={() => onView(row)} aria-haspopup="dialog">{row.name}</button></th>
+        {types.map((type) => <td key={type}>{row.surfaces.some((surface) => measurementBucket(surface) === type && hasMeasurement(surface)) ? number(measuredTotal(row, type)) : "—"}</td>)}
+      </tr>)}</tbody>
+      <tfoot><tr><th scope="row">Final net total</th>{types.map((type) => <td key={type}>{number(rows.reduce((total, row) => total + measuredTotal(row, type), 0))}</td>)}</tr></tfoot>
+    </table>
+  </section>)}{!tables.length && <p className="gq-measurement-none">No measurements saved yet.</p>}</div>;
 }
 
 export default function GroupedQuotationWorkspace({ measurement, masters, state, onChange, phase = "assignments", extraActions = null, displayMeasurement = null, requestedEditor = null, onEditorRequestHandled = null }) {

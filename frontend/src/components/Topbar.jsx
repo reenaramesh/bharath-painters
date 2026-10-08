@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api/client";
 import PushAlertControl from "./PushAlertControl";
+import LanguageSelector from "./LanguageSelector";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ScriptKnownText } from '../i18n/ScriptText';
 import { resolveBackTarget } from "../utils/navigation";
@@ -123,7 +124,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
   };
   return (
     <header className="bp-topbar flex items-center justify-between px-3 sm:px-4 md:px-7">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
           ref={menuButtonRef}
@@ -208,6 +209,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
+        <LanguageSelector compact />
         <div className="relative shrink-0">
           <button
             type="button"

@@ -619,6 +619,12 @@ textarea.bp-control {
   .bp-page-actions > * {
     flex: 1;
   }
+  .admin-dashboard > .bp-page-header .bp-page-actions > button {
+    flex: 1 1 10rem;
+    min-width: min(100%, 10rem);
+    justify-content: center;
+    overflow-wrap: normal;
+  }
   .bp-stat-card {
     min-height: 96px;
   }

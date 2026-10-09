@@ -1,0 +1,89 @@
+{
+  "views": [
+    {
+      "width": 1440,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 121,
+        "padding": "16px",
+        "columns": "577.453px 389.406px 101.141px"
+      }
+    },
+    {
+      "width": 768,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 121,
+        "padding": "16px",
+        "columns": "182.609px 389.406px 101.141px"
+      }
+    },
+    {
+      "width": 320,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 245,
+        "padding": "16px",
+        "columns": "148.859px 101.141px"
+      }
+    },
+    {
+      "width": 360,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 229,
+        "padding": "16px",
+        "columns": "188.859px 101.141px"
+      }
+    },
+    {
+      "width": 390,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 229,
+        "padding": "16px",
+        "columns": "218.859px 101.141px"
+      }
+    },
+    {
+      "width": 430,
+      "ownProfile": true,
+      "correctContractorRoute": true,
+      "publicPhotos": true,
+      "noPrivateRead": true,
+      "noOverflow": true,
+      "listGeometry": {
+        "height": 229,
+        "padding": "16px",
+        "columns": "258.859px 101.141px"
+      }
+    }
+  ],
+  "mockSendRetry": true,
+  "mockReject": true,
+  "publicLoadRetry": true,
+  "sectionNavigation": true,
+  "projectList": true,
+  "emptyProfile": true,
+  "uncaughtErrors": []
+}

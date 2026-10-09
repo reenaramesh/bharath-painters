@@ -28,6 +28,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
   const [groupPreferences, setGroupPreferences] = useState(() => ({ key: preferenceKey, closed: readGroups(preferenceKey) }));
   const closed = groupPreferences.key === preferenceKey ? groupPreferences.closed : readGroups(preferenceKey);
   const entries = visibleNavigation(user?.role, employmentStatus).filter((entry) => menuEnabled(user?.role, menuVisibility, entry.id));
+  const canReadBookings = entries.some((entry) => entry.id === "bookings");
   const active = activeNavigation(entries, `${location.pathname}${location.search}`);
   const searchWords = menuSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const searching = searchWords.length > 0;
@@ -51,8 +52,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
     const loadCounts = async () => {
       const results = await Promise.allSettled([
         api.get("/quotations/portal-notifications/"),
-        ["CONTRACTOR", "PAINTER"].includes(user?.role) && employmentStatus !== "loading" && employmentStatus !== "unavailable"
-          ? api.get("/jobs/applicator-bookings/") : Promise.resolve({ data: {} }),
+        canReadBookings ? api.get("/jobs/applicator-bookings/") : Promise.resolve({ data: {} }),
       ]);
       if (!current) return;
       setCounts((previous) => ({
@@ -67,7 +67,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
     window.addEventListener("focus", loadCounts);
     window.addEventListener("portal-counts-changed", loadCounts);
     return () => { current = false; window.clearInterval(timer); window.removeEventListener("focus", loadCounts); window.removeEventListener("portal-counts-changed", loadCounts); };
-  }, [user?.id, user?.role, employmentStatus, location.pathname]);
+  }, [user?.id, user?.role, employmentStatus, canReadBookings, location.pathname]);
 
   // Close after navigation commits, rather than cancelling an unsaved-change blocker.
   useEffect(() => { closeMobile(); setFlyout(null); }, [location.key, closeMobile]);

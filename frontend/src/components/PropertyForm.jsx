@@ -1,11 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Building2, MapPin, Search, X } from "lucide-react";
 import api from "../api/client";
+import { lockBodyScroll } from "../utils/bodyScrollLock";
 
 const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", google_maps_url: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
 
 export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, quotationTheme = false }) {
+  const dialogRef = useRef(null);
+  const titleId = useId();
+  const ownerId = useId();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const opener = document.activeElement;
+    const releaseScrollLock = lockBodyScroll();
+    dialog.showModal();
+    dialog.querySelector('input:not([disabled])')?.focus();
+    return () => {
+      dialog.close();
+      releaseScrollLock();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
   const [form, setForm] = useState(empty);
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerOpen, setOwnerOpen] = useState(false);
@@ -122,15 +138,28 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
     setOwnerSearch(customer.name);
     setOwnerOpen(false);
   }
+  function containFocus(event) {
+    if (event.key !== "Tab") return;
+    const controls = [...dialogRef.current.querySelectorAll('a[href], button:enabled, input:enabled:not([type="hidden"]), select:enabled, textarea:enabled, [tabindex="0"]')]
+      .filter((element) => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden");
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
   const input = `mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none ${quotationTheme ? "focus:border-[#176b9b]" : "focus:border-slate-900"}`;
-  return <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40"><div className="h-full w-full max-w-xl overflow-y-auto bg-white">
-    <div className="flex items-center justify-between border-b p-6"><div><h2 className="text-xl font-bold">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button onClick={onClose} className="p-2"><X /></button></div>
+  return <dialog ref={dialogRef} aria-labelledby={titleId} onKeyDown={containFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-xl overflow-y-auto border-0 bg-white p-0 text-slate-950 backdrop:bg-slate-950/40">
+    <div className="flex items-center justify-between border-b p-6"><div><h2 id={titleId} className="text-xl font-bold">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button type="button" aria-label="Close property form" onClick={onClose} className="p-2"><X aria-hidden="true" /></button></div>
     <form onSubmit={(event) => { event.preventDefault(); if (!form.customer) { setOwnerOpen(true); return; } onSubmit({ ...form, customer: Number(form.customer), approximate_area: form.approximate_area || null }); }} className="grid gap-5 p-6 sm:grid-cols-2">
       <div className="relative sm:col-span-2">
-        <label className="text-sm font-medium">Owner name *</label>
+        <label htmlFor={ownerId} className="text-sm font-medium">Owner name *</label>
         <span className="relative mt-1.5 flex items-center">
           <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-          <input required disabled={Boolean(initialValue)} value={ownerSearch} onFocus={() => setOwnerOpen(true)} onChange={(event) => { setOwnerSearch(event.target.value); setForm((value) => ({ ...value, customer: "" })); setOwnerOpen(true); }} placeholder="Search customer" className={`${input} mt-0 pl-10 disabled:bg-slate-100`} />
+          <input id={ownerId} required disabled={Boolean(initialValue)} value={ownerSearch} onFocus={() => setOwnerOpen(true)} onChange={(event) => { setOwnerSearch(event.target.value); setForm((value) => ({ ...value, customer: "" })); setOwnerOpen(true); }} placeholder="Search customer" className={`${input} mt-0 pl-10 disabled:bg-slate-100`} />
         </span>
         {!initialValue && recentCustomers.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-slate-400">Recent:</span>{recentCustomers.map((customer) => <button key={customer.id} type="button" onClick={() => selectOwner(customer)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-800">{customer.name}</button>)}</div>}
         {!initialValue && ownerOpen && <div className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">{ownerMatches.length ? ownerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOwner(customer)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-amber-50"><b className="block text-sm text-slate-950">{customer.name}</b></button>) : <p className="px-3 py-4 text-sm text-slate-500">No matching customers found.</p>}</div>}
@@ -181,5 +210,5 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       <label className="text-sm font-medium">Flat number <span className="font-normal text-slate-400">(optional)</span><input name="flat_number" value={form.flat_number} onChange={update} placeholder="e.g. 1204" className={input} /></label>
       <label className="text-sm font-medium">Block / Tower <span className="font-normal text-slate-400">(optional)</span><input name="block_name" value={form.block_name} onChange={update} placeholder="e.g. Block B" className={input} /></label>
       <div className="flex justify-end gap-3 border-t pt-5 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-xl border px-5 py-2.5 font-semibold">Cancel</button><button disabled={saving} className={`rounded-xl px-5 py-2.5 font-semibold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`}>{saving ? "Saving..." : "Save property"}</button></div>
-    </form></div></div>;
+    </form></dialog>;
 }

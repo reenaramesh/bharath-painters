@@ -23,12 +23,12 @@ export default function SubcontractWorkOrders() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
   // Quotation links open the offer picker; the sender chooses the service lines.
-  const [creating, setCreating] = useState(Boolean(searchParams.get("quotation")));
+  const [creating, setCreating] = useState(Boolean(searchParams.get("quotation") || searchParams.get('contractor')));
   const presetQuotation = searchParams.get("quotation") || "";
 
   const closeCreate = () => {
     setCreating(false);
-    if (searchParams.get("quotation") || searchParams.get("scope")) setSearchParams({});
+    if (searchParams.get("quotation") || searchParams.get("scope") || searchParams.get('contractor')) setSearchParams({});
   };
 
   const load = useCallback(
@@ -144,6 +144,7 @@ export default function SubcontractWorkOrders() {
       {creating && (
         <CreateSubcontractOffer
           initialQuotation={presetQuotation}
+          initialContractor={searchParams.get('contractor') || ''}
           onClose={closeCreate}
           onCreated={() => {
             closeCreate();

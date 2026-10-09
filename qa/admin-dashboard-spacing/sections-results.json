@@ -1,0 +1,45 @@
+{
+  "views": [
+    {
+      "width": 1440,
+      "documentWidth": 1440,
+      "headerHeight": 52,
+      "cardHeight": 101,
+      "cardPadding": "10px",
+      "shortcutWidth": null,
+      "shortcutClientWidth": null,
+      "state": "empty"
+    },
+    {
+      "width": 390,
+      "documentWidth": 390,
+      "headerHeight": 164,
+      "cardHeight": 87,
+      "cardPadding": "8px 4px",
+      "shortcutWidth": 366,
+      "shortcutClientWidth": 366,
+      "state": "empty"
+    },
+    {
+      "width": 1440,
+      "documentWidth": 1440,
+      "headerHeight": 52,
+      "cardHeight": 101,
+      "cardPadding": "10px",
+      "shortcutWidth": null,
+      "shortcutClientWidth": null,
+      "state": "populated"
+    },
+    {
+      "width": 390,
+      "documentWidth": 390,
+      "headerHeight": 164,
+      "cardHeight": 87,
+      "cardPadding": "8px 4px",
+      "shortcutWidth": 366,
+      "shortcutClientWidth": 366,
+      "state": "populated"
+    }
+  ],
+  "uncaughtErrors": []
+}

@@ -6,7 +6,9 @@ import {
   MessageCircle,
   QrCode,
 } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
+import ContractorPublicProfilePage from '../components/ContractorPublicProfilePage';
+import {ContractorProfileSkeleton} from '../components/ContractorProfileAdapter';
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import ContractorDigitalCard from "../components/ContractorDigitalCard";
@@ -14,11 +16,15 @@ import PainterDigitalCard from "../components/PainterDigitalCard";
 
 export default function ProfileCard() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const contractorId = searchParams.get('contractor');
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [attempt,setAttempt]=useState(0);
   useEffect(() => {
-    if (!["CONTRACTOR", "PAINTER"].includes(user?.role)) return;
+    if (contractorId || !["CONTRACTOR", "PAINTER"].includes(user?.role)) return;
+    setError('');
     api
       .get("/accounts/profile-card/")
       .then(({ data: value }) => setData(value))
@@ -28,7 +34,7 @@ export default function ProfileCard() {
             "Profile QR could not be loaded.",
         );
       });
-  }, [user?.role]);
+  }, [user?.role, contractorId,attempt]);
   const whatsappUrl = useMemo(
     () =>
       data ? `https://wa.me/?text=${encodeURIComponent(data.share_text)}` : "#",
@@ -39,6 +45,7 @@ export default function ProfileCard() {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
+  if (contractorId) return <ContractorPublicProfilePage key={contractorId} bharathId={contractorId} />;
   if (!["CONTRACTOR", "PAINTER"].includes(user?.role))
     return (
       <Navigate
@@ -48,9 +55,7 @@ export default function ProfileCard() {
     );
   if (!data)
     return (
-      <div className="bp-page-state">
-        {error || "Preparing your profile QR…"}
-      </div>
+      error ? <div className="bp-page-state" role="alert">{error}<button type="button" onClick={()=>setAttempt(value=>value+1)} className="min-h-11 px-3 underline">Retry</button></div> : <ContractorProfileSkeleton />
     );
   if (user?.role === "CONTRACTOR" && data.digital_card)
     return <ContractorDigitalCard data={data} />;

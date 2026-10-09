@@ -170,18 +170,24 @@ export default function CustomerDashboard() {
   ].join(" · ");
 
   return (
-    <div className="customer-dashboard-page space-y-6">
+    <div className="customer-dashboard-page space-y-4">
       <PageHeader
         eyebrow="Your home projects"
         title={`Welcome back, ${data.customer_name || "there"}`}
         description={customerContext}
         actions={
-          <Link to="/customer/profile" className="bp-button bp-button-secondary customer-profile-action">
+          <Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Profile settings
+            <span className="customer-profile-action-label">Profile settings</span>
           </Link>
         }
       />
+
+      <section className="customer-overview-grid" aria-label="Account overview">
+        <StatCard icon={Building2} label="My properties" value={counts.properties || 0} hint="Places connected to your projects" tone="brand" />
+        <StatCard icon={Users} label="My contractors" value={counts.contractors || 0} hint="Contractors connected to you" tone="info" />
+        <StatCard icon={FileText} label="My quotations" value={counts.quotations || 0} hint="Estimates shared with you" tone="success" />
+      </section>
 
       <MobileDashboardShortcuts />
 
@@ -216,11 +222,7 @@ export default function CustomerDashboard() {
 
       {supplementalNotice && <p className="customer-dashboard-notice" role="status">{supplementalNotice}</p>}
 
-      <section className="customer-overview-grid" aria-label="Account overview">
-        <StatCard icon={Building2} label="My properties" value={counts.properties || 0} hint="Places connected to your projects" tone="brand" />
-        <StatCard icon={Users} label="My contractors" value={counts.contractors || 0} hint="Contractors connected to you" tone="info" />
-        <StatCard icon={FileText} label="My quotations" value={counts.quotations || 0} hint="Estimates shared with you" tone="success" />
-      </section>
+
 
       <section className="customer-desktop-quick-actions" aria-label="Quick actions">
         <h2>Quick actions</h2>
@@ -237,6 +239,7 @@ export default function CustomerDashboard() {
 
       <CustomerAds />
 
+      <div className="customer-project-grid">
       <SectionCard
         title="Your work"
         description="Upcoming and active projects, with the dates shared by your contractor."
@@ -295,6 +298,8 @@ export default function CustomerDashboard() {
           </div>
         </SectionCard>
       )}
+
+      </div>
 
       <div className="customer-dashboard-columns">
         <SectionCard

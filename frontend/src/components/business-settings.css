@@ -232,3 +232,44 @@
     padding: 16px;
   }
 }
+.msp-social-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.msp-social-icons button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #dce4ef;
+  border-radius: 10px;
+  background: #fff;
+}
+.msp-social-icons button[aria-pressed="true"] {
+  border-color: currentColor;
+  background: #f5f7fb;
+}
+.msp-social-saved {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.msp-social-editor > [hidden] { display: none; }
+.msp-location-results { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; margin-top: 10px; }
+.msp-location-results button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; border: 1px solid #dce4ef; border-radius: 8px; text-align: left; }
+.msp-location-results button span { flex: 1; min-width: 0; }
+.msp-location-results strong, .msp-location-results small { display: block; }
+.msp-location-results small { color: #64748b; font-size: 11px; }
+.msp-location-lookup label > span { display: block; margin-bottom: 8px; }
+.msp-custom-icon > span { display: block; margin-bottom: 8px; font-size: 12px; }
+.msp-custom-icon button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #dce4ef; border-radius: 8px; }
+.msp-custom-icon img { width: 28px; height: 28px; object-fit: contain; }
+.merged-settings-preview .msp-extra-link { grid-template-columns: 70px minmax(0, 1fr) 44px; gap: 8px; }
+.merged-settings-preview .msp-extra-link label:first-child { grid-column: auto; }

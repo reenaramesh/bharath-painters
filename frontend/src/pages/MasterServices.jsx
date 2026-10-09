@@ -1,8 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
   BedDouble,
   Building2,
   Boxes,
@@ -71,7 +68,7 @@ export default function MasterServices() {
     event.dataTransfer.effectAllowed = "move";
     try { event.dataTransfer.setData("text/plain", String(id)); } catch { /* older Safari */ }
   };
-  const endDrag = () => { dragIdRef.current = null; setDragId(null); setDropTarget(null); };
+  const endDrag = () => { dragIdRef.current = null; dropRef.current = null; setDragId(null); setDropTarget(null); };
 
   // Where the pointer sits relative to the hovered row. Kept in state rather
   // than written onto the DOM node: dragleave also fires when the pointer moves
@@ -161,13 +158,36 @@ const [orderBusy, setOrderBusy] = useState(false);
     items.forEach((item) => { const id = String(item.service_category); map[id] = (map[id] || 0) + 1; });
     return map;
   }, [items]);
-  // Arrow bounds come from the filtered list, not the paginated slice: the
-  // slice stops at 50 rows, so using it would disable arrows on a full page.
-  const orderIndexOf = (itemId) => filteredItems.findIndex((item) => item.id === itemId);
   const canManageItem = (item) => active.key === "apartments" ? user?.role === "ADMIN" : user?.role === "ADMIN" || Number(item.created_by) === Number(user?.id);
   // Curated order is stored per user, so every role that can see a section can
   // reorder it without touching shared master data.
   const canReorder = user?.role === "ADMIN" || user?.role === "CONTRACTOR";
+  function startTouchReorder(event, id) {
+    if (!canReorder || orderBusy || event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dropRef.current = null;
+    setDropTarget(null);
+    dragIdRef.current = id;
+    setDragId(id);
+  }
+  function moveTouchReorder(event) {
+    if (!dragIdRef.current) return;
+    const row = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-master-item]');
+    if (!row) return;
+    const id = Number(row.dataset.masterItem);
+    if (id === dragIdRef.current) { setDropTarget(null); dropRef.current = null; return; }
+    const bounds = row.getBoundingClientRect();
+    const next = { id, below: event.clientY > bounds.top + bounds.height / 2 };
+    dropRef.current = next;
+    setDropTarget(next);
+  }
+  function finishTouchReorder() {
+    const source = dragIdRef.current;
+    const target = dropRef.current;
+    if (source && target) reorderTo(source, target.id, target.below);
+    endDrag();
+  }
 
   // Sends the full unfiltered order. A filtered view must never post only the
   // rows it is showing, or the hidden rows lose their rank.
@@ -345,7 +365,7 @@ const [orderBusy, setOrderBusy] = useState(false);
 
       {error && !loadFailed && <p className="master-data-alert" role="alert">{error}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[248px_1fr]">
+      <div className="master-data-layout grid gap-6 lg:grid-cols-[248px_1fr]">
         <label className="block lg:hidden">
           <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Master Data section</span>
           <select
@@ -437,23 +457,23 @@ const [orderBusy, setOrderBusy] = useState(false);
       {loadFailed ? <ErrorState message={error} onRetry={load} className="master-data-state" /> : loading ? <LoadingState label={`Loading ${active.label.toLowerCase()}…`} className="master-data-state" /> : <>
           <div className="md:hidden">
             {canReorder && <div className="flex flex-wrap items-center gap-2 border-b bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
-              <p className="flex-1">Drag or use the arrows to set the order in <strong className="font-semibold text-slate-800">your</strong> quotation dropdowns.</p>
+              <p className="flex-1">Drag the grip to reorder your quotation options.</p>
               <button type="button" onClick={resetOrder} disabled={orderBusy} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 disabled:opacity-50">Reset to default order</button>
             </div>}
           </div>
 
-          <div className="grid gap-3 p-3 md:hidden">
-            {visibleItems.map((item) => <MasterCard key={item.id} item={item} index={orderIndexOf(item.id)} total={filteredItems.length} category={categoryMap[String(item.service_category)]} price={showsDefaultPrice ? item.default_price : null} features={showsDefaultPrice ? item.key_features : ""} subtitle={active.key === "apartments" ? [item.locality, item.zone, item.pincode].filter(Boolean).join(", ") : ""} owned={canManageItem(item)} scope={itemScope(item)} busy={busyId === item.id} lockScope={active.key === "apartments"} canReorder={canReorder} orderBusy={orderBusy} onToggle={(next) => setAvailability(item, next)} onMove={(direction) => moveItem(item.id, direction)} onResetOrder={resetOrder} edit={() => edit(item)} remove={() => remove(item)} />)}
+          <div className="master-mobile-list md:hidden" role="list" aria-label={active.label}>
+            {visibleItems.map((item) => <MasterCard key={item.id} item={item} category={categoryMap[String(item.service_category)]} price={showsDefaultPrice ? item.default_price : null} features={showsDefaultPrice ? item.key_features : ""} subtitle={active.key === "apartments" ? [item.locality, item.zone, item.pincode].filter(Boolean).join(", ") : ""} owned={canManageItem(item)} scope={itemScope(item)} busy={busyId === item.id} lockScope={active.key === "apartments"} canReorder={canReorder} orderBusy={orderBusy} dragging={dragId === item.id} dropBelow={dropTarget?.id === item.id ? dropTarget.below : null} onDragStart={event => startTouchReorder(event, item.id)} onDragMove={moveTouchReorder} onDragEnd={finishTouchReorder} onDragCancel={endDrag} onToggle={(next) => setAvailability(item, next)} onMove={(direction) => moveItem(item.id, direction)} edit={() => edit(item)} remove={() => remove(item)} />)}
           </div>
 
           <div className="master-data-table-scroll hidden md:block">
             {canReorder && <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2 text-xs text-slate-500">
-              <p className="flex items-center gap-2"><GripVertical className="h-3.5 w-3.5" />Drag a row, or use the arrows, to set the order in <strong className="font-semibold text-slate-700">your</strong> quotation dropdowns. Nobody else&apos;s list changes.</p>
+              <p className="flex items-center gap-2"><GripVertical className="h-3.5 w-3.5" />Drag a row to reorder your quotation dropdowns.</p>
               <button type="button" onClick={resetOrder} disabled={orderBusy} className="ml-auto rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">Reset to default order</button>
             </div>}
             <table className="master-data-table w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="w-12 px-2 py-3">#</th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">Type of Service</th>}{showsDefaultPrice && <th className="w-36 px-4 py-3 text-right">Default price</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
-              <tbody className="divide-y">{visibleItems.map((item, index) => {
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">Type of Service</th>}{showsDefaultPrice && <th className="w-36 px-4 py-3 text-right">Default price</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
+              <tbody className="divide-y">{visibleItems.map((item) => {
                 const owned = canManageItem(item);
                 const isOff = item.is_active === false;
                 return <tr
@@ -485,14 +505,14 @@ const [orderBusy, setOrderBusy] = useState(false);
                     endDrag();
                   }}
                   className={`${dragId === item.id ? "opacity-40" : ""} ${dropTarget?.id === item.id ? `outline-2 outline-dashed -outline-offset-2 ${dropTarget.below ? "outline-violet-400" : "outline-violet-600"}` : ""} ${isOff ? "bg-slate-50/70" : "hover:bg-slate-50"}`}>
-                  <td className="px-3 py-3.5">{canReorder && <span className="flex cursor-grab flex-col gap-0.5 text-slate-300 hover:text-slate-500" aria-hidden="true"><ArrowUp className="h-3 w-3" /><GripVertical className="h-3.5 w-3.5" /><ArrowDown className="h-3 w-3" /></span>}</td>
-                  <td className="px-2 py-3.5 font-bold text-slate-400">{index + 1}</td>
+                  <td className="px-3 py-3.5">{canReorder && <button type="button" disabled={orderBusy} className="master-drag-handle" aria-label={`Reorder ${item.name}; use up and down keys`} onKeyDown={event => { if (['ArrowUp', 'ArrowDown'].includes(event.key)) { event.preventDefault(); moveItem(item.id, event.key === 'ArrowUp' ? -1 : 1); } }}><GripVertical className="h-3.5 w-3.5" /></button>}</td>
+
                     <td className="px-4 py-3.5"><div className="flex flex-wrap items-center gap-2"><span className={`font-semibold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</span><StatusBadge status={isOff ? "INACTIVE" : "ACTIVE"} label={isOff ? "Inactive" : "Active"} tone={isOff ? "neutral" : "success"} /></div>{active.key === "apartments" && <span className="mt-1 block text-xs text-slate-500">{[item.locality, item.zone, item.pincode].filter(Boolean).join(", ")}</span>}{showsDefaultPrice && item.key_features && <span className="master-product-features mt-1 block text-sm text-slate-600">{item.key_features}</span>}</td>
                    {usesServiceCategory && <td className="px-4 py-3.5">{categoryMap[String(item.service_category)] ? <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{categoryMap[String(item.service_category)]}</span> : <span className="text-xs text-slate-400">Not assigned</span>}</td>}
                     {showsDefaultPrice && <td className="master-price-cell px-4 py-3.5 text-right">{item.default_price === null || item.default_price === undefined || item.default_price === "" ? <span className="text-sm text-slate-500">Not set</span> : <span className="text-sm font-bold tabular-nums text-slate-900">{formatDefaultPrice(item.default_price)}</span>}</td>}
                   <td className="px-4 py-3.5 text-center"><ScopeDot scope={itemScope(item)} /></td>
                    <td className="px-4 py-3.5"><AvailabilityToggle ariaLabel={`${item.name} availability`} value={!isOff} disabled={active.key === "apartments"} locked={active.key === "apartments"} busy={busyId === item.id} onChange={(next) => setAvailability(item, next)} /></td>
-                   <td className="px-4 py-3.5"><div className="master-item-actions">{canReorder && <><button type="button" onClick={() => moveItem(item.id, -1)} disabled={orderBusy || orderIndexOf(item.id) === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} up`}><ArrowUp className="h-4 w-4" /></button><button type="button" onClick={() => moveItem(item.id, 1)} disabled={orderBusy || orderIndexOf(item.id) === filteredItems.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white disabled:opacity-30" aria-label={`Move ${item.name} down`}><ArrowDown className="h-4 w-4" /></button></>}{owned && !isOff && <><button type="button" onClick={() => edit(item)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></>}</div></td>
+                   <td className="px-4 py-3.5"><div className="master-item-actions">{owned && !isOff && <><button type="button" onClick={() => edit(item)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-white" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => remove(item)} className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></>}</div></td>
                 </tr>;
               })}</tbody>
             </table>
@@ -584,15 +604,17 @@ function QuotationDefaults() {
   );
 }
 
-function MasterCard({ item, index, total, category, price, features, subtitle, owned, scope, busy, lockScope, canReorder, orderBusy, onToggle, onMove, edit, remove }) {
+function MasterCard({ item, category, price, features, subtitle, owned, scope, busy, lockScope, canReorder, orderBusy, dragging, dropBelow, onDragStart, onDragMove, onDragEnd, onDragCancel, onToggle, onMove, edit, remove }) {
   const isOff = item.is_active === false;
-  return <article className={`rounded-xl border bg-white p-4 shadow-sm ${isOff ? "border-slate-200 bg-slate-50" : "border-slate-200"}`}>
-    <div className="flex items-start gap-3">
-       {canReorder && <span className="master-reorder-controls mt-0.5 flex shrink-0 flex-col items-center gap-0.5"><button type="button" onClick={() => onMove(-1)} disabled={orderBusy || index === 0} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} up`}><ArrowUp className="h-3.5 w-3.5" /></button><span className="text-[10px] font-bold text-slate-400 tabular-nums">{index + 1}</span><button type="button" onClick={() => onMove(1)} disabled={orderBusy || index === total - 1} className="rounded p-1 text-slate-400 active:bg-slate-100 disabled:opacity-25" aria-label={`Move ${item.name} down`}><ArrowDown className="h-3.5 w-3.5" /></button></span>}
-      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className={`font-bold ${isOff ? "text-slate-500" : "text-slate-950"}`}>{item.name}</h3><StatusBadge status={isOff ? "INACTIVE" : "ACTIVE"} label={isOff ? "Inactive" : "Active"} tone={isOff ? "neutral" : "success"} /></div>{subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}{category && <p className="mt-1 text-sm font-semibold text-violet-700">{category}</p>}{features && <p className="master-product-features mt-1 text-sm text-slate-600">{features}</p>}{price !== null && price !== undefined && price !== "" && <p className="master-card-price mt-2"><span>Default price</span><strong>{formatDefaultPrice(price)}</strong></p>}<div className="mt-2"><ScopeDot scope={scope} /></div>{isOff && <p className="mt-2 text-sm font-semibold text-slate-600">Hidden from quotation selections.</p>}</div>
+  return <article role="listitem" data-master-item={item.id} className={`master-entry-card master-entry-inline ${isOff ? "master-entry-inactive" : ""} ${dragging ? 'master-entry-dragging' : ''} ${dropBelow === null ? '' : dropBelow ? 'master-drop-after' : 'master-drop-before'}`}>
+    {canReorder && <button type="button" className="master-drag-handle" disabled={orderBusy} aria-label={`Drag to reorder ${item.name}; use up and down keys`} onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragCancel} onKeyDown={event => { if (['ArrowUp', 'ArrowDown'].includes(event.key)) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }}><GripVertical /></button>}
+    <div className="master-entry-content">
+      <div className="master-entry-details"><div className="master-entry-heading"><h3>{item.name}</h3><ScopeDot scope={scope} /></div>{subtitle && <p>{subtitle}</p>}{category && <p>{category}</p>}{features && <p className="master-product-features">{features}</p>}{price !== null && price !== undefined && price !== "" && <p className="master-card-price"><span>Default price</span><strong>{formatDefaultPrice(price)}</strong></p>}{isOff && <p>Hidden from quotation selections.</p>}</div>
+    </div>
+    <div className="master-entry-toolbar">
+      <fieldset className="master-entry-radios" disabled={lockScope || busy}><legend className="sr-only">{item.name} availability</legend>{[[true, 'Active'], [false, 'Inactive']].map(([value, label]) => <label key={label}><input type="radio" name={`master-availability-${item.id}`} checked={!isOff === value} onChange={() => onToggle(value)} />{label}</label>)}</fieldset>
        {owned && !isOff && <div className="master-item-actions flex shrink-0 gap-2"><button type="button" onClick={edit} className="rounded-lg border p-2" aria-label={`Edit ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={remove} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Remove ${item.name} from future selections`}><Trash2 className="h-4 w-4" /></button></div>}
     </div>
-     <div className={`flex flex-wrap items-center gap-2 ${canReorder ? "pl-9" : ""}`}><AvailabilityToggle ariaLabel={`${item.name} availability`} value={!isOff} disabled={lockScope} locked={lockScope} busy={busy} onChange={onToggle} /></div>
   </article>;
 }
 
@@ -605,6 +627,7 @@ const scopeMeta = {
 };
 
 function ScopeDot({ scope }) {
+  if (scope === "mine") return null;
   const meta = scopeMeta[scope] || scopeMeta.shared;
   return <span title={meta.label} className="inline-flex items-center gap-1.5 text-xs text-slate-500"><span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot} ring-4 ${meta.ring}`} />{meta.label}</span>;
 }
@@ -619,7 +642,7 @@ function AvailabilityToggle({ value, onChange, disabled, locked, busy, ariaLabel
         })}
         {locked && <span className="border-l border-slate-200 px-2 py-1.5 text-slate-400" title="Only an admin can change this"><Lock className="h-3.5 w-3.5" /></span>}
       </div>
-      
+
     </div>
   );
 }

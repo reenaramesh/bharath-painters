@@ -1,9 +1,12 @@
 import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Building2, Check, FileText, ImagePlus, Layers, Palette, Plus, QrCode, RotateCcw, Save, Trash2, Upload, X } from "lucide-react";
+import { Building2, Check, FileText, ImagePlus, Layers, Palette, Plus, QrCode, RotateCcw, Save, Trash2, Upload, X, Globe, MapPin, MessageCircle } from "lucide-react";
 import { SectionCard as BaseSectionCard } from "./ui";
 import ProfileImageControl from "./ProfileImageControl";
+import ContractorProfilePreviewModal from "./ContractorProfilePreviewModal";
+import ServiceLocationLookup from "./ServiceLocationLookup";
+import SocialIconUpload from "./SocialIconUpload";
 import "./business-settings.css";
 
 function SectionCard({ children, ...props }) {
@@ -22,6 +25,14 @@ const APP_THEMES = [
 ];
 const TABS = [{ id: "business", label: "Business details", icon: Building2 }, { id: "appearance", label: "Appearance", icon: Palette }];
 const DOCUMENT_FONTS = { MODERN: '"Segoe UI", sans-serif', CLASSIC: "Georgia, serif", CLEAN: "Arial, sans-serif", COMPACT: "Tahoma, sans-serif" };
+const SOCIAL_FIELDS = [
+  { key: 'website', label: 'Website', icon: Globe, color: '#176B9B' },
+  { key: 'google_business_url', label: 'Google Business', icon: MapPin, color: '#168144' },
+  { key: 'facebook_url', label: 'Facebook', icon: () => <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14 22v-9h3l.5-4H14V7c0-1 .3-2 2-2h2V1h-3c-4 0-5 2.5-5 6v2H7v4h3v9z" fill="currentColor"/></svg>, color: '#1877f2' },
+  { key: 'instagram_url', label: 'Instagram', icon: () => <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>, color: '#c13584' },
+  { key: 'pinterest_url', label: 'Pinterest', icon: () => <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M9 20l3-13h3a3 3 0 010 6h-4" fill="none" stroke="currentColor" strokeWidth="2"/></svg>, color: '#bd081c' },
+  { key: 'whatsapp_number', label: 'WhatsApp number', icon: MessageCircle, color: '#128c4a' },
+];
 
 export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, onSave, live = false, renderAppearance }) {
   const [params, setParams] = useSearchParams();
@@ -36,8 +47,25 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
   const [validationAttempt, setValidationAttempt] = useState(0);
   const [qrOpen, setQrOpen] = useState(false);
   const [fileVersion, setFileVersion] = useState(0);
+  const [activeSocial, setActiveSocial] = useState(SOCIAL_FIELDS.find(item => item.key === params.get('social'))?.key || 'website');
   const qrRef = useRef(null);
   const invalidFieldRef = useRef(null);
+  useEffect(() => {
+    const platform = SOCIAL_FIELDS.find(item => item.key === params.get('social'));
+    if (!platform || tab !== 'business') return;
+    setActiveSocial(platform.key);
+    const frame = requestAnimationFrame(() => document.getElementById('social-links')?.scrollIntoView({block:'center'}));
+    return () => cancelAnimationFrame(frame);
+  }, [params, tab]);
+  useEffect(() => {
+    if (params.get("edit") !== "background" || tab !== "business") return;
+    const frame = requestAnimationFrame(() => {
+      const panel = document.getElementById("profile-background");
+      panel?.scrollIntoView({ block: "center" });
+      panel?.querySelector("button")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [params, tab]);
   const dirty = JSON.stringify(form) !== JSON.stringify(saved) || [...new Set([...Object.keys(files), ...Object.keys(savedFiles)])].some((key) => (files[key] || null) !== (savedFiles[key] || null));
   const core = CATALOGUE.find((entry) => entry.identifier === form.core_service);
   const savedCore = CATALOGUE.find((entry) => entry.identifier === saved.core_service);
@@ -46,13 +74,12 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
     currentPublishedWorkspace !== (saved.brand_snapshot?.workspace_name || "Bharath Apps")
     || (core?.contractorLabel || "Contractor") !== (saved.brand_snapshot?.contractor_label || "Contractor")
   ));
-  const offered = new Set([form.core_service, ...form.additional_services]);
 
   useEffect(() => {
     const invalid = invalidFieldRef.current;
     if (!invalid || invalid.closest('[role="tabpanel"]')?.hidden) return;
     invalid.focus(); invalid.reportValidity(); invalidFieldRef.current = null;
-  }, [tab, validationAttempt]);
+  }, [tab, validationAttempt, activeSocial]);
 
   useEffect(() => {
     if (!dirty) return undefined;
@@ -61,7 +88,7 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
     return () => window.removeEventListener("beforeunload", preventExit);
   }, [dirty]);
   useEffect(() => {
-    if (!qrOpen) return undefined;
+    if (!qrOpen || live) return undefined;
     const previousFocus = document.activeElement;
     const releaseScrollLock = lockBodyScroll();
     qrRef.current?.querySelector("button")?.focus();
@@ -71,7 +98,7 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
     };
     document.addEventListener("keydown", handleKey);
     return () => { releaseScrollLock(); document.removeEventListener("keydown", handleKey); previousFocus?.focus(); };
-  }, [qrOpen]);
+  }, [qrOpen, live]);
 
   const update = (key, value) => { setForm((current) => ({ ...current, [key]: value })); setNotice(""); };
   const updateAppearance = useCallback((value) => { setForm(value); setNotice(""); }, []);
@@ -85,12 +112,13 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
     const allowedSubs = new Set(CATALOGUE.filter((entry) => entry.identifier === current.core_service || additional_services.includes(entry.identifier)).flatMap((entry) => entry.subServices.map((sub) => sub.identifier)));
     return { ...current, additional_services, sub_services: current.sub_services.filter((sub) => allowedSubs.has(sub)) };
   });
-  const toggleSub = (id) => setForm((current) => ({ ...current, sub_services: current.sub_services.includes(id) ? current.sub_services.filter((value) => value !== id) : [...new Set([...current.sub_services, id])] }));
+
   const changeTab = (id) => { const next = new URLSearchParams(params); next.set("tab", id); setParams(next, { replace: true }); };
   const save = async (event, republish = false) => {
     event.preventDefault();
     const invalid = event.currentTarget.querySelector("input:invalid, select:invalid, textarea:invalid");
     if (invalid) {
+      if (SOCIAL_FIELDS.some(item => item.key === invalid.name)) setActiveSocial(invalid.name);
       invalidFieldRef.current = invalid;
       setValidationAttempt((value) => value + 1);
       const panel = invalid.closest('[role="tabpanel"]');
@@ -111,9 +139,9 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
   const field = (key, label, options = {}) => <Field key={key} label={label} required={options.required}><Input name={key} value={form[key] ?? ""} onChange={(event) => update(key, event.target.value)} {...options} type={live && options.type === "url" ? "text" : options.type} /></Field>;
   const upload = (key, label, photo = false) => {
     if (photo) {
-      const positionKey = key === "company_logo" ? "company_logo_position" : "profile_photo_position";
-      const shape = key === "company_logo" ? (form.company_logo_shape === "ROUND" ? "circle" : "rectangle") : "circle";
-       return <ProfileImageControl key={`${key}-${fileVersion}`} className="contractor-profile-image" label={label} file={files[key]} existingUrl={form[`${key}_url`]} position={form[positionKey]} shape={shape} fit={key === "company_logo" && shape === "rectangle" ? "contain" : "cover"} onPositionChange={(position) => update(positionKey, position)} onFileChange={(file) => { setFiles((current) => ({ ...current, [key]: file })); setNotice(""); }} onRemove={() => { update(`${key}_url`, ""); update(positionKey, { x: 50, y: 50, zoom: 1 }); }} />;
+      const positionKey = key === "company_logo" ? "company_logo_position" : key === "profile_background" ? "profile_background_position" : "profile_photo_position";
+      const shape = key === "profile_background" ? "rectangle" : (form.company_logo_shape === "RECTANGLE" ? "rectangle" : "circle");
+       return <ProfileImageControl compact key={`${key}-${fileVersion}`} className="contractor-profile-image" label={label} file={files[key]} existingUrl={form[`${key}_url`]} position={form[positionKey]} shape={shape} onShapeChange={key === "owner_photo" ? value => update("company_logo_shape", value === "circle" ? "ROUND" : "RECTANGLE") : undefined} fit={key === "company_logo" && shape === "rectangle" ? "contain" : "cover"} onPositionChange={(position) => update(positionKey, position)} onFileChange={(file) => { setFiles((current) => ({ ...current, [key]: file })); setNotice(""); }} onRemove={() => { update(`${key}_url`, ""); update(positionKey, { x: 50, y: 50, zoom: 1 }); }} />;
     }
     return <FileField key={`${key}-${fileVersion}`} label={label} file={files[key]} existingUrl={form[`${key}_url`]} onRemove={() => update(`${key}_url`, "")} onChange={(file) => { setFiles((current) => ({ ...current, [key]: file })); setNotice(""); }} />;
   };
@@ -122,7 +150,7 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
   return <div className={`merged-settings-preview ${live ? "msp-live" : ""}`} style={live ? undefined : { "--bp-brand": form.app_primary_color }}>
     {!live && <header className="msp-topbar"><Link to="/preview/sidebar" className="msp-brand"><span><Layers size={23} /></span><div><strong>Bharath Apps</strong><small>{form.workspace_name_override || core?.workspaceName || "Your workspace"}</small></div></Link><span className="msp-preview-badge">Preview · sample data</span></header>}
     <Content className="msp-content">
-      <header className="msp-page-header"><div><p className="bp-eyebrow">Business setup</p><h1>Settings</h1></div>{live ? <Link to="/profile" target="_blank" rel="noreferrer" className="msp-qr-button"><QrCode size={18} />View QR profile</Link> : <button type="button" className="msp-qr-button" onClick={() => setQrOpen(true)}><QrCode size={18} />View QR profile</button>}</header>
+      <header className="msp-page-header"><div><p className="bp-eyebrow">Business setup</p><h1>Settings</h1></div>{live ? <button type="button" className="msp-qr-button" onClick={() => setQrOpen(true)}><QrCode size={18} />View profile</button> : <button type="button" className="msp-qr-button" onClick={() => setQrOpen(true)}><QrCode size={18} />View QR profile</button>}</header>
       <div className="msp-tabbar" role="tablist" aria-label="Settings sections">{TABS.map(({ id, label, icon: Icon }, index) => <button key={id} id={`merged-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={`merged-panel-${id}`} tabIndex={tab === id ? 0 : -1} className={tab === id ? "is-selected" : ""} onClick={() => changeTab(id)} onKeyDown={(event) => {
         const next = event.key === "ArrowRight" || event.key === "ArrowLeft" ? (index + 1) % TABS.length : event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : null;
         if (next === null) return; event.preventDefault(); changeTab(TABS[next].id); document.getElementById(`merged-tab-${TABS[next].id}`)?.focus();
@@ -136,22 +164,32 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
             <SectionCard title="Company & contact"><div className="msp-field-grid">
               {field("company_name", "Company name", { required: !live })}{field("owner_name", "Owner / proprietor")}
               {field("mobile", "Mobile", { required: true, type: "tel" })}{field("email", "Email", { required: true, type: "email" })}
-              {upload("company_logo", "Company logo", true)}{upload("owner_photo", "Owner photo", true)}
-               {live && <Field label="Logo shape"><select name="company_logo_shape" value={form.company_logo_shape} onChange={(event) => update("company_logo_shape", event.target.value)}><option value="RECTANGLE">Rectangle</option><option value="ROUND">Round</option></select></Field>}
+              {field("business_established_date", "Business established date (optional)", { type: "date", max: new Date().toLocaleDateString('en-CA') })}
+              {upload("owner_photo", "Logo or photo", true)}
               <div className="msp-wide"><Field label="Office address"><Textarea name="office_address" rows={2} value={form.office_address} onChange={(event) => update("office_address", event.target.value)} /></Field></div>
             </div></SectionCard>
+            <SectionCard title="Profile background"><div id="profile-background">{upload("profile_background", "Profile background", true)}<p className="mt-2 text-xs text-slate-500">Choose a landscape photo, click it to adjust, then save settings.</p></div></SectionCard>
             <SectionCard title="Services & experience"><div className="msp-field-grid">
               <div className="msp-wide"><Field label="Core service" required={!live || form.profile_status === "PUBLISHED"}><select name="core_service" required={!live || form.profile_status === "PUBLISHED"} value={form.core_service} onChange={(event) => { chooseCore(event.target.value); setNotice(""); }}>{live && <option value="">Select core service</option>}{CATALOGUE.map((entry) => <option key={entry.identifier} value={entry.identifier} disabled={entry.selectable === false}>{entry.name}</option>)}</select></Field></div>
               <fieldset className="msp-wide msp-selections"><legend>Additional services</legend><div className="msp-service-grid">{CATALOGUE.filter((entry) => entry.identifier !== form.core_service).map((entry) => <label key={entry.identifier} className={form.additional_services.includes(entry.identifier) ? "is-checked" : ""}><input type="checkbox" name="additional_services" value={entry.identifier} checked={form.additional_services.includes(entry.identifier)} disabled={entry.selectable === false && !form.additional_services.includes(entry.identifier)} onChange={() => { toggleAdditional(entry.identifier); setNotice(""); }} /><span>{entry.name}</span></label>)}</div></fieldset>
-              <fieldset className="msp-wide msp-selections"><legend>Sub-services</legend><div className="msp-sub-services">{CATALOGUE.filter((entry) => offered.has(entry.identifier)).map((entry) => <fieldset key={entry.identifier}><legend>{entry.name}</legend><div className="msp-service-grid">{entry.subServices.map((sub) => <label key={sub.identifier} className={form.sub_services.includes(sub.identifier) ? "is-checked" : ""}><input type="checkbox" name="sub_services" value={sub.identifier} checked={form.sub_services.includes(sub.identifier)} onChange={() => { toggleSub(sub.identifier); setNotice(""); }} /><span>{sub.name}</span></label>)}</div></fieldset>)}</div></fieldset>
+
               <div className="msp-wide"><Field label="Other skills & service notes"><Textarea name="work_skills" rows={2} value={form.work_skills} onChange={(event) => update("work_skills", event.target.value)} /></Field></div>
-              {field("years_in_business", "Years in business", { type: "number", min: 0 })}{field("team_size", "Declared workforce count", { type: "number", min: 0 })}
-              {field("service_areas", "Service areas")}{field("base_location", "Professional base location")}
+              {field("team_size", "Declared workforce count", { type: "number", min: 0 })}
             </div></SectionCard>
-            <SectionCard title="Professional introduction & branding"><div className="msp-field-grid">
-              {field("headline", "Headline", { maxLength: 180 })}{field("tagline", "Tagline", { maxLength: 180 })}
+            <SectionCard title="Service locations"><div className="msp-field-grid">
+              <div className="msp-wide"><ServiceLocationLookup onAdd={location => {
+                const label = `${location.area} - ${location.district} - PIN ${location.pincode}`;
+                const areas = (form.service_areas || '').split(/[,;\n]/).map(value => value.trim()).filter(Boolean);
+                update('service_areas', [...new Set([...areas, label])].join('\n'));
+                setNotice(`Added ${location.area}. Save changes to update your profile.`);
+              }}/></div>
+              <div className="msp-wide"><Field label="Service locations / coverage areas"><Textarea name="service_areas" rows={3} value={form.service_areas || ''} onChange={(event) => update("service_areas", event.target.value)} /></Field><p className="mt-2 text-xs text-slate-500">Enter the areas where you work, separated by commas or new lines. Save settings to update your profile.</p></div>
+              {field("base_location", "Primary service location")}
+            </div></SectionCard>
+            <SectionCard title="About your business"><div className="msp-field-grid">
+
               <div className="msp-wide"><Field label="About"><Textarea name="about" rows={3} maxLength={1200} value={form.about} onChange={(event) => update("about", event.target.value)} /></Field></div>
-              <div className="msp-wide">{field("workspace_name_override", "Workspace name override", { maxLength: 150 })}</div>
+
             </div></SectionCard>
             <SectionCard title="Payment & tax details"><div className="msp-field-grid">
               {field("bank_account_name", "Account name")}{field("bank_account_number", "Account number", { inputMode: "numeric" })}
@@ -161,10 +199,16 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
             </div></SectionCard>
             <SectionCard title="Documents & social links"><div className="msp-field-grid">
               {upload("gst_document", "GST certificate")}{upload("business_document", "Business licence")}
-              {field("website", "Website", { type: "url" })}{field("google_business_url", "Google Business", { type: "url" })}
-              {field("facebook_url", "Facebook", { type: "url" })}{field("instagram_url", "Instagram", { type: "url" })}
-              {field("pinterest_url", "Pinterest", { type: "url" })}{field("whatsapp_number", "WhatsApp number", { type: "tel" })}
-              <div className="msp-wide msp-extra-links">{form.extra_social_links.map((link, index) => <div key={link.id} className="msp-extra-link"><Field label={`Link ${index + 1} label`} required><Input required name={`extra_label_${link.id}`} value={link.label} onChange={(event) => update("extra_social_links", form.extra_social_links.map((row) => row.id === link.id ? { ...row, label: event.target.value } : row))} /></Field><Field label={`Link ${index + 1} URL`} required><Input required name={`extra_url_${link.id}`} type={live ? "text" : "url"} value={link.url} onChange={(event) => update("extra_social_links", form.extra_social_links.map((row) => row.id === link.id ? { ...row, url: event.target.value } : row))} /></Field><button type="button" className="msp-icon-button" aria-label={`Remove link ${index + 1}`} onClick={() => update("extra_social_links", form.extra_social_links.filter((row) => row.id !== link.id))}><Trash2 size={18} /></button></div>)}<button type="button" className="msp-secondary" disabled={live && form.extra_social_links.length >= 12} onClick={() => update("extra_social_links", [...form.extra_social_links, { id: crypto.randomUUID(), label: "", url: "" }])}><Plus size={17} />Add link</button></div>
+              <div className="msp-wide msp-social-editor" id="social-links">
+                <div className="msp-social-icons" role="group" aria-label="Edit social links">
+                  {SOCIAL_FIELDS.map(({key, label, icon: Icon, color}) => <button key={key} type="button" title={label} aria-label={`Edit ${label}`} aria-pressed={activeSocial === key} onClick={() => setActiveSocial(key)} style={{color}}>
+                    <Icon size={20}/>{form[key] && <span className="msp-social-saved" aria-hidden="true" />}
+                  </button>)}
+                </div>
+                {SOCIAL_FIELDS.map(({key,label}) => <div key={key} hidden={activeSocial !== key}>{field(key,label,{type:key === 'whatsapp_number' ? 'tel' : 'url'})}</div>)}
+              </div>
+              <div className="msp-wide msp-extra-links">{form.extra_social_links.map((link, index) => <div key={link.id} className="msp-extra-link"><SocialIconUpload value={link.icon} label={link.label || `Link ${index + 1}`} onError={setError} onChange={icon => { setError(''); update('extra_social_links', form.extra_social_links.map(row => row.id === link.id ? {...row,icon} : row)); }}/>
+                <Field label={`Link ${index + 1} URL`} required><Input required name={`extra_url_${link.id}`} type={live ? "text" : "url"} value={link.url} onChange={(event) => update("extra_social_links", form.extra_social_links.map((row) => row.id === link.id ? { ...row, url: event.target.value, label: row.id.startsWith('saved-') ? row.label || socialLinkLabel(event.target.value) : socialLinkLabel(event.target.value) } : row))} /></Field><button type="button" className="msp-icon-button" aria-label={`Remove link ${index + 1}`} onClick={() => update("extra_social_links", form.extra_social_links.filter((row) => row.id !== link.id))}><Trash2 size={18} /></button></div>)}<button type="button" className="msp-secondary" disabled={live && form.extra_social_links.length >= 12} onClick={() => update("extra_social_links", [...form.extra_social_links, { id: crypto.randomUUID(), label: "", url: "" }])}><Plus size={17} />Add link</button></div>
             </div></SectionCard>
             <SectionCard title="Business preferences"><div className="msp-field-grid">
               <Field label="Measurement unit"><select name="default_measurement_unit" value={form.default_measurement_unit} onChange={(event) => update("default_measurement_unit", event.target.value)}><option value="FEET">Feet (ft)</option><option value="METRES">Metres (m)</option></select></Field>
@@ -182,7 +226,8 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
          <footer className="msp-savebar"><span className="msp-save-status" role="status" aria-live="polite">{notice || (dirty ? "Unsaved changes" : "")}</span><div>{publishedBrandingChanged && <button type="button" className="msp-secondary" disabled={saving} onClick={(event) => save(event, true)}>{saving ? "Publishing…" : "Republish updated identity"}</button>}<button type="button" className="msp-secondary" disabled={!dirty || saving} onClick={discard}><RotateCcw size={17} />Discard changes</button><button type="submit" className="msp-primary" disabled={saving}><Save size={17} />{saving ? "Saving…" : "Save changes"}</button></div></footer>
       </form>
     </Content>
-    {qrOpen && <div className="msp-modal" role="dialog" aria-modal="true" aria-label="Profile preview" ref={qrRef} onClick={(event) => { if (event.target === event.currentTarget) setQrOpen(false); }}><section><header><h2>Profile preview</h2><button type="button" className="msp-icon-button" aria-label="Close profile preview" onClick={() => setQrOpen(false)}><X size={20} /></button></header><div className="msp-profile-symbol"><QrCode size={96} /></div><strong>{form.company_name}</strong><span>{core?.name}</span><span className="msp-preview-badge">Sample profile · QR placeholder</span></section></div>}
+    {qrOpen && live && <ContractorProfilePreviewModal onClose={() => setQrOpen(false)} />}
+    {qrOpen && !live && <div className="msp-modal" role="dialog" aria-modal="true" aria-label="Profile preview" ref={qrRef} onClick={(event) => { if (event.target === event.currentTarget) setQrOpen(false); }}><section><header><h2>Profile preview</h2><button type="button" className="msp-icon-button" aria-label="Close profile preview" onClick={() => setQrOpen(false)}><X size={20} /></button></header><div className="msp-profile-symbol"><QrCode size={96} /></div><strong>{form.company_name}</strong><span>{core?.name}</span><span className="msp-preview-badge">Sample profile · QR placeholder</span></section></div>}
   </div>;
 }
 
@@ -200,4 +245,9 @@ function FileField({ label, file, photo, onChange, existingUrl, onRemove }) {
     return () => URL.revokeObjectURL(next);
   }, [file, photo]);
   return <div className="msp-file-field"><span>{label}</span><div className="msp-file-box">{photo ? <span className="msp-photo">{url || existingUrl ? <img src={url || existingUrl} alt={label} /> : <ImagePlus size={23} />}</span> : <FileText size={24} className="msp-file-icon" />}<div className="msp-file-action"><label><Upload size={15} /><span>{file || existingUrl ? "Replace" : "Upload"}</span><input type="file" accept={photo ? "image/*" : "application/pdf,image/*"} aria-label={label} onChange={(event) => onChange(event.target.files?.[0] || null)} /></label>{existingUrl && !file ? <a href={existingUrl} target="_blank" rel="noreferrer" className="msp-filename">View uploaded file</a> : <span className="msp-filename" title={file?.name}>{file?.name || "Not uploaded"}</span>}</div>{(file || existingUrl) && <button type="button" className="msp-icon-button" aria-label={`Remove ${label}`} onClick={() => file ? onChange(null) : onRemove()}><X size={17} /></button>}{(file || existingUrl) && <Check size={16} className="msp-uploaded" />}</div></div>;
+}
+
+function socialLinkLabel(value) {
+  try { return new URL(value.startsWith('http') ? value : `https://${value}`).hostname.replace(/^www\./, ''); }
+  catch { return 'Custom link'; }
 }

@@ -23,7 +23,8 @@
 .contractor-profile-prompt .contractor-priority-icon { background: white; color: var(--app-primary); }
 .contractor-priority-label { color: var(--app-primary); font-size: 13px; font-weight: 700; }
 .contractor-panel-link { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 6px; color: var(--app-primary); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-.contractor-overview { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.contractor-overview { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
+@media (min-width: 768px) and (max-width: 1023px) { .contractor-overview { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 .contractor-stat-link { min-width: 0; border-radius: 14px; text-decoration: none; }
 .contractor-stat-link:hover { box-shadow: 0 4px 18px color-mix(in srgb, var(--app-primary) 12%, transparent); transform: translateY(-1px); }
 .contractor-stat-link .bp-stat-card { height: 100%; border-radius: 14px; }
@@ -264,4 +265,51 @@
   .contractor-dashboard .contractor-tools-grid .contractor-icon { grid-row: 2; }
   .contractor-dashboard .contractor-tools-grid > a > svg { display: none; }
   .contractor-dashboard .contractor-tools-grid strong { font-size: .6875rem; }
+}
+
+/* Compact actions stay in one row; phones scroll this strip within the page. */
+.contractor-dashboard .contractor-tools-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.contractor-dashboard .contractor-tools-grid > a {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-align: left;
+}
+.contractor-dashboard .contractor-tools-grid .contractor-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 8px;
+}
+.contractor-dashboard .contractor-tools-grid .contractor-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.contractor-dashboard .contractor-tools-grid > a > span:nth-child(2) {
+  width: auto;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+.contractor-dashboard .contractor-tools-grid strong {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.contractor-dashboard .contractor-tools-grid > a > svg {
+  display: none;
 }

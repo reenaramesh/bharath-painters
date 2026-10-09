@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import {
   Banknote,
   BarChart3,
@@ -15,6 +15,7 @@ import {
   Paintbrush,
   Palette,
   QrCode,
+  ReceiptText,
   Ruler,
   UserRoundCheck,
   Users,
@@ -24,12 +25,14 @@ import {
 import { menuRouteEnabled } from "../utils/menuVisibility";
 import useAuth from "../context/useAuth";
 import ShareAppButton from "./ShareAppButton";
+import { visibleNavigation } from "../config/navigation";
 
 const shortcutsByRole = {
   CONTRACTOR: [
     { label: "Customers", icon: Users, to: "/customers" },
     { label: "Properties", icon: Building2, to: "/properties" },
     { label: "Quotations", icon: FileText, to: "/quotations" },
+    { label: "Invoices", icon: ReceiptText, to: "/invoices" },
     { label: "Work Network", icon: Network, to: "/jobs?post=1" },
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
     { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
@@ -71,18 +74,25 @@ const shortcutsByRole = {
 
 export default function MobileDashboardShortcuts() {
   const { user, menuVisibility } = useAuth();
+  const { employmentStatus = "loading" } = useOutletContext() || {};
   const [scannerOpen, setScannerOpen] = useState(false);
-  const shortcuts = (shortcutsByRole[user?.role] || []).filter((entry) => menuRouteEnabled(user?.role, menuVisibility, entry.to));
+  const eligiblePainterRoutes = new Set(visibleNavigation("PAINTER", employmentStatus).map((entry) => entry.route));
+  const roleShortcuts = user?.role === "PAINTER" && employmentStatus === "in-house"
+    ? [{ label: "My Employment", icon: BriefcaseBusiness, to: "/in-house-applicators" }, ...shortcutsByRole.PAINTER]
+    : shortcutsByRole[user?.role] || [];
+  const shortcuts = roleShortcuts.filter((entry) =>
+    (user?.role !== "PAINTER" || eligiblePainterRoutes.has(entry.to))
+    && menuRouteEnabled(user?.role, menuVisibility, entry.to));
   if (!shortcuts.length) return null;
   return (
     <>
-      <section className="md:hidden" aria-label="Quick access">
+      <section className="bp-dashboard-shortcuts md:hidden" aria-label="Quick access">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-800">Quick access</h2>
           
         </div>
-        <div className="overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max snap-x snap-mandatory gap-3">
+        <div className="bp-dashboard-shortcut-scroll overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="bp-dashboard-shortcut-items flex w-max snap-x snap-mandatory gap-3">
             <button type="button" onClick={() => setScannerOpen(true)} className="w-[72px] shrink-0 snap-start text-center">
               <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-white shadow-sm transition active:scale-95">
                 <QrCode className="h-7 w-7" strokeWidth={1.8} />

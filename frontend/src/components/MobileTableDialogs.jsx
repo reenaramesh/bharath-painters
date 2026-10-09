@@ -9,7 +9,13 @@ const actionHeading = /^(action|actions|call|whatsapp|select)$/i;
 const serialHeading = /^(sl\.?\s*(no\.?)?|serial\s*(no\.?)?|#)$/i;
 
 function cleanText(element) {
-  return element?.textContent?.replace(/\s+/g, " ").trim() || "";
+  if (!element) return "";
+  const copy = element.cloneNode(true);
+  copy.querySelectorAll("select").forEach((select, index) => {
+    const original = element.querySelectorAll("select")[index];
+    select.replaceWith([...original.selectedOptions].map((option) => option.textContent).join(" "));
+  });
+  return copy.textContent?.replace(/\s+/g, " ").trim() || "";
 }
 
 export default function MobileTableDialogs() {
@@ -23,16 +29,18 @@ export default function MobileTableDialogs() {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         document.querySelectorAll("main table").forEach((table) => {
+          const cards = table.dataset.mobileTable === "cards";
           if (
             table.matches("[data-mobile-table='keep']") ||
-            table.querySelector(
+            (!cards && table.querySelector(
               "input, select, textarea, [contenteditable='true']",
-            )
+            ))
           ) {
             table.classList.add("bp-mobile-edit-table");
             return;
           }
           table.classList.add("bp-mobile-data-table");
+          if (cards) table.classList.add("bp-mobile-card-table");
           const headings = [
             ...table.querySelectorAll("thead tr:first-child th"),
           ].map((item, index) => cleanText(item) || `Column ${index + 1}`);

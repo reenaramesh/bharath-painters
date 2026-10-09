@@ -48,7 +48,7 @@ export default function JoinProperty() {
 
   const registrationUrl = `/customer-register?property_invitation_token=${encodeURIComponent(token)}`;
 
-  return <main className="min-h-screen bg-[#f5f7f8] px-4 py-8 text-[#102331] sm:px-6 sm:py-14">
+  return <main className="property-invitation-page min-h-screen bg-[#f5f7f8] px-4 py-8 text-[#102331] sm:px-6 sm:py-14">
     <a href="#join-property-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-10 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:shadow">Skip to invitation</a>
     <section id="join-property-content" className="mx-auto max-w-2xl">
       <header className="mb-8 flex items-center gap-3">

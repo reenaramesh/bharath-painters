@@ -1116,7 +1116,7 @@ export default function QuotationBuilder() {
   );
   const displaySteps = groupedMode ? [steps[0], "Services & Product", "Final quotation"] : steps;
   return (
-    <div className="mx-auto max-w-7xl space-y-5 pb-8 quotation-measurement-page bp-quotation-builder">
+    <div className="mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder">
       <button
         onClick={() =>
           step
@@ -1145,13 +1145,13 @@ export default function QuotationBuilder() {
         ))}
       </div>
       {error && <div role="alert" className="quotation-validation-message rounded-xl p-4 text-sm">{error}</div>}
-      <section className="min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6">
+      <section className={`quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 ${step === 1 && groupedMode ? "quotation-grouped-step" : ""}`}>
         {step === 0 && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="quotation-customer-fields grid gap-4 sm:gap-5 md:grid-cols-2">
             <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2></div>
             <label className="text-sm font-medium">
               <span className="flex items-center justify-between gap-2"><span>Customer *</span><button type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
-              <span className="mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
+              <span className="quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input value={customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
               </span>
@@ -1207,7 +1207,10 @@ export default function QuotationBuilder() {
             </div>
           </div>
         )}
-        {step === 1 && (groupedMode ? <GroupedQuotationWorkspace key={selectedMeasurementId} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} /> :
+        {step === 0 && useMeasurements && selectedMeasurementId && <div className="mt-6">
+          <GroupedQuotationWorkspace key={`measurements-${selectedMeasurementId}`} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} phase="measurements" />
+        </div>}
+        {step === 1 && (groupedMode ? <GroupedQuotationWorkspace showMeasurements={false} key={selectedMeasurementId} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} /> :
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

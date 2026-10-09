@@ -408,6 +408,60 @@
   }
 }
 
+/* The quotation dialog summary stays in flow so it cannot cover product fields. */
+.bp-quotation-builder .gq-dialog .gq-selection-summary {
+  position: static;
+}
+
+@media (max-width: 767px) {
+  /* This workflow hides mobile quick navigation; reserve only normal page spacing. */
+  .bp-page-container:has(> .bp-quotation-builder) {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .bp-quotation-builder .quotation-customer-search {
+    padding-block: 0;
+  }
+  .bp-quotation-builder .quotation-grouped-step {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .bp-quotation-builder .gq-surface-tables {
+    padding: 0;
+  }
+  .bp-quotation-builder .gq-empty {
+    padding: 24px 12px;
+  }
+  .bp-quotation-builder .gq-dialog .special-wall-header {
+    padding: 10px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  }
+  .bp-quotation-builder .gq-dialog .special-wall-body {
+    gap: 12px;
+    padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+  }
+  .bp-quotation-builder .gq-dialog .gq-spec-fields {
+    gap: 12px;
+  }
+  .bp-quotation-builder .gq-dialog .gq-selection-summary {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px;
+  }
+  .bp-quotation-builder .gq-dialog .special-wall-footer {
+    flex-wrap: wrap;
+  }
+  .bp-quotation-builder .gq-dialog .special-wall-footer button {
+    flex: 0 1 auto;
+    padding-inline: 12px;
+  }
+  .bp-quotation-builder .gq-dialog .special-wall-footer .special-wall-primary {
+    flex: 1 1 160px;
+  }
+}
+
 /* One aligned surface row, with a compact wrapped layout on narrow cards. */
 .quotation-surface-card { container-type: inline-size; }
 .quotation-surface-row, .quotation-surface-columns {

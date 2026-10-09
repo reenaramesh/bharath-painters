@@ -8,30 +8,25 @@ from .document_languages import document_language, label, standard_label
 from .transliteration import format_system_text, system_text
 from .indic_pdf import currency_words
 from unittest.mock import patch
-from io import BytesIO
 import pymupdf
-from PIL import Image
 
 
 class TransliterationTests(SimpleTestCase):
     def test_native_profile_retains_embedded_images_and_custom_details(self):
         from .indic_pdf import profile_pdf
-        def image_file(color):
-            value = BytesIO()
-            Image.new('RGB', (20,20), color).save(value, format='PNG')
-            content = value.getvalue()
-            return SimpleNamespace(name='image.png', open=lambda mode: None, read=lambda:content, close=lambda:None)
-        user = SimpleNamespace(bharath_id='BP-SAVE-1', contractor_profile=SimpleNamespace(company_logo=image_file('red')),
-            profile_photo=image_file('green'), bharath_qr=image_file('blue'))
-        card = {'title':'Save Painting', 'owner_name':'Customer Save', 'mobile':'9876543210', 'email':'owner@example.com', 'work_skills':['Painting'],
-            'projects':[{'title':'Invoice House','address':'123 Painting Road','description':'User custom description','work_completed':'Custom work'}],
-            'social_links':[{'label':'Custom website','url':'https://example.com/Save'}],
-            'customer_reviews':{'rating':4,'count':1,'items':[{'customer_name':'Customer Save','rating':4,'date':'2026-10-06','comment':'Custom review Painting'}]}}
+        from accounts.test_profile_pdf_layout import ProfilePdfLayoutTests
+        user, card = ProfilePdfLayoutTests().fixture()
+        user.bharath_id = card['bharath_id'] = 'BP-SAVE-1'
+        card.update(title='Save Painting', owner_name='Customer Save', work_skills=['Painting'],
+            social_links=[{'label':'Custom website','url':'https://example.com/Save','short':'WEB','color':'#176b9b'}],
+            customer_reviews={'rating':4,'count':1,'items':[{'customer_name':'Customer Save','rating':4,'date':'2026-10-06','comment':'Custom review Painting'}]})
+        card['projects'][0].update(title='Invoice House', address='123 Painting Road', description='User custom description', work_completed='Custom work')
         with pymupdf.open(stream=profile_pdf(user, card, 'https://example.com/BP-SAVE-1', 'te'), filetype='pdf') as document:
             self.assertGreaterEqual(sum(len(page.get_images()) for page in document), 3)
             value=''.join(page.get_text() for page in document)
-            for text in ['Save Painting','123 Painting Road','User custom description','Custom review Painting','https://example.com/Save']:
+            for text in ['Save Painting','123 Painting Road','User custom description','Custom review Painting']:
                 self.assertIn(text, value)
+            self.assertIn('https://example.com/Save', [link.get('uri') for page in document for link in page.get_links()])
     def test_native_invoice_still_hides_restricted_payment_information(self):
         from .indic_pdf import invoice_pdf
         invoice = SimpleNamespace(items=[], subtotal=10, discount=0, gst_amount=0, grand_total=10, amount_paid=7, balance_due=3,

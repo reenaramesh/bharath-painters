@@ -1,0 +1,112 @@
+{
+  "checks": [
+    {
+      "case": "temporary502 recovery",
+      "role": "contractor",
+      "width": 1440,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "contractor",
+      "width": 360,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "contractor",
+      "width": 390,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "contractor",
+      "width": 430,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "customer",
+      "width": 1440,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "customer",
+      "width": 360,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "customer",
+      "width": 390,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "temporary502 recovery",
+      "role": "customer",
+      "width": 430,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET"
+      ],
+      "details": "Injected one502; automatically recovered on the nextGET without clicking Try again"
+    },
+    {
+      "case": "persistent502 bounded retries",
+      "role": "contractor",
+      "width": 390,
+      "status": "PASS",
+      "calls": [
+        "GET",
+        "GET",
+        "GET"
+      ],
+      "details": "Three GET attempts total, then normal error/retry UI. No infinite loop."
+    },
+    {
+      "case": "in-house Painter avoids forbidden booking polling",
+      "role": "painter_inhouse",
+      "width": 390,
+      "status": "PASS",
+      "calls": [],
+      "details": "Observed initial load plus one15-second polling interval"
+    }
+  ]
+}

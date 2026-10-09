@@ -428,24 +428,27 @@ _english_project_receipt_pdf = build_project_receipt_pdf
 
 
 def build_quotation_pdf(quotation, included_sections=None, language="en"):
+    content = _professional_quotation_pdf(quotation, included_sections=included_sections)
     if language == "en":
-        return _professional_quotation_pdf(quotation, included_sections=included_sections)
-    from .indic_pdf import quotation_pdf
-    return quotation_pdf(quotation, language, included_sections)
+        return content
+    from .pdf_script import localize_document_pdf
+    return localize_document_pdf(content, language)
 
 
 def build_invoice_pdf(invoice, include_payment_details=True, language="en"):
+    content = _professional_invoice_pdf(invoice) if include_payment_details else _legacy_invoice_pdf(invoice, include_payment_details=False)
     if language == "en":
-        return _professional_invoice_pdf(invoice) if include_payment_details else _legacy_invoice_pdf(invoice, include_payment_details=False)
-    from .indic_pdf import invoice_pdf
-    return invoice_pdf(invoice, language, include_payment_details)
+        return content
+    from .pdf_script import localize_document_pdf
+    return localize_document_pdf(content, language)
 
 
 def build_measurement_pdf(property_obj, measurement_record=None, language="en"):
+    content = _professional_measurement_pdf(property_obj, measurement_record)
     if language == "en":
-        return _professional_measurement_pdf(property_obj, measurement_record)
-    from .indic_pdf import measurement_pdf
-    return measurement_pdf(property_obj, measurement_record, language)
+        return content
+    from .pdf_script import localize_document_pdf
+    return BytesIO(localize_document_pdf(content.getvalue(), language))
 
 
 def build_invoice_receipt_pdf(invoice, language="en"):

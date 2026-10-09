@@ -1,0 +1,142 @@
+.contractor-profile-page {
+ --profile-accent: var(--app-primary, #176b9b);
+ --profile-ink: #17243b;
+ --profile-muted: #526078;
+ --profile-line: #e2e8f0;
+ --profile-soft: #f4f6fa;
+ width: 100%; max-width: 980px; min-width: 0; margin: 0 auto; overflow-x: hidden;
+ color: var(--profile-ink); background: white; border: 1px solid var(--profile-line); border-radius: 16px;
+}
+.contractor-profile-header { min-height: 56px; display: flex; align-items: center; gap: 8px; padding: 4px 12px; }
+.contractor-profile-header h1,.contractor-profile-header h2 { font-size: 16px; font-weight: 700; flex: 1; min-width: 0; }
+.contractor-profile-header > div { display: flex; }
+.contractor-profile-header button { display: grid; place-items: center; width: 44px; min-height: 44px; flex-shrink: 0; }
+.contractor-profile-header button[aria-pressed] { color: #d53347; }
+.contractor-profile-hero { position: relative; width: 100%; height: clamp(150px,40vw,300px); overflow: hidden; }
+.contractor-profile-cover-button { width: 100%; height: 100%; display: block; }
+.contractor-profile-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.contractor-profile-neutral-cover { height: 100%; display: grid; place-items: center; background: var(--profile-soft); color: var(--profile-muted); }
+.contractor-profile-image-counter { position: absolute; right: 12px; bottom: 12px; min-height: 32px; padding: 4px 10px; border-radius: 8px; font-size: 12px; color: white; background: rgb(15 23 42 / 75%); }
+.contractor-profile-hero-thumbnails { display: none; }
+.contractor-profile-main { padding: 0 16px 24px; }
+.contractor-profile-avatar-row { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 8px; }
+.contractor-profile-avatar { width: 88px; height: 88px; margin-top: -44px; border: 4px solid white; border-radius: 50%; position: relative; z-index: 2; overflow: hidden; display: grid; place-items: center; flex-shrink: 0; background: #e6edf4; }
+.contractor-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.contractor-profile-verified { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; margin-bottom: 6px; color: #17683d; background: #dff7e8; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.contractor-profile-identity h2 { font-size: 21px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.contractor-profile-identity > p { font-size: 13px; color: var(--profile-muted); margin-top: 3px; }
+.contractor-profile-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; font-size: 12px; color: var(--profile-muted); }
+.contractor-profile-meta span,.contractor-profile-location { display: flex; align-items: center; gap: 5px; }
+.contractor-profile-meta span:first-child > svg,.contractor-profile-rating > svg { color: #ad7610; fill: #efb531; }
+.contractor-profile-location { margin-top: 8px !important; }
+.contractor-profile-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.contractor-profile-actions:not(:has(.request-quote)) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.contractor-profile-actions > * { min-width: 0; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border: 1px solid #bdd4ec; border-radius: 9px; font-size: 12px; font-weight: 600; color: var(--profile-accent); background: white; }
+.contractor-profile-actions > .primary { color: white; background: var(--profile-accent); border-color: var(--profile-accent); }
+.contractor-profile-actions > :disabled { opacity: .6; cursor: wait; }
+.contractor-profile-owner-edit { margin-top: 12px; }
+.contractor-profile-owner-edit a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; color: white; background: var(--profile-accent); border-radius: 9px; font-size: 13px; font-weight: 600; }
+.portfolio-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.portfolio-actions > * { min-height: 44px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--profile-line); border-radius: 9px; font-size: 12px; }
+.portfolio-actions svg { width: 16px; height: 16px; }
+.contractor-profile-tabs { display: flex; align-items: center; overflow-x: auto; gap: 0; margin: 16px -16px 0; padding-inline: 16px; scrollbar-width: none; border-bottom: 1px solid var(--profile-line); }
+.contractor-profile-tabs::-webkit-scrollbar { display: none; }
+.contractor-profile-tab { flex: 1 0 auto; min-height: 48px; padding: 0 12px; white-space: nowrap; font-size: 12px; color: var(--profile-muted); border-bottom: 2px solid transparent; }
+.contractor-profile-tab[aria-pressed=true] { color: var(--profile-accent); border-color: var(--profile-accent); font-weight: 700; }
+.contractor-profile-sections { display: flex; flex-direction: column; gap: 22px; margin-top: 18px; }
+.contractor-profile-sections h3 { font-size: 16px; font-weight: 700; }
+.contractor-profile-about,.contractor-profile-muted { font-size: 13px; line-height: 1.5; color: var(--profile-muted); margin-top: 6px; overflow-wrap: anywhere; }
+.contractor-profile-about { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; white-space: pre-wrap; }
+.contractor-profile-about.expanded { display: block; }
+.contractor-profile-text-link { min-height: 32px; color: var(--profile-accent); text-decoration: underline; font-size: 12px; }
+.contractor-profile-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.contractor-profile-section-heading button { min-height: 32px; color: var(--profile-accent); font-size: 12px; white-space: nowrap; }
+.contractor-profile-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.contractor-profile-stats > div { min-width: 0; display: flex; align-items: center; gap: 6px; padding: 8px 6px; border: 1px solid var(--profile-line); border-radius: 9px; }
+.contractor-profile-stats svg { flex-shrink: 0; color: var(--profile-accent); }
+.contractor-profile-stats strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.contractor-profile-stats small { display: block; font-size: 9px; line-height: 1.25; margin-top: 3px; color: var(--profile-muted); }
+.contractor-profile-services { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.contractor-profile-service-card { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 58px; padding: 10px; border: 1px solid var(--profile-line); border-radius: 12px; background: white; }
+.contractor-profile-service-card svg { flex-shrink: 0; color: var(--profile-accent); }
+.contractor-profile-service-card span { min-width: 0; font-size: 11px; overflow-wrap: anywhere; }
+.contractor-profile-projects { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.contractor-profile-project-card { min-width: 0; text-align: left; }
+.contractor-profile-project-card img,.contractor-profile-project-placeholder { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; display: block; }
+.contractor-profile-project-placeholder { display: grid; place-items: center; background: var(--profile-soft); }
+.contractor-profile-project-card strong,.contractor-profile-project-card small { display: block; margin-top: 5px; font-size: 11px; font-weight: 400; overflow-wrap: anywhere; }
+.contractor-profile-project-card small { margin-top: 2px; color: var(--profile-muted); font-size: 10px; }
+.contractor-profile-project-list { display: flex; flex-direction: column; gap: 10px; }
+.contractor-profile-project-list article { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--profile-line); border-radius: 12px; }
+.contractor-profile-project-list article > button { flex-shrink: 0; }
+.contractor-profile-project-list img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; }
+.contractor-profile-project-list article > div { min-width: 0; }
+.contractor-profile-project-list h4 { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.contractor-profile-project-list p { display: flex; gap: 4px; font-size: 12px; margin-top: 5px; color: var(--profile-muted); overflow-wrap: anywhere; }
+.contractor-profile-project-list small { font-size: 10px; color: var(--profile-muted); }
+.contractor-profile-service-areas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.contractor-profile-service-area { padding: 6px 10px; border-radius: 999px; background: var(--profile-soft); font-size: 12px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.contractor-profile-trust > p { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; color: #17683d; }
+.contractor-profile-trust details { margin-top: 10px; font-size: 12px; }
+.contractor-profile-trust summary { min-height: 44px; cursor: pointer; padding-block: 12px; }
+.contractor-profile-trust details > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.contractor-profile-trust img { width: 64px; height: 64px; object-fit: contain; }
+.contractor-profile-trust .contractor-profile-business-logo { width: 96px; }
+.contractor-profile-rating { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 12px; }
+.contractor-profile-reviews { display: flex; flex-direction: column; gap: 10px; }
+.contractor-profile-reviews article { padding: 12px; border: 1px solid var(--profile-line); border-radius: 12px; font-size: 12px; }
+.contractor-profile-reviews article > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.contractor-profile-reviews article span { color: #ad7610; }
+.contractor-profile-reviews p { margin-top: 8px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.contractor-profile-reviews small { color: var(--profile-muted); }
+.contractor-profile-notice,.portfolio-load-error { margin-top: 10px; font-size: 12px; color: var(--profile-muted); }
+.portfolio-load-error button { min-height: 44px; padding: 8px; text-decoration: underline; }
+.contractor-profile-page :is(a,button,summary):focus-visible { outline: 3px solid var(--profile-accent); outline-offset: 2px; }
+.contractor-profile-gallery { width: min(900px,calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 12px; border-radius: 12px; background: white; }
+.contractor-profile-gallery::backdrop { background: rgb(15 23 42 / 70%); }
+.contractor-profile-gallery header,.contractor-profile-gallery footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.contractor-profile-gallery button { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+.contractor-profile-gallery > img { max-height: 70dvh; width: 100%; object-fit: contain; }
+.contractor-profile-gallery :is(button):focus-visible { outline: 3px solid #176b9b; }
+.contractor-profile-skeleton { max-width: 980px; margin: auto; padding: 16px; }
+.contractor-profile-skeleton > div { background: #e8edf2; border-radius: 12px; height: 18px; margin-bottom: 12px; }
+.contractor-profile-skeleton > div:first-child { height: 160px; }
+.contractor-profile-skeleton > div:nth-child(2) { width: 88px; height: 88px; border-radius: 50%; margin-top: -44px; border: 4px solid white; position: relative; }
+@media (max-width: 379px) {
+ .contractor-profile-avatar { width: 84px; height: 84px; margin-top: -42px; }
+ .contractor-profile-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .contractor-profile-actions .request-quote { grid-column: 1 / -1; }
+ .contractor-profile-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .contractor-profile-services { gap: 8px; }
+ .contractor-profile-projects { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 4px; }
+ .contractor-profile-project-card { flex: 0 0 78px; }
+}
+@media (max-width: 639px) {
+ .contractor-profile-owner-actions { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px; }
+ .contractor-profile-owner-actions > * { padding-inline: 4px; min-width: 0; font-size: 10px; }
+ .portfolio-desktop-label { display: none; }
+ .contractor-profile-service-card { flex-direction: column; justify-content: center; gap: 4px; padding: 8px 4px; text-align: center; }
+ .contractor-profile-service-card span { font-size: 10px; }
+}
+@media (min-width: 410px) and (max-width: 430px) {
+ .contractor-profile-main { padding-inline: 18px; }
+ .contractor-profile-avatar { width: 92px; height: 92px; margin-top: -46px; }
+ .contractor-profile-tabs { margin-inline: -18px; padding-inline: 18px; }
+ .contractor-profile-hero.has-gallery { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 6px; }
+ .contractor-profile-hero-thumbnails { display: grid; grid-template-rows: repeat(2,minmax(0,1fr)); gap: 6px; }
+ .contractor-profile-hero-thumbnails button { position: relative; min-height: 0; overflow: hidden; }
+ .contractor-profile-hero-thumbnails span { position: absolute; inset: 0; background: rgb(15 23 42 / 55%); color: white; display: grid; place-items: center; font-size: 22px; }
+ .contractor-profile-hero.has-gallery .contractor-profile-image-counter { display: none; }
+}
+@media (min-width: 640px) {
+ .contractor-profile-main { padding-inline: 24px; }
+ .contractor-profile-tabs { margin-inline: -24px; padding-inline: 24px; }
+ .contractor-profile-services { grid-template-columns: repeat(3,minmax(0,1fr)); }
+ .contractor-profile-actions { max-width: 540px; }
+ .contractor-profile-identity h2 { font-size: 26px; }
+ .contractor-profile-hero { height: 280px; }
+ .contractor-profile-services,.contractor-profile-projects { gap: 14px; }
+}
+.contractor-profile-change-background { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid #dce4eb; border-radius: 10px; background: #fff; color: #172033; font-size: 12px; font-weight: 600; text-decoration: none; }
+.contractor-profile-change-background:focus-visible { outline: 3px solid var(--app-primary, #176b9b); outline-offset: 2px; }
+.contractor-profile-hero:has(.contractor-profile-change-background) .contractor-profile-image-counter { bottom: 64px; }

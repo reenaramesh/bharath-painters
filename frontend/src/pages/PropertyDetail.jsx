@@ -150,7 +150,7 @@ export default function PropertyDetail() {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <h2 className="shrink-0 font-bold">Project overview</h2>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
+          <div className="property-overview-actions flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
             {user?.role === "CONTRACTOR" && <button type="button" onClick={() => setShareOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#176b9b] px-3 text-sm font-semibold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]"><Share2 aria-hidden="true" className="h-4 w-4" />Share Access</button>}
             {property.google_maps_url && <a href={property.google_maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><MapPin className="h-4 w-4" />Open in Google Maps</a>}
             <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}`} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Create Quotation</Link>
@@ -173,7 +173,7 @@ export default function PropertyDetail() {
             </button>
           </div>
           </div>
-            <div className="mt-5 grid min-w-0 grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
+            <div className="property-overview-details mt-5 grid min-w-0 grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
               <Detail label="Owner name" value={customer?.name} />
               <Detail label="Project name" value={property.name} />
               <Detail label="Flat number" value={property.flat_number || "—"} />

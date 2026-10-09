@@ -147,13 +147,13 @@ export default function PdfPreviewHost() {
   return (
     <div className="fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5">
       <section className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center gap-1 border-b border-slate-200 px-3 py-3 sm:gap-3 sm:px-5">
+        <header className="bp-pdf-preview-toolbar flex items-center gap-1 border-b border-slate-200 px-3 py-3 sm:gap-3 sm:px-5">
           <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white sm:grid">
             <Eye className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">PDF preview</p>
-            <h2 className="truncate font-bold text-slate-950">{preview.filename}</h2>
+            <h2 title={preview.filename} className="truncate font-bold text-slate-950">{preview.filename}</h2>
           </div>
           <button
             type="button"

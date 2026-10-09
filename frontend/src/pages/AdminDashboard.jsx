@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownUp,
+  ArrowLeft,
   BriefcaseBusiness,
   Copy,
   Download,
@@ -18,9 +19,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import AdminMenuVisibility from "../components/AdminMenuVisibility";
+import AdminConversations from "../components/AdminConversations";
+import { groupAdminConversations } from "../utils/adminConversations";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 import {
   ErrorState,
@@ -45,13 +48,11 @@ const columns = {
     ["bharath_id", "Bharath ID"],
     ["profile_completion", "Profile"],
     ["team_size", "Team"],
-    ["service_areas", "Service areas"],
   ],
   applicators: [
     ["name", "Name"],
     ["mobile", "Mobile"],
     ["bharath_id", "Bharath ID"],
-    ["experience_years", "Experience"],
     ["skills", "Skills"],
     ["teams", "Teams"],
   ],
@@ -88,7 +89,10 @@ const columns = {
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
-  const [section, setSection] = useState("contractors");
+  const [searchParams] = useSearchParams();
+  const requestedSection = searchParams.get("section");
+  const focusedSection = sections.find((item) => item.key === requestedSection);
+  const section = focusedSection?.key || "contractors";
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
@@ -146,6 +150,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [section, requestedSection]);
   useEffect(() => {
     api.get("/quotations/support-tickets/")
       .then(({ data: tickets }) => setSupportQueries(tickets.slice(0, 5)))
@@ -373,9 +380,15 @@ export default function AdminDashboard() {
     );
   return (
     <div className="admin-dashboard space-y-4">
+      {focusedSection && (
+        <Link to="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to dashboard
+        </Link>
+      )}
       <PageHeader
         eyebrow="Administration"
-        title="Operations dashboard"
+        title={focusedSection ? focusedSection.label : "Operations dashboard"}
         description="Monitor people, live work, communication and quotation activity from one workspace."
         actions={
           <>
@@ -430,33 +443,31 @@ export default function AdminDashboard() {
           </>
         }
       />
-      <MobileDashboardShortcuts />
-      <AdminMenuVisibility />
+      {!focusedSection && <div className="admin-overview-grid">
+        {sections.map(({ key, label, icon }) => (
+          <Link
+            key={key}
+            to={`/dashboard?section=${key}`}
+            aria-label={`Open ${label} section`}
+            className={`admin-summary rounded-xl text-left transition ${section === key ? "is-active" : ""}`}
+          >
+            <StatCard icon={icon} label={label} value={key === "messages" ? groupAdminConversations(data.messages).length : data.counts[key]} tone={section === key ? "brand" : "info"} />
+          </Link>
+        ))}
+      </div>}
+      {!focusedSection && <MobileDashboardShortcuts />}
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       )}
       {repairMessage && (
         <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{repairMessage}</p>
       )}
-      <section className="rounded-xl border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Recent support conversations</h2></div><Link to="/support-tickets" className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]">All support queries</Link></div><div className="mt-3 divide-y">{supportQueries.length ? supportQueries.map((ticket) => <Link key={ticket.id} to={`/support-tickets?ticket=${ticket.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-slate-50"><span className="min-w-0"><strong className="text-sm">{ticket.subject}</strong><span className="ml-2 text-xs text-slate-500">{ticket.ticket_number} · {ticket.requester_name}</span><span className="mt-1 block truncate text-xs text-slate-500">{ticket.description}</span></span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{ticket.status?.replaceAll("_", " ")}</span></Link>) : <p className="py-3 text-sm text-slate-500">No support queries found.</p>}</div></section>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        {sections.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            onClick={() => setSection(key)}
-            className={`admin-summary rounded-xl text-left transition ${section === key ? "is-active" : ""}`}
-          >
-            <StatCard
-              icon={icon}
-              label={label}
-              value={data.counts[key]}
-              tone={section === key ? "brand" : "info"}
-            />
-          </button>
-        ))}
-      </div>
-      <section className="overflow-hidden rounded-xl border bg-white">
-        <div className="flex flex-col gap-2 border-b p-3 lg:flex-row">
+      {!focusedSection && <div className="admin-utility-grid">
+        <AdminMenuVisibility />
+        <section className="admin-support-panel rounded-xl border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Recent support conversations</h2></div><Link to="/support-tickets" className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]">All support queries</Link></div><div className="mt-3 divide-y">{supportQueries.length ? supportQueries.map((ticket) => <Link key={ticket.id} to={`/support-tickets?ticket=${ticket.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-slate-50"><span className="min-w-0"><strong className="text-sm">{ticket.subject}</strong><span className="ml-2 text-xs text-slate-500">{ticket.ticket_number} · {ticket.requester_name}</span><span className="mt-1 block text-xs text-slate-500">{ticket.description}</span></span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{ticket.status?.replaceAll("_", " ")}</span></Link>) : <p className="py-3 text-sm text-slate-500">No support queries found.</p>}</div></section>
+      </div>}
+      {section === "messages" ? <AdminConversations messages={data.messages} /> : <section className="admin-register overflow-hidden rounded-xl border bg-white">
+        <div className="admin-register-toolbar flex flex-col gap-2 border-b p-3 lg:flex-row">
           <label className="flex flex-1 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
             <Search className="h-4 w-4 text-slate-400" />
             <input
@@ -516,7 +527,7 @@ export default function AdminDashboard() {
           onToggleSelected={toggleSelected}
           onTogglePageSelection={togglePageSelection}
         />
-        <div className="flex flex-col gap-3 border-t bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="admin-register-pagination flex flex-col gap-3 border-t bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
             Showing {rows.length ? (page - 1) * pageSize + 1 : 0}–
             {Math.min(page * pageSize, rows.length)} of {rows.length}
@@ -552,7 +563,7 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-      </section>
+      </section>}
       {editing && (
         <RecordModal
           section={section}

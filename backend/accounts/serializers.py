@@ -256,6 +256,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     profile_photo = serializers.ImageField(source="user.profile_photo", required=False, allow_null=True)
     profile_photo_position = ProfileImagePositionField(source="user.profile_photo_position", required=False)
     company_logo_position = ProfileImagePositionField(required=False)
+    profile_background_position = ProfileImagePositionField(required=False)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
     company_name = serializers.CharField(required=False, allow_blank=True)
     owner_name = serializers.CharField(required=False)
@@ -268,6 +269,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             from .profile_images import public_profile_image_url
             data["profile_photo"] = public_profile_image_url(request, instance.user.profile_photo)
             data["company_logo"] = public_profile_image_url(request, instance.company_logo)
+            data["profile_background"] = public_profile_image_url(request, instance.profile_background)
         return data
 
     class Meta:
@@ -275,6 +277,8 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         fields = [
             "mobile", "email", "password", "profile_photo", "profile_photo_position", "company_name", "owner_name", "profile_completion",
             "company_logo", "company_logo_shape", "company_logo_position", "pdf_color_template", "pdf_font_template",
+            "profile_background", "profile_background_position",
+            "business_established_date",
             "pdf_custom_primary_color", "pdf_custom_accent_color", "pdf_custom_text_color",
             "app_primary_color", "app_accent_color",
 "office_address", "service_areas", "work_skills", "gst_number",
@@ -300,6 +304,12 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         "pinterest_url",
     ]
 
+    def validate_business_established_date(self, value):
+        from django.utils import timezone
+        if value and value > timezone.localdate():
+            raise serializers.ValidationError("Business established date cannot be in the future.")
+        return value
+
     def validate_extra_social_links(self, value):
         if value in (None, ""):
             return []
@@ -313,7 +323,24 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             url = self._normalize_url(str(entry.get("url", "")).strip())
             if not label or not url:
                 continue
-            cleaned.append({"label": label[:60], "url": url})
+            link = {"label": label[:60], "url": url}
+            icon = entry.get("icon")
+            if icon:
+                import base64
+                from io import BytesIO
+                from PIL import Image
+                import re
+                if not isinstance(icon, str) or len(icon) > 24000 or not re.fullmatch(r"data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+", icon):
+                    raise serializers.ValidationError("Upload a small PNG, JPG or WebP social icon.")
+                try:
+                    image = Image.open(BytesIO(base64.b64decode(icon.split(",", 1)[1], validate=True)))
+                    if image.format not in {"PNG", "JPEG", "WEBP"} or max(image.size) > 96:
+                        raise ValueError("Icon exceeds supported size")
+                    image.verify()
+                except Exception:
+                    raise serializers.ValidationError("This social icon is invalid. Upload it again.")
+                link["icon"] = icon
+            cleaned.append(link)
         return cleaned
 
     def validate(self, attrs):
@@ -366,6 +393,11 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
         password = validated_data.pop("password", "")
+        established = validated_data.get("business_established_date")
+        if established:
+            from django.utils import timezone
+            today = timezone.localdate()
+            validated_data["years_in_business"] = today.year - established.year - ((today.month, today.day) < (established.month, established.day))
         supplied = set(validated_data)
         workforce_supplied = "number_of_painters" in validated_data
         user = instance.user

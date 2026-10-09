@@ -32,6 +32,20 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
   const [results, setResults] = useState([]);
   const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
   const profileMenuRef = useRef(null);
+  const profileButtonRef = useRef(null);
+  const notificationsButtonRef = useRef(null);
+  useEffect(() => {
+    if (!open && !profileOpen) return undefined;
+    const dismiss = (event) => {
+      if (event.key !== "Escape" || document.querySelector("dialog[open]")) return;
+      event.preventDefault();
+      setOpen(false);
+      setProfileOpen(false);
+      (profileOpen ? profileButtonRef : notificationsButtonRef).current?.focus();
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [open, profileOpen]);
   useEffect(() => {
     const breakpoint = window.matchMedia("(min-width: 1024px)");
     const sync = () => setDesktopLayout(breakpoint.matches);
@@ -214,9 +228,10 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
           <button
             type="button"
             aria-label={t("Notifications")}
+            ref={notificationsButtonRef}
             aria-controls="topbar-notifications-panel"
             aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => { setProfileOpen(false); setOpen((value) => !value); }}
             className="bp-shell-icon-button relative"
           >
             <Bell className="w-5 h-5 text-slate-600" />
@@ -276,7 +291,8 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
-            onClick={() => setProfileOpen((value) => !value)}
+            ref={profileButtonRef}
+            onClick={() => { setOpen(false); setProfileOpen((value) => !value); }}
             aria-label={t("Profile menu")}
             aria-expanded={profileOpen}
             aria-controls="topbar-profile-menu"

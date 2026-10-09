@@ -17,6 +17,7 @@ def profile_image(request, kind, object_id):
     fields = {
         "owner": (BharathUser, "profile_photo"),
         "logo": (ContractorProfile, "company_logo"),
+        "background": (ContractorProfile, "profile_background"),
         "project": (ContractorCompletedProject, "photo"),
         "qr": (BharathUser, "bharath_qr"),
     }
@@ -56,7 +57,7 @@ def public_profile_image_url(request, image):
     # External storage delivers its own public URL. Local media needs a production route.
     if image.url.startswith(settings.MEDIA_URL):
         from django.urls import reverse
-        kinds = {"profile_photo": "owner", "company_logo": "logo", "photo": "project", "bharath_qr": "qr"}
+        kinds = {"profile_photo": "owner", "company_logo": "logo", "profile_background": "background", "photo": "project", "bharath_qr": "qr"}
         kind = kinds.get(image.field.name)
         if kind and isinstance(image.instance, (BharathUser, ContractorProfile, ContractorCompletedProject)):
             return request.build_absolute_uri(reverse("profile-image", kwargs={"kind": kind, "object_id": image.instance.pk}))

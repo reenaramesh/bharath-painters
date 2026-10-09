@@ -180,44 +180,6 @@ def currency_words(number):
 
 
 def profile_pdf(user, card, profile_url, language):
-    metadata = [("owner", card.get("owner_name", "")), ("mobile", card.get("mobile", "")),
-        ("email", card.get("email", "")), ("reference", user.bharath_id),
-        ("service_areas", ", ".join(card.get("service_areas", []))),
-        ("services", ", ".join(card.get("work_skills", []))),
-        ("years", card.get("years_in_business") or "-"), ("workers", card.get("workers") or "-"),
-        ("verify", profile_url)]
-    profile = getattr(user, 'contractor_profile', None)
-    media, sections = [], []
-    def add_image(field, name, caption):
-        if not field:
-            return None
-        try:
-            field.open('rb')
-            content = field.read()
-            suffix = Path(field.name).suffix or '.png'
-            filename = name + suffix.lower()
-            media.append((filename, content, caption))
-            return filename
-        except Exception:
-            return None
-        finally:
-            close = getattr(field, 'close', None)
-            if close:
-                close()
-    add_image(getattr(profile, 'company_logo', None), 'company-logo', label(language, 'logo'))
-    add_image(getattr(user, 'profile_photo', None), 'owner-photo', label(language, 'photo'))
-    add_image(getattr(user, 'bharath_qr', None), 'profile-qr', label(language, 'verify'))
-    for project in card.get('projects', []):
-        stored = profile.completed_projects.filter(id=project['id']).first() if profile and project.get('id') else None
-        image_name = add_image(getattr(stored, 'photo', None), 'project-' + str(project.get('id', len(sections))), project.get('title', ''))
-        fields = [(key, project.get(source, '')) for key, source in [('community','apartment_community'),('location','location'),('address','address'),('pincode','pincode'),('description','description'),('work_completed','work_completed'),('completed_on','completed_on_display')]]
-        sections.append((project.get('title',''), fields, image_name))
-    for link in card.get('social_links', []):
-        sections.append((link.get('label',''), [('reference', link.get('url',''))], None))
-    reviews = card.get('customer_reviews', {})
-    if reviews.get('count'):
-        metadata.append(('rating', f"{reviews.get('rating')} / 5 ({reviews.get('count')})"))
-    for review in reviews.get('items', []):
-        sections.append((review.get('customer_name',''), [('rating', review.get('rating')), ('date', review.get('date')), ('notes', review.get('comment',''))], None))
-    return render_document(language, "profile", user.bharath_id, card.get("title", "Bharath Apps"), metadata,
-        [], [], media=media, sections=sections)
+    # Every script uses the same profile card, rather than the generic document table.
+    from accounts.profile_card_pdf import render_contractor_card_pdf
+    return render_contractor_card_pdf(user, card, profile_url, language=language)

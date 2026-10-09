@@ -11,6 +11,7 @@ import {
 import { Navigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import ReportAnalytics from "../components/ReportAnalytics";
 import "./admin-portal.css";
 
 const money = (value) =>
@@ -26,6 +27,13 @@ export default function Reports() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [userError, setUserError] = useState("");
+  const loadUsers = useCallback(async () => {
+    if (user?.role !== "ADMIN") return;
+    try { setUserData((await api.get("/quotations/admin-dashboard/")).data); setUserError(""); }
+    catch { setUserError("User analytics could not be loaded."); }
+  }, [user?.role]);
   const load = useCallback(async () => {
     try {
       setData((await api.get("/jobs/reports/")).data);
@@ -39,6 +47,7 @@ export default function Reports() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
   async function exportCsv() {
     setBusy(true);
     try {
@@ -75,7 +84,7 @@ export default function Reports() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={load}
+            onClick={() => { load(); loadUsers(); }}
             className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold"
           >
             <RefreshCw className="h-4 w-4" />
@@ -137,7 +146,10 @@ export default function Reports() {
               value={summary.photos}
             />
           </section>
-          <div className="grid gap-5 xl:grid-cols-2">
+          <ReportAnalytics report={data} users={userData} admin={user.role === "ADMIN"} userError={userError} onRetry={loadUsers} />
+          <details className="rounded-2xl border bg-white p-4">
+            <summary className="min-h-11 cursor-pointer font-semibold">View detailed report tables</summary>
+          <div className="mt-4 grid gap-5 xl:grid-cols-2">
             <section className="overflow-hidden rounded-2xl border bg-white">
               <h2 className="border-b p-5 font-bold">
                 Monthly invoice performance
@@ -198,6 +210,7 @@ export default function Reports() {
               </div>
             </section>
           </div>
+          </details>
           <section className="overflow-hidden rounded-2xl border bg-white">
             <h2 className="border-b p-5 font-bold">
               Upcoming and active projects
@@ -248,7 +261,7 @@ function ImageIcon(props) {
 function Metric({ icon: Icon, name, value, dark, green, amber }) {
   return (
     <div
-      className={`rounded-2xl border p-4 ${dark ? "bg-slate-950 text-white" : green ? "border-emerald-200 bg-emerald-50" : amber ? "border-amber-200 bg-amber-50" : "bg-white"}`}
+      className={`rounded-2xl border p-4 ${dark ? "border-sky-200 bg-sky-50 text-slate-900" : green ? "border-emerald-200 bg-emerald-50" : amber ? "border-orange-200 bg-orange-50" : "bg-white"}`}
     >
       <Icon className="h-5 w-5" />
       <p className="mt-3 text-xs opacity-70">{name}</p>

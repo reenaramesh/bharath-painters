@@ -200,6 +200,92 @@
 }
 
 @media (max-width: 767px) {
+  .master-services-page .master-mobile-list {
+    padding: 0 12px;
+  }
+
+  .master-services-page .master-entry-card {
+    padding: 12px 0;
+    border: 0;
+    border-bottom: 1px solid var(--bp-line);
+    border-radius: 0;
+    box-shadow: none;
+    min-width: 0;
+  }
+
+  .master-services-page .master-entry-card:last-child { border-bottom: 0; }
+  .master-services-page .master-entry-inactive { color: var(--bp-muted); }
+
+  .master-services-page .master-data-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .master-services-page .master-entry-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 8px;
+  }
+
+  .master-services-page .master-entry-content > .flex-1 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .master-services-page .master-entry-content h3 {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .master-services-page .master-reorder-controls {
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: row;
+    justify-self: start;
+    gap: 6px;
+    margin-top: 0;
+  }
+
+  .master-services-page .master-entry-content > .master-item-actions {
+    grid-column: 2;
+    grid-row: 2;
+    flex-wrap: nowrap;
+    justify-self: end;
+    gap: 6px;
+  }
+
+  .master-services-page .master-entry-availability {
+    margin-top: 8px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .master-services-page .master-card-price {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .master-services-page .master-data-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    align-content: start;
+    height: auto;
+    flex: none;
+  }
+
+  .master-services-page .master-data-actions .bp-button {
+    min-width: 0;
+    height: 44px;
+    min-height: 44px;
+    max-height: 44px;
+    padding-inline: 8px;
+    font-size: 12px;
+    white-space: normal;
+  }
+
   .master-services-page .bp-page-header {
     align-items: flex-start;
   }
@@ -212,6 +298,10 @@
     align-items: flex-start;
     flex-direction: column;
     padding: 16px;
+    height: auto;
+    min-height: 0;
+    justify-content: flex-start;
+    gap: 12px;
   }
 
   .master-services-page .master-data-actions {
@@ -246,6 +336,58 @@
     flex-wrap: wrap;
   }
 }
+
+/* Compact catalogue controls, scoped to this page. */
+.master-services-page .bp-page-header h1 { font-size: 24px; }
+.master-services-page .master-section-title { gap: 8px; font-size: 16px; line-height: 1.3; }
+.master-services-page .master-section-icon { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; }
+.master-services-page .master-section-icon svg { width: 16px; height: 16px; }
+.master-services-page .master-data-card > header { min-height: 0; padding: 12px; gap: 10px; }
+.master-services-page .master-data-table { min-width: 680px; font-size: 12px; }
+.master-services-page .master-data-table :is(th, td) { padding: 8px; }
+.master-services-page .master-data-table td :is(span, p) { font-size: 12px; }
+.master-services-page .master-data-table .master-item-actions { flex-wrap: nowrap; gap: 4px; }
+.master-services-page .master-data-table .master-item-actions button { width: 32px; min-width: 32px; height: 36px; min-height: 36px; padding: 6px; }
+.master-services-page .master-data-table .master-availability-toggle button { min-height: 36px; padding-inline: 8px; font-size: 11px; }
+.master-services-page .master-entry-content { display: block; }
+.master-services-page .master-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.master-services-page .master-entry-heading h3 { margin: 0; font-size: 13px; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.master-services-page .master-entry-heading > span { flex-shrink: 0; font-size: 10px; }
+.master-services-page .master-entry-details > p { margin-top: 4px; font-size: 12px; color: var(--bp-muted); }
+.master-services-page .master-entry-toolbar { display: flex; align-items: center; gap: 6px; margin-top: 8px; min-width: 0; }
+.master-services-page .master-entry-toolbar .master-reorder-controls { display: flex; flex-direction: row; gap: 2px; margin: 0; }
+.master-services-page .master-entry-toolbar .master-item-actions { display: flex; flex-wrap: nowrap; margin-left: auto; gap: 4px; }
+.master-services-page .master-entry-toolbar button { display: grid; place-items: center; width: 32px; min-width: 32px; height: 36px; min-height: 36px; padding: 4px; }
+.master-services-page .master-entry-status { min-width: 0; }
+.master-services-page .master-entry-status select { width: 88px; min-height: 36px; height: 36px; padding: 4px 6px; font-size: 11px; background: var(--bp-card); }
+.master-services-page .master-entry-toolbar button,
+.master-services-page .master-data-table .master-item-actions button { width: 28px; min-width: 28px; height: 32px; min-height: 32px; padding: 4px; }
+.master-services-page .master-entry-toolbar button svg,
+.master-services-page .master-data-table .master-item-actions button svg { width: 12px; height: 12px; }
+
+@media (max-width: 767px) {
+  .master-services-page .master-entry-card { padding-block: 10px; }
+  .master-services-page .master-data-card > header { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .master-services-page .master-data-card > header > div:first-child { min-width: 0; flex: 1 1 120px; }
+  .master-services-page .master-data-actions { width: auto; flex: 0 1 auto; gap: 6px; }
+  .master-services-page .master-data-actions .bp-button { padding-inline: 6px; font-size: 11px; line-height: 1.2; gap: 4px; }
+  .master-services-page .master-data-actions .bp-button svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .master-services-page .master-section-title { font-size: 14px; }
+}
+
+.master-services-page .master-entry-inline { display: flex; align-items: center; gap: 6px; }
+.master-services-page .master-entry-inline .master-entry-content { min-width: 0; flex: 1; }
+.master-services-page .master-entry-inline .master-entry-heading { display: block; }
+.master-services-page .master-entry-inline .master-entry-heading > span { font-size: 9px; }
+.master-services-page .master-entry-inline .master-entry-toolbar { margin: 0; flex-shrink: 0; gap: 4px; }
+.master-services-page .master-entry-radios { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; }
+.master-services-page .master-entry-radios label { display: flex; align-items: center; gap: 2px; min-height: 32px; font-size: 10px; white-space: nowrap; }
+.master-services-page .master-entry-radios input { width: 12px; height: 12px; min-height: 0; accent-color: var(--bp-brand); }
+.master-services-page .master-drag-handle { display: grid; place-items: center; width: 24px; height: 32px; min-height: 32px; flex-shrink: 0; padding: 0; cursor: grab; touch-action: none; color: var(--bp-muted); }
+.master-services-page .master-drag-handle svg { width: 13px; height: 13px; }
+.master-services-page .master-entry-dragging { opacity: .5; }
+.master-services-page .master-drop-before { box-shadow: inset 0 2px var(--bp-brand); }
+.master-services-page .master-drop-after { box-shadow: inset 0 -2px var(--bp-brand); }
 
 @media (prefers-reduced-motion: reduce) {
   .master-services-page *,

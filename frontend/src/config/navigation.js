@@ -30,7 +30,7 @@ export const NAVIGATION = [
   item("projects", "Completed Projects", "/completed-projects", BriefcaseBusiness, "Work Management", C, { verified: true, description: "Existing completed-project portfolio. This is not an all-projects screen." }),
   item("schedules", "Work Schedules", "/work-schedules", CalendarClock, "Work Management", [...C, ...U], { badge: "work_updates" }),
   item("work-changes", "Work Changes", "/work-changes", ClipboardList, "Work Management", [...C, ...U]),
-  item("work-reschedules", "Work Reschedules", "/work-reschedules", CalendarClock, "Work Management", [...C, ...U]),
+  item("work-reschedules", "Work Reschedules", "/work-reschedules", CalendarClock, "Work Management", C),
   item("tasks", "Tasks", "/tasks", ListTodo, "Work Management", C, { badge: "tasks" }),
   item("subcontracts", "Outsourced & Received Work", "/subcontract-work-orders", Handshake, "Work Management", C, { verified: true, description: "One existing screen for work sent and received, with status filters. Billing stays in the work-order detail." }),
   item("assignments", "My Assignments", "/painter-assignments", ClipboardList, "Work Management", E),

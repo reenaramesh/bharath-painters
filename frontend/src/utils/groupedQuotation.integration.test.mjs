@@ -46,7 +46,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
   globalThis.fetch = () => { apiCalls++; throw Error("Workspace must use supplied data"); };
   globalThis.document = { body: { style: { overflow: "" } }, activeElement: { focus() {} }, addEventListener() {}, removeEventListener() {} };
   const realMasters = { ...masters, categories: masters.categories.map((entry) => ({ ...entry, id: entry.id + 100 })), paintTypes: masters.paintTypes.map((entry) => ({ ...entry, id: entry.id + 200, service_category: entry.service_category + 100 })), brands: masters.brands.map((entry) => ({ ...entry, id: entry.id + 300 })), units: masters.units.map((entry) => ({ ...entry, id: entry.id + 400 })) };
-  function Harness({ phase }) {
+  function Harness({ phase, showMeasurements }) {
     const [value, setValue] = useState({ groups: [], specials: [], services: [], rates: {} });
     state = value;
     const measured = { ...measurement, surfaces: measurement.surfaces.map((surface, index) => index ? surface : { ...surface, length: "12.00", breadth: "10.00", gross_area: "147.00", net_area: "120.00", deduction_area: "27.00", addition_area: "0.00", openings: [
@@ -56,11 +56,18 @@ test("production workspace uses provided master IDs, edits rates and opens read-
       { id: 804, opening_type: "WINDOW", effect: "ADD", name: "Added window", effective_deduction: "10.00" },
     ] }) };
     const displayMeasurement = { ...measured, rooms: [...measured.rooms, { id: 8001, name: "Balcony" }, { id: 8002, name: "Utility Area" }], surfaces: [...measured.surfaces, { id: 9001, room: 8001, work_area: "INTERIOR", surface_type: "WALL", name: "Balcony wall", net_area: "50", gross_area: "60", deduction_area: "10" }, { id: 9002, room: 8002, work_area: "INTERIOR", surface_type: "CEILING", name: "Utility ceiling", net_area: "20" }, { id: 9003, room: null, work_area: "EXTERIOR", surface_type: "WALL", area_group_name: "Front elevation", name: "Front wall", gross_area: "110", net_area: "100", deduction_area: "10" }] };
-    return React.createElement(Workspace, { phase, measurement: measured, displayMeasurement, masters: realMasters, state: value, onChange: setValue });
+    return React.createElement(Workspace, { phase, showMeasurements, measurement: measured, displayMeasurement, masters: realMasters, state: value, onChange: setValue });
   }
   let view;
   try {
     await act(async () => { view = create(React.createElement(Harness, { phase: "assignments" }), { createNodeMock: () => ({ querySelector: () => ({ focus() {} }), querySelectorAll: () => [] }) }); });
+    await act(async () => view.update(React.createElement(Harness, { phase: "measurements" })));
+    assert.equal(view.root.findAllByType("h2").filter(node => text(node) === "Measurements").length, 1);
+    assert.equal(view.root.findAllByType("button").some(node => text(node) === "Create Paint Areas"), false);
+    await act(async () => view.update(React.createElement(Harness, { phase: "assignments", showMeasurements: false })));
+    assert.equal(view.root.findAllByType("h2").some(node => text(node) === "Measurements"), false);
+    assert.equal(view.root.findAllByType("button").some(node => text(node) === "Create Paint Areas"), true);
+    await act(async () => view.update(React.createElement(Harness, { phase: "assignments" })));
     const click = async (label) => act(async () => { const scope = view.root.findAllByProps({ role: "dialog" })[0] || view.root; const button = scope.findAllByType("button").find((node) => text(node) === label); assert.ok(button, label); button.props.onClick(); });
     const label = (name) => view.root.findAllByType("label").find((node) => text(node).startsWith(name));
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Measurements").length, 1);
@@ -99,7 +106,13 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.equal(text(view.root.findByProps({ role: "dialog" }).findByType("tbody").findAllByType("td").at(-1)), "100");
     await click("Close");
     await click("Create Paint Areas");
+    const balances = () => view.root.findByProps({ "aria-label": "Remaining surface areas" });
+    const wallBalance = () => balances().findByProps({ "data-surface": "WALL" });
+    assert.match(text(wallBalance()), /2,570 sqft/);
+    const ceilingBefore = text(balances().findByProps({ "data-surface": "CEILING" }));
     await click("Select all");
+    assert.match(text(wallBalance()), /Remaining: 0 sqft/);
+    assert.equal(text(balances().findByProps({ "data-surface": "CEILING" })), ceilingBefore);
     await click("Continue");
     assert.equal(label("Type of service").findByType("select").props.value, 101);
     assert.equal(label("Notes"), undefined);
@@ -113,7 +126,16 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     const items = assignmentQuotationItems(measurement, state, realMasters);
     assert.equal(items[0].quantity, 2570);
     assert.equal(items[0].unit, 401);
-    await click("Room contribution details");
+    await click("Create Paint Areas");
+    assert.match(text(wallBalance()), /Remaining: 0 sqft/);
+    assert.match(text(wallBalance()), /No remaining rooms/);
+    assert.equal(text(balances().findByProps({ "data-surface": "CEILING" })), ceilingBefore);
+    await click("Cancel");
+    assert.equal(view.root.findAllByType("button").some(node => text(node) === "Room contribution details"), false);
+    await act(async () => view.root.findByProps({ "aria-label": "View rooms for Basic Painting" }).props.onClick());
+    assert.match(text(view.root.findByProps({ role: "dialog" })), /470 sqft/);
+    await click("Close");
+    await act(async () => view.root.findByProps({ "aria-label": "View surface for Basic Painting" }).props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /470 sqft/);
     await click("Close");
     await act(async () => view.update(React.createElement(Harness, { phase: "final" })));

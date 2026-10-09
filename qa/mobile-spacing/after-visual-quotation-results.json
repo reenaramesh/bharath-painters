@@ -1,0 +1,1800 @@
+[
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "root": {
+      "class": "mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder",
+      "left": 12,
+      "right": 378,
+      "top": 80,
+      "bottom": 1203,
+      "padding": [
+        "0px",
+        "0px",
+        "16px",
+        "0px"
+      ],
+      "margin": [
+        "0px",
+        "0px"
+      ],
+      "gap": "normal"
+    },
+    "overlappedFields": 0,
+    "boxes": [
+      {
+        "class": "bp-page-header",
+        "left": 12,
+        "right": 378,
+        "top": 140,
+        "bottom": 236,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "16px"
+      },
+      {
+        "class": "grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 236,
+        "bottom": 268,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "class": "quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 ",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 1098,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]",
+        "left": 29,
+        "right": 361,
+        "top": 397,
+        "bottom": 443,
+        "padding": [
+          "0px",
+          "12px",
+          "0px",
+          "12px"
+        ],
+        "margin": [
+          "8px",
+          "0px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 581,
+        "bottom": 625,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 691,
+        "bottom": 735,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 776,
+        "bottom": 820,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-6 border-t border-[#dce7ed] pt-6",
+        "left": 29,
+        "right": 361,
+        "top": 844,
+        "bottom": 1081,
+        "padding": [
+          "24px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "24px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "flex items-center gap-3 rounded-2xl border p-4 text-left transition border-[#176b9b] bg-[#176b9b] text-white shadow-sm",
+        "left": 29,
+        "right": 361,
+        "top": 917,
+        "bottom": 991,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      },
+      {
+        "class": "flex items-center gap-3 rounded-2xl border p-4 text-left transition border-[#dce7ed] bg-white hover:border-[#176b9b]",
+        "left": 29,
+        "right": 361,
+        "top": 1007,
+        "bottom": 1081,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      },
+      {
+        "class": "flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 1114,
+        "bottom": 1187,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      }
+    ],
+    "inputs": [
+      {
+        "class": "w-full bg-transparent font-normal outline-none",
+        "left": 65,
+        "right": 348,
+        "top": 398,
+        "bottom": 442,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 581,
+        "bottom": 625,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 691,
+        "bottom": 735,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "mt-1.5 w-full rounded-xl border border-[#cbdce6] bg-white px-3 py-2.5 outline-none focus:border-[#176b9b] focus:ring-2 focus:ring-[#e8f3f8]",
+        "left": 29,
+        "right": 361,
+        "top": 776,
+        "bottom": 820,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "6px",
+          "0px"
+        ],
+        "gap": "normal"
+      }
+    ],
+    "buttons": [
+      {
+        "name": "Back to quotations",
+        "class": "inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]",
+        "left": 12,
+        "right": 168,
+        "top": 80,
+        "bottom": 124,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "name": "New Customer",
+        "class": "inline-flex items-center gap-1 font-bold text-[#176b9b]",
+        "left": 250,
+        "right": 361,
+        "top": 345,
+        "bottom": 389,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "4px"
+      },
+      {
+        "name": "QA Customer",
+        "class": "rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200",
+        "left": 29,
+        "right": 132,
+        "top": 471,
+        "bottom": 515,
+        "padding": [
+          "6px",
+          "10px",
+          "6px",
+          "10px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "name": "Add Property",
+        "class": "inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40",
+        "left": 259,
+        "right": 361,
+        "top": 531,
+        "bottom": 575,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "4px"
+      },
+      {
+        "name": "Add measurement",
+        "class": "inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40",
+        "left": 227,
+        "right": 361,
+        "top": 641,
+        "bottom": 685,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "4px"
+      },
+      {
+        "name": "Square Foot Quotation",
+        "class": "flex items-center gap-3 rounded-2xl border p-4 text-left transition border-[#176b9b] bg-[#176b9b] text-white shadow-sm",
+        "left": 29,
+        "right": 361,
+        "top": 917,
+        "bottom": 991,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      },
+      {
+        "name": "Lump Sum Quotation",
+        "class": "flex items-center gap-3 rounded-2xl border p-4 text-left transition border-[#dce7ed] bg-white hover:border-[#176b9b]",
+        "left": 29,
+        "right": 361,
+        "top": 1007,
+        "bottom": 1081,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      },
+      {
+        "name": "Continue",
+        "class": "bp-button bp-button-primary quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto",
+        "left": 25,
+        "right": 365,
+        "top": 1127,
+        "bottom": 1174,
+        "padding": [
+          "12px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "8px"
+      }
+    ],
+    "dialogs": [],
+    "stage": "customer-property",
+    "screenshot": "after-visual-quotation-customer-property-390.png"
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "root": {
+      "class": "mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder",
+      "left": 12,
+      "right": 378,
+      "top": 80,
+      "bottom": 1159,
+      "padding": [
+        "0px",
+        "0px",
+        "16px",
+        "0px"
+      ],
+      "margin": [
+        "0px",
+        "0px"
+      ],
+      "gap": "normal"
+    },
+    "overlappedFields": 0,
+    "boxes": [
+      {
+        "class": "bp-page-header",
+        "left": 12,
+        "right": 378,
+        "top": 140,
+        "bottom": 236,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "16px"
+      },
+      {
+        "class": "grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 236,
+        "bottom": 268,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "class": "quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 quotation-grouped-step",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 1050,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 568,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 301,
+        "bottom": 344,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "gq-measurement-table-card",
+        "left": 29,
+        "right": 361,
+        "top": 356,
+        "bottom": 551,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "12px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 588,
+        "bottom": 1050,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 605,
+        "bottom": 722,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 1070,
+        "bottom": 1143,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      }
+    ],
+    "inputs": [],
+    "buttons": [
+      {
+        "name": "Previous step",
+        "class": "inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]",
+        "left": 12,
+        "right": 133,
+        "top": 80,
+        "bottom": 124,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "name": "QA Living Room",
+        "class": "gq-room-name",
+        "left": 34,
+        "right": 118,
+        "top": 440,
+        "bottom": 486,
+        "padding": [
+          "6px",
+          "0px",
+          "6px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Create Paint Areas",
+        "class": "primary",
+        "left": 29,
+        "right": 190,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Add General Service",
+        "class": "",
+        "left": 200,
+        "right": 361,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Continue",
+        "class": "bp-button bp-button-primary quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto",
+        "left": 25,
+        "right": 365,
+        "top": 1083,
+        "bottom": 1130,
+        "padding": [
+          "12px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "8px"
+      }
+    ],
+    "dialogs": [],
+    "stage": "services",
+    "screenshot": "after-visual-quotation-services-390.png"
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "root": {
+      "class": "mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder",
+      "left": 12,
+      "right": 378,
+      "top": 80,
+      "bottom": 1159,
+      "padding": [
+        "0px",
+        "0px",
+        "16px",
+        "0px"
+      ],
+      "margin": [
+        "0px",
+        "0px"
+      ],
+      "gap": "normal"
+    },
+    "overlappedFields": 0,
+    "boxes": [
+      {
+        "class": "bp-page-header",
+        "left": 12,
+        "right": 378,
+        "top": 140,
+        "bottom": 236,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "16px"
+      },
+      {
+        "class": "grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 236,
+        "bottom": 268,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "class": "quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 quotation-grouped-step",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 1050,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 568,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 301,
+        "bottom": 344,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "gq-measurement-table-card",
+        "left": 29,
+        "right": 361,
+        "top": 356,
+        "bottom": 551,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "12px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 588,
+        "bottom": 1050,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 605,
+        "bottom": 722,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "special-wall-sheet gq-dialog ",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 844,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "special-wall-header",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 194,
+        "padding": [
+          "10px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 16,
+        "right": 374,
+        "top": 96,
+        "bottom": 140,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 1070,
+        "bottom": 1143,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      }
+    ],
+    "inputs": [
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 235,
+        "bottom": 280,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 29,
+        "right": 49,
+        "top": 412,
+        "bottom": 432,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      }
+    ],
+    "buttons": [
+      {
+        "name": "Previous step",
+        "class": "inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]",
+        "left": 12,
+        "right": 133,
+        "top": 80,
+        "bottom": 124,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "name": "QA Living Room",
+        "class": "gq-room-name",
+        "left": 34,
+        "right": 118,
+        "top": 440,
+        "bottom": 486,
+        "padding": [
+          "6px",
+          "0px",
+          "6px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Create Paint Areas",
+        "class": "primary",
+        "left": 29,
+        "right": 190,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Add General Service",
+        "class": "",
+        "left": 200,
+        "right": 361,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "",
+        "class": "gq-icon",
+        "left": 330,
+        "right": 374,
+        "top": 96,
+        "bottom": 140,
+        "padding": [
+          "10px",
+          "10px",
+          "10px",
+          "10px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Select all",
+        "class": "",
+        "left": 16,
+        "right": 105,
+        "top": 338,
+        "bottom": 382,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Cancel",
+        "class": "",
+        "left": 12,
+        "right": 81,
+        "top": 541,
+        "bottom": 585,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Continue",
+        "class": "special-wall-primary",
+        "left": 89,
+        "right": 378,
+        "top": 541,
+        "bottom": 585,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Continue",
+        "class": "bp-button bp-button-primary quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto",
+        "left": 25,
+        "right": 365,
+        "top": 1083,
+        "bottom": 1130,
+        "padding": [
+          "12px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "8px"
+      }
+    ],
+    "dialogs": [
+      {
+        "class": "special-wall-sheet gq-dialog ",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 844,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      }
+    ],
+    "stage": "room-dialog",
+    "screenshot": "after-visual-quotation-room-dialog-390.png"
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "root": {
+      "class": "mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder",
+      "left": 12,
+      "right": 378,
+      "top": 80,
+      "bottom": 1159,
+      "padding": [
+        "0px",
+        "0px",
+        "16px",
+        "0px"
+      ],
+      "margin": [
+        "0px",
+        "0px"
+      ],
+      "gap": "normal"
+    },
+    "overlappedFields": 0,
+    "boxes": [
+      {
+        "class": "bp-page-header",
+        "left": 12,
+        "right": 378,
+        "top": 140,
+        "bottom": 236,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "16px"
+      },
+      {
+        "class": "grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 236,
+        "bottom": 268,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "class": "quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 quotation-grouped-step",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 1050,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 284,
+        "bottom": 568,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 301,
+        "bottom": 344,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "gq-measurement-table-card",
+        "left": 29,
+        "right": 361,
+        "top": 356,
+        "bottom": 551,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "12px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-panel",
+        "left": 12,
+        "right": 378,
+        "top": 588,
+        "bottom": 1050,
+        "padding": [
+          "16px",
+          "16px",
+          "16px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "20px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 29,
+        "right": 361,
+        "top": 605,
+        "bottom": 722,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "special-wall-sheet gq-dialog ",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 844,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "special-wall-header",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 194,
+        "padding": [
+          "10px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "gq-heading",
+        "left": 16,
+        "right": 374,
+        "top": 96,
+        "bottom": 140,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "10px"
+      },
+      {
+        "class": "flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4",
+        "left": 12,
+        "right": 378,
+        "top": 1070,
+        "bottom": 1143,
+        "padding": [
+          "12px",
+          "12px",
+          "12px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "12px"
+      }
+    ],
+    "inputs": [
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 235,
+        "bottom": 281,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 365,
+        "bottom": 410,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 447,
+        "bottom": 492,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 530,
+        "bottom": 575,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 612,
+        "bottom": 657,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 695,
+        "bottom": 740,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 777,
+        "bottom": 823,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      },
+      {
+        "class": "",
+        "left": 16,
+        "right": 374,
+        "top": 861,
+        "bottom": 907,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      }
+    ],
+    "buttons": [
+      {
+        "name": "Previous step",
+        "class": "inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]",
+        "left": 12,
+        "right": 133,
+        "top": 80,
+        "bottom": 124,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "16px"
+        ],
+        "gap": "8px"
+      },
+      {
+        "name": "QA Living Room",
+        "class": "gq-room-name",
+        "left": 34,
+        "right": 118,
+        "top": 440,
+        "bottom": 486,
+        "padding": [
+          "6px",
+          "0px",
+          "6px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Create Paint Areas",
+        "class": "primary",
+        "left": 29,
+        "right": 190,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Add General Service",
+        "class": "",
+        "left": 200,
+        "right": 361,
+        "top": 658,
+        "bottom": 722,
+        "padding": [
+          "10px",
+          "14px",
+          "10px",
+          "14px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "",
+        "class": "gq-icon",
+        "left": 330,
+        "right": 374,
+        "top": 96,
+        "bottom": 140,
+        "padding": [
+          "10px",
+          "10px",
+          "10px",
+          "10px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Cancel",
+        "class": "",
+        "left": 12,
+        "right": 81,
+        "top": 788,
+        "bottom": 832,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Back",
+        "class": "",
+        "left": 89,
+        "right": 146,
+        "top": 788,
+        "bottom": 832,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Save Paint Areas",
+        "class": "special-wall-primary",
+        "left": 154,
+        "right": 378,
+        "top": 788,
+        "bottom": 832,
+        "padding": [
+          "10px",
+          "12px",
+          "10px",
+          "12px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "7px"
+      },
+      {
+        "name": "Continue",
+        "class": "bp-button bp-button-primary quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto",
+        "left": 25,
+        "right": 365,
+        "top": 1083,
+        "bottom": 1130,
+        "padding": [
+          "12px",
+          "16px",
+          "12px",
+          "16px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "8px"
+      }
+    ],
+    "dialogs": [
+      {
+        "class": "special-wall-sheet gq-dialog ",
+        "left": 0,
+        "right": 390,
+        "top": 68,
+        "bottom": 844,
+        "padding": [
+          "0px",
+          "0px",
+          "0px",
+          "0px"
+        ],
+        "margin": [
+          "0px",
+          "0px"
+        ],
+        "gap": "normal"
+      }
+    ],
+    "stage": "product-dialog",
+    "screenshot": "after-visual-quotation-product-dialog-390.png"
+  }
+]

@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Send, UserPlus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, Send, X } from "lucide-react";
 import "./contractor-network.css";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import ContractorInvitation from "../components/ContractorInvitation";
-import ConnectionCard from "../components/ContractorConnectionCard";
-import { EmptyState, ErrorState, LoadingState } from "../components/ui";
+import { ContractorContactLinks } from '../components/ContractorProfileDetails';
+import ContractorProfileAdapter from "../components/ContractorProfileAdapter";
+import ContractorNetworkProfile from "../components/ContractorNetworkProfile";
+import { EmptyState, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import { apiErrorMessage, connectionCounterparty } from "../utils/subcontract";
 import { getLocationEngine, getMobileLocation } from "../utils/indiaLocation";
 import { distanceKm, filterContractors, postcodeLocations } from "../utils/contractorSearch";
 
 const TABS = [
-  { value: "CONNECTED", label: "Connected" },
+  { value: "CONNECTED", label: "Contractors" },
   { value: "PENDING", label: "Requests" },
   { value: "HISTORY", label: "History" },
 ];
@@ -26,11 +28,14 @@ const DISCOVER_METHODS = [
 export default function ContractorNetwork() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
+  const [directory, setDirectory] = useState([]);
+  const [workOrders, setWorkOrders] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [tab, setTab] = useState("CONNECTED");
   const [requesting, setRequesting] = useState(false);
+  const [viewing, setViewing] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -47,7 +52,14 @@ export default function ContractorNetwork() {
 
   useEffect(() => {
     load();
+    api.get('/accounts/contractors/').then(({data}) => setDirectory(Array.isArray(data) ? data : data?.results || [])).catch(() => {});
+    api.get('/outsourcing/work-orders/').then(({data}) => setWorkOrders(Array.isArray(data) ? data : data?.next ? null : data?.results || [])).catch(() => {});
   }, [load]);
+  const rowDetails = (row) => {
+    const profile = directory.find(item => item.id === connectionCounterparty(row).id) || (row.viewer_authority === 'RECIPIENT' ? row.requester_details : null);
+    const orders = workOrders?.filter(item => item.connection === row.id);
+    return {profile, stats: {completed: orders ? orders.filter(item => item.status === 'COMPLETED').length : row.completed_work_orders, active: orders ? orders.filter(item => ['ACCEPTED','SCHEDULED','IN_PROGRESS','CORRECTION_REQUESTED','SUBMITTED_FOR_REVIEW'].includes(item.status)).length : null}};
+  };
 
   const act = async (connection, action, extra = {}) => {
     setActionError("");
@@ -58,8 +70,10 @@ export default function ContractorNetwork() {
         extra,
       );
       await load();
+      return true;
     } catch (err) {
       setActionError(apiErrorMessage(err, "That request could not be completed."));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -77,8 +91,10 @@ export default function ContractorNetwork() {
         discover_method: "SEARCH",
       });
       await load();
+      return true;
     } catch (err) {
       setActionError(apiErrorMessage(err, "That request could not be sent again."));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -97,7 +113,7 @@ export default function ContractorNetwork() {
   const isContractor = user?.role === "CONTRACTOR";
 
   return (
-    <div className="space-y-6">
+    <div className="contractor-network-page space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
@@ -109,7 +125,7 @@ export default function ContractorNetwork() {
             onClick={() => setRequesting(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
           >
-            <UserPlus className="h-4 w-4" /> Request a connection
+            <Search className="h-4 w-4" /> Find contractor
           </button>
         )}
       </header>
@@ -152,30 +168,36 @@ export default function ContractorNetwork() {
 
           {loading ? (
             <LoadingState label="Loading your network…" />
+          ) : tab === "PENDING" ? (
+            <div className="space-y-4">
+              {[['Requests received', grouped.PENDING.filter(row => row.viewer_authority === 'RECIPIENT')], ['Requests sent', grouped.PENDING.filter(row => row.viewer_authority === 'REQUESTER')]].map(([title, requests]) => <section key={title} className="space-y-3"><h2 className="text-base font-bold">{title} <span className="text-sm font-normal text-slate-500">({requests.length})</span></h2>{requests.length ? requests.map(row => <NetworkListRow key={row.id} {...rowDetails(row)} row={row} busy={busy} onView={(action) => { setActionError(''); setViewing({row,action}); }} onAccept={() => act(row,'accept')} />) : <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">No {title.toLowerCase()}.</p>}</section>)}
+            </div>
           ) : grouped[tab].length === 0 ? (
             <EmptyState
-              title={tab === "PENDING" ? "No pending requests" : `No ${tab.toLowerCase()} yet`}
+              title={tab === "CONNECTED" ? "No contractors yet" : "No history yet"}
               description={
                 tab === "CONNECTED"
-                  ? "Request a contractor to start sending work to each other."
+                  ? "Find a contractor, review their profile and send a connection request."
                   : "Nothing to show here."
               }
             />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
               {grouped[tab].map((row) => (
-                <ConnectionCard
+                <NetworkListRow
                   key={row.id}
+                  {...rowDetails(row)}
                   row={row}
                   busy={busy}
-                  onAct={act}
-                  onRequestAgain={requestAgain}
+                  onView={(action) => { setActionError(''); setViewing({row,action}); }}
                 />
               ))}
             </div>
           )}
         </>
       )}
+
+      {viewing && <ContractorNetworkProfile {...rowDetails(viewing.row)} row={viewing.row} initialAction={viewing.action} busy={busy} error={actionError} onClose={() => setViewing(null)} onAct={async (...args) => { if (await act(...args)) setViewing(null); }} onRequestAgain={async (...args) => { if (await requestAgain(...args)) setViewing(null); }} />}
 
       {requesting && (
         <RequestConnection
@@ -193,7 +215,24 @@ export default function ContractorNetwork() {
   );
 }
 
+function NetworkListRow({row,profile,stats,busy,onView,onAccept}) {
+  const other=connectionCounterparty(row);
+  const received=row.status==='PENDING' && row.viewer_authority==='RECIPIENT';
+  return <article className="network-list-row flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4">
+    <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-bold">{other.label}</h3><p className="mt-1 text-xs text-slate-500">{row.status==='CONNECTED' ? profile?.service_areas || profile?.work_skills || '' : row.status==='PENDING' ? received ? 'Request received' : 'Request sent · Waiting for acceptance' : row.status.replaceAll('_',' ')}</p></div>
+    {row.status === 'CONNECTED' && <div className="network-list-summary"><dl><div><dt>Completed</dt><dd>{stats?.completed ?? '—'}</dd></div><div><dt>Active projects</dt><dd>{stats?.active ?? '—'}</dd></div></dl><p>Projects together</p><ContractorContactLinks mobile={profile?.mobile} /></div>}
+    <div className="flex flex-wrap items-center gap-2">{row.status !== 'CONNECTED' && <StatusBadge status={row.status} />}<button type="button" onClick={() => onView(null)} className="network-view-link">View profile</button>{received && <><button type="button" disabled={busy} onClick={onAccept} className="min-h-11 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Accept</button><button type="button" disabled={busy} onClick={() => onView('reject')} className="min-h-11 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50">Reject</button></>}</div>
+  </article>;
+}
+
 function RequestConnection({ existing, user, onClose, onCreated }) {
+  const dialogRef = useRef(null);
+  const backRef = useRef(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); };
+  }, []);
   const [directory, setDirectory] = useState([]);
   const [search, setSearch] = useState("");
   const [work, setWork] = useState("");
@@ -211,6 +250,9 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
   const [form, setForm] = useState({ message: "", discover_method: "SEARCH" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (selected) backRef.current?.focus();
+  }, [selected]);
 
   useEffect(() => {
     api
@@ -330,14 +372,11 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <div
-        role="dialog" aria-modal="true" aria-labelledby="connection-dialog-title"
-        className="connection-dialog flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
-      >
+      <dialog ref={dialogRef} onCancel={onClose} aria-labelledby="connection-dialog-title" className="connection-dialog network-profile-dialog network-portfolio-dialog">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b px-4 py-4 sm:px-6">
           <div>
-            <h2 id="connection-dialog-title" className="text-xl font-bold">Request a connection</h2>
+            <h2 id="connection-dialog-title" className="text-xl font-bold">{selected ? 'Contractor profile' : 'Find contractor'}</h2>
+            <p className="mt-1 text-sm text-slate-500">Review their work and service areas before sending a connection request.</p>
             
           </div>
           <button type="button" onClick={onClose} aria-label="Close connection window" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border text-slate-500 hover:bg-slate-50">
@@ -347,6 +386,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
 
         <div className="min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
         {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        {!selected && <>
         <form onSubmit={runSearch} className="rounded-2xl border border-slate-200 p-4">
         <h3 className="mb-3 font-bold">Find a contractor</h3>
 
@@ -393,7 +433,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
         </div>
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button type="button" onClick={clearSearch} disabled={locating} className="min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50">Clear filters</button>
-          <button type="submit" disabled={directoryLoading || locating || busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-2 text-sm font-bold text-white hover:bg-[#12577f] disabled:opacity-50"><Search className="h-4 w-4" />{locating ? "Searching…" : "Search contractors"}</button>
+          <button type="submit" disabled={directoryLoading || locating || busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-2 text-sm font-bold text-white hover:bg-[#12577f] disabled:opacity-50"><Search className="h-4 w-4" />{locating ? "Searching…" : "Find contractor"}</button>
         </div>
         </form>
         <div className="mt-4 rounded-2xl border border-slate-200 p-4">
@@ -404,38 +444,10 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
 
         <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
           {!directoryLoading && !searchingDistance && matches.map((row) => (
-            <label
-              key={row.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
-                selected?.id === row.id ? "border-slate-900" : ""
-              }`}
-            >
-              <input
-                type="radio"
-                name="contractor"
-                className="mt-1 h-4 w-4 shrink-0 accent-[#176b9b]"
-                checked={selected?.id === row.id}
-                onChange={() => setSelected(row)}
-              />
-              <span className="min-w-0 break-words">
-                <span className="block font-bold">{row.company_name}</span>
-                <span className="block text-sm text-slate-500">
-                  {row.owner_name} · {row.bharath_id}
-                </span>
-                <span className="block text-xs text-slate-500">
-                  {[
-                    row.years_in_business ? `${row.years_in_business} yrs` : null,
-                    row.number_of_painters ? `${row.number_of_painters} painters` : null,
-                    row.service_areas,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-                <span className="mt-1 block text-xs text-slate-600">{row.mobile}</span>
-                <span className="mt-1 block text-xs text-slate-600">{[...(row.services || []), row.work_skills].filter(Boolean).join(", ")}</span>
-                {appliedFilters.radius && Number.isFinite(distances[row.id]) && <span className="mt-1 block text-xs font-semibold text-blue-700">Approx. {distances[row.id].toFixed(1)} km away</span>}
-              </span>
-            </label>
+            <article key={row.id} className="rounded-xl border p-3">
+            <div className="min-w-0"><h3 className="font-bold">{row.company_name || row.owner_name}</h3><p className="text-sm text-slate-600">{row.owner_name}</p><p className="text-xs text-slate-600">{row.service_areas}</p><p className="text-xs text-slate-600">{[...(row.services || []),row.work_skills].filter(Boolean).join(', ')}</p></div>
+            <button type="button" onClick={() => setSelected(row)} className="mt-2 min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]" aria-label={`View profile of ${row.company_name || row.owner_name}`}>View profile</button>
+            </article>
           ))}
           {!directoryLoading && !searchingDistance && matches.length === 0 && (
             <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
@@ -444,8 +456,13 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           )}
         </div>
 
+        </>}
+        {selected && <>
+          <button ref={backRef} type="button" onClick={() => setSelected(null)} className="network-back">Back to contractors</button>
+          <ContractorProfileAdapter profile={selected} onBack={() => setSelected(null)} />
         <div className="mt-4 space-y-3">
-          <h3 className="font-bold">Connection details</h3>
+          <p className="text-sm text-slate-600">Connect with this contractor to work together.</p>
+          <details><summary className="text-sm font-semibold cursor-pointer py-2">Add a message (optional)</summary>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">How did you find them</span>
             <select
@@ -469,11 +486,12 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
               onChange={(event) => setForm({ ...form, message: event.target.value })}
               placeholder="We need a waterproofing partner for terrace work in Whitefield."
             />
-          </label>
+          </label></details>
         </div>
+        </>}
         </div>
 
-        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t bg-slate-50 px-4 py-4 sm:px-6">
+        <div className="network-request-footer flex shrink-0 flex-wrap justify-end gap-2 border-t bg-slate-50 px-4 py-4 sm:px-6">
           <button
             type="button"
             onClick={onClose}
@@ -481,7 +499,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           >
             Cancel
           </button>
-          <button
+          {selected && <button
             type="button"
             onClick={submit}
             disabled={busy || !selected || searchingDistance}
@@ -489,9 +507,8 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           >
             <Send className="h-4 w-4" />
             {busy ? "Sending…" : "Send request"}
-          </button>
+          </button>}
         </div>
-      </div>
-    </div>
+      </dialog>
   );
 }

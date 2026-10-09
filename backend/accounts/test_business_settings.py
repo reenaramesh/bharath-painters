@@ -1,4 +1,6 @@
 import json
+from io import BytesIO
+from PIL import Image
 from unittest.mock import patch
 
 from django.urls import reverse
@@ -29,6 +31,27 @@ class BusinessSettingsTests(APITestCase):
         self.assertEqual(response.data["company"]["company_name"], "Original")
         self.assertEqual(response.data["provider"]["team_size"], 12)
         self.assertEqual(response.data["provider"]["service_claims"][0]["note"], "Existing note")
+
+    @override_settings(STORAGES={**settings.STORAGES, "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"}})
+    def test_background_upload_position_public_image_and_removal(self):
+        image = BytesIO()
+        Image.new("RGB", (80, 40), "blue").save(image, format="PNG")
+        upload = SimpleUploadedFile("background.png", image.getvalue(), content_type="image/png")
+        position = {"x": 30, "y": 60, "zoom": 1.4}
+        response = self.client.patch(self.url, {"company": json.dumps({"profile_background_position": position}), "provider": "{}", "profile_background": upload}, format="multipart")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["company"]["profile_background_position"], position)
+        self.assertIn("/profile-images/background/", response.data["company"]["profile_background"])
+        self.company.refresh_from_db()
+        self.assertEqual(self.company.company_name, "Original")
+        public = self.client.get(reverse("profile-image", kwargs={"kind": "background", "object_id": self.company.pk}))
+        self.assertEqual(public.status_code, 200)
+        self.assertEqual(public["Content-Type"], "image/png")
+        public.close()
+        response = self.client.patch(self.url, {"company": {"profile_background": None}}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.company.refresh_from_db()
+        self.assertFalse(self.company.profile_background)
 
     def test_company_and_provider_save_together(self):
         response = self.client.patch(self.url, {"company": {"company_name": "Updated", "service_areas": "Mysuru", "years_in_business": 9}, "provider": {"headline": "Specialist", "team_size": 15}}, format="json")

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import {
   ArrowRight,
   Building2,
@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "../api/client";
+import { dashboardWithInvoiceCount } from "../utils/dashboardInvoiceCount.js";
 import useAuth from "../context/useAuth";
 import ContractorDashboard from "./ContractorDashboard";
 import AdminDashboard from "./AdminDashboard";
@@ -30,15 +31,20 @@ export default function Dashboard() {
     }
     setLoading(true);
     try {
-      const [dashboardResponse, billingResponse] = await Promise.all([
+      const [dashboardResponse, billingResponse, invoiceResponse] = await Promise.all([
         api.get(
           user.role === "PAINTER"
             ? "/jobs/applicator-dashboard/"
             : "/quotations/contractor-crm/dashboard/",
         ),
         api.get("/billing/me/"),
+        user.role === "CONTRACTOR"
+          ? api.get("/quotations/invoices/").catch(() => null)
+          : Promise.resolve(null),
       ]);
-      setData(dashboardResponse.data);
+      setData(user.role === "CONTRACTOR"
+        ? dashboardWithInvoiceCount(dashboardResponse.data, invoiceResponse?.data)
+        : dashboardResponse.data);
       setBilling(billingResponse.data);
       setError("");
     } catch {
@@ -175,6 +181,7 @@ function ApplicatorActiveCount({ value }) {
 }
 
 function ApplicatorDashboard({ data, onRefresh }) {
+  const { employmentStatus = "loading" } = useOutletContext() || {};
   const c = data.counts;
   return (
     <div className="painter-portal-page painter-dashboard-page space-y-4 sm:space-y-7">
@@ -271,13 +278,13 @@ function ApplicatorDashboard({ data, onRefresh }) {
             <ClipboardList className="h-4 w-4" />
             Open My Assignments
           </Link>
-          <Link
-            to="/jobs"
+          {["freelance", "in-house"].includes(employmentStatus) && <Link
+            to={employmentStatus === "in-house" ? "/in-house-applicators" : "/jobs"}
             className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-3 font-semibold"
           >
             <ArrowRight className="h-4 w-4" />
-            Find available jobs
-          </Link>
+            {employmentStatus === "in-house" ? "View My Employment" : "Find available jobs"}
+          </Link>}
         </section>
       </div>
     </div>

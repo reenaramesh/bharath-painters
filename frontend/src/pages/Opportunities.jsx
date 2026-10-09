@@ -241,7 +241,7 @@ export function OpportunityCard({ item }) {
           </p>
           <Link
             to={`/opportunities/${item.id}`}
-            className="mt-0.5 block truncate text-lg font-bold text-slate-900 hover:text-amber-700"
+            className="mt-0.5 block break-words text-lg font-bold text-slate-900 hover:text-amber-700"
           >
             {item.title}
           </Link>
@@ -252,7 +252,7 @@ export function OpportunityCard({ item }) {
         {item.customer_name}
         <span className="font-normal text-slate-400"> · {item.customer_mobile}</span>
       </p>
-      <p className="mt-0.5 truncate text-sm text-slate-500">
+      <p className="mt-0.5 break-words text-sm text-slate-500">
         {item.property_name || item.service_name}
       </p>
       <div className="crm-opportunity-card-metadata">

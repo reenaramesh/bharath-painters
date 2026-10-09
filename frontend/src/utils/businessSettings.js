@@ -2,17 +2,19 @@ import { serviceBranding } from "./serviceBranding";
 import { DEFAULT_PROFILE_IMAGE_POSITION, normalizeProfileImagePosition } from "./profileImagePosition";
 
 export const COMPANY_FIELDS = [
-  "mobile", "email", "company_name", "owner_name", "company_logo_shape", "company_logo_position", "profile_photo_position", "office_address", "service_areas", "work_skills", "gst_number", "pan_number", "years_in_business", "default_measurement_unit",
+  "mobile", "email", "company_name", "owner_name", "company_logo_shape", "company_logo_position", "profile_photo_position", "office_address", "service_areas", "work_skills", "gst_number", "pan_number", "years_in_business", "business_established_date", "default_measurement_unit",
   "bank_account_name", "bank_account_number", "bank_name", "bank_branch", "bank_ifsc", "upi_id", "website", "google_business_url", "facebook_url", "instagram_url", "pinterest_url", "whatsapp_number",
   "pdf_color_template", "pdf_font_template", "pdf_custom_primary_color", "pdf_custom_accent_color", "pdf_custom_text_color", "app_primary_color", "app_accent_color",
 ];
 const PROVIDER_FIELDS = ["headline", "about", "base_location", "team_size", "workspace_name_override", "tagline", "accepts_subcontract_work", "network_opt_in"];
-const FILE_FIELDS = { company_logo: "company_logo", owner_photo: "profile_photo", gst_document: "gst_document", business_document: "business_document" };
+const FILE_FIELDS = { company_logo: "company_logo", owner_photo: "profile_photo", profile_background: "profile_background", gst_document: "gst_document", business_document: "business_document" };
 
 export function businessSettingsForm({ company, provider }) {
   return {
     ...company, ...Object.fromEntries(PROVIDER_FIELDS.map((key) => [key, provider[key] ?? (key === "team_size" ? 0 : key === "network_opt_in" ? true : key === "accepts_subcontract_work" ? false : "")])),
     company_logo_position: normalizeProfileImagePosition(company.company_logo_position || DEFAULT_PROFILE_IMAGE_POSITION),
+    profile_background_position: normalizeProfileImagePosition(company.profile_background_position || DEFAULT_PROFILE_IMAGE_POSITION),
+    profile_background_url: company.profile_background || "",
     profile_photo_position: normalizeProfileImagePosition(company.profile_photo_position || DEFAULT_PROFILE_IMAGE_POSITION),
     core_service: provider.core_service ? String(provider.core_service) : "",
     additional_services: [...new Set((provider.additional_services || []).map(String))].filter((id) => id !== String(provider.core_service)),
@@ -46,13 +48,14 @@ export function settingsCatalogue(categories, descriptions, provider) {
 function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 export function businessSettingsPayload({ form, saved, files, republish = false }) {
   const company = {}, provider = {};
+  if (!same(form.profile_background_position, saved.profile_background_position)) company.profile_background_position = form.profile_background_position;
   for (const key of COMPANY_FIELDS) {
-    if (!same(form[key], saved[key])) company[key] = key === "years_in_business" ? Number(form[key] || 0) : form[key];
+    if (!same(form[key], saved[key])) company[key] = key === "years_in_business" ? Number(form[key] || 0) : key === "business_established_date" ? form[key] || null : form[key];
   }
   for (const key of PROVIDER_FIELDS) {
     if (!same(form[key], saved[key])) provider[key] = key === "team_size" ? Number(form[key] || 0) : form[key];
   }
-  if (!same(form.extra_social_links, saved.extra_social_links)) company.extra_social_links = form.extra_social_links.map(({ label, url }) => ({ label, url }));
+  if (!same(form.extra_social_links, saved.extra_social_links)) company.extra_social_links = form.extra_social_links.map(({ label, url, icon }) => ({ label, url, ...(icon ? { icon } : {}) }));
   if (form.password) company.password = form.password;
   const servicesChanged = !same(form.core_service, saved.core_service) || !same(form.additional_services, saved.additional_services) || !same(form.sub_services, saved.sub_services);
   if (servicesChanged) {

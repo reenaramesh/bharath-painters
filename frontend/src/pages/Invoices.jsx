@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { invoiceSavePayload } from "../utils/invoiceSavePayload.js";
 import { previewPdf } from "../components/PdfPreview";
 import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./finance-pages.css";
@@ -118,13 +119,16 @@ export default function Invoices() {
     [items, search, datePreset, dateFrom, dateTo],
   );
   function chooseDatePreset(value) { const today=new Date(); setDatePreset(value); if(value==="ALL"){setDateFrom("");setDateTo("");} if(value==="TODAY"){const date=dateKey(today);setDateFrom(date);setDateTo(date);} if(value==="LAST_7"){const start=new Date(today);start.setDate(today.getDate()-6);setDateFrom(dateKey(start));setDateTo(dateKey(today));} if(value==="THIS_MONTH"){setDateFrom(dateKey(new Date(today.getFullYear(),today.getMonth(),1)));setDateTo(dateKey(today));} }
+  function openInvoice(invoice) {
+    setEditing({ ...invoice, base_items: invoice.base_items || invoice.items || [], measurement_adjustments: invoice.measurement_adjustments || [] });
+  }
   async function save(e) {
     e.preventDefault();
     setSaving(true);
     try {
       const { data } = await api.patch(
         `/quotations/invoices/${editing.id}/`,
-        editing,
+        invoiceSavePayload(editing),
       );
       setEditing(data);
       setItems((list) => list.map((x) => (x.id === data.id ? data : x)));
@@ -273,8 +277,8 @@ export default function Invoices() {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate font-bold text-slate-950">
-                      {invoice.invoice_number}
+                    <h2 className="font-bold text-slate-950">
+                      <button type="button" onClick={() => openInvoice(invoice)} aria-label={`View invoice ${invoice.invoice_number}`} className="min-h-11 max-w-full rounded-md text-left font-bold text-blue-700 break-words hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">{invoice.invoice_number}</button>
                     </h2>
                    <p className="mt-1 truncate text-sm text-slate-500">
                       {invoice.quotation_number ? `From ${invoice.quotation_number} · ` : "Direct invoice · "}{formatInvoiceDate(invoice.invoice_date)}
@@ -299,7 +303,7 @@ export default function Invoices() {
               <div className="flex gap-2 border-t border-slate-100 p-3">
                 <button
                   type="button"
-                  onClick={() => setEditing({ ...invoice, base_items: invoice.base_items || invoice.items || [], measurement_adjustments: invoice.measurement_adjustments || [] })}
+                  onClick={() => openInvoice(invoice)}
                   className="h-11 flex-1 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
                 >
                   {invoice.can_edit ? "View / Edit" : "View invoice"}
@@ -342,7 +346,7 @@ export default function Invoices() {
               {visible.map((x) => (
                 <tr key={x.id}>
                   <td className="p-4">
-                    <b>{x.invoice_number}</b>
+                    <button type="button" onClick={() => openInvoice(x)} aria-label={`View invoice ${x.invoice_number}`} className="min-h-11 max-w-full rounded-md text-left font-bold text-blue-700 break-words hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">{x.invoice_number}</button>
                     <small className="block text-slate-500">
                       {x.quotation_number ? `From ${x.quotation_number}` : "Direct invoice"}
                     </small>
@@ -362,7 +366,7 @@ export default function Invoices() {
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <button onClick={() => setEditing({ ...x, base_items: x.base_items || x.items || [], measurement_adjustments: x.measurement_adjustments || [] })} className="min-h-11 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">{x.can_edit ? "View / Edit" : "View invoice"}</button>
+                      <button onClick={() => openInvoice(x)} className="min-h-11 rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">{x.can_edit ? "View / Edit" : "View invoice"}</button>
                       {x.status !== "CANCELLED" && Number(x.amount_paid) > 0 && <button onClick={() => downloadReceipt(x)} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><ReceiptText className="h-4 w-4" />Receipt</button>}
                     </div>
                   </td>

@@ -4408,6 +4408,7 @@ class AdminOperationsDashboardView(APIView):
         message_rows = [{
             "id": item.id,
             "conversation": item.conversation_id,
+            "contractor_id": item.conversation.contractor_id,
             "contractor": item.conversation.contractor.get_full_name() or item.conversation.contractor.mobile,
             "customer": item.conversation.customer.name if item.conversation.customer else (item.conversation.painter.get_full_name() or item.conversation.painter.mobile),
             "customer_bharath_id": item.conversation.customer.bharath_id if item.conversation.customer else item.conversation.painter.bharath_id,
@@ -4827,6 +4828,7 @@ class ContractorCrmDashboardView(APIView):
                 "active_leads": connected_customer_records.exclude(customer_status__in=(Customer.Status.WON, Customer.Status.LOST, Customer.Status.CANCELLED)).count(),
                 "properties": Property.objects.filter(contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED, contractor_hidden_at__isnull=True).count(),
                 "quotations": quotations.count(),
+                "invoices": contractor_invoice_scope(request.user).count(),
                 "quotation_value": quotations.exclude(status__in=(Quotation.Status.REJECTED, Quotation.Status.CANCELLED, Quotation.Status.EXPIRED)).aggregate(total=models.Sum("grand_total"))["total"] or Decimal("0"),
                 "site_visits": visits.count() + visit_followups.count(),
                 "due_tasks": tasks.filter(next_follow_up__lte=now).count(),
@@ -6909,7 +6911,10 @@ class InvoiceDetailView(APIView):
             if field in request.data:setattr(item,field,Decimal(str(request.data[field] or 0)))
         for field in ["payment_mode", "payment_reference"]:
             if field in request.data:setattr(item,field,request.data[field] or "")
-        if item.amount_paid > 0 and not item.payment_mode:
+        # Ledger-backed payments have individual modes, not a summary mode.
+        # Only a direct payment-summary update must supply the legacy mode.
+        changes_payment = bool(requested_fields & {"amount_paid", "payment_mode", "payment_reference"})
+        if changes_payment and item.amount_paid > 0 and not item.payment_mode:
             return Response({"payment_mode": "Select the payment mode when recording an amount received."}, status=status.HTTP_400_BAD_REQUEST)
         recalculate_invoice(item,request.data.get("base_items",request.data.get("items",item.base_items or item.items)),request.data.get("measurement_adjustments",item.measurement_adjustments));item.save();return Response(invoice_payload(item))
     def delete(self,request,pk):

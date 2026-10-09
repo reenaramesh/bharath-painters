@@ -7,6 +7,8 @@ import BackButton from "../components/BackButton";
 import SearchableSelect from "../components/SearchableSelect";
 import { Button, ErrorState, LoadingState, PageHeader, SectionCard } from "../components/ui";
 import "./quotation-measurement.css";
+import GroupedQuotationDraftEditor from "../components/GroupedQuotationDraftEditor";
+import { isGroupedDraft } from "../utils/groupedQuotationDraft";
 
 export default function QuotationEdit() {
   const { id } = useParams();
@@ -27,10 +29,13 @@ export default function QuotationEdit() {
   const [mobileItemId, setMobileItemId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [savedQuotation, setSavedQuotation] = useState(null);
   useEffect(() => {
+    setSavedQuotation(null);
     api
       .get(`/quotations/${id}/`)
       .then(async ({ data }) => {
+        const params = isGroupedDraft(data) ? { measurement: data.measurement_record } : undefined;
         setForm({
           quotation_type: data.quotation_type,
           status: data.status,
@@ -54,8 +59,8 @@ export default function QuotationEdit() {
           (data.rooms || []).map((room) => room.property_room).filter(Boolean),
         );
         const [rooms, measures, masterServices, masterPaintTypes, masterBrands, masterUnits, masterDescriptions, masterCategories, masterRooms] = await Promise.all([
-          api.get(`/quotations/properties/${data.property}/rooms/`),
-          api.get(`/quotations/properties/${data.property}/measurements/`),
+          api.get(`/quotations/properties/${data.property}/rooms/`, { params }),
+          api.get(`/quotations/properties/${data.property}/measurements/`, { params }),
           api.get("/quotations/service-types/"),
           api.get("/quotations/paint-types/"),
           api.get("/quotations/brands/"),
@@ -81,6 +86,7 @@ export default function QuotationEdit() {
         // Rebuilding room lines from current measurements here caused existing
         // and newly added room services to collapse into the same full-house lines.
         setItems((data.items || []).map((item) => ({ ...item })));
+        setSavedQuotation(data);
       })
       .catch(() => setError("Quotation could not be loaded."));
   }, [id]);
@@ -316,8 +322,14 @@ export default function QuotationEdit() {
       setSaving(false);
     }
   }
-  if (!form)
+  if (!form || !savedQuotation)
     return error ? <ErrorState message={error} /> : <LoadingState label="Loading quotation for editing..." />;
+  if (isGroupedDraft(savedQuotation)) {
+    const details = savedQuotation.items.find((item) => item.specification_details?.measurement_version)?.specification_details;
+    return <GroupedQuotationDraftEditor key={id} quotation={savedQuotation} form={form} setForm={setForm}
+      measurement={{ id: savedQuotation.measurement_record, version: details?.measurement_version || 1, rooms: propertyRooms, surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR") }}
+      masters={{ categories, paintTypes, brands, units, descriptions }} />;
+  }
   return (
     <div className="mx-auto max-w-5xl space-y-6 quotation-measurement-page bp-quotation-edit">
       <BackButton fallback={`/quotations/${id}`} label="Back to quotation" />

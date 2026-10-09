@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   CalendarPlus,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import {useSearchParams} from 'react-router-dom';
 import {
   Button,
   EmptyState,
@@ -43,6 +44,9 @@ const empty = {
 
 export default function ServiceRequests() {
   const { user } = useAuth();
+  const [searchParams]=useSearchParams();
+  const isAppointment = searchParams.get('appointment') === '1';
+  const prefilledRequest=useRef('');
   const isCustomer = user?.role === "CUSTOMER";
   const [requests, setRequests] = useState([]);
   const [options, setOptions] = useState([]);
@@ -94,6 +98,20 @@ export default function ServiceRequests() {
     () => options.find((item) => String(item.customer) === String(form.customer)),
     [form.customer, options],
   );
+  useEffect(()=>{
+    if(!isCustomer || searchParams.get('create')!=='1') return;
+    const requestedContractor=searchParams.get('contractor');
+    const requestKey = `${requestedContractor}:${searchParams.get('appointment') || ''}:${searchParams.get('service') || ''}`;
+    if(prefilledRequest.current===requestKey) return;
+    const selected=options.find(option=>option.contractor_id===searchParams.get('contractor'));
+    if(selected){
+      const serviceName = searchParams.get('service');
+      const service = selected.services?.find(item => item.name === serviceName);
+      prefilledRequest.current=requestKey;
+      setForm({...empty,customer:String(selected.customer),address:selected.default_address||'',service_type:service ? String(service.id) : '',title:searchParams.get('appointment') === '1' ? `Appointment request${serviceName ? ` - ${serviceName}` : ''}` : serviceName || ''});
+      setShowForm(true);
+    }
+  },[isCustomer,options,searchParams]);
 
   function chooseContractor(value) {
     const option = options.find((item) => String(item.customer) === value);
@@ -375,9 +393,9 @@ export default function ServiceRequests() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="bp-eyebrow">Customer request</p>
-                <h2 className="mt-1 text-xl font-bold">New service request</h2>
+                <h2 className="mt-1 text-xl font-bold">{isAppointment ? 'Book Appointment' : 'New service request'}</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Tell your contractor what work you need.
+                  {isAppointment ? 'Choose a preferred date and describe the visit. Your contractor will confirm the appointment.' : 'Tell your contractor what work you need.'}
                 </p>
               </div>
               <button
@@ -444,6 +462,8 @@ export default function ServiceRequests() {
               <Field label="Preferred date">
                 <input
                   type="date"
+                  required={isAppointment}
+                  min={isAppointment ? new Date().toLocaleDateString('en-CA') : undefined}
                   value={form.preferred_date}
                   onChange={(event) =>
                     setForm({ ...form, preferred_date: event.target.value })

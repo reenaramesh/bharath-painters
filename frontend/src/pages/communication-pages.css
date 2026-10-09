@@ -77,7 +77,7 @@
   background: #fff;
 }
 
-.service-requests-page .service-request-filters > label {
+.service-requests-page .service-request-filters > label:not(.sr-only) {
   min-height: 46px;
   border: 1px solid var(--communication-line);
   background: #f8fafc;
@@ -502,7 +502,7 @@
     padding: 12px;
   }
 
-  .service-requests-page .service-request-filters > label {
+  .service-requests-page .service-request-filters > label:not(.sr-only) {
     width: 100%;
   }
 

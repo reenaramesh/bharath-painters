@@ -1,7 +1,7 @@
 import useAuth from "../context/useAuth";
 import { menuEnabled, menuRouteEnabled } from "../utils/menuVisibility";
 import { Link } from "react-router-dom";
-import { ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, ClipboardList, FileText, MessageCircle, Phone, Plus, RefreshCw, UserRoundPlus, Users } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, ClipboardList, FileText, MessageCircle, Phone, Plus, ReceiptText, RefreshCw, UserRoundPlus, Users } from "lucide-react";
 import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -29,6 +29,7 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
     [Users, "Customers", c.customers, `${c.active_leads ?? 0} active leads`, "/customers"],
     [Building2, "Properties", c.properties, "Sites in your workspace", "/properties"],
     [FileText, "Quotations", c.quotations, `${money(c.quotation_value)} total value`, "/quotations"],
+    [ReceiptText, "Invoices", c.invoices ?? "—", "View your customer invoices", "/invoices"],
   ];
   const dueTasks = Number(c.due_tasks || 0);
 

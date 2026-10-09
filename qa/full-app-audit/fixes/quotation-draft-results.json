@@ -1,0 +1,47 @@
+{
+  "steps": [
+    {
+      "field": "Type of service",
+      "value": "24"
+    },
+    {
+      "field": "Brand",
+      "value": "12"
+    },
+    {
+      "field": "Product",
+      "value": "57"
+    },
+    {
+      "step": "Product assignment save enabled",
+      "status": "PASS",
+      "selectedFields": [
+        {
+          "name": "Type of service\nQA Painting\nPlumbing\nCleaning\nCarpentry",
+          "value": "24"
+        },
+        {
+          "name": "Brand\nSelect brand\nQA Paint Brand\nAsian paints\nBergerpaints\nNippon paints\nIndigo paints\nDulux\nBirla Opus",
+          "value": "12"
+        },
+        {
+          "name": "Product\nSelect product\nQA Premium Emulsion",
+          "value": "57"
+        },
+        {
+          "name": "Primer Coats\n0\n1\n2\n3\n4\n5\n6",
+          "value": "0"
+        },
+        {
+          "name": "Paint Coats\n1\n2\n3\n4\n5\n6",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "step": "Measured quotation reaches final review at all widths",
+      "status": "PASS",
+      "persistence": "NOT TESTED \u2014 no save/send submitted"
+    }
+  ]
+}

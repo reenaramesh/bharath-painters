@@ -6,7 +6,7 @@ import { offerPayload, offerServices, sendScopeOffer } from '../utils/subcontrac
 
 const control = 'w-full min-w-0 rounded-xl border border-slate-300 px-3 py-2.5';
 
-export default function CreateSubcontractOffer({ initialQuotation = '', onClose, onCreated }) {
+export default function CreateSubcontractOffer({ initialQuotation = '', initialContractor = '', onClose, onCreated }) {
   const [quotations, setQuotations] = useState([]);
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,10 +42,12 @@ export default function CreateSubcontractOffer({ initialQuotation = '', onClose,
       const rows = Array.isArray(quotes.data) ? quotes.data : quotes.data?.results || [];
       setQuotations(rows.filter(row => !['CANCELLED', 'REJECTED'].includes(row.status)));
       setConnections(Array.isArray(contacts.data) ? contacts.data : contacts.data?.results || []);
+      const contactsList=Array.isArray(contacts.data)?contacts.data:contacts.data?.results||[];
+      if(initialContractor && contactsList.some(row=>row.can_send_work_order && String(connectionCounterparty(row).id)===String(initialContractor))) setForm(current=>({...current,receiving_contractor:current.receiving_contractor || String(initialContractor)}));
     }).catch(err => { if (active) setCatalogueError(apiErrorMessage(err, 'Quotations and contractors could not be loaded.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [reload]);
+  }, [reload,initialContractor]);
 
   useEffect(() => {
     let active = true;

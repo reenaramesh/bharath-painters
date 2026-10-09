@@ -181,12 +181,12 @@ export default function SharePropertyDialog({ open, onClose, propertyId, propert
   const isUnknown = lookup && !lookup.found && !lookup.account_conflict;
   const needsAccessForm = !invitationPending && (isUnknown || (lookup?.found && (!existingActive || editingAccess)));
 
-  return <dialog ref={dialogRef} onClose={() => { if (open) close(); }} onCancel={close} aria-labelledby="share-property-title" className="m-auto w-[min(94vw,38rem)] max-h-[92dvh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-slate-950/50">
-    <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Project overview</p><h2 id="share-property-title" className="mt-1 text-xl font-extrabold">Share access</h2><p className="mt-1 text-sm text-slate-600">{propertyName || "Property"}</p></div>
+  return <dialog ref={dialogRef} onClose={() => { if (open) close(); }} onCancel={close} aria-labelledby="share-property-title" className="property-share-dialog m-auto w-[min(94vw,38rem)] max-h-[92dvh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-slate-950/50">
+    <div className="property-share-header sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6">
+      <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Project overview</p><h2 id="share-property-title" className="mt-1 text-xl font-extrabold">Share access</h2><p className="mt-1 text-sm text-slate-600">{propertyName || "Property"}</p></div>
       <button type="button" onClick={close} aria-label="Close share access" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border text-slate-600 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b]"><X aria-hidden="true" className="h-5 w-5" /></button>
     </div>
-    <div className="space-y-5 p-5 sm:p-6">
+    <div className="property-share-body space-y-5 p-5 sm:p-6">
       <form onSubmit={searchMobile} className="space-y-3">
         <label htmlFor="share-property-mobile" className="block text-sm font-bold text-slate-800">Mobile number</label>
         <div className="flex gap-2">
@@ -199,7 +199,7 @@ export default function SharePropertyDialog({ open, onClose, propertyId, propert
       {notice && <p role="status" aria-live="polite" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">{notice}</p>}
 
       {lookup?.found && <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-label="Existing Bharath customer">
-        <div className="flex items-start gap-3"><UserRoundCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" /><div><p className="text-sm font-bold text-emerald-900">Existing Bharath customer found</p><p className="mt-1 font-semibold text-slate-950">{lookup.customer.name}</p><p className="mt-1 text-sm text-slate-700">{lookup.customer.mobile} · Customer ID: {lookup.customer.bharath_id}</p></div></div>
+        <div className="flex items-start gap-3"><UserRoundCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" /><div className="min-w-0"><p className="text-sm font-bold text-emerald-900">Existing Bharath customer found</p><p className="mt-1 font-semibold text-slate-950">{lookup.customer.name}</p><p className="mt-1 text-sm text-slate-700">{lookup.customer.mobile} · Customer ID: {lookup.customer.bharath_id}</p></div></div>
         {existingActive && <div className="mt-4 rounded-lg bg-white/80 p-3 text-sm"><p className="font-semibold">Already has access</p><p className="mt-1">{accessName(lookup.contact.access_level)}{lookup.contact.relationship ? ` · ${relationshipName(lookup.contact.relationship)}` : ""}</p></div>}
         {existingPending && <p className="mt-3 text-sm font-semibold text-amber-900">Property access request pending customer acceptance.</p>}
       </section>}
@@ -228,7 +228,7 @@ export default function SharePropertyDialog({ open, onClose, propertyId, propert
         <p className="mt-1 text-sm text-emerald-900">{name.trim()}</p>
         <p className="text-sm text-emerald-900">{lookup?.normalized_mobile || mobile}</p>
         <label htmlFor="share-property-invite-url" className="mt-4 block text-sm font-semibold text-slate-800">Signup link</label>
-        <input id="share-property-invite-url" readOnly value={inviteUrl} onFocus={(event) => event.target.select()} className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" />
+        <textarea rows={3} id="share-property-invite-url" readOnly value={inviteUrl} onFocus={(event) => event.target.select()} className="property-share-invite-link mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(inviteUrl); setNotice("Invitation link copied."); } catch { setError("Select and copy the invitation link above."); } }} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b]">Copy Invitation Link</button>
           <a href={`https://wa.me/?text=${encodeURIComponent(`Join ${propertyName || "this property"} on Bharath Apps: ${inviteUrl}`)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-emerald-300 bg-white px-4 text-sm font-bold text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b]">Share via WhatsApp</a>

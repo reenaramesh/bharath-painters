@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import "./styles/mobile-responsive.css";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";

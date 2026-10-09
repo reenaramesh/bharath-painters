@@ -1,0 +1,580 @@
+{
+  "mode": "before",
+  "checks": [
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "{'labels': [], 'required': True}"
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "Named modal dialog missing"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "Call action unnamed"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": {
+        "viewport": 1440,
+        "document": 1440,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "{'labels': [], 'required': True}"
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "Named modal dialog missing"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "Call action unnamed"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "{'viewport': 360, 'document': 400, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "{'labels': [], 'required': True}"
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "Named modal dialog missing"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "Call action unnamed"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "{'viewport': 390, 'document': 430, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "{'labels': [], 'required': True}"
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "Named modal dialog missing"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "Call action unnamed"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "{'viewport': 430, 'document': 470, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "PASS",
+      "details": {
+        "viewport": 1440,
+        "document": 1440,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "Contractor-only reschedule destination remains in customer menu"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "FAIL",
+      "details": "{'viewport': 360, 'document': 400, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "FAIL",
+      "details": "Contractor-only reschedule destination remains in customer menu"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "FAIL",
+      "details": "{'viewport': 390, 'document': 430, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "FAIL",
+      "details": "Contractor-only reschedule destination remains in customer menu"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "FAIL",
+      "details": "{'viewport': 430, 'document': 470, 'label': 1}"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "FAIL",
+      "details": "Contractor-only reschedule destination remains in customer menu"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "PASS",
+      "details": [
+        {
+          "name": "Export all people",
+          "w": 177.1875,
+          "h": 50
+        },
+        {
+          "name": "Release old deleted numbers",
+          "w": 266.140625,
+          "h": 50
+        },
+        {
+          "name": "Add contractor",
+          "w": 160.0625,
+          "h": 50
+        },
+        {
+          "name": "Refresh data",
+          "w": 149.609375,
+          "h": 50
+        }
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "FAIL",
+      "details": "[{'name': 'Export all people', 'w': 77, 'h': 218}, {'name': 'Release old deleted numbers', 'w': 77, 'h': 218}, {'name': 'Add contractor', 'w': 75, 'h': 218}, {'name': 'Refresh data', 'w': 77, 'h': 218}]"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "FAIL",
+      "details": "[{'name': 'Export all people', 'w': 84.5, 'h': 194}, {'name': 'Release old deleted numbers', 'w': 84.5, 'h': 194}, {'name': 'Add contractor', 'w': 82.5, 'h': 194}, {'name': 'Refresh data', 'w': 84.5, 'h': 194}]"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "FAIL",
+      "details": "[{'name': 'Export all people', 'w': 94.5, 'h': 170}, {'name': 'Release old deleted numbers', 'w': 94.5, 'h': 170}, {'name': 'Add contractor', 'w': 92.5, 'h': 170}, {'name': 'Refresh data', 'w': 94.5, 'h': 170}]"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "FAIL",
+      "details": "['/jobs', '/painter-assignments', '/applicator-bookings', '/applicator-availability', '/in-house-earnings', '/messages', '/colors-shades', '/settings']"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "FAIL",
+      "details": "['/jobs', '/painter-assignments', '/applicator-bookings', '/applicator-availability', '/in-house-earnings', '/messages', '/colors-shades', '/settings']"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "FAIL",
+      "details": "['/jobs', '/painter-assignments', '/applicator-bookings', '/applicator-availability', '/in-house-earnings', '/messages', '/colors-shades', '/settings']"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 1440,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "FAIL",
+      "details": "profile ignored Escape"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "FAIL",
+      "details": "notifications ignored Escape"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    }
+  ],
+  "runtimeErrors": []
+}

@@ -459,6 +459,9 @@ class ContractorProfile(models.Model):
         default=LogoShape.RECTANGLE,
     )
     company_logo_position = models.JSONField(default=dict, blank=True)
+    profile_background = models.ImageField(upload_to="contractors/backgrounds/", blank=True, null=True)
+    profile_background_position = models.JSONField(default=dict, blank=True)
+    business_established_date = models.DateField(blank=True, null=True)
     pdf_color_template = models.CharField(
         max_length=12,
         choices=PdfColorTemplate.choices,

@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.19.0",
+    "html-to-image": "^1.11.13",
     "i18next": "^26.4.2",
     "india-pincode": "^2.5.9",
     "lucide-react": "^1.31.0",

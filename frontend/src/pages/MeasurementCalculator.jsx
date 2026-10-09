@@ -538,7 +538,7 @@ function RoomTotalsTable({ data }) {
   return <section className="mt-5 overflow-hidden rounded-2xl border border-[#e1e7ef] bg-white shadow-sm">
     <h2 className="px-4 py-4 text-base font-extrabold">All room measurements</h2>
     {data.rows.length ? <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Measurements for all rooms and surfaces">
-      <table className="w-full text-left text-xs sm:text-sm">
+      <table data-mobile-table="keep" className="w-full text-left text-xs sm:text-sm">
         <caption className="sr-only">Rooms, balconies and other areas with measured surfaces only. Values in square feet. Opening columns show measured opening areas for reference; they are already included in the surface adjustments.</caption>
         <thead className="bg-[#f5f8fc]"><tr><th scope="col" className="p-3">Room / area</th>{data.columns.map((column) => <th key={column.key} scope="col" className="whitespace-nowrap p-3 text-right">{column.label}</th>)}<th scope="col" className="whitespace-nowrap p-3 text-right">Net area</th></tr></thead>
         <tbody className="divide-y">{data.rows.map((row) => <tr key={row.id}><th scope="row" className="p-3 font-semibold">{row.name}</th>{data.columns.map((column) => <td key={column.key} className="whitespace-nowrap p-3 text-right tabular-nums">{column.key in row.values ? areaText(row.values[column.key]) : "—"}</td>)}<td className="whitespace-nowrap p-3 text-right font-bold tabular-nums">{areaText(row.net)}</td></tr>)}</tbody>

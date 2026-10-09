@@ -1,0 +1,30 @@
+[
+  {
+    "width": 1440,
+    "list": true,
+    "profile": true,
+    "sentAndReceived": true,
+    "rejectMock": true
+  },
+  {
+    "width": 360,
+    "list": true,
+    "profile": true,
+    "sentAndReceived": true,
+    "rejectMock": true
+  },
+  {
+    "width": 390,
+    "list": true,
+    "profile": true,
+    "sentAndReceived": true,
+    "rejectMock": true
+  },
+  {
+    "width": 430,
+    "list": true,
+    "profile": true,
+    "sentAndReceived": true,
+    "rejectMock": true
+  }
+]

@@ -71,6 +71,16 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
     .filter((room) => !assignedGroup(state.groups, room.id, draft.surface, draft.id) && roomContribution(measurement, state.specials, room.id, draft.surface).quantity > 0)
     .map((room) => room.id);
   const allRoomsSelected = availableRoomIds.length > 0 && availableRoomIds.every((id) => draft.room_ids.includes(id));
+  const surfaceBalances = special ? [] : availableSurfaces.map((surface) => {
+    const remainingRooms = measurement.rooms.filter((room) =>
+      !assignedGroup(state.groups, room.id, surface, draft.id)
+      && !(surface === draft.surface && draft.room_ids.includes(room.id))
+      && roomContribution(measurement, state.specials, room.id, surface).quantity > 0);
+    return {
+      surface, rooms: remainingRooms,
+      quantity: remainingRooms.reduce((sum, room) => sum + roomContribution(measurement, state.specials, room.id, surface).quantity, 0),
+    };
+  });
   const toggleAllRooms = () => {
     setError("");
     setDraft((current) => ({ ...current, room_ids: allRoomsSelected ? [] : [...availableRoomIds] }));
@@ -96,6 +106,15 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
     {stage === 0 ? <>
       {special ? <label>Select Room<select value={draft.room_id} onChange={(event) => setDraft((current) => ({ ...current, room_id: Number(event.target.value), surface_ids: [] }))}>{measurement.rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
         : <label>1. Select Surface<select value={draft.surface} onChange={(event) => setDraft((current) => ({ ...current, surface: event.target.value, room_ids: [] }))}>{surfaceOptions(measurement).map((type) => <option key={type} value={type}>{surfaceLabel(type)}</option>)}</select></label>}
+      {!special && <section className="gq-surface-balances" aria-label="Remaining surface areas">
+        <h3>Remaining surface areas</h3>
+        <p>Available after saved assignments and your current selection.</p>
+        <div className="gq-surface-balance-grid">{surfaceBalances.map((balance) => <div key={balance.surface} data-surface={balance.surface} className="gq-surface-balance">
+          <strong>{surfaceLabel(balance.surface)}</strong>
+          <span>Remaining: {number(balance.quantity)} sqft</span>
+          <p>{balance.rooms.length ? balance.rooms.map((room) => room.name).join(", ") : "No remaining rooms"}</p>
+        </div>)}</div>
+      </section>}
       <h3>{special ? "Select Individual Measured Walls" : "2. Select Multiple Rooms"}</h3>
       {!special && <div className="gq-select-all"><button type="button" disabled={!availableRoomIds.length} onClick={toggleAllRooms}>{allRoomsSelected ? "Clear selection" : "Select all"}</button><span>{availableRoomIds.length} available rooms</span></div>}
       <div className="gq-room-list">{special ? walls.map((wall) => {
@@ -143,16 +162,15 @@ function AssignmentCard({ line, onEdit, onDelete, onContributions }) {
   const { masters, squareFeetUnit } = useContext(AssignmentContext);
   return <article className="gq-assignment-card">
     <div className="gq-assignment-row">
-      <div className="gq-assignment-scope"><h3>{line.name}</h3><p>{line.scope}</p></div>
+      <div className="gq-assignment-scope"><h3>{line.name}</h3><p>{line.contributions.length > 0 ? <button type="button" className="gq-room-surface-trigger" aria-label={`View rooms for ${line.name}`} aria-haspopup="dialog" onClick={onContributions}>{line.scope}</button> : line.scope}</p></div>
       <div><span className="gq-row-label">Type of service</span><span>{labelFor(masters.categories, line.spec.service_category)}</span></div>
-      <div><span className="gq-row-label">Surface</span><span className="gq-tag">{line.surface_label}</span></div>
+      <div><span className="gq-row-label">Surface</span>{line.contributions.length > 0 ? <button type="button" className="gq-tag gq-room-surface-trigger" aria-label={`View surface for ${line.name}`} aria-haspopup="dialog" onClick={onContributions}>{line.surface_label}</button> : <span className="gq-tag">{line.surface_label}</span>}</div>
       <div><span className="gq-row-label">Brand</span><span>{labelFor(masters.brands, line.spec.paint_brand)}</span></div>
       <div><span className="gq-row-label">Product</span><strong>{labelFor(masters.paintTypes, line.spec.paint_type)}</strong></div>
       <div><span className="gq-row-label">Area</span><b className="gq-assignment-area">{number(line.quantity)} {labelFor(masters.units, line.unit || squareFeetUnit)}</b></div>
       <div><span className="gq-row-label">Coats</span><span>{line.kind === "service" ? "Not applicable" : `Primer ${line.spec.primer_coats} + Paint ${line.spec.coats}`}</span></div>
       <div className="gq-actions gq-assignment-actions"><button onClick={onEdit}><Pencil size={16} />Edit</button><button onClick={onDelete}><Trash2 size={16} />Delete</button></div>
     </div>
-    {line.contributions.length > 0 && <button type="button" className="gq-contribution-trigger" aria-haspopup="dialog" onClick={onContributions}>Room contribution details</button>}
 
   </article>;
 }
@@ -174,7 +192,7 @@ function MeasurementTables({ measurement, onView }) {
   </section>)}{!tables.length && <p className="gq-measurement-none">No measurements saved yet.</p>}</div>;
 }
 
-export default function GroupedQuotationWorkspace({ measurement, masters, state, onChange, phase = "assignments", extraActions = null, displayMeasurement = null, requestedEditor = null, onEditorRequestHandled = null }) {
+export default function GroupedQuotationWorkspace({ measurement, masters, state, onChange, phase = "assignments", showMeasurements = true, extraActions = null, displayMeasurement = null, requestedEditor = null, onEditorRequestHandled = null }) {
   const [editor, setEditor] = useState(null);
   const [recordRoom, setRecordRoom] = useState(null);
   const [detailId, setDetailId] = useState(null);
@@ -200,19 +218,19 @@ export default function GroupedQuotationWorkspace({ measurement, masters, state,
   const area = lines.filter((line) => line.kind !== "service").reduce((sum, line) => sum + line.quantity, 0);
   return <AssignmentContext.Provider value={{ measurement, masters, defaultSpec, squareFeetUnit, initialRoomIds }}><div className="gq-workspace">
     <p role="status" aria-live="polite" className="gq-notice">{notice}</p>
+    {(phase === "measurements" || (phase === "assignments" && showMeasurements)) && <section className="gq-panel"><div className="gq-heading"><h2>Measurements</h2></div>
+      <MeasurementTables measurement={displayMeasurement || measurement} onView={setRecordRoom} />
+    </section>}
     {phase === "assignments" && <>
-      <section className="gq-panel"><div className="gq-heading"><h2>Measurements</h2></div>
-        <MeasurementTables measurement={displayMeasurement || measurement} onView={setRecordRoom} />
-      </section>
       <section className="gq-panel"><div className="gq-heading"><h2>Services &amp; Product</h2><div className="gq-actions"><button type="button" className="primary" onClick={() => setEditor({ kind: "group" })}><Plus size={18} />Create Paint Areas</button><button type="button" onClick={() => setEditor({ kind: "service" })}><Plus size={18} />Add General Service</button>{extraActions}</div></div>
         <dl className="gq-assignment-summary"><div><dt>Paint areas</dt><dd>{state.groups.length}</dd></div><div><dt>Special walls</dt><dd>{state.specials.length}</dd></div><div><dt>Assigned rooms</dt><dd>{roomCount} <small>of {measurement.rooms.length}</small></dd></div><div><dt>Assigned area</dt><dd>{number(area)} <small>sqft</small></dd></div></dl>
         {!lines.length && <div className="gq-empty"><p>Create a paint areas to assign measured rooms, or add a general service.</p></div>}
         {lines.length > 0 && <div className="gq-assignment-list"><div className="gq-assignment-columns" aria-hidden="true">{["Paint Areas / Rooms", "Type of service", "Surface", "Brand", "Product", "Area", "Coats", "Actions"].map((label) => <span key={label}>{label}</span>)}</div>{lines.map((line) => <AssignmentCard key={line.id} line={line} onEdit={() => edit(line)} onDelete={() => { onChange(deleteAssignment(state, line.id, line.kind)); setNotice("Assignment deleted. Remaining areas recalculated."); }} onContributions={() => setContributionId(line.id)} />)}</div>}
       </section>
     </>}
-    {phase === "final" && <div className="gq-panel"><div className="gq-final-lines"><div className="gq-final-columns" aria-hidden="true">{["Area / Service", "Rooms", "Product", "Description", "Quantity", "Rate", "Amount", ""].map((label) => <span key={label}>{label}</span>)}</div>{pricing.map((line) => <article key={line.id} className="gq-final-row"><h3 className="gq-final-name">{line.name}</h3><p className="gq-final-scope">{line.scope}</p><b className="gq-final-product">{line.spec.paint_type ? labelFor(masters.paintTypes, line.spec.paint_type) : line.spec.description || "Service"}</b><span className="gq-final-description">{line.spec.description || line.name}</span><span className="gq-final-quantity">{number(line.quantity)} {labelFor(masters.units, line.unit || squareFeetUnit)}</span><span className="gq-final-rate">{line.rate_valid ? money(Number(line.rate)) : "Rate needed"}</span><strong className="gq-final-amount">{money(line.amount)}</strong><div className="gq-final-actions"><button type="button" className="gq-final-details" aria-label={`View details for ${line.name}`} onClick={() => setDetailId(line.id)}><Eye size={18} /></button><button type="button" className="gq-final-details" aria-label={`Edit ${line.name}`} onClick={() => edit(line)}><Pencil size={18} /></button></div></article>)}</div>{!pricing.length && <p>No assignments yet. Return to Services &amp; Product to add work.</p>}</div>}
+    {phase === "final" && <div className="gq-panel"><div className="gq-final-lines"><div className="gq-final-columns" aria-hidden="true">{["Area / Service", "Rooms", "Product", "Description", "Quantity", "Rate", "Amount", ""].map((label) => <span key={label}>{label}</span>)}</div>{pricing.map((line) => <article key={line.id} className="gq-final-row"><h3 className="gq-final-name">{line.name}</h3><p className="gq-final-scope">{line.contributions.length > 0 ? <button type="button" className="gq-room-surface-trigger" aria-label={`View rooms for ${line.name}`} aria-haspopup="dialog" onClick={() => setContributionId(line.id)}>{line.scope}</button> : line.scope}</p><b className="gq-final-product">{line.spec.paint_type ? labelFor(masters.paintTypes, line.spec.paint_type) : line.spec.description || "Service"}</b><span className="gq-final-description">{line.spec.description || line.name}</span><span className="gq-final-quantity">{number(line.quantity)} {labelFor(masters.units, line.unit || squareFeetUnit)}</span><span className="gq-final-rate">{line.rate_valid ? money(Number(line.rate)) : "Rate needed"}</span><strong className="gq-final-amount">{money(line.amount)}</strong><div className="gq-final-actions"><button type="button" className="gq-final-details" aria-label={`View details for ${line.name}`} onClick={() => setDetailId(line.id)}><Eye size={18} /></button><button type="button" className="gq-final-details" aria-label={`Edit ${line.name}`} onClick={() => edit(line)}><Pencil size={18} /></button></div></article>)}</div>{!pricing.length && <p>No assignments yet. Return to Services &amp; Product to add work.</p>}</div>}
     {recordRoom && <Dialog className="gq-measurement-dialog" title={`Original measurement records - ${recordRoom.name}`} onClose={() => setRecordRoom(null)} footer={<button type="button" className="special-wall-primary" onClick={() => setRecordRoom(null)}>Close</button>}><div className="gq-room-record-card"><table className="gq-room-record-table" data-mobile-table="keep" aria-label={`Measurements for ${recordRoom.name}`}><thead><tr>{["Surface", "L", "W / H", "Deduction", "Addition", "Total"].map((label) => <th scope="col" key={label} data-no-sort="true" aria-label={label === "L" ? "Length" : label === "W / H" ? "Width or height" : undefined}>{label}{["Deduction", "Addition", "Total"].includes(label) && <small>sqft</small>}</th>)}</tr></thead><tbody>{(recordRoom.surfaces || measurement.surfaces.filter((surface) => String(surface.room) === String(recordRoom.id))).map((surface) => <tr key={surface.id}><th scope="row">{surface.name || surfaceLabel(surfaceKey(surface))}</th><td>{surface.length == null ? "\u2014" : number(surface.length)}</td><td>{surface.breadth == null ? "\u2014" : number(surface.breadth)}</td><td>{number(surface.deduction_area || 0)}</td><td>{number(surface.addition_area || 0)}</td><td>{number(surface.net_area || 0)}</td></tr>)}</tbody></table></div></Dialog>}
-    {contribution && <Dialog title={`Room contribution details - ${contribution.name}`} onClose={() => setContributionId(null)} footer={<button type="button" className="special-wall-primary" onClick={() => setContributionId(null)}>Close</button>}><table className="gq-records-table"><thead><tr><th scope="col">Room / Area</th><th scope="col">Assigned area</th></tr></thead><tbody>{contribution.contributions.map((entry) => <tr key={entry.room_id}><th scope="row">{entry.room_name}</th><td>{number(entry.quantity)} sqft</td></tr>)}</tbody></table><strong>Total: {number(contribution.quantity)} sqft</strong></Dialog>}
+    {contribution && <Dialog title={`Room & surface details - ${contribution.name}`} onClose={() => setContributionId(null)} footer={<button type="button" className="special-wall-primary" onClick={() => setContributionId(null)}>Close</button>}><table className="gq-records-table"><thead><tr><th scope="col">Room / Area</th><th scope="col">Assigned area</th></tr></thead><tbody>{contribution.contributions.map((entry) => <tr key={entry.room_id}><th scope="row">{entry.room_name}</th><td>{number(entry.quantity)} sqft</td></tr>)}</tbody></table><strong>Total: {number(contribution.quantity)} sqft</strong></Dialog>}
     {detail && <Dialog title={detail.name} onClose={() => setDetailId(null)} footer={<button type="button" className="special-wall-primary" onClick={() => setDetailId(null)}>Close</button>}><dl className="gq-final-detail-list">{[["Room / Area", detail.scope], ["Type of service", labelFor(masters.categories, detail.spec.service_category)], ["Product", labelFor(masters.paintTypes, detail.spec.paint_type)], ["Brand", labelFor(masters.brands, detail.spec.paint_brand)], ["Description / treatment", detail.spec.description || detail.name], ["Quantity", `${number(detail.quantity)} ${labelFor(masters.units, detail.unit || squareFeetUnit)}`], ...(detail.kind !== "service" ? [["Coats", `Primer ${detail.spec.primer_coats} + Paint ${detail.spec.coats}`]] : []), ["Rate", detail.rate_valid ? money(Number(detail.rate)) : "Rate needed"], ["Amount", money(detail.amount)]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></Dialog>}
     {editor?.kind === "service" && <GeneralServiceDialog editor={editor} state={state} onSave={save} onClose={() => setEditor(null)} />}
     {editor && editor.kind !== "service" && <AssignmentDialog editor={editor} state={state} onSave={save} onClose={() => setEditor(null)} />}

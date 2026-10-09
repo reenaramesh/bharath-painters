@@ -1,0 +1,736 @@
+{
+  "mode": "after",
+  "checks": [
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": {
+        "labels": [
+          "Owner name *"
+        ],
+        "required": true
+      }
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": "Named native modal; forward/backward Tab containment; Escape and opener focus restoration verified"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": "Lead contact/detail actions have accessible names"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": {
+        "viewport": 1440,
+        "document": 1440,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 1440,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": {
+        "labels": [
+          "Owner name *"
+        ],
+        "required": true
+      }
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": "Named native modal; forward/backward Tab containment; Escape and opener focus restoration verified"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": "Lead contact/detail actions have accessible names"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": {
+        "viewport": 360,
+        "document": 360,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 360,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": {
+        "labels": [
+          "Owner name *"
+        ],
+        "required": true
+      }
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": "Named native modal; forward/backward Tab containment; Escape and opener focus restoration verified"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": "Lead contact/detail actions have accessible names"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "document": 390,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 390,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-002",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": {
+        "labels": [
+          "Owner name *"
+        ],
+        "required": true
+      }
+    },
+    {
+      "issue": "UI-001",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": "Named native modal; forward/backward Tab containment; Escape and opener focus restoration verified"
+    },
+    {
+      "issue": "UI-004",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": "Lead contact/detail actions have accessible names"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": {
+        "viewport": 430,
+        "document": 430,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CONTRACTOR",
+      "width": 430,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "PASS",
+      "details": {
+        "viewport": 1440,
+        "document": 1440,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 1440,
+      "status": "PASS",
+      "details": "Customer retains work schedules; contractor-only reschedule link absent"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "PASS",
+      "details": {
+        "viewport": 360,
+        "document": 360,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 360,
+      "status": "PASS",
+      "details": "Customer retains work schedules; contractor-only reschedule link absent"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "document": 390,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 390,
+      "status": "PASS",
+      "details": "Customer retains work schedules; contractor-only reschedule link absent"
+    },
+    {
+      "issue": "UI-003",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "PASS",
+      "details": {
+        "viewport": 430,
+        "document": 430,
+        "label": 1
+      }
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-005",
+      "role": "CUSTOMER",
+      "width": 430,
+      "status": "PASS",
+      "details": "Customer retains work schedules; contractor-only reschedule link absent"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 1440,
+      "status": "PASS",
+      "details": [
+        {
+          "name": "Export all people",
+          "w": 177.1875,
+          "h": 50
+        },
+        {
+          "name": "Release old deleted numbers",
+          "w": 266.140625,
+          "h": 50
+        },
+        {
+          "name": "Add contractor",
+          "w": 160.0625,
+          "h": 50
+        },
+        {
+          "name": "Refresh data",
+          "w": 149.609375,
+          "h": 50
+        }
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 360,
+      "status": "PASS",
+      "details": [
+        {
+          "name": "Export all people",
+          "w": 163,
+          "h": 98
+        },
+        {
+          "name": "Release old deleted numbers",
+          "w": 163,
+          "h": 98
+        },
+        {
+          "name": "Add contractor",
+          "w": 163,
+          "h": 50
+        },
+        {
+          "name": "Refresh data",
+          "w": 163,
+          "h": 50
+        }
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 390,
+      "status": "PASS",
+      "details": [
+        {
+          "name": "Export all people",
+          "w": 178,
+          "h": 74
+        },
+        {
+          "name": "Release old deleted numbers",
+          "w": 178,
+          "h": 74
+        },
+        {
+          "name": "Add contractor",
+          "w": 178,
+          "h": 50
+        },
+        {
+          "name": "Refresh data",
+          "w": 178,
+          "h": 50
+        }
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-007",
+      "role": "ADMIN",
+      "width": 430,
+      "status": "PASS",
+      "details": [
+        {
+          "name": "Export all people",
+          "w": 198,
+          "h": 74
+        },
+        {
+          "name": "Release old deleted numbers",
+          "w": 198,
+          "h": 74
+        },
+        {
+          "name": "Add contractor",
+          "w": 198,
+          "h": 50
+        },
+        {
+          "name": "Refresh data",
+          "w": 198,
+          "h": 50
+        }
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 1440,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 1440,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008-current-work",
+      "role": "PAINTER_INHOUSE",
+      "width": 1440,
+      "status": "PASS",
+      "details": "Current work leads to My Employment rather than marketplace jobs"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "PASS",
+      "details": [
+        "/in-house-applicators",
+        "/painter-assignments",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-008-current-work",
+      "role": "PAINTER_INHOUSE",
+      "width": 360,
+      "status": "PASS",
+      "details": "Current work leads to My Employment rather than marketplace jobs"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "PASS",
+      "details": [
+        "/in-house-applicators",
+        "/painter-assignments",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-008-current-work",
+      "role": "PAINTER_INHOUSE",
+      "width": 390,
+      "status": "PASS",
+      "details": "Current work leads to My Employment rather than marketplace jobs"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "PASS",
+      "details": [
+        "/in-house-applicators",
+        "/painter-assignments",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-008-current-work",
+      "role": "PAINTER_INHOUSE",
+      "width": 430,
+      "status": "PASS",
+      "details": "Current work leads to My Employment rather than marketplace jobs"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 1440,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 1440,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 360,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 390,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    },
+    {
+      "issue": "UI-006-profile",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "PASS",
+      "details": "profile Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-006-notifications",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "PASS",
+      "details": "notifications Escape dismisses and restores trigger focus"
+    },
+    {
+      "issue": "UI-008",
+      "role": "PAINTER_FREELANCE",
+      "width": 430,
+      "status": "PASS",
+      "details": [
+        "/jobs",
+        "/painter-assignments",
+        "/applicator-bookings",
+        "/applicator-availability",
+        "/in-house-earnings",
+        "/messages",
+        "/colors-shades",
+        "/settings"
+      ]
+    }
+  ],
+  "runtimeErrors": []
+}

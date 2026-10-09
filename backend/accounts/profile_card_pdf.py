@@ -66,7 +66,7 @@ def _line(pdf, value, x, y, max_width, size=10, leading=14, color=NAVY, max_line
     return y
 
 
-def render_contractor_card_pdf(user, card, profile_url):
+def render_contractor_card_pdf(user, card, profile_url, language="en"):
     profile = user.contractor_profile
     output = BytesIO()
     pdf = canvas.Canvas(output, pagesize=A4)
@@ -197,6 +197,8 @@ def render_contractor_card_pdf(user, card, profile_url):
             pdf.setFillColor(NAVY)
             pdf.setFont("Helvetica-Bold", 8)
             pdf.drawString(cursor_x + chip + 5, row_bottom + chip / 2 - 3, label)
+            if link.get("url"):
+                pdf.linkURL(link["url"], (cursor_x, row_bottom, cursor_x + item_width, row_bottom + chip), relative=0, thickness=0)
             cursor_x += item_width
         profile_y = row_bottom - 14
         pdf.setStrokeColor(LINE)
@@ -295,4 +297,38 @@ def render_contractor_card_pdf(user, card, profile_url):
                     pdf.drawString(45, y - 39 - index * 12, line)
                 y -= card_height + 10
     pdf.save()
-    return output.getvalue()
+    content = output.getvalue()
+    return content if language == "en" else _profile_in_script(content, card, language)
+
+
+def _profile_in_script(content, card, language):
+    """Replace system copy in-place; preserve the card's artwork and user data."""
+    from quotations.transliteration import system_text
+
+    labels = {
+        "About the work", "Completed projects", "COMPLETED PROJECTS", "YEARS IN BUSINESS",
+        "WORKERS", "Work skills", "Service areas", "Service areas not added", "Not added",
+        "Photo not added", "No completed projects added yet.", "Contact & verify", "FIND US",
+        "View more projects on the online profile.", "Project work & customer reviews",
+        "Customer reviews", "COMPLETED ON", "APARTMENT / GATED COMMUNITY", "ADDRESS",
+        "LOCATION", "PIN CODE", "PROJECT DETAILS", "WORK COMPLETED",
+        str(card.get("profession_label", "Contractor")).upper(),
+    }
+
+    def script_copy(source):
+        if source in labels:
+            return system_text(source, language)
+        for prefix in ("Mobile: ", "Email: ", "Profile: ", "Verified by "):
+            if source.startswith(prefix):
+                return system_text(prefix, language) + source[len(prefix):]
+        if source.endswith(" verified profile"):
+            return source[:-len(" verified profile")] + system_text(" verified profile", language)
+        if source.endswith(" reviews") and source[:1].isdigit():
+            return source[:-len(" reviews")] + system_text(" reviews", language)
+        title_prefix = str(card.get("title", "")) + " "
+        if source.startswith(title_prefix + "serves "):
+            return title_prefix + system_text("serves ", language) + source[len(title_prefix + "serves "):]
+        return source
+
+    from quotations.pdf_script import localize_pdf_copy
+    return localize_pdf_copy(content, language, script_copy)

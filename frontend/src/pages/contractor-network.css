@@ -1,3 +1,17 @@
+.contractor-network-page, .network-profile-dialog {
+  --network-ink: #172033;
+  --network-muted: #526577;
+  --network-accent: #176b9b;
+  --network-soft: #edf7f7;
+  --network-line: #dce3eb;
+  --network-radius: 12px;
+  --network-s: 8px;
+  --network-m: 16px;
+  --network-l: 24px;
+  --network-small: 12px;
+  --network-body: 14px;
+  --network-title: 24px;
+}
 .connection-dialog input:not([type="radio"]):not([type="range"]),
 .connection-dialog select,
 .connection-dialog textarea {
@@ -12,6 +26,53 @@
   color: #0f172a;
   font-size: 14px;
 }
+.network-profile-dialog { width: min(720px, calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 1px solid #dce3eb; border-radius: 16px; background: white; color: #172033; }
+.network-profile-dialog[open] { display: flex; flex-direction: column; }
+.network-portfolio-dialog { width: min(1000px,calc(100% - 32px)); }
+.network-view-link { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 16px; border: 1px solid var(--network-line); border-radius: var(--network-radius); font-size: 12px; font-weight: 600; color: var(--network-accent); }
+.network-list-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; padding: 16px; }
+.network-list-summary { display: grid; grid-template-columns: auto auto; align-items: center; gap: 8px 24px; }
+.network-list-summary > p { grid-column: 1; grid-row: 2; margin: 0; font-size: 10px; }
+.network-list-summary .network-contact-links { grid-column: 2; grid-row: 1 / 3; }
+.network-list-summary dd { font-size: 16px; }
+@media (max-width: 767px) {
+  .network-list-row { grid-template-columns: minmax(0,1fr) auto; gap: 12px; }
+  .network-list-row > div:first-child { grid-column: 1; }
+  .network-list-row > div:last-child { grid-column: 2; grid-row: 1; width: auto !important; }
+  .network-list-summary { grid-column: 1 / -1; grid-template-columns: 1fr; gap: 8px; }
+  .network-list-summary .network-contact-links { grid-column: 1; grid-row: 3; }
+}
+.network-profile-dialog::backdrop { background: rgb(15 23 42 / 50%); }
+.network-profile-details { padding: var(--network-l); background: var(--network-soft); border-radius: var(--network-radius); color: var(--network-ink); }
+.network-profile-identity { display: flex; align-items: center; gap: var(--network-m); margin-bottom: var(--network-m); }
+.network-profile-identity h3 { font-size: var(--network-title); font-weight: 700; overflow-wrap: anywhere; }
+.network-profile-identity p { color: var(--network-muted); overflow-wrap: anywhere; }
+.network-profile-avatar { display: grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; background: white; border-radius: var(--network-radius); color: var(--network-accent); overflow: hidden; }
+.network-profile-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.network-contact-links { display: flex; flex-wrap: wrap; gap: var(--network-s); }
+.network-contact-links a, .network-back { display: inline-flex; align-items: center; justify-content: center; gap: var(--network-s); min-height: 44px; padding: var(--network-s) var(--network-m); border: 1px solid var(--network-line); border-radius: var(--network-radius); background: white; color: var(--network-accent); font-size: var(--network-small); font-weight: 600; }
+.network-back { margin-bottom: var(--network-m); }
+.network-contact-links a:hover, .network-back:hover { background: var(--network-soft); }
+.network-contact-links a:active, .network-back:active { transform: translateY(1px); }
+.network-profile-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--network-l); margin-top: var(--network-l); font-size: var(--network-body); }
+.network-profile-fields dt { display: flex; align-items: center; gap: var(--network-s); font-weight: 700; }
+.network-profile-fields dd { margin-top: var(--network-s); overflow-wrap: anywhere; color: var(--network-muted); }
+.network-list-summary dl, .network-project-counts { display: flex; flex-wrap: wrap; gap: var(--network-l); }
+.network-list-summary dt, .network-project-counts dt { color: var(--network-muted); font-size: var(--network-small); }
+.network-list-summary dd, .network-project-counts dd { font-size: 18px; font-weight: 700; }
+.network-list-summary > p, .network-project-counts p { font-size: var(--network-small); color: var(--network-muted); margin: var(--network-s) 0; }
+.network-project-counts { margin-top: var(--network-m); }
+.network-project-counts p { width: 100%; }
+.network-request-footer button { min-height: 44px; white-space: nowrap; font-size: var(--network-body); padding-inline: var(--network-m); }
+.contractor-network-page :is(button,a):focus-visible { outline: 3px solid var(--network-accent); outline-offset: 2px; }
+@media (max-width: 767px) {
+  .network-profile-details { padding: var(--network-m); }
+  .network-profile-fields { grid-template-columns: 1fr; gap: var(--network-m); }
+  .network-list-summary { width: 100%; }
+  .network-request-footer { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+.network-profile-dialog :is(button,a):focus-visible { outline: 3px solid #176b9b; outline-offset: 2px; }
+@media (max-width: 767px) { .network-list-row > div:last-child { width: 100%; } }
 
 .connection-dialog :is(input, select, textarea):focus-visible {
   outline: 2px solid #176b9b;

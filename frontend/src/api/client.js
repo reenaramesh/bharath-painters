@@ -1,4 +1,5 @@
 import axios from "axios";
+import { installTransientReadRecovery } from "./transientReadRecovery.js";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
@@ -69,5 +70,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+installTransientReadRecovery(api);
 
 export default api;

@@ -4,8 +4,8 @@ import { Briefcase, Handshake, Send } from "lucide-react";
 import { StatusBadge } from "./ui";
 import { connectionCounterparty, prettyDate } from "../utils/subcontract";
 
-export default function ContractorConnectionCard({ row, busy, onAct, onRequestAgain }) {
-  const [openAction, setOpenAction] = useState(null);
+export default function ContractorConnectionCard({ row, busy, onAct, onRequestAgain, initialAction = null, compact = false }) {
+  const [openAction, setOpenAction] = useState(initialAction);
   const [reason, setReason] = useState("");
   const other = connectionCounterparty(row);
   const isRecipient = row.viewer_authority === "RECIPIENT";
@@ -16,7 +16,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
 
   return (
     <article className="rounded-2xl border bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
+      {!compact && <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-lg font-bold">{other.label}</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -25,12 +25,12 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
           </p>
         </div>
         <StatusBadge status={row.status} />
-      </div>
+      </div>}
 
       {services?.length > 0 && (
         <p className="mt-2 text-xs text-slate-500">They offer: {services.join(", ")}</p>
       )}
-      {isRecipient && row.requester_details && <dl className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
+      {!compact && isRecipient && row.requester_details && <dl className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
         {[
           ["Company", row.requester_details.company_name],
           ["Owner", row.requester_details.owner_name],
@@ -50,7 +50,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
           Reason: {row.rejection_reason}
         </p>
       )}
-      {row.completed_work_orders > 0 && (
+      {!compact && row.completed_work_orders > 0 && (
         <p className="mt-3 text-xs font-semibold text-slate-600">
           {row.completed_work_orders} job{row.completed_work_orders > 1 ? "s" : ""} completed
           together
@@ -58,7 +58,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-start gap-2">
         {incomingPending && (
           <>
             <button
@@ -73,7 +73,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
               onClick={() => setOpenAction(openAction === "reject" ? null : "reject")}
               className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700"
             >
-              Decline
+              Reject
             </button>
           </>
         )}
@@ -95,7 +95,9 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
         )}
 
         {live && (
-          <>
+          <details className="connection-management">
+            <summary className="min-h-11 cursor-pointer px-3 py-2.5 text-sm font-semibold">Manage connection</summary>
+            <div className="flex flex-wrap gap-3 py-3">
             <button
               disabled={busy}
               onClick={() => onAct(row, "disconnect")}
@@ -110,7 +112,8 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
             >
               Block
             </button>
-          </>
+            </div>
+          </details>
         )}
 
         {(row.status === "REJECTED" || row.status === "DISCONNECTED") && (

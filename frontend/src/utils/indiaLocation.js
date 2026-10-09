@@ -4,7 +4,7 @@ const DATA_URL = "https://cdn.jsdelivr.net/npm/india-pincode@2.5.9/data/pincodes
 let enginePromise;
 
 export function getLocationEngine() {
-  if (!enginePromise) enginePromise = getIndiaPincode(DATA_URL);
+  if (!enginePromise) enginePromise = getIndiaPincode(DATA_URL).catch(error => { enginePromise = undefined; throw error; });
   return enginePromise;
 }
 

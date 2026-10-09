@@ -1183,12 +1183,14 @@ def _contractor_social_links(profile):
                 label, short, color = hint_label, hint_short, hint_color
                 break
         link = _social_link(label, url, short, color)
+        if link and isinstance(entry.get("icon"), str) and len(entry["icon"]) <= 24000 and entry["icon"].startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")):
+            link["icon"] = entry["icon"]
         if link and link["url"] not in {existing["url"] for existing in links}:
             links.append(link)
     return links
 
 
-def _contractor_digital_card(user, request):
+def _contractor_digital_card(user, request, *, include_draft=False):
     profile = getattr(user, "contractor_profile", None)
     if not profile:
         return None
@@ -1199,8 +1201,18 @@ def _contractor_digital_card(user, request):
         else provider.resolved_branding() if provider
         else {"platform_name": "Bharath Apps", "workspace_name": "Bharath Apps", "contractor_label": "Contractor"}
     )
+    services = []
+    if provider:
+        if provider.core_service:
+            services.append(provider.core_service.name)
+        services.extend(service.name for service in provider.additional_services.all())
+        services.extend(claim.work_description.name for claim in provider.service_claims.all() if claim.is_active and claim.work_description)
     return {
         "title": profile.company_name,
+        "about": provider.about if provider and (provider.is_published or include_draft) else "",
+        "headline": provider.headline if provider and (provider.is_published or include_draft) else "",
+        "services": list(dict.fromkeys(services)),
+        "office_address": profile.office_address,
         "platform_name": branding.get("platform_name", "Bharath Apps"),
         "profession_label": branding.get("contractor_label", "Contractor"),
         "employee_plural_label": branding.get("employee_plural_label", "Employees"),
@@ -1208,6 +1220,9 @@ def _contractor_digital_card(user, request):
         "owner_photo_position": ProfileImagePositionField().to_representation(user.profile_photo_position),
         "owner_name": profile.owner_name,
         "logo": _profile_image_url(request, profile.company_logo),
+        "background": _profile_image_url(request, profile.profile_background),
+        "background_position": ProfileImagePositionField().to_representation(profile.profile_background_position),
+        "business_established_date": getattr(profile, "business_established_date", None).isoformat() if getattr(profile, "business_established_date", None) else None,
         "owner_photo": _profile_image_url(request, user.profile_photo),
         "bharath_id": user.bharath_id,
         "verified": bool(user.is_verified and user.verification_status == BharathUser.VerificationStatus.VERIFIED),
@@ -1334,7 +1349,7 @@ class ProfileCardView(APIView):
         ))
         return Response({
             **profile,
-            "digital_card": _contractor_digital_card(user, request) if user.role == BharathUser.Roles.CONTRACTOR else None,
+            "digital_card": _contractor_digital_card(user, request, include_draft=True) if user.role == BharathUser.Roles.CONTRACTOR else None,
             "bharath_id": user.bharath_id,
             "verified": bool(user.is_verified and user.verification_status == BharathUser.VerificationStatus.VERIFIED),
             "verification_status": user.verification_status,
@@ -1974,7 +1989,7 @@ class BusinessSettingsView(APIView):
         for company_key, provider_key in (("service_areas", "service_areas"), ("years_in_business", "years_in_business"), ("number_of_painters", "team_size")):
             if company_key in company_data and provider_key in provider_data and str(company_data[company_key]) != str(provider_data[provider_key]):
                 raise ValidationError({"detail": f"Conflicting values for {company_key}."})
-        file_fields = ("company_logo", "profile_photo", "gst_document", "business_document")
+        file_fields = ("company_logo", "profile_photo", "profile_background", "gst_document", "business_document")
         for field in file_fields:
             if field in request.FILES:
                 company_data[field] = request.FILES[field]

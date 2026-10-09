@@ -77,7 +77,7 @@ export default function DashboardLayout() {
         />
 
         <main className={`bp-page-container w-full pb-28 pt-4 md:py-6 xl:py-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
-          <Outlet />
+          <Outlet context={{ employmentStatus }} />
         </main>
         <MobileBottomNav employmentStatus={employmentStatus} />
       </div>

@@ -1,0 +1,122 @@
+[
+  {
+    "width": 1440,
+    "documentWidth": 1440,
+    "overview": {
+      "left": 282,
+      "right": 1408,
+      "top": 179.578125,
+      "bottom": 267.578125
+    },
+    "shortcutWidth": null,
+    "shortcutClientWidth": null,
+    "projectColumns": "555px 555px",
+    "overflowing": [],
+    "state": "empty"
+  },
+  {
+    "width": 360,
+    "documentWidth": 360,
+    "overview": {
+      "left": 12,
+      "right": 348,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 336,
+    "shortcutClientWidth": 336,
+    "projectColumns": "336px",
+    "overflowing": [],
+    "state": "empty"
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "overview": {
+      "left": 12,
+      "right": 378,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 366,
+    "shortcutClientWidth": 366,
+    "projectColumns": "366px",
+    "overflowing": [],
+    "state": "empty"
+  },
+  {
+    "width": 430,
+    "documentWidth": 430,
+    "overview": {
+      "left": 12,
+      "right": 418,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 406,
+    "shortcutClientWidth": 406,
+    "projectColumns": "406px",
+    "overflowing": [],
+    "state": "empty"
+  },
+  {
+    "width": 1440,
+    "documentWidth": 1440,
+    "overview": {
+      "left": 282,
+      "right": 1408,
+      "top": 179.578125,
+      "bottom": 267.578125
+    },
+    "shortcutWidth": null,
+    "shortcutClientWidth": null,
+    "projectColumns": "555px 555px",
+    "overflowing": [],
+    "state": "populated"
+  },
+  {
+    "width": 360,
+    "documentWidth": 360,
+    "overview": {
+      "left": 12,
+      "right": 348,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 336,
+    "shortcutClientWidth": 336,
+    "projectColumns": "336px",
+    "overflowing": [],
+    "state": "populated"
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "overview": {
+      "left": 12,
+      "right": 378,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 366,
+    "shortcutClientWidth": 366,
+    "projectColumns": "366px",
+    "overflowing": [],
+    "state": "populated"
+  },
+  {
+    "width": 430,
+    "documentWidth": 430,
+    "overview": {
+      "left": 12,
+      "right": 418,
+      "top": 179.5625,
+      "bottom": 269.53125
+    },
+    "shortcutWidth": 406,
+    "shortcutClientWidth": 406,
+    "projectColumns": "406px",
+    "overflowing": [],
+    "state": "populated"
+  }
+]

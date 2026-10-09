@@ -1,0 +1,2436 @@
+{
+  "requests": [
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 93
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 563
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 93
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 141
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 141
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 157
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 250
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 187
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 141
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 110
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 140
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 110
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 218
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 1,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 234
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 219
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 250
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 141
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 140
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 156
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 406
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 453
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 203
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 110
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 157
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 156
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 406
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 500
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 187
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 203
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 79
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 110
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 375
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 93
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 265
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 140
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 46
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 46
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 32
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 312
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 15
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 344
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 63
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 641
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 4,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 156
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 62
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 156
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 203
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 203
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 219
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 234
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 250
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 250
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 266
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 235
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 328
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 343
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 125
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 375
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 391
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 219
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 250
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 312
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 375
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 750
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 672
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 547
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 782
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 922
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://localhost:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 594
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 16
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 94
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 188
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 235
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 282
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 266
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 281
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 344
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 359
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 391
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 375
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 469
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 187
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 406
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 500
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 531
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 547
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 343
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 281
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 391
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 375
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 359
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 797
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 1032
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 610
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 937
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 1141
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:5173",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 672
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 31
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "error": "Error",
+      "signature": [
+        "ECONNREFUSED"
+      ],
+      "milliseconds": 47
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "error": "Error",
+      "signature": [
+        "ECONNREFUSED"
+      ],
+      "milliseconds": 0
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 156
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 203
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 218
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 265
+    },
+    {
+      "path": "/accounts/menu-visibility/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 78
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 157
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 297
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 312
+    },
+    {
+      "path": "/accounts/me/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 343
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 343
+    },
+    {
+      "path": "/accounts/contractor-profile/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 157
+    },
+    {
+      "path": "/quotations/areas/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 109
+    },
+    {
+      "path": "/quotations/brands/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 140
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 437
+    },
+    {
+      "path": "/quotations/portal-notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 172
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 468
+    },
+    {
+      "path": "/quotations/service-categories/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 187
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 219
+    },
+    {
+      "path": "/quotations/notifications/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 484
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 547
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 750
+    },
+    {
+      "path": "/quotations/contractor-crm/dashboard/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 454
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 750
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 828
+    },
+    {
+      "path": "/quotations/",
+      "base": "http://127.0.0.1:8000",
+      "parallelism": 16,
+      "status": 200,
+      "server": "WSGIServer/0.2 CPython/3.10.6",
+      "contentType": "application/json",
+      "milliseconds": 516
+    }
+  ]
+}

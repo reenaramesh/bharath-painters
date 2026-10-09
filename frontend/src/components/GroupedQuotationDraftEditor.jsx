@@ -61,14 +61,16 @@ export default function GroupedQuotationDraftEditor({ quotation, form, setForm, 
         {["description", "quantity", "rate"].map((field) => <FormField key={field} label={field === "description" ? "Description" : field === "quantity" ? "Quantity" : "Rate"} type={field === "description" ? "text" : "number"} value={item[field]} min={field === "quantity" ? "0.01" : "0"} step="0.01" onChange={(event) => setExtraItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, [field]: event.target.value } : entry))} />)}
       </div>)}</div>
     </SectionCard>}
-    {phase === "final" && <SectionCard title="Quotation details">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Status" name="status" as="select" value={form.status} onChange={update}>{["DRAFT", "SENT", "VIEWED", "ACCEPTED", "REJECTED", "EXPIRED", "CONVERTED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</FormField>
-        <FormField label="Valid until" name="valid_until" type="date" value={form.valid_until} onChange={update} />
+    <SectionCard title="Discount and taxes" description="Confirm the discount and GST treatment for this quotation." className="quotation-financial-controls" bodyClassName="grid gap-4 sm:grid-cols-2">
         <FormField label="Discount type" name="discount_type" as="select" value={form.discount_type} onChange={update}><option value="FIXED">Fixed amount</option><option value="PERCENTAGE">Percentage</option></FormField>
         <FormField label="Discount" name="discount_value" type="number" min="0" step="0.01" value={form.discount_value} onChange={update} />
         <FormField label="GST mode" name="gst_mode" as="select" value={form.gst_mode} onChange={update}><option value="GST_EXTRA">GST extra</option><option value="GST_INCLUDED">GST included</option><option value="NO_GST">No GST</option></FormField>
         <FormField label="GST percentage" name="gst_percentage" type="number" min="0" value={form.gst_percentage} onChange={update} />
+    </SectionCard>
+    {phase === "final" && <SectionCard title="Quotation details">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Status" name="status" as="select" value={form.status} onChange={update}>{["DRAFT", "SENT", "VIEWED", "ACCEPTED", "REJECTED", "EXPIRED", "CONVERTED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</FormField>
+        <FormField label="Valid until" name="valid_until" type="date" value={form.valid_until} onChange={update} />
         {textFields.map(([name, label]) => <FormField key={name} label={label} name={name} as="textarea" rows={3} value={form[name]} onChange={update} />)}
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={form.show_product_key_features} onChange={(event) => setForm((current) => ({ ...current, show_product_key_features: event.target.checked }))} />Show product key features</label>
       </div>

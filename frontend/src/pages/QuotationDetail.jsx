@@ -18,7 +18,6 @@ import api from "../api/client";
 import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
-import ProjectScopesPanel from "../components/ProjectScopesPanel";
 import { profileImageStyle } from "../utils/profileImagePosition";
 import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
@@ -558,7 +557,6 @@ export default function QuotationDetail() {
           </div>
         </div>
       </section>
-      <ProjectScopesPanel quotationId={id} />
       <section className="quotation-pdf-options rounded-2xl border bg-white p-5 sm:p-6" aria-labelledby="quotation-pdf-options-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

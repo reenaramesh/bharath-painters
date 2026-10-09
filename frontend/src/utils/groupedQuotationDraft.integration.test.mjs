@@ -38,13 +38,17 @@ test('draft edit opens paint-area phase and updates the same draft on repeated e
   await act(async()=>{view=create(React.createElement(Editor,{quotation,form,setForm:()=>{},measurement,masters}));});
   const workspace=view.root.findByType('workspace');
   assert.equal(workspace.props.phase,'assignments');
+  assert.equal(view.root.findAllByProps({name:'discount_type'}).length,1,'discount type is available immediately when editing');
+  assert.equal(view.root.findAllByProps({name:'discount_value'}).length,1,'discount value is available immediately when editing');
   assert.ok(workspace.props.state.groups.length>0);
   assert.equal(view.root.findAllByType('form')[0].findAllByType('workspace').length,0,'workspace buttons cannot accidentally submit the draft');
   await act(async()=>{view.root.findAllByType('button').find(button=>button.children.includes('Continue to final quotation')).props.onClick();});
+  assert.equal(view.root.findAllByProps({name:'discount_value'}).length,1,'discount remains available in the final phase without duplicate fields');
   await act(async()=>{view.root.findByType('form').props.onSubmit({preventDefault(){}});});
   const patch=calls.at(-1);
   assert.equal(patch[0],'patch');assert.equal(patch[1],'/quotations/42/');
   assert.equal(patch[2].notes,form.notes);
+  assert.equal(patch[2].discount_value,form.discount_value);
   assert.deepEqual(patch[2].items.map(item=>item.id),quotation.items.map(item=>item.id));
   assert.equal(globalThis.__draftEditorNavigate,'/quotations/42');
   quotation={...quotation,items:patch[2].items};

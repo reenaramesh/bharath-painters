@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Bharath Apps",
+    "slug": "bharath-apps-mobile",
+    "scheme": "bharathapps",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": { "package": "com.bharathapps.mobile", "softwareKeyboardLayoutMode": "resize" },
+    "ios": { "supportsTablet": false, "bundleIdentifier": "com.bharathapps.mobile" },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": { "typedRoutes": true }
+  }
+}

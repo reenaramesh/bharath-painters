@@ -1,0 +1,7 @@
+import { Button, SegmentedButtons, Text, useTheme } from 'react-native-paper';
+import { DemoLabel, Heading, Screen, Section, State, styles } from '../components/ui';
+import { useApp } from '../providers/AppProvider';
+export function SettingsScreen() {
+  const { user, demo, themeMode, setThemeMode, logout } = useApp(); const theme = useTheme();
+  return <Screen><DemoLabel /><Heading title="Settings" subtitle="Make your workspace feel like yours." /><Section title="Appearance"><SegmentedButtons value={themeMode} onValueChange={value => setThemeMode(value as 'system' | 'light' | 'dark')} buttons={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} /><Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Applies to this session. System mode follows your phone.</Text></Section><Section title="Your account"><State title={demo ? 'Demo contractor' : user?.display_name || user?.first_name || 'Contractor'} description={demo ? 'Sample data only. No changes are sent to your account.' : `${user?.mobile || ''} · ${user?.verification_status.replaceAll('_', ' ')}`} /><Button mode="outlined" icon="logout" contentStyle={styles.control} onPress={() => void logout()}>{demo ? 'Exit demo' : 'Sign out'}</Button></Section><Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Bharath Apps · Mobile foundation 0.1.0</Text></Screen>;
+}

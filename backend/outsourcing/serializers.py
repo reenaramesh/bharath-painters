@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from decimal import Decimal
 
 from accounts.models import BharathUser
 
@@ -28,9 +29,11 @@ class SubcontractWorkOrderScopeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         viewer = self.context.get("viewer")
-        if not viewer or (viewer.id != instance.work_order.main_contractor_id and
-                          viewer.role != BharathUser.Roles.ADMIN and not viewer.is_superuser):
+        privileged = viewer and (viewer.id == instance.work_order.main_contractor_id or viewer.role == BharathUser.Roles.ADMIN or viewer.is_superuser)
+        if not instance.work_order.material_mode and not privileged:
             data.pop("unit_rate", None)
+        if not privileged:
+            data.pop("source_quotation_item",None)
         return data
 
     class Meta:
@@ -47,8 +50,10 @@ class SubcontractWorkOrderScopeSerializer(serializers.ModelSerializer):
             "unit_rate",
             "is_included",
             "sort_order",
+            "source_quotation_item",
+            "specification_snapshot",
         ]
-        read_only_fields = ["id", "category", "title_snapshot"]
+        read_only_fields = ["id", "category", "title_snapshot","source_quotation_item","specification_snapshot"]
 
 
 class WorkOrderAssignmentSerializer(serializers.ModelSerializer):
@@ -163,6 +168,16 @@ class AdditionalWorkRequestSerializer(serializers.ModelSerializer):
 
 
 class SubcontractQuoteLineSerializer(serializers.ModelSerializer):
+    discount_amount = serializers.SerializerMethodField()
+    net_amount = serializers.SerializerMethodField()
+
+    def get_discount_amount(self, obj):
+        from quotations.discounts import discount_amount
+        return str(discount_amount(obj.amount,obj.discount_type,obj.discount_value) if obj.quote.pricing.get("discount_mode") == "LINE" else Decimal("0.00"))
+
+    def get_net_amount(self, obj):
+        return str(obj.amount-Decimal(self.get_discount_amount(obj)))
+
     class Meta:
         model = SubcontractQuoteLine
         fields = [
@@ -177,8 +192,9 @@ class SubcontractQuoteLineSerializer(serializers.ModelSerializer):
             "amount",
             "is_optional",
             "sort_order",
+            "source_scope","discount_type","discount_value","discount_amount","net_amount",
         ]
-        read_only_fields = ["id", "amount"]
+        read_only_fields = ["id", "amount","source_scope","discount_type","discount_value"]
 
     def validate(self, attrs):
         quantity = attrs.get("quantity") or 0
@@ -227,6 +243,7 @@ class SubcontractQuoteSerializer(serializers.ModelSerializer):
             "created_by_name",
             "created_at",
             "updated_at",
+            "pricing",
         ]
         read_only_fields = [
             "id",
@@ -241,6 +258,7 @@ class SubcontractQuoteSerializer(serializers.ModelSerializer):
             "decision_note",
             "created_at",
             "updated_at",
+            "pricing",
         ]
 
     def get_created_by_name(self, obj):
@@ -417,8 +435,10 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
         # Older offers could have copied customer totals into this field.
         # Reveal it to recipients only once the subcontract price is confirmed.
         if not owner_or_admin:
+            data.pop("private_pricing",None)
             accepted = instance.quotes.filter(status=SubcontractQuote.Status.ACCEPTED, is_current=True).first()
-            data["agreed_amount"] = self.fields["agreed_amount"].to_representation(accepted.total) if accepted else None
+            if not instance.material_mode:
+                data["agreed_amount"] = self.fields["agreed_amount"].to_representation(accepted.total) if accepted else None
         return data
 
     scopes = SubcontractWorkOrderScopeSerializer(many=True, read_only=True)
@@ -437,6 +457,8 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
     viewer_authority = serializers.SerializerMethodField()
     allowed_transitions = serializers.SerializerMethodField()
     can_manage_people = serializers.SerializerMethodField()
+    pricing_quote = serializers.SerializerMethodField()
+    source_revision_number = serializers.SerializerMethodField()
 
     class Meta:
         model = SubcontractWorkOrder
@@ -480,6 +502,7 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
             "can_manage_people",
             "created_at",
             "updated_at",
+            "material_mode","private_pricing","pricing_quote","source_revision_number",
         ]
         read_only_fields = [
             "id",
@@ -508,6 +531,7 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
             "can_manage_people",
             "created_at",
             "updated_at",
+            "material_mode","private_pricing","pricing_quote","source_revision_number",
         ]
 
     def get_main_contractor_name(self, obj):
@@ -517,7 +541,16 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
         return user_label(obj.receiving_contractor)
 
     def get_quotation_reference(self, obj):
-        return obj.quotation.quotation_number or str(obj.quotation_id)
+        return obj.private_pricing.get("source_reference") or obj.quotation.quotation_number or str(obj.quotation_id)
+
+    def get_source_revision_number(self, obj):
+        return obj.private_pricing.get("source_revision",obj.quotation.version_number)
+
+    def get_pricing_quote(self, obj):
+        if not obj.material_mode:
+            return None
+        quote=obj.quotes.filter(is_current=True,created_by=obj.main_contractor).prefetch_related("quote_lines").first()
+        return SubcontractQuoteSerializer(quote,context=self.context).data if quote else None
 
     def get_viewer_authority(self, obj):
         from .workflow import authority_for

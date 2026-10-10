@@ -7,8 +7,6 @@ const roles = [
   ["CUSTOMER", "Customer"],
   ["CONTRACTOR", "Contractor"],
   ["PAINTER", "Employee"],
-  ["ADMIN", "Administrator"],
-  ["SUPPORT", "Support staff"],
 ];
 
 export default function ForgotPassword() {

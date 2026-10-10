@@ -120,6 +120,9 @@ def can_transition(user, work_order, target_status):
 
 @transaction.atomic
 def transition(user, work_order, target_status, note=""):
+    if work_order.material_mode:
+        SubcontractWorkOrder.objects.select_for_update().get(pk=work_order.pk)
+        work_order.refresh_from_db()
     # Corrections must go through request_correction so the note and the
     # correction record can never be skipped by the generic status endpoint.
     if target_status == SubcontractWorkOrder.Status.CORRECTION_REQUESTED:
@@ -139,6 +142,17 @@ def transition(user, work_order, target_status, note=""):
     work_order.save(
         update_fields=(["status", field, "updated_at"] if field else ["status", "updated_at"])
     )
+    if work_order.material_mode:
+        price=work_order.quotes.filter(is_current=True,created_by=work_order.main_contractor).first()
+        if price is None:
+            raise ValidationError({"pricing":"Save complete agreed pricing before changing status."})
+        if target_status == "SENT":
+            price.status=SubcontractQuote.Status.SENT;price.sent_at=now
+            price.save(update_fields=["status","sent_at","updated_at"])
+        elif target_status in {"ACCEPTED","DECLINED","WITHDRAWN"}:
+            price.status=SubcontractQuote.Status.ACCEPTED if target_status == "ACCEPTED" else SubcontractQuote.Status.REJECTED
+            price.decided_at=now;price.decision_note=note[:250]
+            price.save(update_fields=["status","decided_at","decision_note","updated_at"])
 
     WorkOrderEvent.objects.create(
         work_order=work_order,

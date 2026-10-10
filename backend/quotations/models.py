@@ -1567,6 +1567,8 @@ class Quotation(models.Model):
     # CALCULATION SETTINGS
     # -----------------------------------------------------
 
+    discount_mode = models.CharField(max_length=10, choices=(("OVERALL", "Overall"), ("LINE", "Per line")), default="OVERALL")
+
     gst_mode = models.CharField(
         max_length=20,
         choices=GSTMode.choices,
@@ -1691,6 +1693,7 @@ class Quotation(models.Model):
                 "service_areas": profile.service_areas if profile else "",
                 "gst_number": profile.gst_number if profile else "",
                 "pan_number": profile.pan_number if profile else "",
+                "website": profile.website if profile else "",
                 "is_verified": self.contractor.is_verified,
                 "verification_status": self.contractor.verification_status,
             }
@@ -2065,6 +2068,9 @@ class QuotationItem(models.Model):
     included_areas = models.JSONField(default=list, blank=True)
 
     specification_details = models.JSONField(default=dict, blank=True)
+
+    discount_type = models.CharField(max_length=20, choices=Quotation.DiscountType.choices, default=Quotation.DiscountType.FIXED)
+    discount_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     quantity = models.DecimalField(
         max_digits=12,

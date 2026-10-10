@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import { EmptyState, ErrorState, LoadingState, SectionCard, StatusBadge } from "../components/ui";
+import WorkOrderPricingPanel from "../components/WorkOrderPricingPanel";
+import { workOrderMoney } from "../utils/workOrderPricing";
 import SubcontractQuotePanel from "../components/SubcontractQuotePanel";
 import SubcontractTeamPanel from "../components/SubcontractTeamPanel";
 import SubcontractBillingPanel from "../components/SubcontractBillingPanel";
@@ -30,6 +32,7 @@ export default function SubcontractWorkOrderDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [editingPricing, setEditingPricing] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -69,7 +72,7 @@ export default function SubcontractWorkOrderDetail() {
   };
 
   const changeStatus = (status, note = "") =>
-    run(() =>
+    !editingPricing && run(() =>
       api.post(`/outsourcing/work-orders/${id}/transition/`, { status, note }),
     );
 
@@ -131,14 +134,14 @@ export default function SubcontractWorkOrderDetail() {
         )}
 
         <dl className="mt-4 grid gap-3 border-t pt-4 text-sm sm:grid-cols-4">
-          <HeaderFigure label="Pricing" value={Number(workOrder.agreed_amount) > 0 ? rupees(workOrder.agreed_amount) : "Awaiting subcontractor quote"} strong />
+          <HeaderFigure label="Pricing" value={workOrder.material_mode ? workOrderMoney(workOrder.agreed_amount) : Number(workOrder.agreed_amount) > 0 ? rupees(workOrder.agreed_amount) : "Awaiting subcontractor quote"} strong />
           <HeaderFigure label="Scopes shared" value={(workOrder.scopes || []).length} />
           <HeaderFigure label="Required from" value={prettyDate(workOrder.required_start_date)} />
           <HeaderFigure label="Required by" value={prettyDate(workOrder.required_end_date)} />
         </dl>
       </header>
 
-      {(transitions.length > 0 || canAskForCorrections) && (
+      {!editingPricing && (transitions.length > 0 || canAskForCorrections) && (
         <section className="rounded-2xl border bg-white p-5">
           <h2 className="font-bold">What you can do now</h2>
           {actionError && (
@@ -186,11 +189,11 @@ export default function SubcontractWorkOrderDetail() {
         <ScopeSnapshot scopes={workOrder.scopes || []} />
       </SectionCard>
 
-      <SubcontractQuotePanel
+      {workOrder.material_mode ? <WorkOrderPricingPanel workOrder={workOrder} isMain={isMain} onChanged={refresh} onEditing={setEditingPricing}/> : <SubcontractQuotePanel
         workOrder={workOrder}
         isMain={isMain}
         onChanged={refresh}
-      />
+      />}
 
       {(workOrder.completions || []).length > 0 && (
         <SectionCard title="Work submitted">

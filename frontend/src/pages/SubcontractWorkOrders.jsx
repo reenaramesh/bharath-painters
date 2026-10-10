@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Network, Plus } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
@@ -17,6 +17,7 @@ const FILTERS = [
 
 export default function SubcontractWorkOrders() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -146,9 +147,10 @@ export default function SubcontractWorkOrders() {
           initialQuotation={presetQuotation}
           initialContractor={searchParams.get('contractor') || ''}
           onClose={closeCreate}
-          onCreated={() => {
+          onCreated={(draft) => {
             closeCreate();
-            load();
+            if (draft?.material_mode) navigate(`/subcontract-work-orders/${draft.id}`);
+            else load();
           }}
         />
       )}

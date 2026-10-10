@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
+import CustomerStatusFilter from "../components/CustomerStatusFilter";
 import { CUSTOMER_STATUSES } from "../constants/customers";
 import MobilePageBack from "../components/MobilePageBack";
 import useAuth from "../context/useAuth";
@@ -418,21 +419,24 @@ export default function Customers() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search customer ID, name, mobile, city or email"
+              placeholder="Search customers"
+              aria-label="Search by customer ID, name, mobile, city or email"
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
+          <CustomerStatusFilter value={status} options={[{ value: "ALL", label: "All statuses" }, ...CUSTOMER_STATUSES.map((item) => ({ value: item, label: label(item) }))]} onChange={(value) => { setStatus(value); setPage(1); }} />
           <select
+            aria-label="Filter customers by status"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none"
+            className="hidden md:block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none"
           >
             <option value="ALL">All statuses</option>
             {CUSTOMER_STATUSES.map((item) => (
-              <option key={item}>{item}</option>
+              <option key={item} value={item}>{label(item)}</option>
             ))}
           </select>
         </div>
@@ -916,10 +920,10 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
   const letters = Object.keys(groups).sort((a, b) => a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b));
 
   return <div className="relative">
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:absolute md:right-2 md:top-2 md:z-20 md:h-[calc(100%-1rem)] md:flex-col md:border-0 md:bg-transparent md:px-0 md:py-0">
+    {letters.length > 1 && <div className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:absolute md:right-2 md:top-2 md:z-20 md:h-[calc(100%-1rem)] md:flex-col md:border-0 md:bg-transparent md:px-0 md:py-0" aria-label="Jump to customer initial">
       {letters.map((letter) => <button key={letter} type="button" onClick={() => document.getElementById(`customer-letter-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="grid h-7 min-w-7 place-items-center rounded-full text-xs font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-700">{letter}</button>)}
-    </div>
-    <div className="max-h-[68vh] overflow-y-auto scroll-smooth md:pr-12">
+    </div>}
+    <div className={`overflow-y-auto scroll-smooth ${letters.length > 1 ? "md:pr-12" : ""}`}>
       {letters.map((letter) => <section key={letter} id={`customer-letter-${letter}`} className="scroll-mt-0">
         <div className="sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-700 backdrop-blur">{letter}</div>
         <div className="divide-y divide-slate-100">

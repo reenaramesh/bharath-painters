@@ -1,14 +1,17 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import QuotationDiscountControls from "../components/QuotationDiscountControls.jsx";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import api from "../api/client";
-import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
+import { groupedQuotationRoom, quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import SearchableSelect from "../components/SearchableSelect";
 import { Button, ErrorState, LoadingState, PageHeader, SectionCard } from "../components/ui";
 import "./quotation-measurement.css";
 import GroupedQuotationDraftEditor from "../components/GroupedQuotationDraftEditor";
 import { isGroupedDraft } from "../utils/groupedQuotationDraft";
+import { draftSaveError, draftSavePayload } from "../utils/quotationDraftSave.js";
+import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
 
 export default function QuotationEdit() {
   const { id } = useParams();
@@ -30,16 +33,28 @@ export default function QuotationEdit() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedQuotation, setSavedQuotation] = useState(null);
+  const snapshot = JSON.stringify({ form, items, selectedRoomIds });
+  const initial = useRef(null);
+  if (savedQuotation && initial.current?.id !== savedQuotation.id) initial.current = { id: savedQuotation.id, snapshot };
+  const markSaved = useDraftUnsavedChanges(Boolean(initial.current && snapshot !== initial.current.snapshot), Boolean(savedQuotation?.status === "DRAFT" && !isGroupedDraft(savedQuotation)));
   useEffect(() => {
+    setForm(null);
+    setError("");
     setSavedQuotation(null);
     api
       .get(`/quotations/${id}/`)
       .then(async ({ data }) => {
-        const params = isGroupedDraft(data) ? { measurement: data.measurement_record } : undefined;
+        if (data.status !== "DRAFT" || !data.can_edit) {
+          setForm({ status: data.status });
+          setSavedQuotation(data);
+          return;
+        }
+        const params = data.measurement_record ? { measurement: data.measurement_record } : undefined;
         setForm({
           quotation_type: data.quotation_type,
           status: data.status,
           valid_until: data.valid_until || "",
+          discount_mode: data.discount_mode || "OVERALL",
           discount_type: data.discount_type,
           discount_value: data.discount_value,
           gst_mode: data.gst_mode,
@@ -257,21 +272,17 @@ export default function QuotationEdit() {
     setError("");
     try {
       const customRoomNames = [...new Set(items.map((item) => String(item.custom_room_name || "").trim()).filter(Boolean))];
-      const sync = await api.post(`/quotations/${id}/rooms/sync/`, {
-        property_room_ids: selectedRoomIds,
-        custom_room_names: customRoomNames,
-      });
-      const syncedRooms = sync.data.quotation.rooms || [];
-      const syncedByProperty = new Map(
-        syncedRooms
-          .filter((room) => room.property_room)
-          .map((room) => [room.property_room, room.id]),
-      );
-      const syncedByCustomName = new Map(
-        syncedRooms
-          .filter((room) => !room.property_room)
-          .map((room) => [String(room.name || "").trim().toLowerCase(), room.id]),
-      );
+      const rooms = quotationRooms.filter((room) => !room.property_room || isRoomSelected(room.property_room));
+      for (const roomId of selectedRoomIds) {
+        if (!rooms.some((room) => String(room.property_room) === String(roomId))) {
+          const source = propertyRooms.find((room) => String(room.id) === String(roomId));
+          if (!source) throw new Error("A selected room is missing from the saved property measurement.");
+          rooms.push(groupedQuotationRoom(source));
+        }
+      }
+      for (const name of customRoomNames) {
+        if (!rooms.some((room) => !room.property_room && room.name.toLowerCase() === name.toLowerCase())) rooms.push({ name });
+      }
       const cleanItems = items
         .map((item) => {
           const propertyRoomId =
@@ -280,11 +291,16 @@ export default function QuotationEdit() {
           if (propertyRoomId && !isRoomSelected(propertyRoomId))
             return null;
           const payload = {
-            room: propertyRoomId
-              ? syncedByProperty.get(propertyRoomId)
-              : customRoomName
-                ? syncedByCustomName.get(customRoomName.toLowerCase())
-                : item.room || null,
+            room: item.room || null,
+            property_room: propertyRoomId || null,
+            custom_room_name: customRoomName,
+            line_type: item.line_type,
+            discount_type: item.discount_type || "FIXED",
+            discount_value: item.discount_value ?? 0,
+            custom_service_category: item.custom_service_category || "",
+            custom_service_type: item.custom_service_type || "",
+            custom_product_type: item.custom_product_type || "",
+            custom_brand: item.custom_brand || "",
             service_category: item.service_category || null,
             service_type: item.service_type || null,
             paint_type: item.paint_type || null,
@@ -296,7 +312,7 @@ export default function QuotationEdit() {
             specification_details: item.specification_details || {},
             calculation_method: item.calculation_method,
             is_additional_service: Boolean(item.is_additional_service),
-            custom_unit: item.unit ? "" : item.custom_unit || "",
+            custom_unit: item.custom_unit || "",
             quantity: item.quantity === "" ? 0 : Number(item.quantity),
             unit: item.unit || null,
             rate: Number(item.rate) || 0,
@@ -305,37 +321,33 @@ export default function QuotationEdit() {
           return payload;
         })
         .filter(Boolean);
-      await api.patch(`/quotations/${id}/`, {
-        ...form,
-        items: cleanItems,
-        valid_until: form.valid_until || null,
-        discount_value: Number(form.discount_value) || 0,
-        gst_percentage: Number(form.gst_percentage) || 0,
-      });
-      navigate(`/quotations/${id}`);
+      await api.patch(`/quotations/${id}/draft/`, draftSavePayload(savedQuotation, form, rooms, cleanItems));
+      markSaved();
+      navigate(`/quotations/${id}`, { state: { draftSaved: true } });
     } catch (requestError) {
-      setError(
-        formatError(requestError.response?.data) ||
-          "Quotation could not be updated.",
-      );
+      setError(draftSaveError(requestError));
     } finally {
       setSaving(false);
     }
   }
   if (!form || !savedQuotation)
     return error ? <ErrorState message={error} /> : <LoadingState label="Loading quotation for editing..." />;
+  if (savedQuotation.status !== "DRAFT" || !savedQuotation.can_edit) return <div className="mx-auto max-w-5xl space-y-4">
+    <BackButton fallback={`/quotations/${id}`} label="Back to quotation" />
+    <PageHeader eyebrow="Read-only quotation" title={savedQuotation.status === "DRAFT" ? "Draft editing is unavailable" : "This version is preserved"} description={savedQuotation.status === "DRAFT" ? "An active customer connection is required to edit this Draft. Reconnect with the customer and open it again." : "Only Draft quotations can be edited. Open an explicit Draft revision when one is available."} />
+  </div>;
   if (isGroupedDraft(savedQuotation)) {
     const details = savedQuotation.items.find((item) => item.specification_details?.measurement_version)?.specification_details;
     return <GroupedQuotationDraftEditor key={id} quotation={savedQuotation} form={form} setForm={setForm}
-      measurement={{ id: savedQuotation.measurement_record, version: details?.measurement_version || 1, rooms: propertyRooms, surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR") }}
-      masters={{ categories, paintTypes, brands, units, descriptions }} />;
+      measurement={{ id: savedQuotation.measurement_record, version: details?.measurement_version ?? 1, rooms: propertyRooms, surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR") }}
+      masters={{ categories, paintTypes, brands, units, descriptions, services }} />;
   }
   return (
     <div className="mx-auto max-w-5xl space-y-6 quotation-measurement-page bp-quotation-edit">
       <BackButton fallback={`/quotations/${id}`} label="Back to quotation" />
-      <PageHeader eyebrow="Quotation management" title="Edit quotation" description="Review room selections, line details and pricing before saving." />
+      <PageHeader eyebrow="Draft quotation" title="Edit Draft" description="Review room selections, line details and pricing before saving." />
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -343,6 +355,7 @@ export default function QuotationEdit() {
         onSubmit={submit}
         className="grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
       >
+        <fieldset disabled={saving} className="grid min-w-0 gap-5 sm:col-span-2 sm:grid-cols-2">
         <SectionCard title="Property rooms" description="Select the measured rooms required in this quotation. Walls and ceilings remain separate for pricing." className="quotation-edit-rooms sm:col-span-2" bodyClassName="p-4 sm:p-5">
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" onClick={() => propertyRooms.forEach((room) => { if (!isRoomSelected(room.id)) toggleRoom(room.id); })} className="rounded-lg border border-violet-300 bg-white px-3 py-2 text-xs font-bold text-violet-800">Select all rooms</button>
@@ -561,28 +574,7 @@ export default function QuotationEdit() {
             Custom quotation rooms are preserved.
           </p>
         )}
-        <label className="text-sm font-medium">
-          Status
-          <select
-            name="status"
-            value={form.status}
-            onChange={update}
-            className={input}
-          >
-            {[
-              "DRAFT",
-              "SENT",
-              "VIEWED",
-              "ACCEPTED",
-              "REJECTED",
-              "EXPIRED",
-              "CONVERTED",
-              "CANCELLED",
-            ].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
+        <p className="text-sm font-semibold text-slate-600">Status: Draft</p>
         <label className="text-sm font-medium">
           Valid until
           <input
@@ -593,55 +585,7 @@ export default function QuotationEdit() {
             className={input}
           />
         </label>
-        <label className="text-sm font-medium">
-          Discount type
-          <select
-            name="discount_type"
-            value={form.discount_type}
-            onChange={update}
-            className={input}
-          >
-            <option value="FIXED">Fixed amount</option>
-            <option value="PERCENTAGE">Percentage</option>
-          </select>
-        </label>
-        <label className="text-sm font-medium">
-          Discount value
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            name="discount_value"
-            value={form.discount_value}
-            onChange={update}
-            className={input}
-          />
-        </label>
-        <label className="text-sm font-medium">
-          GST mode
-          <select
-            name="gst_mode"
-            value={form.gst_mode}
-            onChange={update}
-            className={input}
-          >
-            <option value="GST_EXTRA">GST extra</option>
-            <option value="GST_INCLUDED">GST included</option>
-            <option value="NO_GST">No GST</option>
-          </select>
-        </label>
-        <label className="text-sm font-medium">
-          GST percentage
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            name="gst_percentage"
-            value={form.gst_percentage}
-            onChange={update}
-            className={input}
-          />
-        </label>
+        <QuotationDiscountControls form={form} onChange={(name,value)=>setForm(current=>({...current,[name]:value}))} items={visibleItems} onLineChange={(item,field,value)=>updateItem(item.id,field,value)} />
         <label className="text-sm font-medium sm:col-span-2">
           Notes
           <textarea
@@ -673,21 +617,13 @@ export default function QuotationEdit() {
         <div className="flex justify-end border-t pt-5 sm:col-span-2">
           <Button type="submit" loading={saving} className="flex items-center gap-2 px-5">
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? "Saving..." : "Save Draft"}
           </Button>
         </div>
+        </fieldset>
       </form>
     </div>
   );
-}
-function formatError(data) {
-  if (!data) return "";
-  return Object.entries(data)
-    .map(
-      ([key, value]) =>
-        `${key}: ${Array.isArray(value) ? value.join(" ") : typeof value === "object" ? JSON.stringify(value) : value}`,
-    )
-    .join(" ");
 }
 function EditMobileValue({ label, value, strong }) {
   return <div className="min-w-0 bg-white px-3 py-3"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p><p className={"mt-1 truncate text-xs " + (strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900")}>{value}</p></div>;

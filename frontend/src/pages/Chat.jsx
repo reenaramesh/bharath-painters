@@ -1,22 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Moon, Palette, Paperclip, Pencil, Plus, Reply, RotateCcw, Search, Send, ShieldBan, ShieldCheck, Sun, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Moon, Palette, Paperclip, Phone, Plus, RotateCcw, Search, Send, ShieldBan, ShieldCheck, Sun, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import { shouldSubmitChat } from "../utils/chatComposer.mjs";
+import { contactRole, showMessageTime } from "../utils/chatPresentation.mjs";
 import ChatColourPicker from "../components/ChatColourPicker";
+import ChatMessageOptions from "../components/ChatMessageOptions";
 import ContractorInboxRequests from "../components/ContractorInboxRequests";
-import { Button, EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import { Button, EmptyState, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./communication-pages.css";
+import "./messenger-preview.css";
 
 export default function Chat() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [conversationFilter, setConversationFilter] = useState("all");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [conversationsLoadError, setConversationsLoadError] = useState("");
   const [messagesLoadError, setMessagesLoadError] = useState(false);
   const conversationsLoaded = useRef(false);
+  const conversationSearchRef = useRef("");
+  const conversationSearchChangedRef = useRef(false);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -61,14 +70,18 @@ export default function Chat() {
     localStorage.setItem(visitKey, String(now));
   }, [user?.id]);
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (searchTerm = conversationSearchRef.current) => {
     if (!conversationsLoaded.current) setLoadingConversations(true);
     try {
       const requestedId = Number(searchParams.get("conversation"));
       const requestedCustomer = Number(searchParams.get("customer"));
+      const params = {};
+      if (requestedId) params.conversation = requestedId;
+      if (searchTerm.trim()) params.search = searchTerm.trim();
       const { data } = await api.get("/quotations/chat/conversations/", {
-        params: requestedId ? { conversation: requestedId } : {},
+        params,
       });
+      if (searchTerm !== conversationSearchRef.current) return;
       let rows = data;
       if (user?.role === "CONTRACTOR" && requestedCustomer && !rows.some((item) => item.customer_id === requestedCustomer)) {
         const { data: opened } = await api.post("/quotations/chat/conversations/", { customer: requestedCustomer });
@@ -77,7 +90,7 @@ export default function Chat() {
       setConversations(rows);
       conversationsLoaded.current = true;
       setConversationsLoadError("");
-      setSelected((current) => requestedCustomer
+      setSelected((current) => searchTerm.trim() ? current : requestedCustomer
         ? rows.find((item) => item.customer_id === requestedCustomer) || rows[0] || null
         : requestedId
         ? rows.find((item) => item.id === requestedId) || rows[0] || null
@@ -124,6 +137,14 @@ export default function Chat() {
     loadConversations();
   }, [loadConversations]);
   useEffect(() => {
+    if (!conversationSearchChangedRef.current) return undefined;
+    const timer = window.setTimeout(() => {
+      conversationSearchChangedRef.current = false;
+      loadConversations(conversationSearch);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [conversationSearch, loadConversations]);
+  useEffect(() => {
     const timer = window.setInterval(loadConversations, 30000);
     return () => window.clearInterval(timer);
   }, [loadConversations]);
@@ -141,10 +162,17 @@ export default function Chat() {
     setMessages([]);
     setReplyTo(null);
     setFiles([]);
+    setDetailsOpen(false);
     setColourPickerOpen(false);
     setSafetyDialogOpen(false);
     pendingSafetyAction.current = null;
   }, [selected?.id]);
+  useEffect(() => {
+    if (!detailsOpen) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setDetailsOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [detailsOpen]);
 
   function safetyKey(conversationId) {
     return `bp-chat-safety-v1-${user?.id}-${conversationId}`;
@@ -416,6 +444,14 @@ export default function Chat() {
     const isCurrent = selected && (item.type === "CONTRACTOR" ? item.id === selected.contractor_id : item.type === "PAINTER" ? item.id === selected.painter_id : item.id === selected.customer_id);
     return !isCurrent && [item.name, item.subtitle, item.type].some((value) => String(value || "").toLowerCase().includes(forwardSearch.trim().toLowerCase()));
   }), [chatTargets, forwardSearch, selected]);
+  const visibleConversations = useMemo(
+    () => conversationFilter === "unread" ? conversations.filter((item) => Number(item.unread_count) > 0) : conversations,
+    [conversationFilter, conversations],
+  );
+  const unreadConversationCount = useMemo(
+    () => conversations.filter((item) => Number(item.unread_count) > 0).length,
+    [conversations],
+  );
 
   const conversationTitle = (item) =>
     user?.role === "CUSTOMER" || user?.role === "PAINTER"
@@ -423,6 +459,16 @@ export default function Chat() {
       : item.participant_type === "PAINTER"
         ? item.painter_name
         : item.customer_name;
+  const conversationContact = (item) => {
+    if (!item) return { role: "Contact", phone: "", bharathId: "" };
+    if (user?.role === "CUSTOMER" || user?.role === "PAINTER") {
+      return { role: "Contractor", phone: item.contractor_mobile, bharathId: item.contractor_bharath_id };
+    }
+    if (contactRole(user?.role, item) === "Painter") {
+      return { role: "Painter", phone: item.painter_mobile, bharathId: item.painter_bharath_id };
+    }
+    return { role: "Customer", phone: item.customer_mobile, bharathId: item.customer_bharath_id };
+  };
   const conversationTime = (item) =>
     item.last_message_at
       ? formatConversationTime(item.last_message_at)
@@ -431,12 +477,12 @@ export default function Chat() {
   return (
     <>
     {user?.role === "CONTRACTOR" && <ContractorInboxRequests />}
-    <div className={`chat-page flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white ${user?.role === "PAINTER" ? "painter-portal-chat" : ""}`}>
+    <div className={`chat-page messenger-preview flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white ${user?.role === "PAINTER" ? "painter-portal-chat" : ""}`}>
       <aside
         className={`chat-conversation-list ${selected ? "hidden md:flex" : "flex"} min-h-0 w-full flex-col border-r md:w-80`}
       >
         <div className="chat-sidebar-heading border-b p-5">
-          <PageHeader eyebrow={user?.role === "CUSTOMER" ? "Stay in touch" : "Internal communication"} title="Messages" />
+          <div className="chat-compact-heading"><h1>Messages</h1>{["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && <button type="button" className="chat-new-message" onClick={openContacts} aria-label="New message" title="New message"><Plus className="h-5 w-5" /></button>}</div>
           {user?.role === "PAINTER" && <div className="painter-chat-summary" aria-label="Painter message summary"><span><strong>{conversations.length}</strong> conversations</span><span><strong>{conversations.reduce((total, item) => total + Number(item.unread_count || 0), 0)}</strong> unread</span></div>}
           {user?.role === "CUSTOMER" && <div className="customer-chat-summary" aria-label="Message summary">
             <span><strong>{conversations.length}</strong> conversations</span>
@@ -447,13 +493,33 @@ export default function Chat() {
           <h2>Recent conversations</h2>
           {conversations.length > 0 && <span>{conversations.length}</span>}
         </div>
+        <div className="chat-list-controls border-b px-3 py-3">
+          <label className="chat-search-field flex min-h-11 items-center gap-2 rounded-xl border bg-white px-3">
+            <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={conversationSearch}
+              onChange={(event) => { conversationSearchRef.current = event.target.value; conversationSearchChangedRef.current = true; setConversationSearch(event.target.value); }}
+              placeholder="Search people or messages"
+              aria-label="Search people or messages"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+            {conversationSearch && <button type="button" onClick={() => { conversationSearchRef.current = ""; conversationSearchChangedRef.current = true; setConversationSearch(""); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Clear conversation search"><X className="h-4 w-4" /></button>}
+          </label>
+          <div className="chat-conversation-filters mt-2 flex gap-1.5 overflow-x-auto" role="group" aria-label="Filter conversations">
+            <button type="button" className="chat-filter-chip" aria-pressed={conversationFilter === "all"} onClick={() => setConversationFilter("all")}>All</button>
+            <button type="button" className="chat-filter-chip" aria-pressed={conversationFilter === "unread"} onClick={() => setConversationFilter("unread")}>Unread <span>{unreadConversationCount}</span></button>
+            <button type="button" className="chat-filter-chip" disabled title="Group conversations are not available yet">Groups</button>
+            <button type="button" className="chat-filter-chip" disabled title="Conversation archiving is not available yet">Archived</button>
+          </div>
+        </div>
         {conversationsLoadError && !selected && <ErrorState message={conversationsLoadError} onRetry={() => { conversationsLoaded.current = false; loadConversations(); }} className="chat-list-error" />}
         <div className="chat-conversation-scroll min-h-0 flex-1 overflow-y-auto">
         {loadingConversations && !conversations.length ? (
           <LoadingState label="Loading conversations…" className="chat-list-state" />
-        ) : conversations.length ? (
+        ) : visibleConversations.length ? (
           <div className="divide-y">
-            {conversations.map((item) => {
+            {visibleConversations.map((item) => {
               const title = conversationTitle(item);
               return (
                 <button
@@ -476,6 +542,7 @@ export default function Chat() {
                         {conversationTime(item)}
                       </time>
                     </span>
+                    <span className="chat-contact-role">{contactRole(user?.role, item)}</span>
                     <span className="mt-1 flex items-center justify-between gap-2">
                       <span className="truncate text-sm text-slate-500">
                         {item.last_message || "Start a conversation"}
@@ -492,7 +559,11 @@ export default function Chat() {
             })}
           </div>
         ) : (
-          conversationsLoadError ? null : <EmptyState title="No conversations yet" description="Your connected contacts and their messages will appear here." className="chat-list-state" />
+          conversationsLoadError ? null : conversationSearch.trim()
+            ? <EmptyState title="No matching conversations" description="Try another name, phone number, or message phrase." className="chat-list-state" />
+            : conversationFilter === "unread"
+              ? <EmptyState title="No unread messages" description="You’re all caught up. Switch to All to see every conversation." className="chat-list-state" />
+              : <EmptyState title="No conversations yet" description="Your connected contacts and their messages will appear here." className="chat-list-state" />
         )}
         </div>
       </aside>
@@ -525,6 +596,7 @@ export default function Chat() {
               </div>
               {selected.is_blocked && <StatusBadge status="BLOCKED" label="Blocked" tone="danger" className="hidden sm:inline-flex" />}
               <button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogFirstSend(false); setSafetyDialogOpen(true); }} className="chat-header-action grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-sky-200 text-[#176b9b] hover:bg-sky-50" aria-label="Message safety information" title="Message safety information"><Info className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setDetailsOpen((open) => !open)} aria-expanded={detailsOpen} aria-controls="chat-conversation-details" className="chat-header-action chat-details-toggle grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Conversation details" title="Conversation details"><ContactRound className="h-4 w-4" /></button>
               <button type="button" onClick={() => { setReportOpen(true); setSafetyNotice(""); }} className="chat-header-action grid h-11 w-11 shrink-0 place-items-center rounded-lg border text-slate-600 hover:bg-slate-50" aria-label="Report conversation" title="Report conversation"><Flag className="h-4 w-4" /></button>
               <button type="button" onClick={() => changeConversationSafety(selected.blocked_by_me ? "unblock" : "block")} disabled={safetyBusy || (selected.is_blocked && !selected.blocked_by_me)} className="chat-header-action grid h-11 w-11 shrink-0 place-items-center rounded-lg border text-red-700 hover:bg-red-50 disabled:opacity-40" aria-label={selected.blocked_by_me ? "Unblock conversation" : "Block conversation"} title={selected.blocked_by_me ? "Unblock conversation" : "Block conversation"}><ShieldBan className="h-4 w-4" /></button>
             </header>
@@ -550,16 +622,16 @@ export default function Chat() {
               aria-label={`Messages with ${conversationTitle(selected)}`}
             >
               {loadingMessages ? <LoadingState label="Loading messages…" className="chat-list-state" /> : !messages.length && !error ? <EmptyState title="No messages yet" description="Send a message to start this conversation." className="chat-list-state" /> : null}
-              {!loadingMessages && messages.map((message) => (
+              {!loadingMessages && messages.map((message, index) => (
+                <Fragment key={message.id}>
+                {(index === 0 || new Date(message.created_at).toDateString() !== new Date(messages[index - 1].created_at).toDateString()) && <div className="chat-day-divider"><span>{new Date(message.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></div>}
                 <div
                   key={message.id}
                   id={`chat-message-${message.id}`}
                   className={`chat-message-row flex ${message.is_mine ? "chat-message-sent justify-end" : "chat-message-received justify-start"}`}
                 >
-                  <div
-                    className={`chat-message-bubble min-w-0 ${message.colour_comparison?.length ? "w-full max-w-[min(90%,520px)]" : "max-w-[90%] sm:max-w-[78%]"} rounded-2xl px-4 py-3 ${message.is_mine ? "bg-slate-950 text-white" : "border bg-white text-slate-800"}`}
-                  >
-                    <p className="chat-message-sender">{message.is_mine ? "You" : conversationTitle(selected)}</p>
+                  <div className={`chat-message-group min-w-0 ${message.colour_comparison?.length ? "w-full max-w-[min(90%,520px)]" : "max-w-[90%] sm:max-w-[78%]"}`}>
+                  <div className="chat-message-bubble min-w-0 rounded-2xl border bg-white px-4 py-3 text-slate-800">
                     {message.is_forwarded && !message.deleted_at && <span className="mb-2 flex items-center gap-1 text-[11px] opacity-70"><Forward className="h-3 w-3" /> Forwarded</span>}
                     {message.reply_to && <button type="button" onClick={() => document.getElementById(`chat-message-${message.reply_to.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} className={`mb-2 block w-full truncate rounded-lg border-l-2 px-2 py-1 text-left text-xs ${message.is_mine ? "border-white/60 bg-white/10" : "border-slate-400 bg-slate-100"}`}>Reply to: {message.reply_to.text}</button>}
                     {message.deleted_at ? <p className="text-sm italic opacity-70">Message deleted</p> : editingId === message.id ? (
@@ -574,18 +646,15 @@ export default function Chat() {
                       <>{message.text && <p className="chat-message-text whitespace-pre-wrap text-sm">{message.text}</p>}{message.contact && <div className={`mt-2 rounded-xl p-3 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><p className="flex items-center gap-2 text-sm font-semibold"><ContactRound className="h-4 w-4" />{message.contact.name}</p><a href={`tel:${message.contact.mobile}`} className="mt-1 block text-sm underline">{message.contact.mobile}</a></div>}{message.colour && <div className={`mt-2 flex min-w-0 items-center gap-3 rounded-xl p-2 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><button type="button" onClick={() => setViewingShade(message.colour)} className="chat-shade-swatch h-14 w-14 shrink-0 rounded-lg border border-black/10 focus:outline-none focus:ring-2 focus:ring-sky-500" style={{ backgroundColor: message.colour.hex }} aria-label={`Zoom shade ${message.colour.name}`} title="View shade" /><span className="min-w-0"><b className="block break-words text-sm">{message.colour.name}</b><small className="block text-xs opacity-75">{message.colour.brand} · shade {message.colour.code}</small></span></div>}{message.attachments?.map((attachment) => <button key={attachment.id} type="button" onClick={() => attachment.content_type.startsWith("image/") ? setViewingImage(attachment) : downloadAttachment(attachment)} className={`chat-attachment mt-2 flex w-full items-center gap-2 rounded-xl p-2 text-left text-sm ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`} aria-label={attachment.content_type.startsWith("image/") ? `View ${attachment.name}` : `Download ${attachment.name}`}>{attachment.content_type.startsWith("image/") ? <ChatImage attachment={attachment} /> : <FileText className="h-8 w-8 shrink-0" />}<span className="min-w-0 break-words">{attachment.name}</span></button>)}</>
                     )}
                     {!message.deleted_at && message.colour_comparison?.length > 0 && <ChatColourComparison slots={message.colour_comparison} onSelectShade={setViewingShade} />}
-                    <div className="mt-1 flex items-center justify-end gap-2">
-                      <time className="chat-message-time" dateTime={message.created_at}>{formatMessageTime(message.created_at)}</time>
+                  </div>
+                    {editingId !== message.id && <span className="chat-message-options"><ChatMessageOptions message={message} onReply={setReplyTo} onForward={openForward} onEdit={(item) => { setEditingId(item.id); setEditingText(item.text); }} onDelete={(item) => deleteMessage(item.id)} /></span>}
+                    {(showMessageTime(message, messages[index + 1]) || (message.edited_at && !message.deleted_at)) && <div className="chat-message-meta mt-1 flex items-center gap-2">
+                      {showMessageTime(message, messages[index + 1]) && <time className="chat-message-time" dateTime={message.created_at} title={new Date(message.created_at).toLocaleString("en-IN")}>{formatMessageTime(message.created_at)}</time>}
                       {message.edited_at && !message.deleted_at && <span className="chat-message-time">Edited</span>}
-                      {!message.deleted_at && editingId !== message.id && <button type="button" onClick={() => setReplyTo(message)} className="rounded p-1 text-slate-400 hover:bg-white/10" aria-label="Reply to message"><Reply className="h-3.5 w-3.5" /></button>}
-                      {!message.deleted_at && editingId !== message.id && <button type="button" onClick={() => openForward(message)} className="rounded p-1 text-slate-400 hover:bg-white/10" aria-label="Forward message" title="Forward message"><Forward className="h-3.5 w-3.5" /></button>}
-                      {message.can_edit && editingId !== message.id && <>
-                        <button type="button" onClick={() => { setEditingId(message.id); setEditingText(message.text); }} className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Edit message"><Pencil className="h-3.5 w-3.5" /></button>
-                        <button type="button" onClick={() => deleteMessage(message.id)} className="rounded p-1 text-red-300 hover:bg-white/10 hover:text-red-200" aria-label="Delete message"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </>}
-                    </div>
+                    </div>}
                   </div>
                 </div>
+                </Fragment>
               ))}
               {needsFirstSendNotice(selected.id) && <div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-slate-700 sm:text-sm" role="note">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#176b9b]" />
@@ -596,14 +665,14 @@ export default function Chat() {
             {!selected.is_blocked && <form onSubmit={send} className="chat-composer space-y-2 border-t p-3 sm:p-4">
               {replyTo && <div className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-xs"><span className="min-w-0 truncate">Replying to: {replyTo.text || replyTo.colour?.name || replyTo.contact?.name || replyTo.attachments?.[0]?.name}</span><button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X className="h-4 w-4" /></button></div>}
               {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((file, index) => <span key={`${file.name}-${index}`} className="flex max-w-full items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs"><Paperclip className="h-3 w-3" /><span className="max-w-36 truncate">{file.name}</span><button type="button" onClick={() => setFiles((current) => current.filter((_, position) => position !== index))} aria-label={`Remove ${file.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
-              <div className="flex items-center gap-2">
+              <div className="chat-compose-box flex items-center gap-2">
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.vcf,image/jpeg,image/png,image/webp,application/pdf,text/vcard" onChange={chooseFiles} className="hidden" aria-label="Choose message attachments" />
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="chat-composer-action grid h-11 w-11 shrink-0 place-items-center rounded-xl border" aria-label="Attach PDF, photo, catalogue or contact file" title="Attach PDF, photo, catalogue or contact file"><Paperclip className="h-5 w-5" /></button>
                 <button type="button" onClick={() => setColourPickerOpen(true)} className="chat-composer-action grid h-11 w-11 shrink-0 place-items-center rounded-xl border text-[#176b9b]" aria-label="Choose paint colour" title="Choose paint colour"><Palette className="h-5 w-5" /></button>
-                <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Type a message" maxLength={4000} className="min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm outline-none focus:border-slate-900" />
+                <textarea value={text} rows={1} aria-label="Write a message" onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (shouldSubmitChat(event.nativeEvent)) { event.preventDefault(); event.currentTarget.form.requestSubmit(); } }} placeholder="Write a message…" maxLength={4000} className="chat-compose-input min-w-0 flex-1 text-sm" />
                 <Button type="submit" loading={sending} disabled={!text.trim() && !files.length} className="chat-send-action h-11 w-11 shrink-0 !p-0" aria-label="Send message"><Send className="h-5 w-5" aria-hidden="true" /></Button>
               </div>
-              
+              <p className="chat-composer-hint">Enter to send · Shift + Enter for a new line</p>
             </form>}
           </>
         ) : (
@@ -613,6 +682,31 @@ export default function Chat() {
           </div>
         )}
       </section>
+      {selected && (() => {
+        const contact = conversationContact(selected);
+        return <aside id="chat-conversation-details" className={`chat-details-panel ${detailsOpen ? "is-open" : ""}`} aria-label="Conversation details">
+          <header className="chat-details-heading">
+            <div><p className="chat-details-eyebrow">Conversation</p><h2>Contact details</h2></div>
+            <button type="button" onClick={() => setDetailsOpen(false)} className="chat-details-close grid h-10 w-10 place-items-center rounded-lg border" aria-label="Close conversation details"><X className="h-4 w-4" /></button>
+          </header>
+          <div className="chat-details-profile">
+            <span className="chat-details-avatar" aria-hidden="true">{conversationTitle(selected)?.trim()?.charAt(0)?.toUpperCase() || "?"}</span>
+            <h3>{conversationTitle(selected)}</h3>
+            <p>{contact.role} <span aria-hidden="true">·</span> {selected.is_online ? "Online" : "Offline"}</p>
+          </div>
+          <section className="chat-details-section" aria-labelledby="chat-details-contact-heading">
+            <h3 id="chat-details-contact-heading">Contact</h3>
+            {contact.phone && <a className="chat-details-contact-row" href={`tel:${contact.phone}`}><Phone className="h-4 w-4" /><span><small>Phone</small><strong>{contact.phone}</strong></span><span className="chat-details-call">Call</span></a>}
+            {contact.bharathId && <div className="chat-details-contact-row"><ContactRound className="h-4 w-4" /><span><small>Bharath ID</small><strong>{contact.bharathId}</strong></span></div>}
+            {!contact.phone && !contact.bharathId && <p className="chat-details-muted">No additional contact details are available.</p>}
+          </section>
+          <section className="chat-details-section" aria-labelledby="chat-details-safety-heading">
+            <h3 id="chat-details-safety-heading">Safety & privacy</h3>
+            <p className="chat-details-muted">Only connected participants can access this conversation. Reported messages follow Bharath Apps’ existing safety process.</p>
+            <button type="button" className="chat-details-safety-action" onClick={() => { setDetailsOpen(false); pendingSafetyAction.current = null; setSafetyDialogFirstSend(false); setSafetyDialogOpen(true); }}><ShieldCheck className="h-4 w-4" />View message safety information</button>
+          </section>
+        </aside>;
+      })()}
     </div>
     {colourPickerOpen && selected && <ChatColourPicker onClose={() => setColourPickerOpen(false)} onSend={sendColour} sending={sending} />}
     {safetyDialogOpen && <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-safety-title">
@@ -622,7 +716,6 @@ export default function Chat() {
         <div className="flex justify-end gap-2 border-t border-slate-200 p-4"><button type="button" onClick={() => { pendingSafetyAction.current = null; setSafetyDialogOpen(false); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">{safetyDialogFirstSend ? "Cancel" : "Close"}</button>{safetyDialogFirstSend && <button type="button" onClick={confirmSafetyNotice} className="rounded-lg bg-[#176b9b] px-4 py-2 text-sm font-bold text-white">I understand · Send</button>}</div>
       </section>
     </div>}
-    {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && !pickerOpen && <button type="button" onClick={openContacts} className={`${selected ? "hidden md:grid" : "grid"} fixed bottom-24 right-5 z-40 h-11 w-11 place-items-center rounded-full bg-slate-950 text-white shadow-xl hover:bg-slate-800 md:bottom-6 md:right-6`} aria-label={user?.role === "CONTRACTOR" ? "Customer contacts" : "Contractor contacts"} title={user?.role === "CONTRACTOR" ? "Customer contacts" : "Contractor contacts"}><Plus className="h-5 w-5" /></button>}
     {reportOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-report-title">
       <form onSubmit={(event) => { event.preventDefault(); changeConversationSafety("report"); }} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
         <div className="flex items-center justify-between gap-3"><h2 id="chat-report-title" className="text-lg font-bold">Report conversation</h2><button type="button" onClick={() => setReportOpen(false)} aria-label="Close report"><X className="h-5 w-5" /></button></div>
@@ -678,10 +771,7 @@ function formatMessageTime(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
+    : date.toLocaleTimeString("en-IN", {
         hour: "numeric",
         minute: "2-digit",
       });

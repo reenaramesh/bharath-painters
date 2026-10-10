@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import UUID
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -14,6 +15,9 @@ from rest_framework.views import APIView
 
 from accounts.models import BharathUser
 from quotations.models import ContractorConnection, ProjectScope, QuotationItem
+from django.http import Http404, HttpResponse
+from django.utils.dateparse import parse_datetime
+from .pricing import prepare_pricing, save_pricing
 
 from . import workflow
 from .models import (
@@ -42,13 +46,15 @@ def visible_work_orders(user):
         return SubcontractWorkOrder.objects.all()
     return SubcontractWorkOrder.objects.filter(
         Q(main_contractor=user) | Q(receiving_contractor=user)
-    )
+    ).exclude(Q(receiving_contractor=user,material_mode__in=["WITH_MATERIAL","WITHOUT_MATERIAL"],status="DRAFT"))
 
 
 def get_work_order_for(user, pk):
     work_order = get_object_or_404(SubcontractWorkOrder.objects.select_related("quotation"), pk=pk)
     if authority_for(user, work_order) is None:
         raise ValidationError("You are not part of this work order.")
+    if work_order.material_mode and work_order.status == "DRAFT" and user.id == work_order.receiving_contractor_id:
+        raise Http404("Work order not found.")
     return work_order
 
 
@@ -86,6 +92,8 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
             item_ids = request.data["quotation_item_ids"]
             if not isinstance(item_ids, list) or not item_ids or any(type(pk) is not int or pk <= 0 for pk in item_ids):
                 raise ValidationError({"quotation_item_ids": "Select at least one quotation service."})
+            if request.data.get("material_mode") and len(item_ids) != len(set(item_ids)):
+                raise ValidationError({"quotation_item_ids":"Select each saved quotation line once."})
             if request.data.get("project_scope_ids"):
                 raise ValidationError({"quotation_item_ids": "Choose quotation services or project scopes, not both."})
             items = list(QuotationItem.objects.filter(quotation=quotation, id__in=item_ids).select_related("service_category", "unit", "service_type").order_by("id"))
@@ -114,6 +122,21 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
                 )
 
         reserved = {"quotation", "receiving_contractor", "connection", "main_contractor"}
+        priced = bool(request.data.get("material_mode"))
+        if priced and not receiving:
+            raise ValidationError({"receiving_contractor":"Select a connected Work Order recipient."})
+        prepared = prepare_pricing(quotation,request.data.get("material_mode"),request.data.get("pricing_input"),items or []) if priced else None
+        creation_key=request.data.get("creation_key") if prepared else None
+        if creation_key:
+            try:creation_key=str(UUID(str(creation_key)))
+            except (ValueError,TypeError,AttributeError):raise ValidationError({"creation_key":"Provide a valid creation token."})
+            type(quotation).objects.select_for_update().get(pk=quotation.pk)
+            prior=SubcontractWorkOrder.objects.filter(quotation=quotation,main_contractor=quotation.contractor,private_pricing__creation_key=creation_key).first()
+            if prior:
+                if prior.receiving_contractor_id != receiving.id:
+                    raise ValidationError({"creation_key":"That token belongs to another recipient."})
+                return Response(self.get_serializer(prior).data,status=status.HTTP_200_OK)
+            prepared["private"]["creation_key"]=creation_key
         work_order = SubcontractWorkOrder.objects.create(
             quotation=quotation,
             main_contractor=quotation.contractor,
@@ -135,7 +158,9 @@ class WorkOrderListCreateView(generics.ListCreateAPIView):
             if len(scopes) != len(set(scope_ids)):
                 raise ValidationError({"project_scope_ids": "Some scopes are not part of this quotation."})
             workflow.share_scopes(work_order, scopes)
-        if items is not None:
+        if prepared:
+            save_pricing(work_order,prepared,request.user)
+        elif items is not None:
             workflow.share_quotation_items(work_order, items)
 
         return Response(
@@ -163,6 +188,8 @@ class WorkOrderDetailView(generics.RetrieveUpdateAPIView):
         work_order = self.get_object()
         if authority_for(request.user, work_order) != workflow.MAIN:
             raise ValidationError("Only the main contractor can edit a work order.")
+        if work_order.material_mode:
+            raise ValidationError("Use Edit Draft pricing to update this priced work order atomically.")
         if work_order.status not in {
             SubcontractWorkOrder.Status.DRAFT,
             SubcontractWorkOrder.Status.SENT,
@@ -176,6 +203,8 @@ class WorkOrderShareScopesView(APIView):
 
     def post(self, request, pk):
         work_order = get_work_order_for(request.user, pk)
+        if work_order.material_mode:
+            raise ValidationError("Use Edit Draft pricing to select saved quotation lines.")
         if authority_for(request.user, work_order) != workflow.MAIN:
             raise ValidationError("Only the main contractor can share project scopes.")
         scope_ids = request.data.get("project_scope_ids") or []
@@ -205,6 +234,55 @@ class WorkOrderTransitionView(APIView):
             raise ValidationError(getattr(exc, "message_dict", None) or list(exc.messages))
         work_order.refresh_from_db()
         return Response(SubcontractWorkOrderSerializer(work_order, context={"viewer": request.user}).data)
+
+
+class WorkOrderDraftPricingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def patch(self,request,pk):
+        work_order=get_work_order_for(request.user,pk)
+        work_order=SubcontractWorkOrder.objects.select_for_update().get(pk=work_order.pk)
+        if work_order.main_contractor_id != request.user.pk or work_order.status != "DRAFT" or not work_order.material_mode:
+            raise ValidationError("Only the main contractor can edit pricing on this Draft.")
+        for field in ["quotation","receiving_contractor","connection"]:
+            if field in request.data and str(request.data[field]) != str(getattr(work_order,field+"_id")):
+                raise ValidationError({field:"The source revision and parties are pinned to this Draft."})
+        raw=request.data.get("expected_updated_at")
+        try:
+            expected=parse_datetime(raw) if isinstance(raw,str) else None
+        except ValueError:
+            expected=None
+        if expected is None or expected.tzinfo is None:
+            raise ValidationError({"expected_updated_at":"Provide the saved Draft timestamp including its timezone."})
+        if expected != work_order.updated_at:
+            return Response({"detail":"This Work Order changed in another session. Reopen it before saving."},status=409)
+        ids=request.data.get("quotation_item_ids")
+        if not isinstance(ids,list) or not ids or any(type(value) is not int or value <= 0 for value in ids):
+            raise ValidationError({"quotation_item_ids":"Select saved quotation line items."})
+        items=list(QuotationItem.objects.filter(quotation=work_order.quotation,pk__in=ids).select_related("unit","service_category","service_type","paint_type","paint_brand"))
+        if len(items)!=len(ids) or len(ids)!=len(set(ids)):
+            raise ValidationError({"quotation_item_ids":"Select unique lines from the pinned quotation."})
+        metadata=SubcontractWorkOrderSerializer(work_order,data=request.data,partial=True,context={"viewer":request.user})
+        metadata.is_valid(raise_exception=True)
+        prepared=prepare_pricing(work_order.quotation,request.data.get("material_mode",work_order.material_mode),request.data.get("pricing_input"),items,existing=work_order)
+        allowed={key:value for key,value in metadata.validated_data.items() if key in {"project_title","site_address","agreed_scope_summary","instructions","terms","required_start_date","required_end_date"}}
+        for key,value in allowed.items():setattr(work_order,key,value)
+        save_pricing(work_order,prepared,request.user)
+        if allowed:work_order.save(update_fields=[*allowed,"updated_at"])
+        return Response(SubcontractWorkOrderSerializer(work_order,context={"viewer":request.user}).data)
+
+
+class WorkOrderPdfView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request,pk):
+        from .pdf import build_work_order_pdf
+        work_order=get_work_order_for(request.user,pk)
+        response=HttpResponse(build_work_order_pdf(work_order),content_type="application/pdf")
+        response["Content-Disposition"]=f'inline; filename="work-order-{work_order.pk}.pdf"'
+        response["Cache-Control"]="no-store"
+        return response
 
 
 class WorkOrderCorrectionView(APIView):
@@ -321,6 +399,8 @@ class WorkOrderQuoteView(APIView):
         work_order = get_work_order_for(request.user, pk)
         if work_order.receiving_contractor_id != request.user.id:
             raise ValidationError("Only the receiving contractor can price this work.")
+        if work_order.material_mode:
+            raise ValidationError("Accept or decline the agreed Work Order pricing instead.")
         payload = dict(request.data)
         payload["work_order"] = work_order.pk
         serializer = SubcontractQuoteSerializer(data=payload, context={"viewer": request.user})
@@ -333,6 +413,8 @@ class WorkOrderQuoteView(APIView):
 
     def patch(self, request, pk):
         work_order = get_work_order_for(request.user, pk)
+        if work_order.material_mode:
+            raise ValidationError("Use the Work Order acceptance or decline actions for agreed pricing.")
         quote = get_object_or_404(SubcontractQuote, pk=request.data.get("quote"), work_order=work_order)
         if work_order.receiving_contractor_id != request.user.id:
             raise ValidationError("Only the receiving contractor can send this quote.")
@@ -351,6 +433,8 @@ class WorkOrderQuoteDecisionView(APIView):
 
     def post(self, request, pk):
         work_order = get_work_order_for(request.user, pk)
+        if work_order.material_mode:
+            raise ValidationError("Use the Work Order acceptance or decline actions for agreed pricing.")
         quote = get_object_or_404(SubcontractQuote, pk=request.data.get("quote"), work_order=work_order)
         decision = (request.data.get("decision") or "").strip().upper()
         try:

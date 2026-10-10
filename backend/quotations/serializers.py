@@ -837,6 +837,9 @@ class QuotationRoomSerializer(serializers.ModelSerializer):
 
 class QuotationItemSerializer(serializers.ModelSerializer):
 
+    discount_amount = serializers.SerializerMethodField()
+    net_amount = serializers.SerializerMethodField()
+
     promote_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
     save_service_category_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
     save_product_type_to_master = serializers.BooleanField(write_only=True, required=False, default=False)
@@ -915,6 +918,10 @@ class QuotationItemSerializer(serializers.ModelSerializer):
             "save_brand_to_master",
             "rate",
             "amount",
+            "discount_type",
+            "discount_value",
+            "discount_amount",
+            "net_amount",
 
             "created_at",
         )
@@ -926,6 +933,14 @@ class QuotationItemSerializer(serializers.ModelSerializer):
 
     def get_service_category_name(self, obj):
         return obj.service_category_name_snapshot or obj.custom_service_category or (obj.service_category.name if obj.service_category else "")
+
+    def get_discount_amount(self, obj):
+        from .discounts import line_discount
+        return str(line_discount(obj))
+
+    def get_net_amount(self, obj):
+        from .discounts import line_discount
+        return str((obj.amount - line_discount(obj)).quantize(Decimal("0.01")))
 
     def get_service_name(self, obj):
         return obj.service_name_snapshot or obj.custom_service_type or (obj.service_type.name if obj.service_type else "")
@@ -943,6 +958,10 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         return obj.unit_name_snapshot or obj.custom_unit or (obj.unit.name if obj.unit else "")
 
     def validate(self, data):
+        discount_value = data.get("discount_value", Decimal("0"))
+        if discount_value < 0 or (data.get("discount_type", "FIXED") == "PERCENTAGE" and discount_value > 100):
+            raise serializers.ValidationError({"discount_value": "Use a non-negative amount or a percentage between 0 and 100."})
+
 
         calculation_method = data.get(
             "calculation_method",
@@ -1274,6 +1293,8 @@ class QuotationSerializer(serializers.ModelSerializer):
     revision_changes = serializers.SerializerMethodField()
     revision_draft = serializers.SerializerMethodField()
     consolidated_product_details = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     rooms = QuotationRoomSerializer(
         many=True,
@@ -1320,6 +1341,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "accepted_via_receipt_at",
 
             "discount",
+            "discount_mode",
             "discount_type",
             "discount_value",
 
@@ -1336,6 +1358,8 @@ class QuotationSerializer(serializers.ModelSerializer):
             "payment_terms",
             "product_details",
             "consolidated_product_details",
+            "can_edit",
+            "can_delete",
             "show_product_key_features",
             "work_duration",
             "work_procedures",
@@ -1377,6 +1401,16 @@ class QuotationSerializer(serializers.ModelSerializer):
     def get_consolidated_product_details(self, obj):
         from .product_details import consolidated_product_details
         return consolidated_product_details(obj)
+
+    def get_can_delete(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.pk == obj.contractor_id and obj.status == Quotation.Status.DRAFT and obj.deleted_at is None)
+
+    def get_can_edit(self, obj):
+        return self.get_can_delete(obj) and ContractorCustomerConnection.objects.filter(
+            customer_id=obj.customer_id, contractor_id=obj.contractor_id,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).exists()
 
     def validate(self, attrs):
         if self.instance and self.instance.status != Quotation.Status.DRAFT:
@@ -1452,6 +1486,15 @@ class QuotationSerializer(serializers.ModelSerializer):
         from .specification_validation import validate_grouped_specifications
         validate_grouped_specifications(attrs.get("items", []) or [], measurement_record)
 
+        if self.instance:
+            owned_item_ids = set(self.instance.items.values_list("id", flat=True))
+            for item in attrs.get("items", []) or []:
+                if item.get("id") and item["id"] not in owned_item_ids:
+                    raise serializers.ValidationError({"items": "Each saved line must belong to this quotation."})
+                room = item.get("room")
+                if room and room.quotation_id != self.instance.pk:
+                    raise serializers.ValidationError({"items": "Each saved room must belong to this quotation."})
+
         seen_measured_work = {}
         for item in attrs.get("items", []) or []:
             areas = set(item.get("included_areas") or [])
@@ -1522,42 +1565,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         return item_data
 
     def get_contractor_details(self, quotation):
-        snapshot = quotation.contractor_snapshot or {}
-        contractor = quotation.contractor
-        try:
-            profile = contractor.contractor_profile
-        except ContractorProfile.DoesNotExist:
-            profile = None
-
-        request = self.context.get("request")
-        logo = None
-        if profile and profile.company_logo:
-            logo = profile.company_logo.url
-        elif profile is None and snapshot.get("company_logo"):
-            logo = f"{settings.MEDIA_URL.rstrip('/')}/{snapshot['company_logo'].lstrip('/')}"
-        if logo and request:
-            logo = request.build_absolute_uri(logo)
-
-        def current(field, fallback=""):
-            return getattr(profile, field, fallback) if profile else snapshot.get(field, fallback)
-
-        return {
-            "id": contractor.id,
-            "bharath_id": contractor.bharath_id,
-            "company_name": current("company_name", contractor.get_full_name()),
-            "owner_name": current("owner_name", contractor.get_full_name()),
-            "mobile": contractor.mobile,
-            "email": contractor.email,
-            "company_logo": logo,
-            "company_logo_shape": current("company_logo_shape", "RECTANGLE"),
-            "company_logo_position": current("company_logo_position", {"x": 50, "y": 50, "zoom": 1}),
-            "office_address": current("office_address"),
-            "service_areas": current("service_areas"),
-            "gst_number": current("gst_number"),
-            "pan_number": current("pan_number"),
-            "is_verified": contractor.is_verified,
-            "verification_status": contractor.verification_status,
-        }
+        from .identity import quotation_contractor_identity
+        return quotation_contractor_identity(quotation, self.context.get("request"))
 
     def get_customer_details(self, obj):
         snapshot = obj.customer_snapshot or {}
@@ -1787,195 +1796,12 @@ class QuotationSerializer(serializers.ModelSerializer):
     # CALCULATE TOTALS
     # =====================================================
 
-    def calculate_totals(
-        self,
-        quotation
-    ):
-
-        items = quotation.items.all()
-
-        # -------------------------------------------------
-        # SUBTOTAL
-        # -------------------------------------------------
-
-        subtotal = Decimal("0")
-
-        for item in items:
-
-            subtotal += Decimal(
-                item.amount or 0
-            )
-
-        subtotal = subtotal.quantize(
-            Decimal("0.01")
-        )
-
-        # -------------------------------------------------
-        # DISCOUNT
-        # -------------------------------------------------
-
-        discount_type = (
-            quotation.discount_type
-        )
-
-        discount_value = Decimal(
-            quotation.discount_value or 0
-        )
-
-        if discount_value < 0:
-
-            discount_value = Decimal("0")
-
-        # Percentage discount
-
-        if discount_type == "PERCENTAGE":
-
-            if discount_value > 100:
-
-                discount_value = Decimal("100")
-
-            discount = (
-                subtotal
-                * discount_value
-                / Decimal("100")
-            )
-
-        # Fixed discount
-
-        else:
-
-            discount = discount_value
-
-        # Discount cannot exceed subtotal
-
-        if discount > subtotal:
-
-            discount = subtotal
-
-        discount = discount.quantize(
-            Decimal("0.01")
-        )
-
-        # -------------------------------------------------
-        # TAXABLE AMOUNT
-        # -------------------------------------------------
-
-        taxable_amount = (
-            subtotal - discount
-        )
-
-        taxable_amount = taxable_amount.quantize(
-            Decimal("0.01")
-        )
-
-        # -------------------------------------------------
-        # GST
-        # -------------------------------------------------
-
-        gst_percentage = Decimal(
-            quotation.gst_percentage or 0
-        )
-
-        if gst_percentage < 0:
-
-            gst_percentage = Decimal("0")
-
-        gst_mode = quotation.gst_mode
-
-        gst_amount = Decimal("0")
-
-        grand_total = taxable_amount
-
-        # -------------------------------------------------
-        # GST EXTRA
-        # -------------------------------------------------
-
-        if gst_mode == "GST_EXTRA":
-
-            gst_amount = (
-                taxable_amount
-                * gst_percentage
-                / Decimal("100")
-            )
-
-            gst_amount = gst_amount.quantize(
-                Decimal("0.01")
-            )
-
-            grand_total = (
-                taxable_amount
-                + gst_amount
-            )
-
-        # -------------------------------------------------
-        # GST INCLUDED
-        # -------------------------------------------------
-
-        elif gst_mode == "GST_INCLUDED":
-
-            if gst_percentage > 0:
-
-                gst_amount = (
-                    taxable_amount
-                    * gst_percentage
-                    / (
-                        Decimal("100")
-                        + gst_percentage
-                    )
-                )
-
-                gst_amount = gst_amount.quantize(
-                    Decimal("0.01")
-                )
-
-            grand_total = taxable_amount
-
-        # -------------------------------------------------
-        # NO GST
-        # -------------------------------------------------
-
-        elif gst_mode == "NO_GST":
-
-            gst_amount = Decimal("0")
-
-            grand_total = taxable_amount
-
-        # -------------------------------------------------
-        # FALLBACK
-        # -------------------------------------------------
-
-        else:
-
-            gst_amount = Decimal("0")
-
-            grand_total = taxable_amount
-
-        grand_total = grand_total.quantize(
-            Decimal("0.01")
-        )
-
-        # -------------------------------------------------
-        # SAVE TOTALS
-        # -------------------------------------------------
-
-        quotation.subtotal = subtotal
-
-        quotation.discount = discount
-
-        quotation.gst_amount = gst_amount
-
-        quotation.grand_total = grand_total
-
-        quotation.save(
-            update_fields=[
-                "subtotal",
-                "discount",
-                "gst_amount",
-                "grand_total",
-                "updated_at",
-            ]
-        )
-
+    def calculate_totals(self, quotation):
+        from .pricing import calculate_pricing
+        totals = calculate_pricing(quotation.items.all(), quotation)
+        for field, amount in totals.items():
+            setattr(quotation, field, amount)
+        quotation.save(update_fields=[*totals, "updated_at"])
         return quotation
 
     # =====================================================
@@ -2121,6 +1947,7 @@ class QuotationSerializer(serializers.ModelSerializer):
     # UPDATE / PATCH
     # =====================================================
 
+    @transaction.atomic
     def update(
         self,
         instance,
@@ -2160,6 +1987,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         )
 
         if rooms_data is not None:
+
+            rooms = []
 
             for room_data in rooms_data:
 
@@ -2209,9 +2038,7 @@ class QuotationSerializer(serializers.ModelSerializer):
                         )
                     )
 
-                    rooms.append(
-                        room
-                    )
+                rooms.append(room)
 
         # -------------------------------------------------
         # UPDATE ITEMS
@@ -2291,7 +2118,7 @@ class QuotationSerializer(serializers.ModelSerializer):
 
                     item_data["room"] = room
 
-                elif room is None and item:
+                elif "room" not in item_data and item:
 
                     room = item.room
 
@@ -2378,6 +2205,9 @@ class QuotationSerializer(serializers.ModelSerializer):
             instance.items.exclude(
                 id__in=retained_item_ids
             ).delete()
+
+        if rooms_data is not None and self.context.get("replace_draft_rooms"):
+            instance.rooms.exclude(id__in=[room.id for room in rooms]).delete()
 
         # -------------------------------------------------
         # RECALCULATE TOTALS

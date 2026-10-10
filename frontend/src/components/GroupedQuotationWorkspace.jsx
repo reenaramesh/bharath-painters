@@ -1,7 +1,7 @@
 import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, X, Eye } from "lucide-react";
-import { assignedGroup, deleteAssignment, measuredSurfaces, pricedLines, roomContribution, saveGroup, saveSpecial, specificationLines, surfaceLabel, surfaceKey, surfaceOptions, validateSpec, saveGeneralService } from "../utils/groupedQuotation.js";
+import { assignedGroup, groupContribution, groupSurfaces, deleteAssignment, measuredSurfaces, pricedLines, roomContribution, saveGroup, saveSpecial, specificationLines, surfaceLabel, surfaceKey, surfaceOptions, validateSpec, saveGeneralService, replacesStandard } from "../utils/groupedQuotation.js";
 import "./special-wall-sheet.css";
 import "./grouped-quotation.css";
 import { quotationMeasurementTables, measuredTotal, measurementBucket, hasMeasurement } from "../utils/quotationMeasurementTables.js";
@@ -42,11 +42,12 @@ function SpecificationFields({ spec, onChange }) {
   const { masters } = useContext(AssignmentContext);
   const update = (key, value) => onChange({ ...spec, [key]: value });
   return <div className="gq-spec-fields">
-    <label>Type of service<select value={spec.service_category} onChange={(event) => onChange({ ...spec, service_category: Number(event.target.value), paint_type: "" })}>{masters.categories.filter((entry) => !entry.general).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label>Type of service<select value={spec.service_category} onChange={(event) => onChange({ ...spec, service_category: Number(event.target.value), paint_type: "", service_type: "" })}>{masters.categories.filter((entry) => !entry.general).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label>Brand<select value={spec.paint_brand} onChange={(event) => update("paint_brand", Number(event.target.value))}><option value="">Select brand</option>{masters.brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-    <label>Product<select value={spec.paint_type} onChange={(event) => update("paint_type", Number(event.target.value))}><option value="">Select product</option>{masters.paintTypes.filter((entry) => entry.service_category === Number(spec.service_category)).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-    <label>Primer Coats<select value={spec.primer_coats} onChange={(event) => update("primer_coats", Number(event.target.value))}>{[0,1,2,3,4,5,6].map((value) => <option key={value}>{value}</option>)}</select></label>
-    <label>Paint Coats<select value={spec.coats} onChange={(event) => update("coats", Number(event.target.value))}>{[1,2,3,4,5,6].map((value) => <option key={value}>{value}</option>)}</select></label>
+    {masters.services?.length > 0 && <label>Service<select value={spec.service_type || ""} onChange={event=>update("service_type",event.target.value)}><option value="">No additional service specification</option>{masters.services.filter(entry=>!entry.category_master || String(entry.category_master)===String(spec.service_category)).map(entry=><option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
+    <label>Product<select value={spec.paint_type} onChange={(event) => update("paint_type", Number(event.target.value))}><option value="">Select product</option>{masters.paintTypes.filter((entry) => (!entry.service_category || String(entry.service_category) === String(spec.service_category))).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label>Primer Coats<select value={spec.primer_coats} onChange={(event) => update("primer_coats", Number(event.target.value))}>{[0,1,2,3,4,5,6].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+    <label>Paint Coats<select value={spec.coats} onChange={(event) => update("coats", Number(event.target.value))}>{[1,2,3,4,5,6].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
     <label>Description / treatment<input maxLength={255} list={`gq-description-${spec.service_category}`} value={spec.description || ""} onChange={(event) => update("description", event.target.value)} /><datalist id={`gq-description-${spec.service_category}`}>{(masters.descriptions || []).filter((entry) => !entry.service_category || String(entry.service_category) === String(spec.service_category)).map((entry) => <option key={entry.id} value={entry.name} />)}</datalist></label>
     {String(spec.description || "").trim() && <label className="gq-save-description"><input type="checkbox" checked={Boolean(spec.promote_to_master)} onChange={(event) => update("promote_to_master", event.target.checked)} />Save this Product Description for future quotations</label>}
   </div>;
@@ -63,18 +64,18 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
   const [draft, setDraft] = useState(() => editor.value ? { ...editor.value, spec: { ...editor.value.spec } } : special
     ? { id: nextId("special"), name: "Texture Wall", room_id: editor.initialRoomId ?? measurement.rooms[0]?.id ?? "", surface_ids: [], spec: { ...defaultSpec, service_category: masters.categories.find((entry) => /texture/i.test(entry.name))?.id || defaultSpec.service_category, paint_type: "" } }
     : { id: nextId("group"), name: "", surface: initialSurface, room_ids: initialRoomIds.filter((id) => !assignedGroup(state.groups, id, initialSurface) && roomContribution(measurement, state.specials, id, initialSurface).quantity > 0), spec: { ...defaultSpec } });
-  const contributions = special ? [] : draft.room_ids.map((roomId) => roomContribution(measurement, state.specials, roomId, draft.surface));
+  const contributions = special ? [] : draft.room_ids.map((roomId) => groupContribution(measurement, state.specials, roomId, groupSurfaces(draft)));
   const walls = special ? measuredSurfaces(measurement, draft.room_id, "WALL") : [];
   const total = special ? walls.filter((wall) => draft.surface_ids.includes(wall.id)).reduce((sum, wall) => sum + Number(wall.net_area), 0) : contributions.reduce((sum, entry) => sum + entry.quantity, 0);
   const selectionCount = special ? draft.surface_ids.length : draft.room_ids.length;
   const availableRoomIds = special ? [] : measurement.rooms
-    .filter((room) => !assignedGroup(state.groups, room.id, draft.surface, draft.id) && roomContribution(measurement, state.specials, room.id, draft.surface).quantity > 0)
+    .filter((room) => !assignedGroup(state.groups, room.id, groupSurfaces(draft), draft.id) && groupContribution(measurement, state.specials, room.id, groupSurfaces(draft)).quantity > 0)
     .map((room) => room.id);
   const allRoomsSelected = availableRoomIds.length > 0 && availableRoomIds.every((id) => draft.room_ids.includes(id));
   const surfaceBalances = special ? [] : availableSurfaces.map((surface) => {
     const remainingRooms = measurement.rooms.filter((room) =>
       !assignedGroup(state.groups, room.id, surface, draft.id)
-      && !(surface === draft.surface && draft.room_ids.includes(room.id))
+      && !(groupSurfaces(draft).includes(surface) && draft.room_ids.includes(room.id))
       && roomContribution(measurement, state.specials, room.id, surface).quantity > 0);
     return {
       surface, rooms: remainingRooms,
@@ -90,7 +91,7 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
   try { validateSpec(draft.spec, masters); } catch { specValid = false; }
   const save = () => {
     try {
-      const fallback = special ? "Special Wall" : contributions.length > 1 ? `${contributions.length} Rooms - ${surfaceLabel(draft.surface)}` : `${contributions[0]?.room_name || "Room"} - ${surfaceLabel(draft.surface)}`;
+      const fallback = special ? "Special Wall" : contributions.length > 1 ? `${contributions.length} Rooms - ${groupSurfaces(draft).map(surfaceLabel).join(" + ")}` : `${contributions[0]?.room_name || "Room"} - ${groupSurfaces(draft).map(surfaceLabel).join(" + ")}`;
       const named = { ...draft, name: draft.name.trim() || fallback.slice(0, 120) };
       if (rate !== "" && (!Number.isFinite(Number(rate)) || Number(rate) < 0)) throw new Error("Enter a non-negative rate.");
       const next = special ? saveSpecial(state, named, measurement, masters) : saveGroup(state, named, measurement, masters);
@@ -105,7 +106,7 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
     {error && <p className="gq-error" role="alert">{error}</p>}
     {stage === 0 ? <>
       {special ? <label>Select Room<select value={draft.room_id} onChange={(event) => setDraft((current) => ({ ...current, room_id: Number(event.target.value), surface_ids: [] }))}>{measurement.rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
-        : <label>1. Select Surface<select value={draft.surface} onChange={(event) => setDraft((current) => ({ ...current, surface: event.target.value, room_ids: [] }))}>{surfaceOptions(measurement).map((type) => <option key={type} value={type}>{surfaceLabel(type)}</option>)}</select></label>}
+        : <fieldset><legend>1. Select surfaces</legend><div className="gq-room-list">{availableSurfaces.map(type=><label key={type} className="gq-room-option"><input type="checkbox" checked={groupSurfaces(draft).includes(type)} onChange={event=>setDraft(current=>{const surfaces=event.target.checked?[...groupSurfaces(current),type]:groupSurfaces(current).filter(value=>value!==type);return {...current,surfaces,surface:surfaces[0] || "",room_ids:[]};})} /><span>{surfaceLabel(type)}</span></label>)}</div></fieldset>}
       {!special && <section className="gq-surface-balances" aria-label="Remaining surface areas">
         <h3>Remaining surface areas</h3>
         <p>Available after saved assignments and your current selection.</p>
@@ -115,14 +116,18 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
           <p>{balance.rooms.length ? balance.rooms.map((room) => room.name).join(", ") : "No remaining rooms"}</p>
         </div>)}</div>
       </section>}
+      {special && <div>
+        <label className="gq-allocation-option"><input type="checkbox" checked={replacesStandard(draft)} onChange={event => setDraft(current => ({...current,exclude_from_standard:event.target.checked,surface_ids:[]}))} />Exclude selected walls from standard painting</label>
+        <p className="text-sm text-slate-600">{replacesStandard(draft) ? "The selected measured area moves from standard painting to this special finish." : "Additional process: select a distinct service, such as primer. Standard painting is retained."}</p>
+      </div>}
       <h3>{special ? "Select Individual Measured Walls" : "2. Select Multiple Rooms"}</h3>
       {!special && <div className="gq-select-all"><button type="button" disabled={!availableRoomIds.length} onClick={toggleAllRooms}>{allRoomsSelected ? "Clear selection" : "Select all"}</button><span>{availableRoomIds.length} available rooms</span></div>}
       <div className="gq-room-list">{special ? walls.map((wall) => {
-        const assigned = state.specials.find((entry) => entry.id !== draft.id && entry.surface_ids.includes(wall.id));
+        const assigned = replacesStandard(draft) && state.specials.find((entry) => replacesStandard(entry) && entry.id !== draft.id && entry.surface_ids.includes(wall.id));
         return <label key={wall.id} className={`gq-room-option ${assigned ? "is-disabled" : ""}`}><input type="checkbox" checked={draft.surface_ids.includes(wall.id)} disabled={Boolean(assigned) || Number(wall.net_area) <= 0} onChange={() => toggle("surface_ids", wall.id)} /><span>{wall.name}{assigned && <small>Assigned - {assigned.name}</small>}</span><b>{number(wall.net_area)} sqft</b></label>;
       }) : measurement.rooms.map((room) => {
-        const contribution = roomContribution(measurement, state.specials, room.id, draft.surface);
-        const assigned = assignedGroup(state.groups, room.id, draft.surface, draft.id);
+        const contribution = groupContribution(measurement, state.specials, room.id, groupSurfaces(draft));
+        const assigned = assignedGroup(state.groups, room.id, groupSurfaces(draft), draft.id);
         const disabled = Boolean(assigned) || contribution.quantity <= 0;
         return <label key={room.id} className={`gq-room-option ${disabled ? "is-disabled" : ""}`}><input type="checkbox" checked={draft.room_ids.includes(room.id)} disabled={disabled} onChange={() => toggle("room_ids", room.id)} /><span>{room.name}{assigned && <small>Assigned - {labelFor(masters.paintTypes, assigned.spec.paint_type)}</small>}{!assigned && contribution.quantity !== contribution.original_area && <small>Normal walls; original {number(contribution.original_area)} sqft</small>}</span><b>{number(contribution.quantity)} sqft</b></label>;
       })}</div>
@@ -130,6 +135,8 @@ function AssignmentDialog({ editor, state, onSave, onClose }) {
       <label>{special ? "Wall / Surface Name" : "Area Name"}<input maxLength={120} value={draft.name} placeholder={special ? "Texture Wall" : "Example: Bedrooms Walls"} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
       <h3>3. Assign Product and Coats</h3>
       <SpecificationFields spec={draft.spec} onChange={(spec) => setDraft((current) => ({ ...current, spec }))} />
+      {special && <label>Quantity (saved measurement)<input type="number" readOnly value={total} /><small>Area comes from the selected measured walls and stays linked to this measurement version.</small></label>}
+      <label>Unit<select value={draft.unit || ""} onChange={event=>setDraft(current=>({...current,unit:Number(event.target.value)}))}><option value="">{draft.custom_unit || "Default square feet unit"}</option>{masters.units.map(unit=><option key={unit.id} value={unit.id}>{unit.name}</option>)}</select></label>
       <label>Rate per sqft<input aria-label="Assignment rate" type="number" inputMode="decimal" min="0" step="0.01" value={rate} onChange={(event) => setRate(event.target.value)} /></label>
       <div className="gq-selection-summary"><strong>Amount: {money(Number.isFinite(Number(rate)) && Number(rate) >= 0 ? total * Number(rate) : 0)}</strong></div>
     </>}
@@ -146,10 +153,10 @@ function GeneralServiceDialog({ editor, state, onClose, onSave }) {
   const submit = () => { try { if (rate !== "" && (!Number.isFinite(Number(rate)) || Number(rate) < 0)) throw new Error("Enter a non-negative rate."); const next = saveGeneralService(state, draft, measurement, masters); onSave({ ...next, rates: { ...next.rates, [draft.id]: rate } }); } catch (failure) { setError(failure.message); } };
   return <Dialog title={editor.value ? "Edit General Service" : "Add General Service"} onClose={onClose} footer={<><button onClick={onClose}>Cancel</button><button className="special-wall-primary" onClick={submit}>Save General Service</button></>}>
     {error && <p className="gq-error" role="alert">{error}</p>}
-    <label>Type of service<select value={draft.spec.service_category} onChange={(event) => update("spec", { ...draft.spec, service_category: Number(event.target.value), paint_type: "" })}>{masters.categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label>Type of service<select value={draft.spec.service_category} onChange={(event) => update("spec", { ...draft.spec, service_category: Number(event.target.value), paint_type: "", service_type: "" })}>{masters.categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label>Room / Area<select value={draft.room_id || ""} onChange={(event) => update("room_id", event.target.value ? Number(event.target.value) : "")}><option value="">General / Whole property</option>{measurement.rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
     <label>Brand<select value={draft.spec.paint_brand || ""} onChange={(event) => update("spec", { ...draft.spec, paint_brand: event.target.value ? Number(event.target.value) : "" })}><option value="">Select brand - optional</option>{masters.brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-    <label>Product<select value={draft.spec.paint_type || ""} onChange={(event) => update("spec", { ...draft.spec, paint_type: event.target.value ? Number(event.target.value) : "" })}><option value="">Select product - optional</option>{masters.paintTypes.filter((entry) => Number(entry.service_category) === Number(draft.spec.service_category)).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label>Product<select value={draft.spec.paint_type || ""} onChange={(event) => update("spec", { ...draft.spec, paint_type: event.target.value ? Number(event.target.value) : "" })}><option value="">Select product - optional</option>{masters.paintTypes.filter((entry) => (!entry.service_category || String(entry.service_category) === String(draft.spec.service_category))).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label>Description<textarea maxLength={255} value={draft.spec.description} rows={3} onChange={(event) => update("spec", { ...draft.spec, description: event.target.value })} placeholder="Describe the work to be done" /></label>
     <label>Quantity<input type="number" min="0.01" step="0.01" inputMode="decimal" value={draft.quantity} onChange={(event) => update("quantity", event.target.value)} /></label>
     <label>Unit<select value={draft.unit} onChange={(event) => update("unit", Number(event.target.value))}>{masters.units.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
@@ -162,7 +169,7 @@ function AssignmentCard({ line, onEdit, onDelete, onContributions }) {
   const { masters, squareFeetUnit } = useContext(AssignmentContext);
   return <article className="gq-assignment-card">
     <div className="gq-assignment-row">
-      <div className="gq-assignment-scope"><h3>{line.name}</h3><p>{line.contributions.length > 0 ? <button type="button" className="gq-room-surface-trigger" aria-label={`View rooms for ${line.name}`} aria-haspopup="dialog" onClick={onContributions}>{line.scope}</button> : line.scope}</p></div>
+      <div className="gq-assignment-scope"><h3>{line.name}</h3>{line.kind === "special" && <small>{replacesStandard(line) ? "Replaces standard painting" : "Additional service process"}</small>}<p>{line.contributions.length > 0 ? <button type="button" className="gq-room-surface-trigger" aria-label={`View rooms for ${line.name}`} aria-haspopup="dialog" onClick={onContributions}>{line.scope}</button> : line.scope}</p></div>
       <div><span className="gq-row-label">Type of service</span><span>{labelFor(masters.categories, line.spec.service_category)}</span></div>
       <div><span className="gq-row-label">Surface</span>{line.contributions.length > 0 ? <button type="button" className="gq-tag gq-room-surface-trigger" aria-label={`View surface for ${line.name}`} aria-haspopup="dialog" onClick={onContributions}>{line.surface_label}</button> : <span className="gq-tag">{line.surface_label}</span>}</div>
       <div><span className="gq-row-label">Brand</span><span>{labelFor(masters.brands, line.spec.paint_brand)}</span></div>
@@ -222,8 +229,8 @@ export default function GroupedQuotationWorkspace({ measurement, masters, state,
       <MeasurementTables measurement={displayMeasurement || measurement} onView={setRecordRoom} />
     </section>}
     {phase === "assignments" && <>
-      <section className="gq-panel"><div className="gq-heading"><h2>Services &amp; Product</h2><div className="gq-actions"><button type="button" className="primary" onClick={() => setEditor({ kind: "group" })}><Plus size={18} />Create Paint Areas</button><button type="button" onClick={() => setEditor({ kind: "service" })}><Plus size={18} />Add General Service</button>{extraActions}</div></div>
-        <dl className="gq-assignment-summary"><div><dt>Paint areas</dt><dd>{state.groups.length}</dd></div><div><dt>Special walls</dt><dd>{state.specials.length}</dd></div><div><dt>Assigned rooms</dt><dd>{roomCount} <small>of {measurement.rooms.length}</small></dd></div><div><dt>Assigned area</dt><dd>{number(area)} <small>sqft</small></dd></div></dl>
+      <section className="gq-panel"><div className="gq-heading"><h2>Services &amp; Product</h2><div className="gq-actions"><button type="button" className="primary" onClick={() => setEditor({ kind: "group" })}><Plus size={18} />Create Paint Areas</button><button type="button" disabled={!measurement.surfaces.some(surface => surface.surface_type === "WALL" && Number(surface.net_area) > 0 && measurement.rooms.some(room => String(room.id) === String(surface.room)))} onClick={() => setEditor({ kind: "special" })}><Plus size={18} />Add Special Wall</button><button type="button" onClick={() => setEditor({ kind: "service" })}><Plus size={18} />Add General Service</button>{extraActions}</div></div>
+        <dl className="gq-assignment-summary"><div><dt>Paint areas</dt><dd>{state.groups.length}</dd></div><div><dt>Special walls</dt><dd>{state.specials.length}</dd></div><div><dt>Assigned rooms</dt><dd>{roomCount} <small>of {measurement.rooms.length}</small></dd></div><div><dt>{state.specials.some(entry => !replacesStandard(entry)) ? "Area across services" : "Assigned area"}</dt><dd>{number(area)} <small>sqft</small></dd></div></dl>
         {!lines.length && <div className="gq-empty"><p>Create a paint areas to assign measured rooms, or add a general service.</p></div>}
         {lines.length > 0 && <div className="gq-assignment-list"><div className="gq-assignment-columns" aria-hidden="true">{["Paint Areas / Rooms", "Type of service", "Surface", "Brand", "Product", "Area", "Coats", "Actions"].map((label) => <span key={label}>{label}</span>)}</div>{lines.map((line) => <AssignmentCard key={line.id} line={line} onEdit={() => edit(line)} onDelete={() => { onChange(deleteAssignment(state, line.id, line.kind)); setNotice("Assignment deleted. Remaining areas recalculated."); }} onContributions={() => setContributionId(line.id)} />)}</div>}
       </section>

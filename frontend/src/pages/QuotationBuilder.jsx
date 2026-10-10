@@ -1,3 +1,6 @@
+import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
+import QuotationDiscountControls from "../components/QuotationDiscountControls.jsx";
+import { quotationTotals } from "../utils/quotationPricing.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { goBackFromBuilder } from "../utils/navigation";
@@ -7,7 +10,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
 import PropertyForm from "../components/PropertyForm";
 import { previewPdf } from "../components/PdfPreview";
-import { Button, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import { Button, PageHeader, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { availableWallArea } from "../utils/specialWallArea";
 import GroupedQuotationWorkspace from "../components/GroupedQuotationWorkspace";
@@ -45,7 +48,7 @@ const steps = [
   "Services, rates & totals",
 ];
 const money = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     Number(value || 0),
   );
 const SURFACE_LABELS = {
@@ -116,6 +119,7 @@ export default function QuotationBuilder() {
     customer: "",
     property: "",
     valid_until: "",
+    discount_mode: "OVERALL",
     discount_type: "FIXED",
     discount_value: 0,
     gst_mode: "GST_EXTRA",
@@ -640,6 +644,8 @@ export default function QuotationBuilder() {
     surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR"),
   }), [selectedMeasurementId, measurementRecords, savedRooms, measurements]);
   const assignedItems = useMemo(() => groupedMode ? assignmentQuotationItems(assignmentMeasurement, groupAssignments, masters) : [], [groupedMode, assignmentMeasurement, groupAssignments, masters]);
+  const submissionLock = useRef(false);
+  const markBuilderSaved = useDraftUnsavedChanges(groupedMode && Boolean(groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length));
   const activeItems = useMemo(() => groupedMode
     ? [...assignedItems, ...items.filter((item) => !item.field_id)]
     : items.filter((item) => !item.field_id || selectedFieldIds.includes(item.field_id)),
@@ -649,16 +655,13 @@ export default function QuotationBuilder() {
     [activeItems, masters.paintTypes, masters.brands],
   );
   const preview = useMemo(() => {
-    const subtotal = activeItems.reduce((sum, item) => {
-      const rate = Number(item.rate) || 0;
-      if (item.calculation_method === "LUMPSUM") return sum + rate;
-      if (item.calculation_method === "MANUAL")
-        return sum + (Number(item.quantity) || 0) * rate;
+    const priced = activeItems.map((item) => {
+      if (["LUMPSUM","MANUAL"].includes(item.calculation_method)) return item;
       const room = selectedRooms[Number(item.room_index)];
       const service = masters.services.find(
         (entry) => String(entry.id) === String(item.service_type),
       );
-      if (!room || !service) return sum;
+      if (!room || !service) return {...item,quantity:0};
       const measured = room.measurement_totals || {};
       const wall = measured.has_measurements
         ? Number(measured.wall_net)
@@ -680,26 +683,9 @@ export default function QuotationBuilder() {
         WATERPROOFING: Number(item.quantity),
         CUSTOM: Number(item.quantity),
       };
-      return sum + (quantities[service.calculation_type] || 0) * rate;
-    }, 0);
-    const discount =
-      form.discount_type === "PERCENTAGE"
-        ? (subtotal * Math.min(Number(form.discount_value) || 0, 100)) / 100
-        : Math.min(Number(form.discount_value) || 0, subtotal);
-    const taxable = subtotal - discount;
-    const gst =
-      form.gst_mode === "GST_EXTRA"
-        ? (taxable * (Number(form.gst_percentage) || 0)) / 100
-        : form.gst_mode === "GST_INCLUDED" && Number(form.gst_percentage)
-          ? (taxable * Number(form.gst_percentage)) /
-            (100 + Number(form.gst_percentage))
-          : 0;
-    return {
-      subtotal,
-      discount,
-      gst,
-      total: form.gst_mode === "GST_EXTRA" ? taxable + gst : taxable,
-    };
+      return {...item,quantity:quantities[service.calculation_type] || 0};
+    });
+    return quotationTotals(priced,form);
   }, [activeItems, form, selectedRooms, masters.services]);
   const update = (name, value) =>
     setForm((current) => ({ ...current, [name]: value }));
@@ -845,6 +831,7 @@ export default function QuotationBuilder() {
     setShowPreview(true);
   }
   async function submit(pdfPreviewOnly = false) {
+    if (submissionLock.current) return;
     if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
       setError(activeItems.length ? incompleteLineMessage(activeItems) : "Add at least one quotation line.");
       setStep(2);
@@ -860,6 +847,7 @@ export default function QuotationBuilder() {
       setError(duplicateWork);
       return;
     }
+    submissionLock.current = true;
     if (pdfPreviewOnly) setPreviewingPdf(true);
     else setSaving(true);
     setError("");
@@ -979,12 +967,13 @@ export default function QuotationBuilder() {
         setStep(1);
         return;
       }
-      const groupedItems = cleanItems.reduce((groups, line) => {
+      const groupedItems = cleanItems.reduce((groups, line, lineIndex) => {
         const key = JSON.stringify([
+          ...(form.discount_mode === "LINE" ? [lineIndex] : []),
           line.service_category, line.custom_service_category, line.service_type,
           line.paint_type, line.custom_product_type, line.paint_brand, line.custom_brand,
           line.color, line.description, line.coats, line.unit, line.custom_unit,
-          line.rate, line.calculation_method, line.is_additional_service, line.specification_details?.assignment_id,
+          line.rate, line.discount_type, line.discount_value, line.calculation_method, line.is_additional_service, line.specification_details?.assignment_id,
         ]);
         const existing = groups.find((entry) => entry._groupKey === key);
         if (!existing) {
@@ -1033,6 +1022,7 @@ export default function QuotationBuilder() {
         previewPdf(response.data, "quotation-preview.pdf");
       } else {
         const { data } = await api.post("/quotations/create/", payload);
+        markBuilderSaved();
         navigate(`/quotations/${data.id}`, { state: { draftSaved: true } });
       }
     } catch (requestError) {
@@ -1045,6 +1035,7 @@ export default function QuotationBuilder() {
             : "Quotation could not be created."),
       );
     } finally {
+      submissionLock.current = false;
       if (pdfPreviewOnly) setPreviewingPdf(false);
       else setSaving(false);
     }
@@ -1455,53 +1446,11 @@ export default function QuotationBuilder() {
         {step === 2 && (
           <div className="quotation-totals-workspace mt-8 border-t border-[#dce7ed] pt-6"><h2 className="mb-5 text-lg font-extrabold text-[#193750]">Totals &amp; notes</h2><div className="grid gap-6 xl:grid-cols-2">
              <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
-              <SectionCard title="Discount and taxes" description="Confirm the discount and GST treatment for this quotation." className="quotation-financial-controls sm:col-span-2" bodyClassName="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm">
-                Discount type
-                <select
-                  value={form.discount_type}
-                  onChange={(e) => update("discount_type", e.target.value)}
-                  className={input}
-                >
-                  <option value="FIXED">Fixed amount</option>
-                  <option value="PERCENTAGE">Percentage</option>
-                </select>
-              </label>
-              <label className="text-sm">
-                Discount value
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.discount_value}
-                  onChange={(e) => update("discount_value", e.target.value)}
-                  className={input}
-                />
-              </label>
-              <label className="text-sm">
-                GST mode
-                <select
-                  value={form.gst_mode}
-                  onChange={(e) => update("gst_mode", e.target.value)}
-                  className={input}
-                >
-                  <option value="GST_EXTRA">GST extra</option>
-                  <option value="GST_INCLUDED">GST included</option>
-                  <option value="NO_GST">No GST</option>
-                </select>
-              </label>
-              <label className="text-sm">
-                GST percentage
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.gst_percentage}
-                  onChange={(e) => update("gst_percentage", e.target.value)}
-                  className={input}
-                />
-              </label>
-              </SectionCard>
+              <QuotationDiscountControls pricing={preview} form={form} onChange={update} items={activeItems} onLineChange={(item,field,value)=>{
+                const id=item.specification_details?.assignment_id;
+                if (id) setGroupAssignments(current=>({...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field === "discount_type"?"type":"value"]:value}}}));
+                else updateItem(items.indexOf(item),field,value);
+              }} />
               <label className="text-sm sm:col-span-2">
                 Notes
                 <textarea
@@ -1619,7 +1568,7 @@ function QuotationPreviewDialog({
     );
     const roomName = quotationRoomAreaLabel(item) || savedRoom?.name || "General";
     const rate = Number(item.rate || 0);
-    const quantity = Number(item.quantity || 0);
+    const quantity = totals.lines?.[index]?.quantity ?? Number(item.quantity || 0);
     const amount =
       item.calculation_method === "LUMPSUM" ? rate : quantity * rate;
     return {
@@ -1628,14 +1577,14 @@ function QuotationPreviewDialog({
       category,
       roomName,
       productBrand: [product, brand].filter(Boolean).join(" / ") || "—",
-      description: item.description || "—",
+      description: (item.description || "—") + (totals.lines?.[index]?.discount > 0 ? ` · Line discount ${money(totals.lines[index].discount)} · Net ${money(totals.lines[index].net)}` : ""),
       quantity,
       unit,
       coats: category.toLowerCase().includes("paint")
         ? Number(item.coats || 1)
         : "—",
       rate,
-      amount,
+      amount: totals.lines?.[index]?.amount ?? amount,
     };
   });
   const propertyAddress = [

@@ -1,3 +1,4 @@
+from .views import QuotationDraftSaveView
 from django.urls import path
 from .push_views import WebPushSubscriptionView
 from .support_views import SupportSearchView, SupportActionView, SupportAuditView
@@ -125,6 +126,7 @@ from .views import ClientSearchView, SiteVisitListCreateView, SiteVisitDetailVie
 
 
 urlpatterns = [
+    path("<int:pk>/draft/", QuotationDraftSaveView.as_view(), name="quotation-draft-save"),
     path("push-subscription/", WebPushSubscriptionView.as_view(), name="push-subscription"),
     path("project-scopes/", ProjectScopeViewSet.as_view({"get": "list", "post": "create"}), name="project-scope-list-create"),
     path("project-scopes/<int:pk>/", ProjectScopeViewSet.as_view({"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}), name="project-scope-detail"),

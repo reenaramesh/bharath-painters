@@ -1,6 +1,8 @@
 ﻿from django.urls import path
 
 from .views import (
+    WorkOrderDraftPricingView,
+    WorkOrderPdfView,
     AdditionalWorkDecisionView,
     AdditionalWorkRequestView,
     WorkOrderAssignmentView,
@@ -18,6 +20,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path("work-orders/<int:pk>/draft-pricing/",WorkOrderDraftPricingView.as_view(),name="work-order-draft-pricing"),
+    path("work-orders/<int:pk>/pdf/",WorkOrderPdfView.as_view(),name="work-order-pdf"),
     path("work-orders/", WorkOrderListCreateView.as_view(), name="work-order-list-create"),
     path("work-orders/<int:pk>/", WorkOrderDetailView.as_view(), name="work-order-detail"),
     path("work-orders/<int:pk>/transition/", WorkOrderTransitionView.as_view(), name="work-order-transition"),

@@ -99,6 +99,8 @@ class SubcontractWorkOrder(models.Model):
     terms = models.TextField(blank=True)
 
     agreed_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    material_mode = models.CharField(max_length=24, blank=True, default="", choices=[("WITH_MATERIAL","With material"),("WITHOUT_MATERIAL","Without material")])
+    private_pricing = models.JSONField(default=dict, blank=True)
 
     required_start_date = models.DateField(null=True, blank=True)
     required_end_date = models.DateField(null=True, blank=True)
@@ -164,6 +166,8 @@ class SubcontractWorkOrderScope(models.Model):
     )
 
     title_snapshot = models.CharField(max_length=200, blank=True)
+    source_quotation_item = models.ForeignKey("quotations.QuotationItem", on_delete=models.PROTECT, null=True, blank=True, related_name="subcontract_scopes")
+    specification_snapshot = models.JSONField(default=dict, blank=True)
     category_name_snapshot = models.CharField(max_length=150, blank=True)
     work_description_snapshot = models.CharField(max_length=200, blank=True)
     unit_name_snapshot = models.CharField(max_length=40, blank=True)
@@ -208,6 +212,7 @@ class SubcontractQuote(models.Model):
 
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    pricing = models.JSONField(default=dict, blank=True)
     tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
@@ -243,6 +248,14 @@ class SubcontractQuote(models.Model):
         super().save(*args, **kwargs)
 
     def recalculate(self, save=True):
+        if self.pricing:
+            from quotations.pricing import calculate_pricing
+            totals = calculate_pricing(self.quote_lines.all(), self.pricing)
+            self.subtotal, self.tax_amount, self.total = totals["subtotal"], totals["gst_amount"], totals["grand_total"]
+            self.pricing = {**self.pricing, **{key:str(amount) for key,amount in totals.items()}}
+            if save:
+                self.save(update_fields=["subtotal","tax_amount","total","pricing","updated_at"])
+            return self
         subtotal = sum((line.amount for line in self.quote_lines.all()), Decimal("0"))
         self.subtotal = subtotal.quantize(TWO_PLACES)
         self.total = (self.subtotal + (self.tax_amount or Decimal("0"))).quantize(TWO_PLACES)
@@ -275,6 +288,9 @@ class SubcontractQuoteLine(models.Model):
     description_snapshot = models.CharField(max_length=200, blank=True)
     unit_name_snapshot = models.CharField(max_length=40, blank=True)
     specification = models.TextField(blank=True)
+    source_scope = models.ForeignKey(SubcontractWorkOrderScope, on_delete=models.SET_NULL, null=True, blank=True, related_name="priced_lines")
+    discount_type = models.CharField(max_length=12, default="FIXED", choices=[("FIXED","Fixed amount"),("PERCENTAGE","Percentage")])
+    discount_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)

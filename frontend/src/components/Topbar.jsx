@@ -23,6 +23,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
   const { user, logout } = useAuth();
   const { language, t } = useLanguage();
   const location = useLocation();
+  const compactMobileHeader = ["/quotations", "/customers"].includes(location.pathname);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -137,7 +138,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
     navigate(target);
   };
   return (
-    <header className="bp-topbar flex items-center justify-between px-3 sm:px-4 md:px-7">
+    <header className={`bp-topbar flex items-center justify-between px-3 sm:px-4 md:px-7 ${compactMobileHeader ? "compact-mobile-topbar" : ""}`}>
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
@@ -223,7 +224,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
-        <LanguageSelector compact />
+        <div className={compactMobileHeader ? "hidden md:block" : ""}><LanguageSelector compact /></div>
         <div className="relative shrink-0">
           <button
             type="button"
@@ -325,6 +326,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                 )}
               </div>
               <div className="p-2">
+                {compactMobileHeader && <div className="compact-profile-language border-b px-3 py-3 md:hidden"><LanguageSelector /></div>}
                 {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
                   <button
                     type="button"

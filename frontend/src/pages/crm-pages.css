@@ -416,8 +416,17 @@
 /* Keep customer status tabs readable while swiping on small screens. */
 .crm-customers-page .crm-customer-status-tabs { min-width: 0; max-width: 100%; overscroll-behavior-x: contain; }
 .crm-customers-page .crm-customer-status-tabs button { flex-shrink: 0; }
+.customer-status-filter { width: 100%; min-width: 0; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+.customer-status-filter summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; color: #172033; font-size: 14px; cursor: pointer; list-style: none; }
+.customer-status-filter summary::-webkit-details-marker { display: none; }
+.customer-status-filter summary:focus-visible { outline: 2px solid var(--app-primary, #176b9b); outline-offset: 2px; border-radius: 12px; }
+.customer-status-filter[open] summary svg { transform: rotate(180deg); }
+.customer-status-filter fieldset { min-width: 0; max-height: min(280px, 40dvh); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px; border: 0; border-top: 1px solid #e2e8f0; }
+.customer-status-filter label { display: flex; min-height: 44px; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.customer-status-filter label.is-selected { background: #edf5fa; color: #176b9b; }
+.crm-customers-page .customer-status-filter input[type="radio"] { width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; accent-color: var(--app-primary, #176b9b); }
 @media (max-width: 639px) {
-  .crm-customers-page .crm-customer-status-tabs { gap: 6px; scrollbar-width: none; }
+  .crm-customers-page .crm-customer-status-tabs { gap: 6px; margin-top: 12px; scrollbar-width: none; }
   .crm-customers-page .crm-customer-status-tabs::-webkit-scrollbar { display: none; }
   .crm-customers-page .crm-customer-status-tabs button { font-size: 12px; line-height: 1.4; padding: 10px 12px; min-height: 44px; width: auto; }
 }

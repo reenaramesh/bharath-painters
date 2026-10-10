@@ -1,6 +1,7 @@
 // Shared quotation assignment calculations. Consume saved net_area; never recalculate measurements.
 const round = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 const same = (left, right) => String(left) === String(right);
+export const replacesStandard = special => special.exclude_from_standard !== false;
 export const surfaceLabel = (type) => type.startsWith("OTHER:") ? type.slice(6) : ({ WALL: "Walls", CEILING: "Ceiling", DOOR: "Door", WINDOW: "Window", OTHER: "Other surface" }[type] || type.replaceAll("_", " "));
 export const surfaceKey = (surface) => surface.surface_type === "OTHER" ? `OTHER:${String(surface.area_group_name || surface.name || "Other surface").trim()}` : surface.surface_type;
 export function surfaceOptions(measurement) {
@@ -11,7 +12,7 @@ export function measuredSurfaces(measurement, roomId, surfaceType) {
 }
 export function roomContribution(measurement, specials, roomId, surfaceType) {
   const measured = measuredSurfaces(measurement, roomId, surfaceType);
-  const specialIds = new Set(specials.filter((special) => same(special.room_id, roomId)).flatMap((special) => special.surface_ids.map(String)));
+  const specialIds = new Set(specials.filter((special) => replacesStandard(special) && same(special.room_id, roomId)).flatMap((special) => special.surface_ids.map(String)));
   const sources = measured.map((surface) => {
     const original = Number(surface.net_area);
     if (!Number.isFinite(original) || original < 0) throw new Error("Invalid saved net area.");
@@ -26,8 +27,15 @@ export function roomContribution(measurement, specials, roomId, surfaceType) {
     sources,
   };
 }
+export const groupSurfaces = group => Array.isArray(group.surfaces) ? group.surfaces : [group.surface];
+export function groupContribution(measurement, specials, roomId, surfaces) {
+  const entries = surfaces.map(surface => roomContribution(measurement, specials, roomId, surface));
+  return { ...entries[0], quantity:round(entries.reduce((sum,entry)=>sum+entry.quantity,0)),
+    original_area:round(entries.reduce((sum,entry)=>sum+entry.original_area,0)), sources:entries.flatMap(entry=>entry.sources) };
+}
 export function assignedGroup(groups, roomId, surfaceType, editingId) {
-  return groups.find((group) => group.id !== editingId && group.surface === surfaceType && group.room_ids.some((id) => same(id, roomId)));
+  const types = Array.isArray(surfaceType) ? surfaceType : [surfaceType];
+  return groups.find((group) => group.id !== editingId && groupSurfaces(group).some(type=>types.includes(type)) && group.room_ids.some((id) => same(id, roomId)));
 }
 export function validateSpec(spec, masters) {
   if (!masters.categories.some((entry) => same(entry.id, spec.service_category))) throw new Error("Select a work type.");
@@ -39,16 +47,18 @@ export function validateSpec(spec, masters) {
 }
 export function saveGroup(state, draft, measurement, masters) {
   if (!String(draft.name || "").trim()) throw new Error("Enter a group name.");
-  if (!surfaceOptions(measurement).includes(draft.surface)) throw new Error("Select an existing surface.");
+  const surfaces = groupSurfaces(draft);
+  if (!surfaces.length || new Set(surfaces).size !== surfaces.length || surfaces.some(surface=>!surfaceOptions(measurement).includes(surface))) throw new Error("Select existing surfaces without duplicates.");
   if (!draft.room_ids.length) throw new Error("Select at least one room.");
   if (new Set(draft.room_ids.map(String)).size !== draft.room_ids.length) throw new Error("A room can only be selected once.");
   validateSpec(draft.spec, masters);
   for (const roomId of draft.room_ids) {
     if (!measurement.rooms.some((room) => same(room.id, roomId))) throw new Error("Select an existing room.");
-    if (assignedGroup(state.groups, roomId, draft.surface, draft.id)) throw new Error("This room surface is already assigned to another paint group.");
-    if (roomContribution(measurement, state.specials, roomId, draft.surface).quantity <= 0) throw new Error("This room has no remaining area for this surface.");
+    if (assignedGroup(state.groups, roomId, surfaces, draft.id)) throw new Error("This room surface is already assigned to another paint group.");
+    if (groupContribution(measurement, state.specials, roomId, surfaces).quantity <= 0) throw new Error("This room has no remaining area for these surfaces.");
+    if (surfaces.includes("WALL") && draft.spec.service_type && state.specials.some(special => !replacesStandard(special) && same(special.room_id,roomId) && same(special.spec.service_type,draft.spec.service_type) && roomContribution(measurement,state.specials,roomId,"WALL").sources.some(source => source.quantity > 0 && special.surface_ids.some(id => same(id,source.surface_id))))) throw new Error("This service is already billed in an additional wall process.");
   }
-  const group = { id: draft.id, name: draft.name.trim(), surface: draft.surface, room_ids: [...draft.room_ids], spec: { ...draft.spec } };
+  const group = { id: draft.id, name: draft.name.trim(), ...(draft.unit ? {unit:draft.unit} : {}), ...(draft.custom_unit ? {custom_unit:draft.custom_unit} : {}), surface: surfaces[0], ...(surfaces.length > 1 ? {surfaces:[...surfaces]} : {}), room_ids: [...draft.room_ids], spec: { ...draft.spec } };
   return { ...state, groups: state.groups.some((entry) => entry.id === group.id) ? state.groups.map((entry) => entry.id === group.id ? group : entry) : [...state.groups, group] };
 }
 export function saveSpecial(state, draft, measurement, masters) {
@@ -56,26 +66,31 @@ export function saveSpecial(state, draft, measurement, masters) {
   if (!draft.surface_ids.length) throw new Error("Select at least one measured wall.");
   if (new Set(draft.surface_ids.map(String)).size !== draft.surface_ids.length) throw new Error("A wall can only be selected once.");
   validateSpec(draft.spec, masters);
+  const replace = replacesStandard(draft);
+  if (!replace && !masters.services?.some(service => same(service.id, draft.spec.service_type))) throw new Error("Select a distinct service for an additional wall process.");
   const walls = measuredSurfaces(measurement, draft.room_id, "WALL");
-  const used = new Set(state.specials.filter((special) => special.id !== draft.id).flatMap((special) => special.surface_ids.map(String)));
+  const otherSpecials = state.specials.filter(special => special.id !== draft.id);
   for (const id of draft.surface_ids) {
     const wall = walls.find((entry) => same(entry.id, id));
     if (!wall) throw new Error("Select a measured wall from this room.");
-    if (used.has(String(id))) throw new Error("This measured wall is already assigned to a special surface.");
+    if (otherSpecials.some(special => special.surface_ids.some(source => same(source,id)) && ((replace && replacesStandard(special)) || (draft.spec.service_type && same(special.spec.service_type,draft.spec.service_type))))) throw new Error("This measured wall is already assigned to this process.");
+    if (!replace && state.groups.some(group => same(group.spec.service_type,draft.spec.service_type) && groupSurfaces(group).includes("WALL") && group.room_ids.some(room => same(room,draft.room_id)) && roomContribution(measurement,[...otherSpecials,draft],draft.room_id,"WALL").sources.some(source => same(source.surface_id,id) && source.quantity > 0))) throw new Error("This service is already billed in the standard wall group.");
     if (!(Number(wall.net_area) > 0)) throw new Error("Select a wall with a positive measured area.");
   }
-  const special = { id: draft.id, name: draft.name.trim(), room_id: draft.room_id, surface_ids: [...draft.surface_ids], spec: { ...draft.spec } };
+  const special = { id: draft.id, name: draft.name.trim(), exclude_from_standard:replace, ...(draft.unit ? {unit:draft.unit} : {}), ...(draft.custom_unit ? {custom_unit:draft.custom_unit} : {}), room_id: draft.room_id, surface_ids: [...draft.surface_ids], spec: { ...draft.spec } };
   return { ...state, specials: state.specials.some((entry) => entry.id === special.id) ? state.specials.map((entry) => entry.id === special.id ? special : entry) : [...state.specials, special] };
 }
 export function deleteAssignment(state, id, kind) {
   const key = kind === "special" ? "specials" : kind === "service" ? "services" : "groups";
   const rates = { ...state.rates }; delete rates[id];
-  return { ...state, [key]: (state[key] || []).filter((entry) => entry.id !== id), rates };
+  const discounts = { ...state.discounts }; delete discounts[id];
+  return { ...state, [key]: (state[key] || []).filter((entry) => entry.id !== id), rates, ...(state.discounts ? {discounts} : {}) };
 }
 export function specificationLines(measurement, state) {
   const groups = state.groups.map((group) => {
-    const contributions = group.room_ids.map((roomId) => roomContribution(measurement, state.specials, roomId, group.surface));
-    return { ...group, kind: "group", surface_label: surfaceLabel(group.surface), scope: `${surfaceLabel(group.surface)} - ${contributions.filter((entry) => entry.quantity > 0).map((entry) => entry.room_name).join(", ")}`, quantity: round(contributions.reduce((sum, entry) => sum + entry.quantity, 0)), contributions };
+    const contributions = group.room_ids.map((roomId) => groupContribution(measurement, state.specials, roomId, groupSurfaces(group)));
+    const label = groupSurfaces(group).map(surfaceLabel).join(" + ");
+    return { ...group, kind: "group", surface_label: label, scope: `${label} - ${contributions.filter((entry) => entry.quantity > 0).map((entry) => entry.room_name).join(", ")}`, quantity: round(contributions.reduce((sum, entry) => sum + entry.quantity, 0)), contributions };
   });
   const specials = state.specials.map((special) => {
     const room = measurement.rooms.find((entry) => same(entry.id, special.room_id));
@@ -109,7 +124,7 @@ export function saveGeneralService(state, draft, measurement, masters) {
   if (draft.surface && ![...surfaceOptions(measurement), "OTHER"].includes(draft.surface)) throw new Error("Select an existing surface.");
   if (draft.spec.paint_type) {
     const product = masters.paintTypes.find((entry) => same(entry.id, draft.spec.paint_type));
-    if (!product || !same(product.service_category, draft.spec.service_category)) throw new Error("Select a product for this service.");
+    if (!product || (product.service_category && !same(product.service_category, draft.spec.service_category))) throw new Error("Select a product for this service.");
   }
   if (!String(draft.spec.description || "").trim()) throw new Error("Enter a description of the work.");
   if (!Number.isFinite(Number(draft.quantity)) || Number(draft.quantity) <= 0) throw new Error("Enter a quantity greater than zero.");
@@ -130,13 +145,17 @@ export function assignmentQuotationItems(measurement, state, masters) {
       field_id: `assignment-${line.id}`, room_name: line.name, room_id: room?.id || null,
       property_room_id: room?.id || "", room_index: "", scope: line.kind === "service" ? "room" : "group",
       service_category: line.spec.service_category || "", paint_type: line.spec.paint_type || "", paint_brand: line.spec.paint_brand || "",
+      service_type: line.spec.service_type || null,
       description, promote_to_master: Boolean(line.spec.promote_to_master), coats: Number(line.spec.coats || 1), quantity: line.quantity, unit: line.unit || unit?.id || "",
       rate: state.rates[line.id] ?? "", calculation_method: "MANUAL", is_additional_service: line.kind === "service",
+      discount_type: state.discounts?.[line.id]?.type || "FIXED", discount_value: state.discounts?.[line.id]?.value ?? 0,
       surface_type: line.surface || "OTHER", custom_area_name: line.name,
       included_areas: line.kind === "service" ? [room?.name || "General"] : line.contributions.filter((entry) => entry.quantity > 0).map((entry) => `${entry.room_name} - ${line.name}: ${entry.quantity} sqft`),
       specification_details: {
         schema_version: 1, assignment_id: line.id, kind: line.kind, name: line.name,
         surface: line.surface || null, measurement_record: measurement.id, measurement_version: measurement.version,
+        ...(line.surfaces?.length > 1 ? { surfaces: line.surfaces } : {}),
+        ...(line.kind === "special" ? {exclude_from_standard:replacesStandard(line)} : {}),
         room_ids: line.room_ids || (line.room_id ? [line.room_id] : []), surface_ids: line.surface_ids || [],
         primer_coats: Number(line.spec.primer_coats || 0), contributions: line.contributions,
       },

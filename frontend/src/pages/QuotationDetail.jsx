@@ -1,3 +1,4 @@
+import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -21,9 +22,10 @@ import { previewPdf } from "../components/PdfPreview";
 import { profileImageStyle } from "../utils/profileImagePosition";
 import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
+import { consumeQuotationSubmission } from "../utils/quotationSubmission.js";
 
 const money = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     Number(value || 0),
   );
 const quotationColumnDefaults = [4, 14, 11, 15, 19, 9, 6, 10, 12];
@@ -59,6 +61,12 @@ export default function QuotationDetail() {
   const convertingRef = useRef(false);
   const [showShare, setShowShare] = useState(false);
   const [customerLogin, setCustomerLogin] = useState(null);
+  useEffect(() => {
+    const submission = consumeQuotationSubmission(id);
+    if (!submission) return;
+    setCustomerLogin(submission.temporary_password ? {customer_id:submission.customer_id,mobile:submission.customer_mobile,temporary_password:submission.temporary_password} : null);
+    setShowShare(true);
+  }, [id]);
   const [mobileItem, setMobileItem] = useState(null);
   const [invoiceSetup, setInvoiceSetup] = useState(null);
   const [columnWidths, setColumnWidths] = useState(savedQuotationColumnWidths);
@@ -307,13 +315,13 @@ export default function QuotationDetail() {
               </>
             )}
           </button>
-          {quotation.status !== "REVISION_REQUESTED" && (
+          {quotation.status === "DRAFT" && quotation.can_edit && (
             <Link
               to={`/quotations/${id}/edit`}
               className="flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-semibold sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
             >
               <Edit3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              Edit
+              Edit Draft
             </Link>
           )}
           {quotation.status === "COMPLETED" && (
@@ -335,14 +343,14 @@ export default function QuotationDetail() {
               Schedule work
             </Link>
           )}
-          <button
+          {quotation.status === "DRAFT" && quotation.can_delete && <button
             onClick={remove}
             disabled={deleting}
             className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
           >
             <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {deleting ? "Deleting..." : "Delete"}
-          </button>
+          </button>}
         </div>
       </div>
       {error && (
@@ -374,6 +382,7 @@ export default function QuotationDetail() {
           </section>
         )}
       <RevisionSummary changes={quotation.revision_changes} />
+      <QuotationLineDiscountSummary items={quotation.items} />
       <section className="quotation-sheet rounded-2xl border bg-white">
         <div className="quotation-company-header flex flex-col gap-5 border-b p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">

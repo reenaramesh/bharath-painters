@@ -359,10 +359,41 @@
     justify-content: center;
   }
 
-  .bp-quotation-list .quotation-status-summary > button {
-    min-height: 88px;
-    padding: 12px;
+  .bp-quotation-list { row-gap: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+
+  .bp-quotation-list .quotation-status-summary {
+    display: flex;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 3px 2px 8px;
+    scroll-padding-inline: 2px;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
   }
+
+  .bp-quotation-list .quotation-status-summary > button {
+    min-height: 44px;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: none;
+  }
+
+  .bp-quotation-list .quotation-status-summary > button :is(span, strong) { font-size: 13px; line-height: 1.4; }
+  .bp-quotation-list .quotation-status-summary > button strong { padding: 1px 6px; border-radius: 999px; background: rgb(148 163 184 / .15); }
+
+  .bp-page-container:has(.bp-quotation-list) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .quotation-mobile-topbar { gap: 8px; }
+  .quotation-mobile-topbar > div:first-child { min-width: 0; }
+  .quotation-mobile-topbar > div:first-child > p { min-width: 0; flex: 1; }
+  .quotation-mobile-topbar button[aria-label="Home"] { display: none; }
+  .quotation-profile-language select { width: 100%; }
 
   .bp-quotation-list .quotation-results-card > header {
     padding: 14px 16px;

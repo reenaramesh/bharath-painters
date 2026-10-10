@@ -150,8 +150,8 @@ def _indian_number(value, decimals=0):
     return f"-{result}" if negative else result
 
 
-def money(value):
-    return f"{'₹' if HAS_RUPEE else 'Rs.'} {_indian_number(value)}"
+def money(value, decimals=0):
+    return f"{'₹' if HAS_RUPEE else 'Rs.'} {_indian_number(value, decimals)}"
 
 
 def area(value):
@@ -219,6 +219,8 @@ def _logo(profile, snapshot, prefer_profile=False):
         stored = snapshot.get("company_logo")
         profile_logo = getattr(profile, "company_logo", None) if profile else None
         profile_logo_name = getattr(profile_logo, "name", "")
+        if not prefer_profile and "company_logo" in snapshot:
+            profile_logo_name = ""
         path = (
             Path(profile_logo.path)
             if profile_logo_name
@@ -256,13 +258,15 @@ def _contractor_context(user, snapshot=None, prefer_profile=False):
     def get(key, fallback=""):
         if prefer_profile and profile is not None:
             return getattr(profile, key, fallback)
+        if not prefer_profile and key in snapshot:
+            return snapshot[key]
         return snapshot.get(key) or fallback
     return {
         "profile": profile,
         "logo": _logo(profile, snapshot, prefer_profile=prefer_profile),
         "logo_shape": (
             getattr(profile, "company_logo_shape", "RECTANGLE")
-            if (prefer_profile and profile is not None) or getattr(getattr(profile, "company_logo", None), "name", "")
+            if (prefer_profile and profile is not None) or ("company_logo_shape" not in snapshot and getattr(getattr(profile, "company_logo", None), "name", ""))
             else snapshot.get("company_logo_shape") or "RECTANGLE"
         ),
         "company": get("company_name", getattr(profile, "company_name", "") or user.get_full_name() or "Contractor"),
@@ -837,7 +841,7 @@ def build_quotation_pdf(quotation, included_sections=None):
         if included_sections is None
         else set(included_sections) & QUOTATION_PDF_SECTION_KEYS
     )
-    context = _contractor_context(quotation.contractor, quotation.contractor_snapshot or {}, prefer_profile=True)
+    context = _contractor_context(quotation.contractor, quotation.contractor_snapshot or {}, prefer_profile=quotation.status == "DRAFT")
     fonts = _pdf_fonts(context["profile"])
     palette = _quotation_palette(context["profile"])
     s = _styles(fonts, palette["text"])
@@ -887,7 +891,12 @@ def build_quotation_pdf(quotation, included_sections=None):
         coat_value = "-" if item.is_additional_service or not coats else coats
         rate_value = Paragraph(_text(_indian_number(item.rate, 2)), numeric_cell)
         amount_value = Paragraph(f"<b>{_text(_indian_number(item.amount, 2))}</b>", rate_amount_cell)
-        rows.append([str(serial), Paragraph(_text(service_value) or "-", table_body_style), Paragraph(_text(room) or "-", table_body_style), product_brand, Paragraph(_text(item.description) or "-", table_body_style), quantity_value, Paragraph(_text(coat_value), numeric_cell), rate_value, amount_value])
+        description = _text(item.description) or "-"
+        if quotation.discount_mode == "LINE" and "discount" in included_sections:
+            from .discounts import line_discount
+            reduction = line_discount(item)
+            description += f"<br/><font size=6.2>Line discount {_text(money(reduction, 2))}<br/>Net {_text(money(item.amount - reduction, 2))}</font>"
+        rows.append([str(serial), Paragraph(_text(service_value) or "-", table_body_style), Paragraph(_text(room) or "-", table_body_style), product_brand, Paragraph(description, table_body_style), quantity_value, Paragraph(_text(coat_value), numeric_cell), rate_value, amount_value])
     quotation_table = _data_table(rows, [7*mm, 23*mm, 20*mm, 27*mm, 39*mm, 16*mm, 10*mm, 17*mm, 21*mm], numeric_from=5, font_size=7, emphasis_columns=[], corner_radii=[8]*4, header_color=palette["dark"], fonts=fonts, body_text_color=palette["text"])
     quotation_table.setStyle(TableStyle([
         ("TEXTCOLOR", (0, 0), (-1, 0), palette["on_dark"]),
@@ -899,13 +908,13 @@ def build_quotation_pdf(quotation, included_sections=None):
         story.append(quotation_table)
     totals = []
     if "subtotal" in included_sections:
-        totals.append(["Subtotal", money(quotation.subtotal)])
+        totals.append(["Subtotal", money(quotation.subtotal, 2)])
     if "discount" in included_sections and quotation.discount:
-        totals.append(["Discount", f"- {money(quotation.discount)}"])
+        totals.append(["Discount", f"- {money(quotation.discount, 2)}"])
     if "gst" in included_sections and quotation.gst_amount:
-        totals.append([f"GST ({quantity(quotation.gst_percentage)}%)", money(quotation.gst_amount)])
+        totals.append([f"GST ({_indian_number(quotation.gst_percentage, 2).rstrip('0').rstrip('.')}%)", money(quotation.gst_amount, 2)])
     if "grand_total" in included_sections:
-        totals.append(["QUOTATION TOTAL", money(quotation.grand_total)])
+        totals.append(["QUOTATION TOTAL", money(quotation.grand_total, 2)])
     total_table = None
     if totals:
         total_table = Table(totals, colWidths=[42*mm, 35*mm], hAlign="RIGHT", cornerRadii=[8]*4)
@@ -914,9 +923,13 @@ def build_quotation_pdf(quotation, included_sections=None):
         if "grand_total" in included_sections:
             total_styles += [("BACKGROUND", (0, -1), (-1, -1), palette["dark"]), ("TEXTCOLOR", (0, -1), (-1, -1), palette["on_dark"]), ("FONTSIZE", (0, -1), (-1, -1), 9.2)]
         total_table.setStyle(TableStyle(total_styles))
-    amount_words = _amount_words(quotation.grand_total)
+    whole_rupees = int(quotation.grand_total)
+    paise = int((quotation.grand_total - whole_rupees) * 100)
+    amount_words = f"{_amount_words(whole_rupees)} Indian Rupees"
+    if paise:
+        amount_words += f" and {_amount_words(paise)} Paise"
     words_label = ParagraphStyle("quotation-total-words-label", parent=s["label"], textColor=palette["accent_text"])
-    words_card = Table([[Paragraph("TOTAL IN WORDS", words_label)], [Paragraph(f'<i>"{_text(amount_words)} Indian Rupees Only"</i>', s["body"])]], colWidths=[88*mm], cornerRadii=[8]*4, style=TableStyle([
+    words_card = Table([[Paragraph("TOTAL IN WORDS", words_label)], [Paragraph(f'<i>"{_text(amount_words)} Only"</i>', s["body"])]], colWidths=[88*mm], cornerRadii=[8]*4, style=TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), PANEL), ("BOX", (0, 0), (-1, -1), .6, LINE),
         ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),

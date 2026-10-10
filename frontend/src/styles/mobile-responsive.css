@@ -1,5 +1,11 @@
 /* Shared phone layout repairs. Tablet/desktop styles remain in their owning files. */
 @media (max-width: 767px) {
+  .compact-mobile-topbar { gap: 8px; }
+  .compact-mobile-topbar > div:first-child { min-width: 0; }
+  .compact-mobile-topbar > div:first-child > p { min-width: 0; flex: 1; }
+  .compact-mobile-topbar button[aria-label="Home"] { display: none; }
+  .compact-profile-language select { width: 100%; }
+  .bp-page-container:has(.crm-customers-page) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .bp-page-container,
   .bp-page-container > *,
   .bp-page-container :is(.flex, .grid) > *,

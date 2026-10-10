@@ -1,3 +1,4 @@
+import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -142,6 +143,7 @@ export default function CustomerQuotation() {
   return (
     <div className="bp-quotation-page customer-quotation-detail-page space-y-6">
       <BackButton fallback="/customer-quotations" label="Back to My Quotations" />
+      <QuotationLineDiscountSummary items={quotation.items} />
       {error && (
         <p role="alert" className="customer-portal-alert customer-portal-alert-error">{error}</p>
       )}
@@ -330,7 +332,7 @@ function Total({ label, value }) {
 }
 function money(value) {
   return Number(value || 0).toLocaleString("en-IN", {
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
 }
 

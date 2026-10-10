@@ -1,3 +1,4 @@
+from .discounts import line_discount
 
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q, Subquery
@@ -23,6 +24,7 @@ from PIL import Image, UnidentifiedImageError
 from openpyxl import Workbook, load_workbook
 from .pdf_utils import build_quotation_pdf, build_measurement_pdf, build_invoice_pdf, build_invoice_receipt_pdf
 from .document_languages import document_language
+from .identity import quotation_contractor_identity
 from .revision_utils import clone_quotation_revision, previous_revision, quotation_revision_changes
 from .product_details import consolidated_product_details
 
@@ -3094,6 +3096,7 @@ class ChatConversationListView(APIView):
     def get(self, request):
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
         requested_conversation_id = request.query_params.get("conversation")
+        search = str(request.query_params.get("search") or "").strip()[:100]
         if request.user.role == BharathUser.Roles.CONTRACTOR:
             from jobs.models import ContractorApplicatorTeam
             painter_ids = ContractorApplicatorTeam.objects.filter(contractor=request.user, is_active=True).values_list("painter_id", flat=True)
@@ -3114,19 +3117,7 @@ class ChatConversationListView(APIView):
                 models.Q(customer__contractor_connections__contractor=request.user,
                          customer__contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED)
             ).distinct()
-            search = str(request.query_params.get("search") or "").strip()
-            if search:
-                conversations = conversations.filter(
-                    models.Q(customer__name__icontains=search)
-                    | models.Q(customer__mobile__icontains=search)
-                    | models.Q(customer__email__icontains=search)
-                    | models.Q(customer__bharath_id__icontains=search)
-                    | models.Q(painter__first_name__icontains=search)
-                    | models.Q(painter__last_name__icontains=search)
-                    | models.Q(painter__mobile__icontains=search)
-                    | models.Q(painter__bharath_id__icontains=search)
-                )
-            else:
+            if not search:
                 if requested_painter_id:
                     conversations = conversations.filter(painter_id=requested_painter_id)
                 elif requested_conversation_id:
@@ -3153,6 +3144,30 @@ class ChatConversationListView(APIView):
             conversations = ChatConversation.objects.filter(painter=request.user)
         else:
             return Response([], status=status.HTTP_200_OK)
+        if search:
+            participant_search = models.Q()
+            if request.user.role == BharathUser.Roles.CONTRACTOR:
+                participant_search = (
+                    models.Q(customer__name__icontains=search)
+                    | models.Q(customer__mobile__icontains=search)
+                    | models.Q(customer__email__icontains=search)
+                    | models.Q(customer__bharath_id__icontains=search)
+                    | models.Q(painter__first_name__icontains=search)
+                    | models.Q(painter__last_name__icontains=search)
+                    | models.Q(painter__mobile__icontains=search)
+                    | models.Q(painter__bharath_id__icontains=search)
+                )
+            else:
+                participant_search = (
+                    models.Q(contractor__first_name__icontains=search)
+                    | models.Q(contractor__last_name__icontains=search)
+                    | models.Q(contractor__mobile__icontains=search)
+                    | models.Q(contractor__bharath_id__icontains=search)
+                    | models.Q(contractor__contractor_profile__company_name__icontains=search)
+                )
+            conversations = conversations.filter(
+                participant_search | models.Q(messages__text__icontains=search)
+            ).distinct()
         conversations = conversations.select_related("customer", "contractor", "contractor__contractor_profile", "painter").annotate(
             recent_message_at=models.Max("messages__created_at"),
             requested_first=models.Case(models.When(pk=requested_conversation_id, then=0), default=1, output_field=models.IntegerField()) if requested_conversation_id else models.Value(1, output_field=models.IntegerField()),
@@ -5226,8 +5241,7 @@ class CustomerQuotationView(APIView):
         ).exclude(status=Quotation.Status.DRAFT).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
-        profile = quotation.contractor.contractor_profile if hasattr(quotation.contractor, "contractor_profile") else None
-        contractor_snapshot = quotation.contractor_snapshot or {}
+        identity = quotation_contractor_identity(quotation, request)
         property_snapshot = quotation.property_snapshot or {}
         response = Response({
             "id": quotation.id, "quotation_number": quotation.quotation_number,
@@ -5238,7 +5252,7 @@ class CustomerQuotationView(APIView):
             "revision_changes": quotation_revision_changes(quotation),
             "quotation_date": quotation.quotation_date, "valid_until": quotation.valid_until,
             "status": quotation.status,
-            "contractor_name": profile.company_name if profile else contractor_snapshot.get("company_name") or quotation.contractor.get_full_name() or quotation.contractor.mobile,
+            "contractor_name": identity["company_name"],
             "customer_contact": {
                 "id": quotation.customer_contact_id,
                 "name": quotation.customer_contact.customer.name,
@@ -5246,6 +5260,7 @@ class CustomerQuotationView(APIView):
             } if quotation.customer_contact_id else None,
             "property_name": property_snapshot.get("name") or quotation.property.name or quotation.property.property_type,
             "subtotal": quotation.subtotal, "discount": quotation.discount,
+            "discount_mode": quotation.discount_mode, "discount_type": quotation.discount_type, "discount_value": quotation.discount_value,
             "gst_amount": quotation.gst_amount, "grand_total": quotation.grand_total,
             "terms": quotation.notes,
             "show_product_key_features": quotation.show_product_key_features,
@@ -5275,6 +5290,8 @@ class CustomerQuotationView(APIView):
                 "quantity": item.quantity,
                 "unit": item.unit_name_snapshot or item.custom_unit or (item.unit.name if item.unit else "sq ft"),
                 "rate": item.rate, "amount": item.amount,
+                "discount_type": item.discount_type, "discount_value": item.discount_value,
+                "discount_amount": line_discount(item), "net_amount": item.amount - line_discount(item),
             } for index, item in enumerate(quotation.items.all(), 1)],
         })
         response["Cache-Control"] = "no-store, max-age=0"
@@ -5308,8 +5325,7 @@ class CustomerQuotationListView(APIView):
             quotations = quotations.filter(property_id=property_id)
         results = []
         for item in quotations:
-            profile = item.contractor.contractor_profile if hasattr(item.contractor, "contractor_profile") else None
-            contractor_snapshot = item.contractor_snapshot or {}
+            identity = quotation_contractor_identity(item, request)
             property_snapshot = item.property_snapshot or {}
             schedule = item.work_schedule if hasattr(item, "work_schedule") else None
             results.append({
@@ -5327,13 +5343,13 @@ class CustomerQuotationListView(APIView):
                 "grand_total": item.grand_total, "quotation_date": item.quotation_date,
                 "updated_at": item.updated_at,
                 "property_name": property_snapshot.get("name") or item.property.name or item.property.property_type,
-                "contractor_name": profile.company_name if profile else contractor_snapshot.get("company_name") or item.contractor.get_full_name() or item.contractor.mobile,
-                "contractor_owner": profile.owner_name if profile else contractor_snapshot.get("owner_name") or item.contractor.get_full_name(),
-                "contractor_mobile": item.contractor.mobile,
-                "contractor_bharath_id": item.contractor.bharath_id,
-                "contractor_logo": request.build_absolute_uri(profile.company_logo.url) if profile and profile.company_logo else None,
-                "contractor_logo_shape": profile.company_logo_shape if profile else contractor_snapshot.get("company_logo_shape") or "RECTANGLE",
-                "contractor_logo_position": profile.company_logo_position if profile else contractor_snapshot.get("company_logo_position") or {"x": 50, "y": 50, "zoom": 1},
+                "contractor_name": identity["company_name"],
+                "contractor_owner": identity["owner_name"],
+                "contractor_mobile": identity["mobile"],
+                "contractor_bharath_id": identity["bharath_id"],
+                "contractor_logo": identity["company_logo"],
+                "contractor_logo_shape": identity["company_logo_shape"],
+                "contractor_logo_position": identity["company_logo_position"],
                 "schedule_start_date": schedule.proposed_start_date if schedule else None,
                 "schedule_end_date": schedule.proposed_end_date if schedule else None,
                 "schedule_status": schedule.get_status_display() if schedule else "Not scheduled",
@@ -5609,8 +5625,9 @@ class CustomerPropertyMeasurementPdfView(APIView):
 class QuotationSubmitView(APIView):
     permission_classes = [IsAuthenticated, IsVerifiedContractor]
 
+    @transaction.atomic
     def post(self, request, pk):
-        quotation = Quotation.objects.select_related("customer").filter(pk=pk, contractor=request.user, deleted_at__isnull=True).first()
+        quotation = Quotation.objects.select_for_update(of=("self",)).select_related("customer").filter(pk=pk, contractor=request.user, deleted_at__isnull=True).first()
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         if quotation.connection_id and quotation.connection.status != ContractorCustomerConnection.Status.CONNECTED:
@@ -5694,6 +5711,22 @@ class QuotationDetailView(
             contractor=self.request.user, deleted_at__isnull=True,
         )
 
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        instance = get_object_or_404(self.get_queryset().select_for_update(), pk=kwargs["pk"])
+        self.check_object_permissions(request, instance)
+        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.get("partial", False))
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = get_object_or_404(self.get_queryset().select_for_update(), pk=kwargs["pk"])
+        self.check_object_permissions(request, instance)
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_destroy(self, instance):
         if instance.status != Quotation.Status.DRAFT:
             raise ValidationError({
@@ -5707,6 +5740,30 @@ class QuotationDetailView(
             reason="Deleted by the quotation owner.",
             before={"deleted": False}, after={"deleted": True},
         )
+
+
+class QuotationDraftSaveView(APIView):
+    permission_classes = [IsAuthenticated, IsVerifiedContractor]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        from .draft_serializers import DraftQuotationSerializer
+        quotation = Quotation.objects.select_for_update().filter(
+            pk=pk, contractor=request.user, deleted_at__isnull=True,
+        ).first()
+        if not quotation:
+            return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = DraftQuotationSerializer(quotation, data=request.data, partial=True, context={"request": request})
+        if quotation.status != Quotation.Status.DRAFT:
+            raise ValidationError({"quotation": "This version is preserved. Open a Draft revision to make changes."})
+        if "expected_updated_at" not in request.data:
+            raise ValidationError({"expected_updated_at": "Reload the Draft before saving; its last-saved timestamp is required."})
+        expected = serializer.fields["expected_updated_at"].run_validation(request.data["expected_updated_at"])
+        if expected != quotation.updated_at:
+            return Response({"detail": "This Draft changed in another session. Your edits have not been saved. Reload the latest Draft before trying again.", "updated_at": quotation.updated_at.isoformat()}, status=status.HTTP_409_CONFLICT)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(QuotationSerializer(quotation, context={"request": request}).data)
 
 
 class QuotationPdfView(APIView):
@@ -5883,7 +5940,7 @@ class QuotationRoomSyncView(APIView):
 
     @transaction.atomic
     def post(self, request, quotation_id):
-        quotation = Quotation.objects.filter(
+        quotation = Quotation.objects.select_for_update().filter(
             id=quotation_id,
             contractor=request.user,
             deleted_at__isnull=True,
@@ -5985,6 +6042,7 @@ class QuotationRoomSyncView(APIView):
             existing_custom_names.add(name.casefold())
             added_count += 1
 
+        quotation.save(update_fields=("updated_at",))
         quotation_serializer = QuotationSerializer(
             quotation,
             context={"request": request},

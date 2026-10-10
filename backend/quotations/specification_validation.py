@@ -5,6 +5,9 @@ import json
 from rest_framework import serializers
 
 
+def surface_key(surface, named_other):
+    return f"OTHER:{(surface.area_group_name or surface.name or 'Other surface').strip()}" if named_other and surface.surface_type == "OTHER" else surface.surface_type
+
 def validate_grouped_specifications(items, measurement_record):
     entries = [(item, item.get("specification_details")) for item in items if item.get("specification_details")]
     if not entries:
@@ -17,6 +20,8 @@ def validate_grouped_specifications(items, measurement_record):
         fail("Select a saved Area Calculation for grouped assignments.")
     surfaces = {surface.id: surface for surface in measurement_record.surfaces.select_related("property").prefetch_related("openings").all()}
     special_ids = set()
+    special_processes = set()
+    additional_processes = set()
     group_ids = set()
     assignment_ids = set()
     checked = []
@@ -38,6 +43,18 @@ def validate_grouped_specifications(items, measurement_record):
                 if not item.get("is_additional_service"):
                     fail("General service assignments must be additional service lines.")
                 continue
+            replace = details.get("exclude_from_standard", True)
+            service = item.get("service_type")
+            process = getattr(service, "pk", service)
+            if details["kind"] == "special":
+                if not isinstance(replace, bool):
+                    fail("Special-wall allocation must be a boolean.")
+                if not replace and not process:
+                    fail("Select a distinct service for an additional wall process.")
+            declared_surfaces = details.get("surfaces", [details.get("surface")])
+            if not isinstance(declared_surfaces, list) or not declared_surfaces or any(not isinstance(value, str) for value in declared_surfaces) or len(set(declared_surfaces)) != len(declared_surfaces):
+                fail("Select unique surface types for each group.")
+            named_other = any(value.startswith("OTHER:") for value in declared_surfaces)
             contributions = details.get("contributions")
             if not isinstance(contributions, list) or not contributions or len(contributions) > 1000:
                 fail("Grouped work must retain its measured room contributions.")
@@ -64,14 +81,20 @@ def validate_grouped_specifications(items, measurement_record):
                     if "original_area" in source and Decimal(str(source["original_area"])) != surface.net_area.quantize(Decimal("0.01")):
                         fail("Original measured areas must remain unchanged.")
                     if details["kind"] == "special":
-                        if surface.surface_type != "WALL" or source_id in special_ids:
+                        if surface.surface_type != "WALL" or (replace and source_id in special_ids):
                             fail("A special wall must reference an unassigned measured wall.")
-                        special_ids.add(source_id)
+                        if process:
+                            key = (source_id, process)
+                            if key in special_processes:
+                                fail("This wall service is already billed in another special process.")
+                            special_processes.add(key)
+                            if not replace:
+                                additional_processes.add(key)
+                        if replace:
+                            special_ids.add(source_id)
                     else:
-                        declared_surface = details.get("surface")
-                        named_other = isinstance(declared_surface, str) and declared_surface.startswith("OTHER:")
-                        actual_surface = f"OTHER:{(surface.area_group_name or surface.name or 'Other surface').strip()}" if named_other and surface.surface_type == "OTHER" else surface.surface_type
-                        if actual_surface != declared_surface or source_id in group_ids:
+                        actual_surface = surface_key(surface, named_other)
+                        if actual_surface not in declared_surfaces or source_id in group_ids:
                             fail("A measured surface can belong to only one full-area group.")
                         group_ids.add(source_id)
                     refs.append((surface, quantity))
@@ -86,11 +109,22 @@ def validate_grouped_specifications(items, measurement_record):
                 declared_sources = details["surface_ids"]
                 if not isinstance(declared_sources, list) or {str(value) for value in declared_sources} != {str(value) for value in local_ids} or len(declared_sources) != len(local_ids):
                     fail("Selected special walls must match their saved source surfaces.")
+            if details["kind"] == "group":
+                work_areas = {surface.work_area for surface, quantity in refs}
+                expected_sources = {surface.pk for surface in surfaces.values()
+                                    if str(surface.room_id) in local_rooms and surface.work_area in work_areas
+                                    and surface_key(surface, named_other) in declared_surfaces}
+                if local_ids != expected_sources:
+                    fail("A full-area group must include every measured surface of its selected types and rooms.")
             checked.append((item, details, refs))
         for item, details, refs in checked:
             expected_total = Decimal("0")
             for surface, quantity in refs:
                 expected = Decimal("0") if details["kind"] == "group" and surface.id in special_ids else surface.net_area.quantize(Decimal("0.01"))
+                service = item.get("service_type")
+                process = getattr(service, "pk", service)
+                if details["kind"] == "group" and expected > 0 and (surface.id, process) in additional_processes:
+                    fail("This service is already billed in the standard wall group.")
                 if quantity != expected:
                     fail("Assigned quantities must match saved measurements after special-wall allocation.")
                 expected_total += expected

@@ -1,0 +1,11 @@
+.bp-dashboard-shortcuts { min-width: 0; max-width: 100%; }
+.bp-dashboard-shortcuts .bp-shortcut-heading { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--bp-ink, #172536); }
+.bp-dashboard-shortcut-scroll { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; padding: 2px 2px 6px; }
+.bp-dashboard-shortcut-items { display: flex; width: max-content; gap: 6px; }
+.bp-dashboard-shortcuts .bp-dashboard-shortcut { display: flex; flex: 0 0 76px; width: 76px; min-height: 78px; flex-direction: column; align-items: center; gap: 5px; padding: 0 2px; text-align: center; scroll-snap-align: start; color: var(--bp-ink, #172536); }
+.bp-dashboard-shortcuts .bp-shortcut-icon { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid var(--bp-border, #dbe4ed); border-radius: 12px; background: var(--bp-surface-soft, #f5f8fb); color: var(--bp-primary, #176b9b); }
+.bp-dashboard-shortcuts .bp-shortcut-icon svg { width: 21px; height: 21px; }
+.bp-dashboard-shortcuts .bp-shortcut-icon-primary { background: var(--bp-primary, #176b9b); color: white; border-color: transparent; }
+.bp-dashboard-shortcuts .bp-shortcut-label { width: 100%; font-size: 11px; font-weight: 400; line-height: 14px; overflow-wrap: anywhere; }
+.bp-dashboard-shortcut-scroll:focus-visible, .bp-dashboard-shortcuts .bp-dashboard-shortcut:focus-visible { outline: 2px solid var(--bp-primary, #176b9b); outline-offset: 2px; border-radius: 10px; }
+.bp-dashboard-shortcut:hover .bp-shortcut-icon { border-color: var(--bp-primary, #176b9b); }

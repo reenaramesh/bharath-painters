@@ -10,6 +10,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 
 def build_work_order_pdf(order):
+    if order.private_pricing.get("margin"):
+        return build_margin_work_order_pdf(order)
     from .serializers import user_label
     stream=BytesIO()
     styles=getSampleStyleSheet()
@@ -39,4 +41,50 @@ def build_work_order_pdf(order):
         story.extend(text(f"{scope.title_snapshot} — {scope.quantity} {scope.unit_name_snapshot}") for scope in order.scopes.all())
     story.extend([Spacer(1,5*mm),text(order.agreed_scope_summary),text(order.instructions),text(order.terms)])
     SimpleDocTemplate(stream,rightMargin=13*mm,leftMargin=13*mm,topMargin=14*mm,bottomMargin=14*mm,title=order.reference).build(story)
+    return stream.getvalue()
+
+
+def build_margin_work_order_pdf(order):
+    from .serializers import user_label
+    from .sharing import recipient_details, pricing_adjustment
+    stream = BytesIO()
+    styles = getSampleStyleSheet()
+    styles["BodyText"].fontSize = 8
+    styles["BodyText"].leading = 11
+    text = lambda value: Paragraph(escape(str(value or "")).replace("\n", "<br/>"), styles["BodyText"])
+    money = lambda value: f"{Decimal(value or 0):,.2f}"
+    site = recipient_details(order)
+    story = [Paragraph("CONTRACTOR WORK ORDER", styles["Title"]), text(order.reference),
+        text(order.get_status_display()), text(f"Issuing contractor: {order.private_pricing.get('issued_identity', {}).get('issuer') or user_label(order.main_contractor)}"),
+        text(f"Vendor: {order.private_pricing.get('issued_identity', {}).get('vendor') or user_label(order.receiving_contractor)}"), text(order.project_title),
+        text(site["address"] or site["approximate_location"]),
+        text("With Material" if order.material_mode == "WITH_MATERIAL" else "Without Material")]
+    if site["site_pin"]:
+        story.append(Paragraph(f'<link href="{escape(site["site_pin"], quote=True)}">View authorized site pin</link>', styles["BodyText"]))
+    if site["customer_contact"]:
+        story.append(text("Customer contact: " + " | ".join(str(value) for value in site["customer_contact"].values() if value)))
+    story.extend([text(f"Required from: {order.required_start_date or '-'} | Required by: {order.required_end_date or '-'}"), Spacer(1, 5*mm)])
+    quote = order.quotes.filter(is_current=True, created_by=order.main_contractor).first()
+    rows = [[text(label) for label in ["Sl.", "Work scope / specification", "Qty / Unit", "Vendor rate", "Total"]]]
+    for index, line in enumerate(quote.quote_lines.all(), 1):
+        spec = json.loads(line.specification or "{}")
+        details = list(dict.fromkeys(str(value) for value in [spec.get("description") or line.description_snapshot,
+            spec.get("scope_name"), line.source_scope.category_name_snapshot if line.source_scope else "",
+            spec.get("service"), spec.get("product"), spec.get("brand"), spec.get("features"), spec.get("colour"), spec.get("line_type"),
+            *spec.get("rooms", []), f"Coats: {spec.get('coats', 1)}; Primer: {spec.get('primer_coats', 0)}"] if value))
+        rate = str(spec.get("vendor_rate", line.unit_rate)).rstrip("0").rstrip(".") if spec.get("vendor_rate") else str(line.unit_rate)
+        rows.append([text(index), text("\n".join(details)), text(f"{line.quantity} {line.unit_name_snapshot}"), text(rate), text(money(line.amount))])
+    table = Table(rows, colWidths=[8*mm, 82*mm, 28*mm, 35*mm, 28*mm], repeatRows=1)
+    table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e8f0f5")), ("GRID", (0,0), (-1,-1), .4, colors.HexColor("#cbd5e1")), ("VALIGN", (0,0), (-1,-1), "TOP"), ("LEFTPADDING", (0,0), (-1,-1), 5), ("RIGHTPADDING", (0,0), (-1,-1), 5)]))
+    tax_label = {"NO_GST": "No GST", "GST_EXTRA": "GST Exclusive", "GST_INCLUDED": "GST Inclusive"}.get(quote.pricing.get("gst_mode"), "GST")
+    story.extend([table, Spacer(1, 5*mm), text(f"Subtotal: INR {money(quote.subtotal)}"), text(f"{tax_label}: INR {money(quote.tax_amount)}"), text(f"Agreed payable: INR {money(quote.total)}")])
+    adjustment = pricing_adjustment(order)
+    if adjustment:
+        story.append(text("Pricing adjustment shared by the issuing contractor"))
+        for line in adjustment["lines"]:
+            story.append(text(f"{line['description']}: Original rate INR {money(line['original_rate'])}; Original total INR {money(line['original_amount'])}; Eligible INR {money(line['eligible_amount'])}; Retained margin INR {money(line['retained_amount'])}"))
+    story.extend([Spacer(1, 4*mm), text("Terms and instructions"), text(order.terms), text(order.instructions), text(order.agreed_scope_summary)])
+    if order.accepted_at or order.declined_at:
+        story.append(text(f"Recipient response: {order.get_status_display()} at {order.accepted_at or order.declined_at}"))
+    SimpleDocTemplate(stream, rightMargin=13*mm, leftMargin=13*mm, topMargin=14*mm, bottomMargin=14*mm, title=order.reference).build(story)
     return stream.getvalue()

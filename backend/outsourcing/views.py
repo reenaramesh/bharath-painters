@@ -556,3 +556,49 @@ class WorkOrderEventListView(generics.ListAPIView):
     def get_queryset(self):
         work_order = get_work_order_for(self.request.user, self.kwargs["pk"])
         return work_order.events.select_related("actor")
+
+
+class WorkOrderOpenPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        order = get_work_order_for(request.user, pk)
+        if order.main_contractor_id != request.user.pk and request.user.role != BharathUser.Roles.ADMIN:
+            raise ValidationError("Only the issuing contractor can prepare the Open Platform preview.")
+        from .sharing import open_projection
+        return Response(open_projection(order))
+
+
+class WorkOrderMarginPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from quotations.models import Quotation
+        require_role(request.user, BharathUser.Roles.CONTRACTOR, BharathUser.Roles.ADMIN)
+        from rest_framework import serializers as input_serializers
+        identifier = input_serializers.IntegerField(min_value=1)
+        existing = None
+        if request.data.get("work_order") is not None:
+            existing = get_work_order_for(request.user, identifier.run_validation(request.data["work_order"]))
+            if existing.main_contractor_id != request.user.pk or existing.status != "DRAFT":
+                raise ValidationError("Only the issuing contractor can preview Draft changes.")
+            quotation = existing.quotation
+        else:
+            quotation = get_object_or_404(Quotation, pk=identifier.run_validation(request.data.get("quotation")), contractor=request.user, deleted_at__isnull=True)
+        items = list(quotation.items.select_related("unit", "service_category", "paint_type", "paint_brand", "service_type", "color").all())
+        if existing and existing.private_pricing.get("source_snapshot"):
+            ids = {line["id"] for line in existing.private_pricing["source_snapshot"]["items"]}
+            items = [item for item in items if item.pk in ids]
+        from .margins import prepare_margins, source_snapshot
+        allocation_source = None
+        if not existing and "quotation_item_ids" in request.data:
+            ids = request.data["quotation_item_ids"]
+            if not isinstance(ids,list) or not ids or any(type(value) is not int or value <= 0 for value in ids) or len(ids)!=len(set(ids)):
+                raise ValidationError({"quotation_item_ids":"Select unique quotation items."})
+            if set(ids)-{item.pk for item in items}:
+                raise ValidationError({"quotation_item_ids":"Some items are not part of this quotation."})
+            allocation_source = source_snapshot(quotation, items)
+            items = [item for item in items if item.pk in ids]
+        prepared = prepare_margins(quotation, request.data.get("material_mode", "WITH_MATERIAL"), request.data.get("pricing_input"), items, existing, allocation_source)
+        return Response({"source_snapshot": prepared["private"]["source_snapshot"], "lines": [{"source_item": line["item"].pk, "vendor_rate": line["exact_rate"], "amount": str(line["amount"])} for line in prepared["lines"]],
+            "totals": {key: str(value) for key, value in prepared["totals"].items()}})

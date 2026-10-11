@@ -231,6 +231,18 @@ class ConnectionScopedCustomerMixin:
         representation["connection_status"] = connection.status
         representation["is_saved_contact"] = False
         representation["activation_pending"] = not instance.portal_user_id or not instance.portal_user.has_usable_password()
+        portal_user = instance.portal_user
+        representation["account_status"] = (
+            "DISABLED" if portal_user and not portal_user.is_active
+            else "NOT_ACTIVATED" if representation["activation_pending"]
+            else "ACTIVE"
+        )
+        # Only connected contractors receive these indicators. Recorded activity
+        # is evidence of app use, not an online or WhatsApp-delivery assertion.
+        representation["has_app_activity"] = bool(
+            portal_user and portal_user.is_active and not representation["activation_pending"]
+            and (portal_user.last_login or portal_user.last_activity_at)
+        )
         for public_name, connection_name in self.scoped_customer_fields.items():
             if public_name in representation:
                 representation[public_name] = getattr(connection, connection_name)
@@ -994,7 +1006,7 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         if included_areas and not data.get("is_additional_service", False):
             category = data.get("service_category")
             if not category and not str(data.get("custom_service_category", "")).strip():
-                raise serializers.ValidationError({"service_category": "Select a type of service for measured work."})
+                raise serializers.ValidationError({"service_category": "Select a Service / Product Category for measured work."})
             category_name = (getattr(category, "name", "") or data.get("custom_service_category", "")).lower()
             if "paint" in category_name and not data.get("paint_type") and not str(data.get("custom_product_type", "")).strip():
                 raise serializers.ValidationError({"paint_type": "Select a paint material for measured painting work."})
@@ -1290,6 +1302,8 @@ class QuotationSerializer(serializers.ModelSerializer):
 
     contractor_details = serializers.SerializerMethodField()
     customer_details = serializers.SerializerMethodField()
+    property_details = serializers.SerializerMethodField()
+    revision_history = serializers.SerializerMethodField()
     revision_changes = serializers.SerializerMethodField()
     revision_draft = serializers.SerializerMethodField()
     consolidated_product_details = serializers.SerializerMethodField()
@@ -1316,6 +1330,8 @@ class QuotationSerializer(serializers.ModelSerializer):
             "contractor_details",
             "customer",
             "customer_details",
+            "property_details",
+            "revision_history",
             "connection",
             "lead",
             "property",
@@ -1519,6 +1535,17 @@ class QuotationSerializer(serializers.ModelSerializer):
         from .revision_utils import quotation_revision_changes
         return quotation_revision_changes(obj)
 
+    def get_revision_history(self, obj):
+        from .revision_utils import quotation_revision_history
+        request = self.context.get("request")
+        if not request or request.user.pk != obj.contractor_id:
+            return []
+        return quotation_revision_history(obj, include_drafts=True)
+
+    def get_property_details(self, obj):
+        from .document_identity import quotation_party_details
+        return quotation_party_details(obj)[1]
+
     def get_revision_draft(self, obj):
         draft = obj.revisions.filter(status=Quotation.Status.DRAFT).order_by("-version_number").first()
         if not draft:
@@ -1569,20 +1596,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         return quotation_contractor_identity(quotation, self.context.get("request"))
 
     def get_customer_details(self, obj):
-        snapshot = obj.customer_snapshot or {}
-        if snapshot:
-            return {
-                "id": obj.customer_id,
-                "bharath_id": snapshot.get("bharath_id", ""),
-                "name": snapshot.get("name", ""),
-                "mobile": snapshot.get("mobile", ""),
-            }
-        return {
-            "id": obj.customer_id,
-            "bharath_id": obj.customer.bharath_id,
-            "name": obj.customer.name,
-            "mobile": obj.customer.mobile,
-        }
+        from .document_identity import quotation_party_details
+        return quotation_party_details(obj)[0]
 
     # =====================================================
     # ITEM CALCULATION

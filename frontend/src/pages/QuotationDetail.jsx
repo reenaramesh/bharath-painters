@@ -1,4 +1,6 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
+import { QuotationRevisionHistory, QuotationRevisionDetails, QuotationRevisionPriceChanges } from "../components/QuotationRevisionDetails.jsx";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -30,7 +32,7 @@ const money = (value) =>
   );
 const quotationColumnDefaults = [4, 14, 11, 15, 19, 9, 6, 10, 12];
 const quotationColumnMinimums = [3, 8, 7, 8, 10, 6, 5, 7, 8];
-const quotationColumnLabels = ["Number", "Type of service", "Room or area", "Product or brand", "Product description", "Quantity", "Coats", "Rate", "Amount"];
+const quotationColumnLabels = ["Number", SERVICE_MASTER_LABELS.category, "Room or area", "Product or brand", SERVICE_MASTER_LABELS.description, "Quantity", "Coats", "Rate", "Amount"];
 const quotationColumnStorageKey = "bp-quotation-item-column-widths";
 
 function savedQuotationColumnWidths() {
@@ -57,6 +59,7 @@ export default function QuotationDetail() {
   const [downloading, setDownloading] = useState(false);
   const [pdfSectionSelection, setPdfSectionSelection] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
   const [converting, setConverting] = useState(false);
   const convertingRef = useRef(false);
   const [showShare, setShowShare] = useState(false);
@@ -116,12 +119,12 @@ export default function QuotationDetail() {
       .then(async ({ data }) => {
         setPdfSectionSelection({});
         setQuotation(data);
-        const [c, p] = await Promise.all([
+        const [c, p] = await Promise.allSettled([
           api.get(`/quotations/customers/${data.customer}/`),
           api.get(`/quotations/properties/${data.property}/`),
         ]);
-        setCustomer(c.data);
-        setProperty(p.data);
+        setCustomer(c.status === "fulfilled" ? c.value.data : null);
+        setProperty(p.status === "fulfilled" ? p.value.data : null);
       })
       .catch(() => setError("Quotation could not be loaded."));
   }, [id]);
@@ -194,6 +197,8 @@ export default function QuotationDetail() {
     }
   }
   async function submitToCustomer() {
+    if (submitLock.current || !window.confirm("Send this saved Draft to the customer? Issued versions are read-only.")) return;
+    submitLock.current = true;
     setSubmitting(true);
     setError("");
     try {
@@ -208,6 +213,7 @@ export default function QuotationDetail() {
           .join(" ") || "Quotation could not be submitted.",
       );
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   }
@@ -382,6 +388,7 @@ export default function QuotationDetail() {
           </section>
         )}
       <RevisionSummary changes={quotation.revision_changes} />
+      <QuotationRevisionHistory versions={quotation.revision_history} currentId={quotation.id} />
       <QuotationLineDiscountSummary items={quotation.items} />
       <section className="quotation-sheet rounded-2xl border bg-white">
         <div className="quotation-company-header flex flex-col gap-5 border-b p-6 md:flex-row md:items-center md:justify-between">
@@ -438,14 +445,14 @@ export default function QuotationDetail() {
           <Info
             icon={User}
             label="Customer"
-            value={customer?.name}
-            sub={customer?.mobile}
+            value={quotation.customer_details?.name ?? customer?.name}
+            sub={quotation.customer_details?.mobile ?? customer?.mobile}
           />
           <Info
             icon={Building2}
             label="Property"
-            value={property?.name || property?.property_type}
-            sub={property?.city}
+            value={quotation.property_details?.name ?? (property?.name || property?.property_type)}
+            sub={quotation.property_details?.city ?? property?.city}
           />
         </div>
       </section>
@@ -498,7 +505,7 @@ export default function QuotationDetail() {
             <colgroup>{columnWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                {["#", "Type of service", "Room / Area", "Product / Brand", "Product description", "Qty", "Coats", "Rate", "Amount"].map((label, index) => (
+                {["#", SERVICE_MASTER_LABELS.category, "Room / Area", "Product / Brand", SERVICE_MASTER_LABELS.description, "Qty", "Coats", "Rate", "Amount"].map((label, index) => (
                   <th key={label} scope="col" className={`quotation-resizable-heading px-3 py-4 ${index === 5 || index >= 7 ? "text-right" : index === 6 ? "text-center" : ""}`}>
                     {label}
                     {index < quotationColumnDefaults.length - 1 && <span
@@ -690,30 +697,54 @@ function InvoiceSetupDialog({ quotation, hsnCodes, setHsnCodes, converting, onCl
 }
 
 function QuotationShare({ quotation, customer, customerLogin, onClose }) {
+  const dialogRef = useRef(null);
+  const [feedback, setFeedback] = useState("");
+  const [shareError, setShareError] = useState("");
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+    const opener = document.activeElement;
+    dialog?.showModal?.();
+    return () => {
+      if (dialog?.open) dialog.close();
+      opener?.focus?.();
+    };
+  }, []);
   const url = `${window.location.origin}/customer-quotations/${quotation.id}`;
   const number = String(customer?.whatsapp || customer?.mobile || "").replace(
     /\D/g,
     "",
   );
   const whatsapp = number.length === 10 ? `91${number}` : number;
+  async function copy(text, message) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setFeedback(message);
+      setShareError("");
+    } catch {
+      setShareError("Copy failed. Select and copy the portal link displayed above.");
+    }
+  }
   async function share() {
-    if (navigator.share)
-      await navigator.share({
-        title: quotation.quotation_number,
-        text: "View your Bharath Apps quotation",
-        url,
-      });
-    else await navigator.clipboard.writeText(url);
+    if (!navigator.share) return copy(url, "Portal link copied.");
+    try {
+      await navigator.share({title: quotation.quotation_number, text: "View your Bharath Apps quotation", url});
+      setFeedback("Sharing completed.");
+      setShareError("");
+    } catch (requestError) {
+      if (requestError.name !== "AbortError") setShareError("Sharing could not be opened. Copy the portal link instead.");
+    }
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-xl font-bold">Final quotation submitted</h2>
+    <dialog ref={dialogRef} aria-labelledby="quotation-share-title" onCancel={event => { event.preventDefault(); onClose(); }} className="fixed m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-xl backdrop:bg-slate-950/50">
+      <div>
+        <h2 id="quotation-share-title" className="text-xl font-bold">Final quotation submitted</h2>
+        <p className="mt-2 text-sm text-slate-600">The customer signs in to view and respond. Only permitted property contacts can open this link.</p>
         
         <div className="mt-4 break-all rounded-xl bg-slate-50 p-4 text-xs">
           {url}
         </div>
-        {customerLogin && <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-bold">Customer ID & login created</p><p className="mt-2">Customer ID: <b>{customerLogin.customer_id}</b></p><p>Mobile: <b>{customerLogin.mobile}</b></p><p>Temporary password: <b>{customerLogin.temporary_password}</b></p><button type="button" onClick={() => navigator.clipboard.writeText(`Customer ID: ${customerLogin.customer_id}\nMobile: ${customerLogin.mobile}\nTemporary password: ${customerLogin.temporary_password}`)} className="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold">Copy login details</button><p className="mt-2 text-xs text-indigo-700">Share the temporary password with the customer through a secure channel.</p></div>}
+        {customerLogin && <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-bold">Customer ID & login created</p><p className="mt-2">Customer ID: <b>{customerLogin.customer_id}</b></p><p>Mobile: <b>{customerLogin.mobile}</b></p><p>Temporary password: <b>{customerLogin.temporary_password}</b></p><button type="button" onClick={() => copy(`Customer ID: ${customerLogin.customer_id}\nMobile: ${customerLogin.mobile}\nTemporary password: ${customerLogin.temporary_password}`, "Login details copied.")} className="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold">Copy login details</button><p className="mt-2 text-xs text-indigo-700">Share the temporary password with the customer through a secure channel.</p></div>}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <a
             target="_blank"
@@ -730,7 +761,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
             Email
           </a>
           <button
-            onClick={() => navigator.clipboard.writeText(url)}
+            onClick={() => copy(url, "Portal link copied.")}
             className="rounded-xl border px-4 py-3 text-sm font-semibold"
           >
             Copy link
@@ -742,6 +773,8 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
             Other apps
           </button>
         </div>
+        {feedback && <p role="status" className="mt-3 text-sm text-emerald-700">{feedback}</p>}
+        {shareError && <p role="alert" className="mt-3 text-sm text-red-700">{shareError}</p>}
         <button
           onClick={onClose}
           className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
@@ -749,7 +782,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
           Done
         </button>
       </div>
-    </div>
+    </dialog>
   );
 }
 function Info({ icon: Icon, label, value, sub }) {
@@ -808,16 +841,16 @@ function QuotationItemMobileDialog({ item, room, index, close }) {
         </header>
         <div className="space-y-4 p-4 pb-24">
           <div className="grid grid-cols-2 gap-3">
-            <PopupValue label="Type of service" value={item.service_category_name} />
+            <PopupValue label={SERVICE_MASTER_LABELS.category} value={item.service_category_name} />
             <PopupValue label="Room / Area" value={quotationRoomAreaLabel(item) || room?.name || "General"} />
-            <PopupValue label="Product type" value={item.paint_type_name} />
+            <PopupValue label={SERVICE_MASTER_LABELS.productType} value={item.paint_type_name} />
             <PopupValue label="Brand" value={item.brand_name} />
             <PopupValue label="MOU" value={item.unit_name} />
             <PopupValue label="Quantity" value={item.quantity} />
             {!item.is_additional_service && <PopupValue label="Coats" value={item.coats || 1} />}
             <PopupValue label="Rate" value={money(item.rate)} />
           </div>
-          <PopupValue label="Product description" value={item.description} wide />
+          <PopupValue label={SERVICE_MASTER_LABELS.description} value={item.description} wide />
           <div className="flex items-center justify-between rounded-2xl bg-slate-950 p-4 text-white">
             <span className="text-sm text-slate-300">Line amount</span>
             <b className="text-xl text-emerald-300">{money(item.amount)}</b>
@@ -863,7 +896,7 @@ function RevisionSummary({ changes }) {
   const added = changes.added_lines || [];
   const removed = changes.removed_lines || [];
   const priceChanges = changes.price_changes || [];
-  const hasChanges = added.length || removed.length || priceChanges.length;
+  const hasChanges = added.length || removed.length || priceChanges.length || changes.discount_changes?.length || changes.specification_changes?.length || Object.keys(changes.quotation_changes || {}).length;
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b bg-slate-50 px-5 py-4">
@@ -883,6 +916,7 @@ function RevisionSummary({ changes }) {
         <p className="px-5 py-8 text-center text-sm text-slate-500">No service or price changes.</p>
       ) : (
         <div className="space-y-5 p-5">
+          <QuotationRevisionDetails changes={changes} />
           {priceChanges.length > 0 && (
             <details className="group overflow-hidden rounded-xl border">
               <summary className="flex cursor-pointer list-none items-center justify-between bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
@@ -890,19 +924,20 @@ function RevisionSummary({ changes }) {
                 <span className="text-xs font-semibold text-amber-700 group-open:hidden">View details ▾</span>
                 <span className="hidden text-xs font-semibold text-amber-700 group-open:inline">Hide details ▴</span>
               </summary>
-              <div className="overflow-x-auto">
+              <QuotationRevisionPriceChanges lines={priceChanges} />
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                    <tr><th className="px-4 py-3">Service</th><th className="px-4 py-3">Room / Area</th><th className="px-4 py-3 text-right">Previous</th><th className="px-4 py-3 text-right">Current</th><th className="px-4 py-3 text-right">Difference</th></tr>
+                    <tr><th className="px-4 py-3">Service</th><th className="px-4 py-3">Room / Area</th><th className="px-4 py-3 text-right">Previous net</th><th className="px-4 py-3 text-right">Current net</th><th className="px-4 py-3 text-right">Difference</th></tr>
                   </thead>
                   <tbody className="divide-y">
                     {priceChanges.map((line, index) => (
                       <tr key={`${line.description}-${index}`}>
                         <td className="px-4 py-3"><p className="font-semibold text-slate-900">{line.service}</p><p className="text-xs text-slate-500">{line.description}</p></td>
                         <td className="px-4 py-3 text-slate-600">{line.room}</td>
-                        <td className="px-4 py-3 text-right text-slate-500">{money(line.previous_price)}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{money(line.current_price)}</td>
-                        <td className={`px-4 py-3 text-right font-bold ${Number(line.difference) >= 0 ? "text-emerald-700" : "text-red-700"}`}>{signedMoney(line.difference)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500">{money(line.previous_net ?? line.previous_price)}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{money(line.current_net ?? line.current_price)}</td>
+                        <td className={`px-4 py-3 text-right font-bold ${Number(line.net_difference ?? line.difference) >= 0 ? "text-emerald-700" : "text-red-700"}`}>{signedMoney(line.net_difference ?? line.difference)}</td>
                       </tr>
                     ))}
                   </tbody>

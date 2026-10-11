@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpDown,
   ContactRound,
-  Copy,
   Download,
   FilePlus2,
   KeyRound,
@@ -21,7 +20,9 @@ import CustomerStatusFilter from "../components/CustomerStatusFilter";
 import { CUSTOMER_STATUSES } from "../constants/customers";
 import MobilePageBack from "../components/MobilePageBack";
 import useAuth from "../context/useAuth";
-import { buildCustomerWelcomeMessage, whatsappNumber } from "../utils/welcomeMessages";
+import CustomerAccountStatus from "../components/CustomerAccountStatus";
+import CustomerActivationShare from "../components/CustomerActivationShare";
+import { customerAccountStatus } from "../utils/customerActivation";
 import { Button, EmptyState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
 import "./crm-pages.css";
 
@@ -63,6 +64,7 @@ export default function Customers() {
   const [showConnectionFlow, setShowConnectionFlow] = useState(false);
   const [onboarding, setOnboarding] = useState(null);
   const [activatingCustomerId, setActivatingCustomerId] = useState(null);
+  const linkBusy = useRef(false);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -111,21 +113,30 @@ export default function Customers() {
 
   async function activateCustomer(customer, event) {
     event?.stopPropagation();
+    if (linkBusy.current) return;
+    linkBusy.current = true;
     setActivatingCustomerId(customer.id);
     setError("");
     try {
       const { data } = await api.post(`/quotations/customers/${customer.id}/activate-account/`);
-      setCustomers((current) => current.map((item) => item.id === customer.id ? { ...item, ...data } : item));
-      if (data.share_link) setOnboarding(data);
+      if (data.share_link) setOnboarding({ ...customer, ...data, id: customer.id });
+      else await loadCustomers();
     } catch (requestError) {
-      setError(formatError(requestError.response?.data) || "Customer ID and login could not be created.");
+      setError(formatError(requestError.response?.data) || "Activation link could not be prepared. Please refresh the customer list and try again.");
     } finally {
+      linkBusy.current = false;
       setActivatingCustomerId(null);
     }
   }
 
   useEffect(() => {
     loadCustomers();
+  }, []);
+
+  useEffect(() => {
+    const refreshStatus = () => { if (document.visibilityState === "visible") loadCustomers(); };
+    window.addEventListener("focus", refreshStatus);
+    return () => window.removeEventListener("focus", refreshStatus);
   }, []);
 
   useEffect(() => {
@@ -243,12 +254,18 @@ export default function Customers() {
   }
 
   async function regenerateCustomerLink() {
-    if (!onboarding?.id) return;
+    if (!onboarding?.id || linkBusy.current) return;
+    linkBusy.current = true;
+    setActivatingCustomerId(onboarding.id);
+    setError("");
     try {
       const { data } = await api.post(`/quotations/customers/${onboarding.id}/share-link/`);
-      setOnboarding((current) => ({ ...current, ...data }));
+      setOnboarding((current) => current ? ({ ...current, ...data }) : null);
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "A new link could not be created.");
+    } finally {
+      linkBusy.current = false;
+      setActivatingCustomerId(null);
     }
   }
 
@@ -826,19 +843,8 @@ export default function Customers() {
         onClose={() => setShowConnectionFlow(false)}
         onNewCustomer={createCustomer}
       />}
-      {onboarding && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
-        <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-          <h2 className="text-xl font-extrabold">{onboarding.link_purpose === "CONNECTION" ? "Connection request ready" : "Customer activation ready"}</h2>
-          
-          <div className="mt-5 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">{buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices })}</div>
-          {onboarding.share_link && <><p className="mt-3 text-xs text-slate-500">Expires {new Date(onboarding.link_expires_at).toLocaleString("en-IN")}</p><div className="mt-5 grid grid-cols-2 gap-3">
-            <a href={`https://wa.me/${whatsappNumber(onboarding.whatsapp || onboarding.mobile || onboarding.customer_mobile)}?text=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} target="_blank" rel="noreferrer" className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white"><MessageCircle className="h-4 w-4" />Share on WhatsApp</a>
-            <button type="button" onClick={() => navigator.clipboard.writeText(`${window.location.origin}${onboarding.share_link}`)} className="flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Copy className="h-4 w-4" />Copy Link</button>
-            <a href={`sms:${onboarding.mobile || onboarding.customer_mobile}?body=${encodeURIComponent(buildCustomerWelcomeMessage(onboarding, { ...user, services: contractorServices }))}`} className="flex items-center justify-center rounded-xl border px-4 py-3 font-bold">Share by SMS</a>
-          </div><button type="button" onClick={regenerateCustomerLink} className="mt-3 text-sm font-semibold text-[#176b9b]">Generate a new link</button></>}
-          <button onClick={() => setOnboarding(null)} className="mt-3 w-full rounded-xl border px-4 py-3 font-bold">Done</button>
-        </section>
-      </div>}
+      {onboarding && <CustomerActivationShare error={error} key={onboarding.share_link} customer={onboarding} contractor={{ ...user, services: contractorServices }} busy={activatingCustomerId !== null} onRegenerate={regenerateCustomerLink} onClose={() => { setOnboarding(null); loadCustomers(); }} />}
+
     </div>
   );
 }
@@ -934,15 +940,16 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
             const whatsappNumber = contactDetailsAvailable ? formatWhatsAppNumber(customer.whatsapp || customer.mobile) : "";
             const canOpen = Boolean(customer.id && (!customer.is_pending_connection || /^\d+$/.test(String(customer.id))));
             const openCustomer = () => { if (canOpen) navigate(`/customers/${customer.id}`); };
-            return <div key={customer.id} role={canOpen ? "button" : undefined} tabIndex={canOpen ? 0 : undefined} onClick={openCustomer} onKeyDown={(event) => { if (canOpen && event.key === "Enter") openCustomer(); }} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition focus:bg-indigo-50/60 focus:outline-none md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,1fr)_auto] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
+            return <div key={customer.id} role={canOpen ? "button" : undefined} tabIndex={canOpen ? 0 : undefined} onClick={openCustomer} onKeyDown={(event) => { if (canOpen && event.target === event.currentTarget && event.key === "Enter") openCustomer(); }} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition focus:bg-indigo-50/60 focus:outline-none md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,1fr)_auto] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
               <div className="min-w-0">
                 <div className="flex items-center gap-2"><p className="truncate font-bold text-slate-950">{customer.name || "Unnamed customer"}</p><span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>{label(customer.status)}</span></div>
                 <p className="mt-0.5 truncate text-xs text-slate-500">{customer.bharath_id || "No customer ID"} · {customer.mobile || "No mobile"}</p>
               </div>
               <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
               <p className="hidden min-w-0 break-words text-sm font-semibold tabular-nums text-slate-700 md:block">{customer.mobile || "—"}</p>
-              <div className="flex items-center justify-end gap-2">
-                {(!customer.bharath_id || customer.activation_pending) && !customer.is_pending_connection && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} title="Share activation link" aria-label={`Share activation link with ${customer.name}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"><KeyRound className="h-4 w-4" /></button>}
+              <div className="flex items-center justify-end gap-2" role="group" aria-label={`Actions for ${customer.name}`}>
+                <CustomerAccountStatus customer={customer} compact />
+                {customerAccountStatus(customer)?.canResend && <button type="button" disabled={activatingCustomerId !== null} onClick={(event) => activateCustomer(customer, event)} title="Resend activation link" aria-label={`Resend activation link to ${customer.name}`} className="crm-customer-activation-action inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-orange-700 disabled:opacity-50"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-orange-500 ring-2 ring-orange-100 ring-offset-1" />{activatingCustomerId === customer.id ? "Wait?" : "Resend"}</button>}
                 <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
                 <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`}><MessageCircle className="h-4 w-4" /></a>
               </div>

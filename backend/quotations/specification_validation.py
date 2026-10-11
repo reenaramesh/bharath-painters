@@ -9,7 +9,18 @@ def surface_key(surface, named_other):
     return f"OTHER:{(surface.area_group_name or surface.name or 'Other surface').strip()}" if named_other and surface.surface_type == "OTHER" else surface.surface_type
 
 def validate_grouped_specifications(items, measurement_record):
-    entries = [(item, item.get("specification_details")) for item in items if item.get("specification_details")]
+    # Older manual lines also store ordinary specifications in this JSON field.
+    # Only records claiming grouped source references use the grouped contract.
+    group_keys = {"schema_version", "assignment_id", "measurement_record", "measurement_version", "contributions"}
+    entries = []
+    for item in items:
+        details = item.get("specification_details")
+        if not details:
+            continue
+        if not isinstance(details, dict) or len(json.dumps(details)) > 100000:
+            raise serializers.ValidationError({"items": "Invalid work specification details."})
+        if group_keys.intersection(details) or details.get("kind") in ("group", "special", "service"):
+            entries.append((item, details))
     if not entries:
         return
 

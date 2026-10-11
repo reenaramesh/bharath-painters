@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { Network, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Network, Plus } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { StatusBadge } from "../components/ui";
 import { apiErrorMessage, prettyDate, rupees } from "../utils/subcontract";
 import CreateSubcontractOffer from "../components/CreateSubcontractOffer";
+import "./subcontract-work-orders-list.css";
 
 const FILTERS = [
   { value: "ALL", label: "All" },
@@ -13,6 +14,11 @@ const FILTERS = [
   { value: "ACTIVE", label: "In progress" },
   { value: "SUBMITTED_FOR_REVIEW", label: "Awaiting review" },
   { value: "COMPLETED", label: "Completed" },
+];
+
+const SORT_COLUMNS = [
+  ["NAME", "Work order"], ["CONTRACTOR", "Contractor"], ["DATE", "Created date"],
+  ["START", "Start date"], ["STATUS", "Status"], ["AMOUNT", "Agreed value"],
 ];
 
 export default function SubcontractWorkOrders() {
@@ -23,6 +29,7 @@ export default function SubcontractWorkOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
+  const [sort, setSort] = useState("DATE_DESC");
   // Quotation links open the offer picker; the sender chooses the service lines.
   const [creating, setCreating] = useState(Boolean(searchParams.get("quotation") || searchParams.get('contractor')));
   const presetQuotation = searchParams.get("quotation") || "";
@@ -56,26 +63,42 @@ export default function SubcontractWorkOrders() {
   }, [rows]);
 
   const visible = useMemo(() => {
-    if (filter === "ALL") return rows;
-    if (filter === "ACTIVE") {
-      return rows.filter((row) =>
-        ["ACCEPTED", "SCHEDULED", "IN_PROGRESS", "CORRECTION_REQUESTED"].includes(row.status),
-      );
-    }
-    return rows.filter((row) => row.status === filter);
-  }, [rows, filter]);
+    const selected = rows.filter((row) => filter === "ALL" || (filter === "ACTIVE"
+      ? ["ACCEPTED", "SCHEDULED", "IN_PROGRESS", "CORRECTION_REQUESTED"].includes(row.status)
+      : row.status === filter));
+    const date = (value) => { const time = Date.parse(value); return Number.isFinite(time) ? time : null; };
+    return selected.sort((a, b) => {
+      let comparison = 0;
+      const descending = sort.endsWith("_DESC");
+      const key = sort.replace(/_(ASC|DESC)$/, "");
+      if (key === "NAME") comparison = (a.project_title || "").localeCompare(b.project_title || "");
+      else if (key === "CONTRACTOR") {
+        const name = row => (row.viewer_authority === "MAIN" ? row.receiving_contractor_name : row.main_contractor_name) || "";
+        comparison = name(a).localeCompare(name(b));
+      }
+      else if (key === "STATUS") comparison = a.status.localeCompare(b.status);
+      else if (key === "AMOUNT") comparison = Number(a.agreed_amount || 0) - Number(b.agreed_amount || 0);
+      else {
+        const first = date(key === "START" ? a.required_start_date : a.created_at);
+        const second = date(key === "START" ? b.required_start_date : b.created_at);
+        if (first === null || second === null) return (first === second ? 0 : first === null ? 1 : -1) || Number(b.id) - Number(a.id);
+        else comparison = first - second;
+      }
+      return comparison * (descending ? -1 : 1) || Number(b.id) - Number(a.id);
+    });
+  }, [rows, filter, sort]);
 
   const isCustomer = user?.role === "CUSTOMER";
 
   return (
-    <div className="space-y-6">
+    <div className="subcontract-orders-page space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
           <h1 className="mt-1 text-3xl font-bold">Subcontract Work Orders</h1>
           
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             to="/contractor-network"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50"
@@ -122,6 +145,10 @@ export default function SubcontractWorkOrders() {
         ))}
       </div>
 
+      <div className="wo-list-toolbar">
+        <p role="status" className="text-sm text-slate-500">{visible.length} work order{visible.length === 1 ? "" : "s"}</p>
+      </div>
+
       {loading ? (
         <p className="rounded-xl border border-dashed p-10 text-center text-slate-500">
           Loading subcontract work…
@@ -135,10 +162,14 @@ export default function SubcontractWorkOrders() {
             : "Nothing matches this filter."}
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {visible.map((row) => (
-            <WorkOrderCard key={row.id} row={row} />
-          ))}
+        <div className="wo-order-list">
+          <div className="wo-order-columns" role="group" aria-label="Sort work orders by column">{SORT_COLUMNS.map(([key, label]) => {
+            const active = sort.replace(/_(ASC|DESC)$/, "") === key;
+            const descending = active && sort.endsWith("_DESC");
+            const Icon = active ? descending ? ArrowDown : ArrowUp : ArrowUpDown;
+            return <button key={key} type="button" aria-pressed={active} aria-label={`${label}, ${active ? descending ? "descending" : "ascending" : "not sorted"}. Sort ${active && !descending ? "descending" : "ascending"}`} onClick={() => setSort(active && !descending ? `${key}_DESC` : key === "DATE" || key === "AMOUNT" ? `${key}_ASC` : key)}><span>{label}</span><Icon size={14} aria-hidden="true"/></button>;
+          })}</div>
+          <ul aria-label="Subcontract work orders">{visible.map(row => <li key={row.id}><WorkOrderRow row={row}/></li>)}</ul>
         </div>
       )}
 
@@ -173,50 +204,16 @@ function Metric({ label, value, tone = "slate" }) {
   );
 }
 
-function WorkOrderCard({ row }) {
-  // The backend tells us which side of the trade this user is on, so the card
-  // never guesses from names.
-  const role = row.viewer_authority === "MAIN" ? "You sent this work" : "You received this work";
-  const counterparty =
-    row.viewer_authority === "MAIN" ? row.receiving_contractor_name : row.main_contractor_name;
-  const openCorrections = row.correction_requests?.filter((item) => !item.resolved_at).length || 0;
-
-  return (
-    <Link
-      to={`/subcontract-work-orders/${row.id}`}
-      className="block rounded-2xl border bg-white p-5 transition hover:border-slate-300 hover:shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-mono text-slate-500">{row.reference}</p>
-          <h3 className="mt-1 truncate text-lg font-bold">{row.project_title || "Subcontract work"}</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {role} · {counterparty || "—"}
-          </p>
-        </div>
-        <StatusBadge status={row.status} />
-      </div>
-
-      <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-400">Pricing</dt>
-          <dd className="font-bold">{Number(row.agreed_amount) > 0 ? rupees(row.agreed_amount) : "Awaiting quote"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-400">Scopes</dt>
-          <dd className="font-bold">{row.scopes?.length || 0}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-400">Start</dt>
-          <dd className="font-bold">{prettyDate(row.required_start_date)}</dd>
-        </div>
-      </dl>
-
-      {openCorrections > 0 && (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-          {openCorrections} correction{openCorrections > 1 ? "s" : ""} open
-        </p>
-      )}
-    </Link>
-  );
+function WorkOrderRow({ row }) {
+  const sent = row.viewer_authority === "MAIN";
+  const counterparty = sent ? row.receiving_contractor_name : row.main_contractor_name;
+  const openCorrections = row.correction_requests?.filter(item => !item.resolved_at).length || 0;
+  return <Link to={`/subcontract-work-orders/${row.id}`} className="wo-order-row">
+    <div className="wo-order-title"><span className="text-xs font-mono text-slate-500">{row.reference}</span><h3 className="font-bold">{row.project_title || "Subcontract work"}</h3><p className="text-xs text-slate-500">{row.scopes?.length || 0} scope{row.scopes?.length === 1 ? "" : "s"}</p>{openCorrections > 0 && <p className="text-xs font-semibold text-amber-700">{openCorrections} correction{openCorrections > 1 ? "s" : ""} open</p>}</div>
+    <div className="wo-order-party"><small>{sent ? "Sent to" : "Received from"}</small><span>{counterparty || "\u2014"}</span></div>
+    <div><small>Created date</small><time dateTime={row.created_at || undefined}>{prettyDate(row.created_at)}</time></div>
+    <div><small>Start date</small><time dateTime={row.required_start_date || undefined}>{prettyDate(row.required_start_date)}</time></div>
+    <div><small>Status</small><StatusBadge status={row.status}/></div>
+    <div className="wo-order-amount"><small>Agreed value</small><strong>{Number(row.agreed_amount) > 0 ? rupees(row.agreed_amount) : "Awaiting quote"}</strong></div>
+  </Link>;
 }

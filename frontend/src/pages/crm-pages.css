@@ -430,3 +430,10 @@
   .crm-customers-page .crm-customer-status-tabs::-webkit-scrollbar { display: none; }
   .crm-customers-page .crm-customer-status-tabs button { font-size: 12px; line-height: 1.4; padding: 10px 12px; min-height: 44px; width: auto; }
 }
+
+/* Match the compact activation action to its read-only Active indicator. */
+.crm-customers-page .crm-customer-activation-action {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}

@@ -825,42 +825,6 @@
     font-size: 11px;
     line-height: 1.4;
   }
-  .customer-dashboard-page .bp-dashboard-shortcuts > div:first-child {
-    margin-bottom: 8px;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-scroll {
-    overflow: visible;
-    padding: 0;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-items {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-items > :is(a, button) {
-    width: 100%;
-    min-width: 0;
-    min-height: 64px;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-items > :is(a, button) > span:first-child {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-items > :is(a, button) > span:first-child svg {
-    width: 20px;
-    height: 20px;
-  }
-  .customer-dashboard-page .bp-dashboard-shortcut-items > :is(a, button) > span:last-child {
-    min-height: 28px;
-    margin-top: 4px;
-    font-size: 11px;
-    line-height: 14px;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
   .customer-dashboard-page .customer-payment-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;

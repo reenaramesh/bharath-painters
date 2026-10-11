@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import useDraftUnsavedChanges from '../hooks/useDraftUnsavedChanges';
 import { X } from 'lucide-react';
+import OfferWorkWizard from './OfferWorkWizard';
 import api from '../api/client';
 import WorkOrderPricingFields from './WorkOrderPricingFields';
-import { approvedQuotationStatuses, initialWorkOrderPricing, workOrderPricingPayload } from '../utils/workOrderPricing';
+import { approvedQuotationStatuses, initialWorkOrderMargins, workOrderPricingPayload } from '../utils/workOrderPricing';
 import { apiErrorMessage, connectionCounterparty } from '../utils/subcontract';
 import { offerPayload, offerServices, sendScopeOffer } from '../utils/subcontractOffer';
 
 const control = 'w-full min-w-0 rounded-xl border border-slate-300 px-3 py-2.5';
 
-export default function CreateSubcontractOffer({ initialQuotation = '', initialContractor = '', onClose, onCreated }) {
-  const [priced, setPriced] = useState(true);
+function LegacySubcontractOffer({ initialQuotation = '', initialContractor = '', onClose, onCreated }) {
+  const [priced, setPriced] = useState(false);
   const [sourceItems, setSourceItems] = useState([]);
-  const [pricing, setPricing] = useState(() => initialWorkOrderPricing([]));
+  const [pricing, setPricing] = useState(() => initialWorkOrderMargins([]));
   const [quotations, setQuotations] = useState([]);
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,8 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
   const creationKey = useRef(crypto.randomUUID());
   const draftRef = useRef(null);
   const dialogRef = useRef(null);
+  const dirty = priced && Boolean(form.receiving_contractor || Number(pricing.margin_value)>0 || Object.values(pricing.margins || {}).some(row=>Number(row.value)>0) || ['share_site_pin','share_customer_address','share_customer_contact','show_pricing_adjustment'].some(key=>pricing[key]));
+  const allowNavigation = useDraftUnsavedChanges(dirty);
 
   useEffect(() => {
     const opener = document.activeElement;
@@ -65,17 +69,18 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
       if (!active) return;
       setServices(offerServices(data));
       setSourceItems(data.items || []);
-      setPricing(initialWorkOrderPricing(data.items || []));
-      setForm(current => ({ ...current, project_title: current.project_title || data.property_name || data.quotation_number || 'Subcontract work' }));
+      setPricing(initialWorkOrderMargins(data.items || [],null,data));
+      if(priced)setSelected((data.items || []).map(item=>item.id));
+      setForm(current => ({ ...current, project_title: current.project_title || data.property_name || 'Contractor work' }));
     }).catch(err => { if (active) setServicesError(apiErrorMessage(err, 'Quotation services could not be loaded.')); })
       .finally(() => { if (active) setServicesLoading(false); });
     return () => { active = false; };
-  }, [form.quotation, reload]);
+  }, [form.quotation, reload, priced]);
 
   const update = event => { const { name, value } = event.target; setForm(current => ({ ...current, [name]: value })); };
   const selectedServices = services.filter(item => selected.includes(item.id));
   const grouped = Object.groupBy(services, item => item.category);
-  const close = () => { if (!busyRef.current) onClose(); };
+  const close = () => { if (!busyRef.current && (!dirty || window.confirm('Discard unsaved Work Order changes?'))) { allowNavigation(); onClose(); } };
   async function submit(event) {
     event.preventDefault();
     if (busyRef.current) return;
@@ -83,6 +88,7 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
     try {
       if (priced) {
         const { data } = await api.post('/outsourcing/work-orders/', {...offerPayload(form, selected), creation_key:creationKey.current, terms:form.terms, material_mode:pricing.material_mode, pricing_input:workOrderPricingPayload(sourceItems,selected,pricing)});
+        allowNavigation();
         onCreated(data);
         return;
       }
@@ -93,7 +99,7 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
     } finally { busyRef.current = false; setSaving(false); }
   }
 
-  return <dialog ref={dialogRef} aria-labelledby="subcontract-offer-title" onCancel={event => { event.preventDefault(); close(); }} className="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-3xl overflow-y-auto rounded-2xl border-0 bg-white p-4 text-slate-900 shadow-xl backdrop:bg-slate-950/50 sm:p-6">
+  return <dialog ref={dialogRef} data-popup-protection="handled" aria-labelledby="subcontract-offer-title" onCancel={event => { event.preventDefault(); close(); }} className="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-6xl overflow-y-auto rounded-2xl border-0 bg-white p-4 text-slate-900 shadow-xl backdrop:bg-slate-950/50 sm:p-6">
     <header className="mb-5 flex items-start justify-between gap-3">
       <div><h2 id="subcontract-offer-title" className="text-xl font-bold">Offer work to a subcontractor</h2><p className="mt-1 text-sm text-slate-600">Share selected services and quantities without your customer's prices.</p></div>
       <button type="button" disabled={saving} onClick={close} aria-label="Close work offer" className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:bg-slate-100"><X size={20} /></button>
@@ -102,7 +108,7 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
     {catalogueError && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{catalogueError}<button type="button" onClick={() => setReload(n => n + 1)} className="ml-3 min-h-11 underline">Retry</button></div>}
     <form onSubmit={submit} className="space-y-4">
       <fieldset disabled={saving || Boolean(draftId) || loading || Boolean(catalogueError)} className="min-w-0 space-y-4">
-        <Field label="Preparation"><select className={control} value={priced ? "PRICED" : "SCOPE"} onChange={event=>{setPriced(event.target.value === "PRICED");setForm(current=>({...current,quotation:""}));}}><option value="PRICED">Priced Work Order Draft</option><option value="SCOPE">Request subcontractor quotation (existing flow)</option></select></Field>
+        <div className="grid gap-4 md:grid-cols-3"><Field label="Preparation"><select className={control} value={priced ? "PRICED" : "SCOPE"} onChange={event=>{setPriced(event.target.value === "PRICED");setForm(current=>({...current,quotation:""}));}}><option value="PRICED">Priced Work Order Draft</option><option value="SCOPE">Request subcontractor quotation (existing flow)</option></select></Field>
         <Field label="Quotation"><select required name="quotation" value={form.quotation} onChange={event => { const quotation = event.target.value; setServices([]); setSelected([]); setServicesLoading(Boolean(quotation)); setForm(current => ({ ...current, quotation, project_title: '', agreed_scope_summary: '' })); }} className={control}>
           <option value="">Choose a quotation</option>{quotations.filter(row=>!priced || approvedQuotationStatuses.includes(row.status)).map(row => <option key={row.id} value={row.id}>{[row.quotation_number || `#${row.id}`, row.customer_name, row.property_name].filter(Boolean).join(' · ')}</option>)}
         </select></Field>
@@ -110,8 +116,9 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
         <Field label="Subcontractor"><select required name="receiving_contractor" value={form.receiving_contractor} onChange={update} className={control}>
           <option value="">Choose a connected contractor</option>{connections.map(row => { const other = connectionCounterparty(row); return <option key={row.id} value={other.id}>{other.label}</option>; })}
         </select></Field>
+        </div>
         {!loading && !catalogueError && !connections.length && <p role="status" className="text-sm text-amber-800">Connect with a subcontractor in Contractor Network first.</p>}
-        {form.quotation && <fieldset className="min-w-0 rounded-xl border p-4"><legend className="px-2 font-semibold">Services for this subcontractor</legend>
+        {form.quotation && !priced && <fieldset className="min-w-0 rounded-xl border p-4"><legend className="px-2 font-semibold">Services for this subcontractor</legend>
           <p className="mb-3 text-sm text-slate-600">Select only the work they will handle. Customer rates and totals are excluded.</p>
           {servicesLoading ? <p role="status">Loading quotation services…</p> : servicesError ? <p role="alert" className="text-red-700">{servicesError}<button type="button" onClick={() => setReload(n => n + 1)} className="ml-3 min-h-11 underline">Retry</button></p> : !services.length ? <p role="status">This quotation has no service lines. Add services to the quotation first.</p> : Object.entries(grouped).map(([category, items]) => <div key={category} className="mb-4 last:mb-0"><h3 className="mb-2 text-sm font-bold">{category}</h3>{items.map(item => <label key={item.id} className="flex min-h-11 items-start gap-3 rounded-lg py-2">
             <input type="checkbox" checked={selected.includes(item.id)} onChange={event => { const checked = event.target.checked; setSelected(ids => checked ? [...ids, item.id] : ids.filter(id => id !== item.id)); }} className="mt-1 h-5 w-5 shrink-0" />
@@ -119,12 +126,14 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
           </label>)}</div>)}
         </fieldset>}
         {priced && selected.length > 0 && <WorkOrderPricingFields items={sourceItems} selected={selected} pricing={pricing} onChange={setPricing} />}
+        <details open={!priced}><summary className="min-h-11 cursor-pointer font-semibold">Work details, dates and terms</summary><div className="space-y-4">
         <Field label="Work title"><input required name="project_title" value={form.project_title} onChange={update} maxLength={200} className={control} /></Field>
-        <Field label="Site address"><textarea name="site_address" value={form.site_address} onChange={update} rows={2} className={control} /></Field>
+        {!priced && <Field label="Site address"><textarea name="site_address" value={form.site_address} onChange={update} rows={2} className={control} /></Field>}
         <Field label="Scope notes"><textarea name="agreed_scope_summary" value={form.agreed_scope_summary} onChange={update} rows={2} placeholder="What is included, excluded, and who supplies materials" className={control} /></Field>
         {priced && <Field label="Work Order terms"><textarea name="terms" value={form.terms} onChange={update} rows={2} className={control} /></Field>}
         <Field label="Instructions"><textarea name="instructions" value={form.instructions} onChange={update} rows={2} className={control} /></Field>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Required from"><input type="date" name="required_start_date" value={form.required_start_date} onChange={update} className={control} /></Field><Field label="Required by"><input type="date" name="required_end_date" value={form.required_end_date} min={form.required_start_date || undefined} onChange={update} className={control} /></Field></div>
+        </div></details>
       </fieldset>
       {!priced && selectedServices.length > 0 && <section aria-label="Offer summary" className="rounded-xl bg-slate-50 p-4"><h3 className="font-semibold">Offer summary · {selectedServices.length} services</h3><ul className="mt-2 space-y-1 text-sm">{selectedServices.map(item => <li key={item.id} className="break-words">{item.title} · {item.quantity} {item.unit}</li>)}</ul><p className="mt-3 text-sm text-slate-600">No customer prices are shared. The subcontractor can submit their own quotation.</p></section>}
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{error}</p>}
@@ -135,3 +144,8 @@ export default function CreateSubcontractOffer({ initialQuotation = '', initialC
 }
 
 function Field({ label, children }) { return <label className="block min-w-0"><span className="mb-2 block text-sm font-semibold">{label}</span>{children}</label>; }
+
+export default function CreateSubcontractOffer(props) {
+ const [legacy,setLegacy]=useState(false);
+ return legacy ? <LegacySubcontractOffer {...props}/> : <OfferWorkWizard {...props} onRequestScope={()=>setLegacy(true)}/>;
+}

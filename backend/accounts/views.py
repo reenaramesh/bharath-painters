@@ -405,6 +405,13 @@ class CustomerRegistrationView(APIView):
             if existing_contact and existing_contact.status != PropertyContact.Status.PENDING:
                 return Response({"detail": "This customer already has access to the property."}, status=status.HTTP_409_CONFLICT)
 
+        # Reject an incompatible login before creating or retiring customer identities.
+        existing_user = _find_user_by_mobile(mobile, BharathUser.objects.all())
+        if existing_user and existing_user.role != BharathUser.Roles.CUSTOMER:
+            return Response({"mobile": "This mobile belongs to another account type."}, status=status.HTTP_400_BAD_REQUEST)
+        if existing_user and existing_user.has_usable_password():
+            return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
+
         from quotations.customer_identity import release_deleted_customer_mobile
         release_deleted_customer_mobile(normalized_mobile)
         customer_records = list(Customer.objects.select_related("portal_user").exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized_mobile))

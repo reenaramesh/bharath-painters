@@ -1,3 +1,4 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -555,10 +556,10 @@ export default function Invoices() {
                 <thead className="bg-slate-100">
                   <tr>
                     {[
-                      "Type of service",
+                      SERVICE_MASTER_LABELS.category,
                       "Room / Area",
-                      "Product type",
-                      "Description",
+                      SERVICE_MASTER_LABELS.productType,
+                      SERVICE_MASTER_LABELS.description,
                       "Brand",
                       "HSN/SAC",
                       "MOU",
@@ -755,12 +756,12 @@ function InvoiceServiceDialog({ editor, setEditor, masters, rooms, onSave, onClo
     <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
       <div className="flex items-start justify-between border-b p-5"><div><p className="text-xs font-bold uppercase tracking-wide text-amber-600">Lump-sum invoice</p><h3 className="text-xl font-extrabold">{editor.index === null ? 'Add service' : 'Edit service'}</h3></div><button type="button" onClick={onClose} className="rounded-xl border p-2"><X className="h-5 w-5" /></button></div>
       <div className="grid flex-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
-        <InvoiceSuggest label="Type of service" value={row.category} set={(value) => set('category', value)} options={masters.categories} placeholder="Search type of service" />
+        <InvoiceSuggest label={SERVICE_MASTER_LABELS.category} value={row.category} set={(value) => set('category', value)} options={masters.categories} placeholder="Search Service / Product Category" />
         <InvoiceSuggest label="Room / Area" value={row.room} set={(value) => set('room', value)} options={rooms} placeholder="Search or enter room" />
         <Field label="Service type"><select value={row.line_type} onChange={(event) => set('line_type', event.target.value)}><option value="SERVICE_MATERIAL">Service + Material</option><option value="SERVICE">Service only</option><option value="MATERIAL">Material only</option><option value="REPAIR">Repair</option></select></Field>
         <InvoiceSuggest label="Service" value={row.service} set={(value) => set('service', value)} options={services} placeholder="Search or enter service" />
-        <InvoiceSuggest label="Product type" value={row.product_type} set={(value) => set('product_type', value)} options={products} placeholder="Search or enter product type" required={false} />
-        <InvoiceSuggest label="Product description" value={row.description} set={(value) => set('description', value)} options={descriptions} placeholder="Search or enter description" />
+        <InvoiceSuggest label={SERVICE_MASTER_LABELS.productType} value={row.product_type} set={(value) => set('product_type', value)} options={products} placeholder="Search or enter Service / Product Type" required={false} />
+        <InvoiceSuggest label={SERVICE_MASTER_LABELS.description} value={row.description} set={(value) => set('description', value)} options={descriptions} placeholder="Search or enter description" />
         <InvoiceSuggest label="Brand" value={row.brand} set={(value) => set('brand', value)} options={masters.brands} placeholder="Search or enter brand" required={false} />
         <Field label="HSN/SAC"><input value={row.hsn_sac || ''} onChange={(event) => set('hsn_sac', event.target.value)} placeholder="Enter HSN or SAC code" /></Field>
         <InvoiceSuggest label="MOU" value={row.unit} set={(value) => set('unit', value)} options={masters.units} placeholder="Sq ft, Job, Nos..." />

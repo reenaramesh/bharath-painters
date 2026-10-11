@@ -1,3 +1,4 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { HardHat, Pencil, Plus, Trash2, X } from "lucide-react";
@@ -207,7 +208,7 @@ export default function ProjectScopesPanel({ quotationId }) {
                 placeholder="Terrace waterproofing"
               />
             </ScopeField>
-            <ScopeField label="Type of service">
+            <ScopeField label={SERVICE_MASTER_LABELS.category}>
               <select
                 value={form.category}
                 onChange={(event) =>
@@ -224,7 +225,7 @@ export default function ProjectScopesPanel({ quotationId }) {
                   ))}
               </select>
             </ScopeField>
-            <ScopeField label="Work description" hint="Must belong to the service above">
+            <ScopeField label={SERVICE_MASTER_LABELS.description} hint="Must belong to the service above">
               <select
                 value={form.work_description}
                 onChange={(event) => setForm({ ...form, work_description: event.target.value })}

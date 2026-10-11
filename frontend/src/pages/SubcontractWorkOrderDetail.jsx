@@ -185,9 +185,9 @@ export default function SubcontractWorkOrderDetail() {
         </SectionCard>
       )}
 
-      <SectionCard title="Scopes shared for this work">
+      {!workOrder.material_mode && <SectionCard title="Scopes shared for this work">
         <ScopeSnapshot scopes={workOrder.scopes || []} />
-      </SectionCard>
+      </SectionCard>}
 
       {workOrder.material_mode ? <WorkOrderPricingPanel workOrder={workOrder} isMain={isMain} onChanged={refresh} onEditing={setEditingPricing}/> : <SubcontractQuotePanel
         workOrder={workOrder}

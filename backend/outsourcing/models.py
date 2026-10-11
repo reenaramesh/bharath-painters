@@ -311,6 +311,11 @@ class SubcontractQuoteLine(models.Model):
         if not self.category_id and self.work_description_id:
             self.category_id = self.work_description.service_category_id
         self.amount = (self.quantity * self.unit_rate).quantize(TWO_PLACES)
+        if self.quote.pricing.get("basis") == "MARGIN" and self.quote.created_by_id == self.quote.work_order.main_contractor_id:
+            import json
+            details = json.loads(self.specification or "{}")
+            if "vendor_amount" in details:
+                self.amount = Decimal(details["vendor_amount"]).quantize(TWO_PLACES)
         super().save(*args, **kwargs)
 
 

@@ -2,7 +2,7 @@ import { FormField, SectionCard } from './ui';
 import { quotationTotals } from '../utils/quotationPricing.js';
 
 const money = value => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
-export default function QuotationDiscountControls({ form, onChange, items, onLineChange, pricing: suppliedPricing, documentLabel = 'quotation' }) {
+export default function QuotationDiscountControls({ form, onChange, items, onLineChange, pricing: suppliedPricing, documentLabel = 'quotation', showLineControls = true }) {
   const lineMode = form.discount_mode === 'LINE';
   const pricing = suppliedPricing || quotationTotals(items,form);
   return <SectionCard title="Discounts and GST" description="Apply discounts before GST. Choose discounts for each line or one overall discount." className="quotation-financial-controls sm:col-span-2">
@@ -15,7 +15,7 @@ export default function QuotationDiscountControls({ form, onChange, items, onLin
       <FormField label="GST mode" as="select" name="gst_mode" value={form.gst_mode} onChange={event=>onChange('gst_mode',event.target.value)}><option value="GST_EXTRA">GST extra</option><option value="GST_INCLUDED">GST included</option><option value="NO_GST">No GST</option></FormField>
       <FormField label="GST percentage" type="number" name="gst_percentage" min="0" step="0.01" value={form.gst_percentage} onChange={event=>onChange('gst_percentage',event.target.value)} />
     </div>
-    {lineMode && <div className="mt-4 space-y-3">{items.map((item,index)=><fieldset key={item.id || item.field_id || index} className="min-w-0 rounded-xl border border-slate-200 p-3">
+    {lineMode && showLineControls && <div className="mt-4 space-y-3">{items.map((item,index)=><fieldset key={item.id || item.field_id || index} className="min-w-0 rounded-xl border border-slate-200 p-3">
       <legend className="max-w-full px-1 text-sm font-semibold">{index+1}. {item.specification_details?.name || item.description || 'Quotation line'}</legend>
       <div className="grid min-w-0 gap-3 sm:grid-cols-2">
         <FormField label={`Line ${index+1} discount type`} as="select" value={item.discount_type || 'FIXED'} onChange={event=>onLineChange(item,'discount_type',event.target.value)}><option value="FIXED">Fixed amount</option><option value="PERCENTAGE">Percentage</option></FormField>

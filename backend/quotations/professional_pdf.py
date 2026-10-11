@@ -846,16 +846,18 @@ def build_quotation_pdf(quotation, included_sections=None):
     palette = _quotation_palette(context["profile"])
     s = _styles(fonts, palette["text"])
     doc = _doc(buffer, quotation.quotation_number, top_margin=8*mm, bottom_margin=26*mm, aligned=True)
-    customer, prop, property_obj = quotation.customer_snapshot or {}, quotation.property_snapshot or {}, quotation.property
-    property_name = prop.get("name") or property_obj.name or property_obj.get_property_type_display()
-    address = _joined([prop.get("flat_number"), prop.get("block_name"), prop.get("address") or property_obj.address, prop.get("city") or property_obj.city, prop.get("pincode") or property_obj.pincode])
-    customer_id = customer.get("bharath_id") or quotation.customer.bharath_id
-    customer_gst = customer.get("gst_number") or getattr(quotation.customer, "gst_number", "")
-    customer_mobile = customer.get("mobile") or quotation.customer.mobile
+    from .document_identity import quotation_party_details
+    customer, prop = quotation_party_details(quotation)
+    property_name = prop["name"]
+    address = _joined([prop["flat_number"], prop["block_name"], prop["address"], prop["city"], prop["pincode"]])
+    customer_id = customer["bharath_id"]
+    customer_gst = customer["gst_number"]
+    customer_mobile = customer["mobile"]
     if str(customer_mobile or "").strip() == str(context["mobile"] or "").strip():
         customer_mobile = ""
-    customer_details = [customer.get("name") or quotation.customer.name, f"Customer ID: {customer_id}" if customer_id else "", customer_mobile, f"GSTIN: {customer_gst}" if customer_gst else ""]
-    property_details = [property_name, property_obj.get_property_type_display(), address]
+    customer_details = [customer["name"], f"Customer ID: {customer_id}" if customer_id else "", customer_mobile, f"GSTIN: {customer_gst}" if customer_gst else ""]
+    from .models import Property
+    property_details = [property_name, dict(Property.PropertyType.choices).get(prop["property_type"], prop["property_type"]), address]
     story = [_QuotationBanner(context, quotation, palette, included_sections, fonts), Spacer(1, 6)]
     visible_cards = []
     if "customer_details" in included_sections:
@@ -873,6 +875,11 @@ def build_quotation_pdf(quotation, included_sections=None):
         )
         story += [Spacer(1, 2*mm), info_cards, Spacer(1, 10)]
     rows = [["Sl.", "Type of service", "Room / Area", "Product / Brand", "Description / treatment", "Qty", "Coats", "Rate (₹)", "Amount (₹)"]]
+    # Issued documents retain their existing headings when downloaded again.
+    if quotation.status == "DRAFT":
+        draft_header_style = ParagraphStyle("bp-draft-service-category", fontName=fonts[1], fontSize=7, leading=9, textColor=palette["on_dark"])
+        rows[0][1] = Paragraph("Service / Product Category", draft_header_style)
+        rows[0][4] = "Description"
     table_body_style = ParagraphStyle("bp-quotation-table-body", parent=s["body"], fontSize=7, leading=8.5, spaceAfter=0)
     numeric_cell = ParagraphStyle("bp-quotation-number", parent=table_body_style, alignment=TA_RIGHT)
     rate_amount_cell = ParagraphStyle("bp-quotation-rate-amount", parent=table_body_style, alignment=TA_RIGHT)

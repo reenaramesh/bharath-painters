@@ -6,6 +6,7 @@ from .transliteration import system_text
 
 
 DOCUMENT_LABELS = {
+    "service / product category", "service / product type",
     "quotation", "quotation total", "invoice", "tax invoice", "invoice items", "invoice total",
     "invoice no.", "invoice date", "project ref.", "source", "bill to", "direct invoice",
     "customer details", "customer", "property details", "property site details", "property",

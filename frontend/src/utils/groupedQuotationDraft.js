@@ -23,6 +23,7 @@ export function restoreDraftAssignments(items) {
         service_category: item.service_category || "", paint_type: item.paint_type || "",
         service_type:item.service_type || "",
         paint_brand: item.paint_brand || "", description: item.description || "",
+        custom_service_category:item.custom_service_category || "", custom_product_type:item.custom_product_type || "", custom_brand:item.custom_brand || "",
         coats: Number(item.coats || 1), primer_coats: Number(details.primer_coats || 0),
       },
     };
@@ -47,6 +48,8 @@ export function groupedDraftItems(measurement, state, masters, savedItems, quota
       ...(line.property_room_id && !room?.id ? { property_room: line.property_room_id } : {}),
       service_category: line.service_category || null, service_type: line.service_type || null,
       paint_type: line.paint_type || null, paint_brand: line.paint_brand || null,
+      custom_service_category:line.custom_service_category, custom_product_type:line.custom_product_type, custom_brand:line.custom_brand,
+      save_service_category_to_master:line.save_service_category_to_master, save_product_type_to_master:line.save_product_type_to_master, save_brand_to_master:line.save_brand_to_master,
       color: original?.color || null, description: line.description, coats: line.coats,
       included_areas: line.included_areas, specification_details: { ...original?.specification_details, ...line.specification_details },
       calculation_method: line.calculation_method, is_additional_service: line.is_additional_service,

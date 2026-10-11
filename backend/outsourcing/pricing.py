@@ -40,6 +40,11 @@ class PricingInput(serializers.Serializer):
 
 
 def prepare_pricing(quotation, mode, payload, items, *, existing=None):
+    if isinstance(payload, dict) and "margin_mode" in payload:
+        from .margins import prepare_margins
+        return prepare_margins(quotation, mode, payload, items, existing)
+    if existing and existing.private_pricing.get("margin"):
+        raise serializers.ValidationError({"pricing_input": "Use the saved margin-only pricing workflow."})
     if mode not in {"WITH_MATERIAL","WITHOUT_MATERIAL"}:
         raise serializers.ValidationError({"material_mode":"Choose With Material or Without Material."})
     if not existing and (quotation.status not in APPROVED or quotation.deleted_at):
@@ -94,9 +99,10 @@ def public_specification(item):
         for surface in room.get("sources",[]):
             if Decimal(str(surface.get("quantity") or 0)) > 0:
                 surfaces.append(f"{room.get('room_name','')} - {surface.get('name','')}: {surface.get('quantity')}")
-    return {"description":item.description,"service":item.service_name_snapshot or (item.service_type.name if item.service_type else ""),
-            "product":item.product_type_name_snapshot or (item.paint_type.name if item.paint_type else ""),
-            "brand":item.brand_name_snapshot or (item.paint_brand.name if item.paint_brand else ""),
+    return {"description":item.description,"service":item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else ""),
+            "product":item.product_type_name_snapshot or item.custom_product_type or (item.paint_type.name if item.paint_type else ""),
+            "brand":item.brand_name_snapshot or item.custom_brand or (item.paint_brand.name if item.paint_brand else ""),
+            "line_type":item.get_line_type_display(),
             "features":item.product_type_features_snapshot,"calculation_method":item.calculation_method,
             "scope_name":details.get("name",""),"surfaces":surfaces,
             "colour":f"{item.color.name} {item.color.code}".strip() if item.color else "",
@@ -116,6 +122,7 @@ def save_pricing(work_order, prepared, actor):
         if previous:
             previous.is_current=False;previous.save(update_fields=["is_current"])
         quote=SubcontractQuote.objects.create(work_order=work_order,created_by=work_order.main_contractor,supersedes=previous)
+    quote.pricing={key:str(value) for key,value in prepared["settings"].items()}
     existing_lines={line.source_scope_id:line for line in quote.quote_lines.all()}
     retained_scopes=set();retained_lines=set()
     for index,line in enumerate(prepared["lines"]):
@@ -126,11 +133,19 @@ def save_pricing(work_order, prepared, actor):
         scope.category=item.service_category
         scope.category_name_snapshot=item.service_category_name_snapshot or (item.service_category.name if item.service_category else "")
         scope.unit_name_snapshot=item.unit_name_snapshot or item.custom_unit or (item.unit.name if item.unit else "")
-        scope.quantity=item.quantity;scope.unit_rate=line["unit_rate"];scope.sort_order=(index+1)*10
+        scope.quantity=line["quantity"];scope.unit_rate=line["unit_rate"];scope.sort_order=(index+1)*10
         scope.specification_snapshot=public_specification(item)
+        if line.get("snapshot"):
+            frozen=line["snapshot"]
+            scope.title_snapshot=frozen["description"][:200]
+            scope.work_description_snapshot=frozen["specification"].get("service", "")[:200]
+            scope.category_name_snapshot=frozen["category_name"]
+            scope.category_id=frozen["service_category"]
+            scope.unit_name_snapshot=frozen["unit_name"]
+            scope.specification_snapshot={**frozen["specification"], "vendor_amount":str(line["amount"]), "vendor_rate":line["exact_rate"]}
         scope.save();retained_scopes.add(scope.pk)
         priced=existing_lines.get(scope.pk) or SubcontractQuoteLine(quote=quote,source_scope=scope)
-        priced.description_snapshot=item.description[:200]
+        priced.description_snapshot=scope.title_snapshot
         priced.unit_name_snapshot=scope.unit_name_snapshot
         priced.category=scope.category
         priced.quantity=line["quantity"];priced.unit_rate=line["unit_rate"]

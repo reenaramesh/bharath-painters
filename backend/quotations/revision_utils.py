@@ -100,12 +100,31 @@ def previous_revision(quotation):
     )
 
 
+def quotation_revision_history(quotation, *, include_drafts=False):
+    """Call only after detail authorization; keep private Drafts out of portal."""
+    root_id = quotation.revision_of_id or quotation.pk
+    versions = Quotation.objects.filter(
+        models.Q(pk=root_id) | models.Q(revision_of_id=root_id),
+        contractor_id=quotation.contractor_id, customer_id=quotation.customer_id,
+        property_id=quotation.property_id, deleted_at__isnull=True,
+    )
+    if not include_drafts:
+        versions = versions.exclude(status=Quotation.Status.DRAFT)
+    return list(versions.order_by("version_number", "id").values(
+        "id", "quotation_number", "version_number", "status", "quotation_date",
+        "sent_at", "grand_total", "customer_responded_at",
+    ))
+
+
 def quotation_revision_changes(quotation):
     previous = previous_revision(quotation)
     if not previous:
         return None
 
     def key(item):
+        details = item.specification_details or {}
+        if details.get("assignment_id"):
+            return ("assignment", details["assignment_id"])
         return (
             (item.room.name if item.room else "General").strip().lower(),
             item.service_type_id,
@@ -114,53 +133,80 @@ def quotation_revision_changes(quotation):
 
     previous_groups = defaultdict(list)
     current_groups = defaultdict(list)
-    for item in previous.items.all():
+    for item in previous.items.all().order_by("id"):
         previous_groups[key(item)].append(item)
-    for item in quotation.items.all():
+    for item in quotation.items.all().order_by("id"):
         current_groups[key(item)].append(item)
 
     added = []
     removed = []
     price_changes = []
+    discount_changes = []
+    specification_changes = []
+    from .discounts import line_discount
+    from .quotation_pdf_labels import quotation_room_area_label
 
     def line_summary(item):
         return {
             "description": item.description or "Quotation line",
-            "room": item.room.name if item.room else "General",
+            "room": quotation_room_area_label(item) or "General",
             "service": (
                 item.service_name_snapshot
                 or (item.service_type.name if item.service_type else "")
                 or item.custom_service_type
                 or item.custom_service_category
+                or item.service_category_name_snapshot
                 or "Service"
             ),
             "amount": item.amount,
         }
 
-    for item_key in set(previous_groups) | set(current_groups):
+    for item_key in dict.fromkeys([*previous_groups, *current_groups]):
         old_rows = previous_groups[item_key]
         new_rows = current_groups[item_key]
         common = min(len(old_rows), len(new_rows))
         for index in range(common):
             old = old_rows[index]
             new = new_rows[index]
-            if old.rate != new.rate or old.amount != new.amount:
+            old_net, new_net = old.amount - line_discount(old), new.amount - line_discount(new)
+            if old.rate != new.rate or old.amount != new.amount or old_net != new_net:
                 price_changes.append(
                     {
                         "description": new.description or "Quotation line",
-                        "room": new.room.name if new.room else "General",
+                        "room": quotation_room_area_label(new) or "General",
                         "service": (
                             new.service_name_snapshot
                             or (new.service_type.name if new.service_type else "")
                             or new.custom_service_type
                             or new.custom_service_category
+                            or new.service_category_name_snapshot
                             or "Service"
                         ),
                         "previous_price": old.amount,
                         "current_price": new.amount,
                         "difference": new.amount - old.amount,
+                        "previous_net": old_net,
+                        "current_net": new_net,
+                        "net_difference": new_net - old_net,
                     }
                 )
+            if (old.discount_type, old.discount_value) != (new.discount_type, new.discount_value):
+                discount_changes.append({**line_summary(new),
+                    "previous_type": old.discount_type, "previous_value": old.discount_value,
+                    "current_type": new.discount_type, "current_value": new.discount_value,
+                    "previous_discount": line_discount(old), "current_discount": line_discount(new),
+                })
+            scope_fields = (
+                "description", "quantity", "coats", "calculation_method", "included_areas",
+                "service_category_id", "service_type_id", "paint_type_id", "paint_brand_id", "unit_id",
+                "custom_service_category", "custom_service_type", "custom_product_type", "custom_brand", "custom_unit",
+                "service_category_name_snapshot", "service_name_snapshot", "product_type_name_snapshot",
+                "brand_name_snapshot", "unit_name_snapshot", "specification_details",
+            )
+            changed = {field: {"previous": getattr(old, field), "current": getattr(new, field)}
+                       for field in scope_fields if getattr(old, field) != getattr(new, field)}
+            if changed:
+                specification_changes.append({**line_summary(new), "fields": changed})
         added.extend(line_summary(item) for item in new_rows[common:])
         removed.extend(line_summary(item) for item in old_rows[common:])
 
@@ -174,4 +220,12 @@ def quotation_revision_changes(quotation):
         "added_lines": added,
         "removed_lines": removed,
         "price_changes": price_changes,
+        "discount_changes": discount_changes,
+        "specification_changes": specification_changes,
+        "quotation_changes": {
+            field: {"previous": getattr(previous, field), "current": getattr(quotation, field)}
+            for field in ("discount_mode", "discount_type", "discount_value", "gst_mode", "gst_percentage",
+                          "notes", "terms_conditions", "payment_terms", "work_duration", "work_procedures")
+            if getattr(previous, field) != getattr(quotation, field)
+        },
     }

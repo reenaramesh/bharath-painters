@@ -1,5 +1,10 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
+import { openRecovery, writeRecovery, clearRecovery } from "../utils/quotationRecovery.js";
 import QuotationDiscountControls from "../components/QuotationDiscountControls.jsx";
+import QuotationPricingRows from "../components/QuotationPricingRows.jsx";
+import { builderDraftPayload, draftForm, persistQuotation, restoredGroupedItems } from "../utils/unifiedQuotation.js";
+import { hasAssignment, restoreDraftAssignments } from "../utils/groupedQuotationDraft.js";
 import { quotationTotals } from "../utils/quotationPricing.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -43,9 +48,9 @@ const emptyItem = {
   included_areas: [],
 };
 const steps = [
-  "Customer, property & type",
-  "Area fields & coats",
-  "Services, rates & totals",
+  "Customer, property and measurements",
+  "Surface grouping, materials and specifications",
+  "Pricing and final review",
 ];
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -70,12 +75,13 @@ const quotationSurfaceGroup = (surface) => {
 };
 function missingQuotationFields(item) {
   const missing = [];
-  if (!item.service_category && !String(item.custom_service_category || "").trim()) missing.push("Type of service");
-  if (!item.field_id && !item.property_room_id && !String(item.room_name || "").trim()) missing.push("Room / Area");
-  if (!String(item.description || "").trim()) missing.push("Product description");
-  if (!item.unit) missing.push("MOU");
+  const saved = Number.isInteger(item.id) && item.id > 0;
+  if (!saved && !item.service_category && !String(item.custom_service_category || "").trim()) missing.push(SERVICE_MASTER_LABELS.category);
+  if (!saved && !item.field_id && !item.property_room_id && !String(item.room_name || "").trim()) missing.push("Room / Area");
+  if (!String(item.description || "").trim()) missing.push(SERVICE_MASTER_LABELS.description);
+  if (!saved && !item.unit && !String(item.custom_unit || "").trim()) missing.push("MOU");
   if (Number(item.quantity || 0) <= 0) missing.push("Quantity");
-  if (item.rate === "" || item.rate === null || item.rate === undefined) missing.push("Rate");
+  if (item.rate === "" || item.rate === null || item.rate === undefined || !Number.isFinite(Number(item.rate)) || Number(item.rate)<0) missing.push("Rate");
   return missing;
 }
 function incompleteLineMessage(items) {
@@ -84,27 +90,51 @@ function incompleteLineMessage(items) {
   return `Line ${index + 1} (${items[index].room_name || "service"}) needs: ${missingQuotationFields(items[index]).join(", ")}.`;
 }
 
-export default function QuotationBuilder() {
-  const navigate = useNavigate();
+export default function QuotationBuilder({ initialQuotation = null }) {
   const location = useLocation();
+  const [recovery] = useState(() => {
+    try {
+      const storage = window.localStorage;
+      const user = JSON.parse(storage.getItem("bharath_user") || "null");
+      let tabStorage = null;
+      try { tabStorage = window.sessionStorage; } catch { /* Persistent recovery still works. */ }
+      return { storage, ...openRecovery(storage, tabStorage, user?.id, location.pathname, location.search, initialQuotation?.updated_at) };
+    } catch { return { key: null, storage: null, state: null }; }
+  });
+  const recovered = recovery.state;
+  const recoveryCleared = useRef(false);
+  const propertyFirstLoad = useRef(recovered?.form.property);
+  const measurementFirstLoad = useRef(recovered?.selectedMeasurementId);
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
+  const [savedQuotation, setSavedQuotation] = useState(initialQuotation);
+  const savedDraft = useRef(initialQuotation);
+  const editing = Boolean(initialQuotation);
+  const sourceLocked = Boolean(savedQuotation);
+  const [dataReady,setDataReady] = useState(false);
+  const [sourceReady,setSourceReady] = useState(!initialQuotation || Boolean(recovered?.savedRooms?.length));
+  const [notice,setNotice] = useState(location.state?.submissionError ? "Draft saved. Sending could not be confirmed. Retry Save & Send to submit this same Draft." : "");
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState(0);
-  const [useMeasurements, setUseMeasurements] = useState(true);
+  const sourceLead = searchParams.get("lead") ?? recovered?.sourceLead ?? initialQuotation?.lead ?? null;
+  const [step, setStep] = useState(recovered?.step ?? (location.state?.resumeReview ? 2 : 0));
+  const [useMeasurements, setUseMeasurements] = useState(recovered?.useMeasurements ?? (initialQuotation ? initialQuotation.quotation_type === "MEASUREMENT" : !location.pathname.endsWith("new-manual")));
   const [customers, setCustomers] = useState([]);
-  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState(recovered?.customerSearch || "");
   const [properties, setProperties] = useState([]);
-  const [savedRooms, setSavedRooms] = useState([]);
-  const [measurements, setMeasurements] = useState([]);
-  const [measurementRecords, setMeasurementRecords] = useState([]);
+  const [savedRooms, setSavedRooms] = useState(recovered?.savedRooms || []);
+  const [measurements, setMeasurements] = useState(recovered?.measurements || []);
+  const [measurementRecords, setMeasurementRecords] = useState(recovered?.measurementRecords || []);
   const [measurementRecordsLoading, setMeasurementRecordsLoading] = useState(false);
-  const [selectedMeasurementId, setSelectedMeasurementId] = useState("");
-  const [selectedRoomIds, setSelectedRoomIds] = useState([]);
-  const [selectedFieldIds, setSelectedFieldIds] = useState([]);
-  const knownFieldIds = useRef(new Set());
-  const [specialWalls, setSpecialWalls] = useState([]);
-  const [specialWallEditor, setSpecialWallEditor] = useState(null);
-  const [groupAssignments, setGroupAssignments] = useState({ groups: [], specials: [], services: [], rates: {} });
+  const [selectedMeasurementId, setSelectedMeasurementId] = useState(recovered?.selectedMeasurementId ?? String(initialQuotation?.measurement_record || ""));
+  const [selectedRoomIds, setSelectedRoomIds] = useState(recovered?.selectedRoomIds ?? (initialQuotation?.rooms || []).map(room=>room.property_room).filter(Boolean));
+  const [selectedFieldIds, setSelectedFieldIds] = useState(recovered?.selectedFieldIds || []);
+  const knownFieldIds = useRef(new Set(recovered?.items.filter(item=>item.field_id).map(item=>item.field_id) || []));
+  const [specialWalls, setSpecialWalls] = useState(recovered?.specialWalls || []);
+  const [specialWallEditor, setSpecialWallEditor] = useState(recovered?.specialWallEditor || null);
+  const [specialWallRecovery, setSpecialWallRecovery] = useState(recovered?.specialWallRecovery || null);
+  const [groupAssignments, setGroupAssignments] = useState(recovered?.groupAssignments ?? (initialQuotation ? restoreDraftAssignments(initialQuotation.items || []) : { groups: [], specials: [], services: [], rates: {} }));
   const [openingGroupRequest, setOpeningGroupRequest] = useState(null);
+  const [workEditorRecovery, setWorkEditorRecovery] = useState(recovered?.workEditorRecovery || null);
   const [masters, setMasters] = useState({
     categories: [],
     services: [],
@@ -115,7 +145,7 @@ export default function QuotationBuilder() {
     units: [],
     roomTypes: [],
   });
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => recovered?.form ?? draftForm(initialQuotation || {}, {
     customer: "",
     property: "",
     valid_until: "",
@@ -133,13 +163,16 @@ export default function QuotationBuilder() {
     show_product_key_features: true,
     work_duration: "",
     work_procedures: "",
-  });
-  const [items, setItems] = useState([]);
+  }));
+  const [items, setItems] = useState(recovered?.items ?? (initialQuotation?.items || []).filter(item=>!hasAssignment(item)).map(item=>{
+    const room=initialQuotation.rooms.find(entry=>String(entry.id)===String(item.room));
+    return {...emptyItem,...item,property_room_id:room?.property_room || '',room_name:room?.name || item.included_areas?.[0] || 'General'};
+  }));
   const [mobileItemIndex, setMobileItemIndex] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewingPdf, setPreviewingPdf] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(location.state?.submissionError || "");
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [savingProperty, setSavingProperty] = useState(false);
@@ -196,7 +229,7 @@ export default function QuotationBuilder() {
           units: list(u),
           roomTypes: list(areas),
         });
-        setForm((current) => ({
+        if (!initialQuotation && !recovered) setForm((current) => ({
           ...current,
           terms_conditions: profile.data.quotation_terms_conditions || "",
           prepared_by: profile.data.quotation_prepared_by || "",
@@ -207,9 +240,10 @@ export default function QuotationBuilder() {
           work_procedures: profile.data.quotation_work_procedures || "",
         }));
       })
-      .catch(() => setError("Quotation data could not be loaded."));
-  }, []);
+      .catch(() => setError("Quotation data could not be loaded.")).finally(()=>setDataReady(true));
+  }, [initialQuotation, recovered]);
   useEffect(() => {
+    if (initialQuotation) return;
     const requestedCustomer = searchParams.get("customer");
     const requestedProperty = searchParams.get("property");
     if ((!requestedCustomer && !requestedProperty) || !customers.length || !properties.length || form.customer) return;
@@ -219,15 +253,21 @@ export default function QuotationBuilder() {
     if (!selected) return;
     setForm((current) => ({ ...current, customer: selected.id, property: property?.id || "" }));
     setCustomerSearch(selected.name);
-  }, [customers, properties, form.customer, searchParams]);
+  }, [customers, properties, form.customer, searchParams, initialQuotation]);
   useEffect(() => {
-    setItems([]);
-    setSpecialWalls([]);
-    setGroupAssignments({ groups: [], specials: [], services: [], rates: {} });
-    setOpeningGroupRequest(null);
-    setSpecialWallEditor(null);
-    setSelectedFieldIds([]);
-    knownFieldIds.current = new Set();
+    if (initialQuotation) return;
+    const restoring = Boolean(recovered) && propertyFirstLoad.current === form.property;
+    if (!restoring) propertyFirstLoad.current = null;
+    if (!restoring) {
+      setItems([]);
+      setSpecialWalls([]);
+      setGroupAssignments({ groups: [], specials: [], services: [], rates: {} });
+      setWorkEditorRecovery(null);
+      setOpeningGroupRequest(null);
+      setSpecialWallEditor(null);
+      setSelectedFieldIds([]);
+      knownFieldIds.current = new Set();
+    }
     if (!form.property) {
       setMeasurementRecordsLoading(false);
       setMeasurementRecords([]);
@@ -247,26 +287,36 @@ export default function QuotationBuilder() {
         const requested = requestedMeasurement && String(form.property) === String(requestedProperty)
           ? records.find((record) => String(record.id) === String(requestedMeasurement))
           : null;
-        setSelectedMeasurementId(String(requested?.id || records[0]?.id || ""));
+        setSelectedMeasurementId(restoring ? String(recovered.selectedMeasurementId || "") : String(requested?.id || records[0]?.id || ""));
       })
       .catch(() => {
-        setMeasurementRecords([]);
-        setSelectedMeasurementId("");
-        setError("Saved Area Calculations could not be loaded for this property.");
+        if (!restoring) {
+          setMeasurementRecords([]);
+          setSelectedMeasurementId("");
+        }
+        setError("Saved Area Calculations could not be loaded for this property. Your recovered inputs are retained. Refresh to retry loading.");
       }).finally(() => setMeasurementRecordsLoading(false));
-  }, [form.property, searchParams]);
+  }, [form.property, searchParams, initialQuotation, recovered]);
   useEffect(() => {
-    setItems([]);
-    setSpecialWalls([]);
-    setGroupAssignments({ groups: [], specials: [], services: [], rates: {} });
-    setOpeningGroupRequest(null);
-    setSpecialWallEditor(null);
-    setSelectedFieldIds([]);
-    knownFieldIds.current = new Set();
+    if (initialQuotation) return;
+    const restoring = Boolean(recovered) && measurementFirstLoad.current === selectedMeasurementId;
+    if (!restoring) measurementFirstLoad.current = null;
+    if (!restoring) {
+      setItems([]);
+      setSpecialWalls([]);
+      setGroupAssignments({ groups: [], specials: [], services: [], rates: {} });
+      setWorkEditorRecovery(null);
+      setOpeningGroupRequest(null);
+      setSpecialWallEditor(null);
+      setSelectedFieldIds([]);
+      knownFieldIds.current = new Set();
+    }
     if (!form.property || !selectedMeasurementId) {
-      setSavedRooms([]);
-      setMeasurements([]);
-      setSelectedRoomIds([]);
+      if (!restoring) {
+        setSavedRooms([]);
+        setMeasurements([]);
+        setSelectedRoomIds([]);
+      }
       return;
     }
     const params = { measurement: selectedMeasurementId };
@@ -277,14 +327,22 @@ export default function QuotationBuilder() {
       const rooms = roomResponse.data.results || roomResponse.data;
       setSavedRooms(rooms);
       setMeasurements(measurementResponse.data.results || measurementResponse.data);
-      setSelectedRoomIds(rooms.map((room) => room.id));
-    }).catch(() => setError("The selected Area Calculation could not be loaded."));
-  }, [form.property, selectedMeasurementId]);
+      if (!restoring) setSelectedRoomIds(rooms.map((room) => room.id));
+    }).catch(() => setError("The selected Area Calculation could not be loaded. Your recovered inputs are retained. Refresh to retry loading."));
+  }, [form.property, selectedMeasurementId, initialQuotation, recovered]);
+  useEffect(()=>{
+    if(!initialQuotation)return;
+    let active=true;const params=initialQuotation.measurement_record?{measurement:initialQuotation.measurement_record}:undefined;
+    Promise.all([api.get(`/quotations/properties/${initialQuotation.property}/rooms/`,{params}),api.get(`/quotations/properties/${initialQuotation.property}/measurements/`,{params}),api.get(`/quotations/properties/${initialQuotation.property}/measurement-records/`)]).then(([rooms,surfaces,records])=>{
+      if(!active)return;setSavedRooms(rooms.data.results || rooms.data);setMeasurements(surfaces.data.results || surfaces.data);setMeasurementRecords(records.data.results || records.data);setSourceReady(true);
+    }).catch(()=>{if(active)setError("Saved Draft measurements could not be loaded. Your saved lines are preserved.");});
+    return()=>{active=false;};
+  },[initialQuotation]);
   const availableProperties = properties.filter(
     (item) => String(item.customer) === String(form.customer),
   );
-  const selectedProperty = properties.find((item) => String(item.id) === String(form.property));
-  const selectedCustomer = customers.find((item) => String(item.id) === String(form.customer));
+  const selectedProperty = properties.find((item) => String(item.id) === String(form.property)) || (savedQuotation ? {id:savedQuotation.property,name:savedQuotation.property_name}:null);
+  const selectedCustomer = customers.find((item) => String(item.id) === String(form.customer)) || (savedQuotation ? {id:savedQuotation.customer,name:savedQuotation.customer_name}:null);
   const exteriorMode = selectedProperty?.measurement_type === "EXTERIOR";
   const customerSearchResults = useMemo(() => {
     const term = customerSearch.trim().toLowerCase();
@@ -602,6 +660,7 @@ export default function QuotationBuilder() {
     setSpecialWallEditor(null);
   }
   useEffect(() => {
+    if (initialQuotation || !useMeasurements) return;
     if (!measurementFields.length) return;
     const newIds = measurementFields
       .map((field) => field.field_id)
@@ -635,28 +694,51 @@ export default function QuotationBuilder() {
         ...custom,
       ];
     });
-  }, [measurementFields, exteriorMode, specialWalls.length]);
-  const groupedMode = useMeasurements && !exteriorMode;
+  }, [measurementFields, exteriorMode, specialWalls.length, initialQuotation, useMeasurements]);
+  const groupedMode = useMeasurements && !exteriorMode && Boolean(selectedMeasurementId);
   const assignmentMeasurement = useMemo(() => ({
     id: Number(selectedMeasurementId),
-    version: measurementRecords.find((record) => String(record.id) === String(selectedMeasurementId))?.version || 1,
+    version: measurementRecords.find((record) => String(record.id) === String(selectedMeasurementId))?.version ?? savedQuotation?.items.find(item=>item.specification_details?.measurement_version)?.specification_details.measurement_version ?? 1,
     rooms: savedRooms,
     surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR"),
-  }), [selectedMeasurementId, measurementRecords, savedRooms, measurements]);
-  const assignedItems = useMemo(() => groupedMode ? assignmentQuotationItems(assignmentMeasurement, groupAssignments, masters) : [], [groupedMode, assignmentMeasurement, groupAssignments, masters]);
+  }), [selectedMeasurementId, measurementRecords, savedRooms, measurements,savedQuotation]);
+  const assignedItems = useMemo(() => groupedMode && dataReady && sourceReady && savedRooms.length ? savedQuotation ? restoredGroupedItems(savedQuotation,assignmentMeasurement,groupAssignments,masters) : assignmentQuotationItems(assignmentMeasurement, groupAssignments, masters).map(line=>({...line,rate:groupAssignments.rates[line.specification_details.assignment_id] ?? line.rate})) : [], [groupedMode, dataReady, sourceReady, savedRooms.length, assignmentMeasurement, groupAssignments, masters,savedQuotation]);
   const submissionLock = useRef(false);
-  const markBuilderSaved = useDraftUnsavedChanges(groupedMode && Boolean(groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length));
-  const activeItems = useMemo(() => groupedMode
-    ? [...assignedItems, ...items.filter((item) => !item.field_id)]
-    : items.filter((item) => !item.field_id || selectedFieldIds.includes(item.field_id)),
-    [groupedMode, assignedItems, items, selectedFieldIds]);
+  const builderSnapshot=JSON.stringify({form,items,groupAssignments,selectedRoomIds,selectedFieldIds});
+  const initialSnapshot=useRef(recovered?.initialSnapshot || builderSnapshot);
+  const recoveryState = useMemo(() => ({form,items,groupAssignments,selectedRoomIds,selectedFieldIds,specialWalls,selectedMeasurementId,useMeasurements,step,customerSearch,workEditorRecovery,specialWallEditor,specialWallRecovery:specialWallEditor ? specialWallRecovery : null,initialSnapshot:initialSnapshot.current,savedRooms,measurements,measurementRecords,sourceLead}), [form,items,groupAssignments,selectedRoomIds,selectedFieldIds,specialWalls,selectedMeasurementId,useMeasurements,step,customerSearch,workEditorRecovery,specialWallEditor,specialWallRecovery,savedRooms,measurements,measurementRecords,sourceLead]);
+  const latestRecovery = useRef(recoveryState);
+  latestRecovery.current = recoveryState;
+  useEffect(() => {
+    if (recoveryCleared.current) return;
+    setRecoveryUnavailable(!writeRecovery(recovery.storage, recovery.key, recoveryState, initialQuotation?.updated_at));
+  }, [recoveryState, recovery.key, recovery.storage, initialQuotation?.updated_at]);
+  useEffect(() => {
+    const flush = () => {
+      if (!recoveryCleared.current) writeRecovery(recovery.storage, recovery.key, latestRecovery.current, initialQuotation?.updated_at);
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => { window.removeEventListener("pagehide", flush); window.removeEventListener("beforeunload", flush); };
+  }, [recovery.key, recovery.storage, initialQuotation?.updated_at]);
+  function clearBrowserRecovery() {
+    recoveryCleared.current = true;
+    clearRecovery(recovery.storage, recovery.key);
+  }
+  const markBuilderSaved = useDraftUnsavedChanges(editing ? (builderSnapshot!==initialSnapshot.current || Boolean(workEditorRecovery || specialWallEditor)) : Boolean(form.customer || items.length || groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length));
+  const activeItems = useMemo(() => {
+    const lines=groupedMode ? [...assignedItems,...items.filter(item=>!item.field_id)] : items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id));
+    if(!savedQuotation)return lines;
+    const order=new Map(savedQuotation.items.map((item,index)=>[item.id,index]));
+    return lines.sort((a,b)=>(order.get(a.id) ?? Number.MAX_SAFE_INTEGER)-(order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+  },[groupedMode,assignedItems,items,selectedFieldIds,savedQuotation]);
   const selectedProductDetails = useMemo(
     () => uniqueProductDetails(activeItems, masters.paintTypes, masters.brands),
     [activeItems, masters.paintTypes, masters.brands],
   );
   const preview = useMemo(() => {
     const priced = activeItems.map((item) => {
-      if (["LUMPSUM","MANUAL"].includes(item.calculation_method)) return item;
+      if (editing || ["LUMPSUM","MANUAL"].includes(item.calculation_method)) return item;
       const room = selectedRooms[Number(item.room_index)];
       const service = masters.services.find(
         (entry) => String(entry.id) === String(item.service_type),
@@ -686,7 +768,7 @@ export default function QuotationBuilder() {
       return {...item,quantity:quantities[service.calculation_type] || 0};
     });
     return quotationTotals(priced,form);
-  }, [activeItems, form, selectedRooms, masters.services]);
+  }, [activeItems, form, selectedRooms, masters.services, editing]);
   const update = (name, value) =>
     setForm((current) => ({ ...current, [name]: value }));
   const updateItem = (index, name, value) =>
@@ -705,7 +787,7 @@ export default function QuotationBuilder() {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index
       ? { ...item, paint_type: value, custom_product_type: customName,
           save_product_type_to_master: customName ? item.save_product_type_to_master : false,
-          ...(product?.default_price !== null && product?.default_price !== undefined ? { rate: String(product.default_price) } : {}) }
+          ...(product?.default_price !== null && product?.default_price !== undefined && (item.rate === "" || item.rate === null || item.rate === undefined) ? { rate: String(product.default_price) } : {}) }
       : item));
   };
   const updateMeasurementFieldItem = (fieldId, name, value) =>
@@ -771,26 +853,27 @@ export default function QuotationBuilder() {
     ]);
   };
   function canContinue() {
+    if (!dataReady || !sourceReady) return "Wait for the saved quotation data to load before continuing.";
     if (step === 0 && !form.customer) return "Select a customer.";
     if (step === 0 && !form.property) return "Select a property.";
-    if (step === 0 && useMeasurements && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
+    if (step === 0 && useMeasurements && !editing && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
     if (step === 0 && useMeasurements && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
     if (step === 1 && groupedMode && !activeItems.length) return "Create paint areas or add a general service before continuing.";
-    if (step === 1 && activeItems.some((item) => !item.service_category && !item.custom_service_category)) return "Select a type of service for every selected measured area.";
-    if (step === 1 && activeItems.some((item) => {
-      if (item.is_additional_service) return false;
+    if (step === 1 && activeItems.some((item) => !Number.isInteger(item.id) && !item.service_category && !item.custom_service_category)) return "Select a Service / Product Category for every selected measured area.";
+    if (step === 1 && groupedMode && activeItems.some((item) => {
+      if (item.is_additional_service || Number.isInteger(item.id)) return false;
       const category = masters.categories.find((entry) => String(entry.id) === String(item.service_category));
-      return category?.name?.toLowerCase().includes("paint") && !item.paint_type;
+      return category?.name?.toLowerCase().includes("paint") && !item.paint_type && !String(item.custom_product_type || "").trim();
     })) return "Select a material or product for every selected painting area.";
     if (step === 2 && !activeItems.length) return "Add at least one quotation line.";
     if (step === 2 && activeItems.some((item) => !item.field_id && !item.property_room_id && !String(item.room_name || "").trim()))
       return "Select a room or area for every Lump Sum line.";
-    if (step === 2 && activeItems.some((item) => item.is_additional_service && !item.unit)) return "Select a unit for every general service line.";
+    if (step === 2 && activeItems.some((item) => item.is_additional_service && !Number.isInteger(item.id) && !item.unit && !item.custom_unit)) return "Select a unit for every general service line.";
     if (
       step === 2 &&
       activeItems.some((item) => !item.description || item.rate === "")
     )
-      return "Every quotation line needs a product description and rate.";
+      return "Every quotation line needs a Description and rate.";
     if (
       step === 2 &&
       activeItems.some(
@@ -798,9 +881,25 @@ export default function QuotationBuilder() {
       )
     )
       return "Enter a quantity greater than zero for every Lump Sum or custom line.";
-    if (step === 2 && activeItems.some((item) => !item.service_category && !String(item.custom_service_category || "").trim()))
-      return "Select the type of service for every quotation line.";
+    if (step === 2 && activeItems.some((item) => !Number.isInteger(item.id) && !item.service_category && !String(item.custom_service_category || "").trim()))
+      return "Select the Service / Product Category for every quotation line.";
     return "";
+  }
+  function changePricingLine(item,field,value){
+    const id=item.specification_details?.assignment_id;
+    if(id){
+      setGroupAssignments(current=>{
+        if(field==='rate')return {...current,rates:{...current.rates,[id]:value}};
+        if(field.startsWith('discount_'))return {...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field==='discount_type'?'type':'value']:value}}};
+        const key=item.specification_details.kind==='group'?'groups':item.specification_details.kind==='special'?'specials':'services';
+        return {...current,[key]:current[key].map(entry=>entry.id===id?{...entry,[field]:value}:entry)};
+      });
+    }else updateItem(items.indexOf(item),field,value);
+  }
+  function editPricingLine(item){
+    const id=item.specification_details?.assignment_id;
+    if(id){const kind=item.specification_details.kind,key=kind==='group'?'groups':kind==='special'?'specials':'services';setOpeningGroupRequest({kind,value:groupAssignments[key].find(entry=>entry.id===id)});}
+    else setMobileItemIndex(items.indexOf(item));
   }
   function next() {
     const message = canContinue();
@@ -809,7 +908,7 @@ export default function QuotationBuilder() {
       return;
     }
     setError("");
-    setStep((value) => value === 0 && !useMeasurements ? 2 : Math.min(2, value + 1));
+    setStep((value) => Math.min(2, value + 1));
   }
   function openQuotationPreview() {
     if (!activeItems.length) {
@@ -830,7 +929,9 @@ export default function QuotationBuilder() {
     setError("");
     setShowPreview(true);
   }
-  async function submit(pdfPreviewOnly = false) {
+  async function submit(pdfPreviewOnly = false, send = false) {
+    if (submissionLock.current) return;
+    if(send && !window.confirm("Save this Draft and send it to the customer? Sent quotations cannot be edited directly."))return;
     if (submissionLock.current) return;
     if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
       setError(activeItems.length ? incompleteLineMessage(activeItems) : "Add at least one quotation line.");
@@ -851,6 +952,7 @@ export default function QuotationBuilder() {
     if (pdfPreviewOnly) setPreviewingPdf(true);
     else setSaving(true);
     setError("");
+    setNotice("");
     try {
       const roomsForQuotation = [...selectedRooms];
       activeItems.filter((item) => !item.field_id || item.property_room_id || (item.scope === "room" && item.room_name)).forEach((item) => {
@@ -958,9 +1060,9 @@ export default function QuotationBuilder() {
         );
       });
       const incompleteMaterial = activeItems.find((item) => {
-        if (!item.field_id || item.is_additional_service) return false;
+        if (!item.field_id || item.is_additional_service || Number.isInteger(item.id)) return false;
         const category = masters.categories.find((entry) => String(entry.id) === String(item.service_category));
-        return (!item.service_category && !item.custom_service_category) || (category?.name?.toLowerCase().includes("paint") && !item.paint_type);
+        return (!item.service_category && !item.custom_service_category) || (category?.name?.toLowerCase().includes("paint") && !item.paint_type && !String(item.custom_product_type || "").trim());
       });
       if (incompleteMaterial) {
         setError(`Select a service and material for ${incompleteMaterial.room_name || incompleteMaterial.description}.`);
@@ -969,7 +1071,7 @@ export default function QuotationBuilder() {
       }
       const groupedItems = cleanItems.reduce((groups, line, lineIndex) => {
         const key = JSON.stringify([
-          ...(form.discount_mode === "LINE" ? [lineIndex] : []),
+          lineIndex,
           line.service_category, line.custom_service_category, line.service_type,
           line.paint_type, line.custom_product_type, line.paint_brand, line.custom_brand,
           line.color, line.description, line.coats, line.unit, line.custom_unit,
@@ -986,8 +1088,8 @@ export default function QuotationBuilder() {
       }, []).map(({ _groupKey, ...line }) => line);
       const payload = {
         ...form,
-        quotation_type: useMeasurements ? "MEASUREMENT" : "MANUAL_LUMPSUM",
-        lead: searchParams.get("lead") ? Number(searchParams.get("lead")) : null,
+        quotation_type: savedQuotation?.quotation_type || (useMeasurements ? "MEASUREMENT" : "MANUAL_LUMPSUM"),
+        lead: sourceLead ? Number(sourceLead) : null,
         customer: Number(form.customer),
         property: Number(form.property),
         measurement_record: useMeasurements && selectedMeasurementId ? Number(selectedMeasurementId) : null,
@@ -997,12 +1099,15 @@ export default function QuotationBuilder() {
         rooms,
         items: groupedItems,
       };
+      const currentDraft=savedDraft.current;
+      const editPayload=currentDraft ? builderDraftPayload(currentDraft,form,activeItems,savedRooms) : null;
       if (pdfPreviewOnly) {
+        const pdfPayload=editPayload ? {...payload,rooms:editPayload.rooms.map(({id:_id,...room})=>room),items:editPayload.items.map(({id:_id,room:_room,...line})=>line)} : payload;
         let response;
         try {
           response = await api.post(
             "/quotations/preview-pdf/",
-            payload,
+            pdfPayload,
             { responseType: "blob" },
           );
         } catch (previewError) {
@@ -1015,24 +1120,36 @@ export default function QuotationBuilder() {
           // request is safe to repeat because preview creation is rolled back.
           response = await api.post(
             "/quotations/preview-pdf/",
-            payload,
+            pdfPayload,
             { responseType: "blob" },
           );
         }
         previewPdf(response.data, "quotation-preview.pdf");
       } else {
-        const { data } = await api.post("/quotations/create/", payload);
+        const data = await persistQuotation(api,savedDraft,payload,editPayload,send);
+        initialSnapshot.current=builderSnapshot;
+        clearBrowserRecovery();
         markBuilderSaved();
-        navigate(`/quotations/${data.id}`, { state: { draftSaved: true } });
+        navigate(`/quotations/${data.id}`, { state: { draftSaved: !send } });
       }
     } catch (requestError) {
+      if(requestError.savedDraft){
+        clearBrowserRecovery();
+        const draft=requestError.savedDraft;setSavedQuotation(draft);setNotice("Draft saved. Sending could not be confirmed. Retry Save & Send to submit this same Draft.");
+        setItems(current=>current.map(item=>{const index=activeItems.indexOf(item);return index>=0?{...item,id:draft.items[index]?.id,room:draft.items[index]?.room}:item;}));
+        initialSnapshot.current=builderSnapshot;
+      }
       if (pdfPreviewOnly) setShowPreview(false);
       const requestMessage = await formatRequestError(requestError);
+      if(requestError.savedDraft && !editing){
+        markBuilderSaved();
+        navigate(`/quotations/${requestError.savedDraft.id}/edit`,{replace:true,state:{resumeReview:true,submissionError:requestMessage || "Sending could not be confirmed."}});
+      }
       setError(
         requestMessage ||
           (pdfPreviewOnly
             ? "Quotation PDF preview could not be generated."
-            : "Quotation could not be created."),
+            : requestError.savedDraft ? "Draft saved, but sending could not be confirmed. Refresh the quotation before retrying." : "Draft could not be saved. Your edits are still available here."),
       );
     } finally {
       submissionLock.current = false;
@@ -1105,22 +1222,23 @@ export default function QuotationBuilder() {
     },
     { wall: 0, ceiling: 0, custom: 0, total: 0, count: 0 },
   );
-  const displaySteps = groupedMode ? [steps[0], "Services & Product", "Final quotation"] : steps;
+  const displaySteps = steps;
   return (
     <div className="mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder">
       <button
+        disabled={saving || previewingPdf}
         onClick={() =>
           step
-            ? setStep(step === 2 && !useMeasurements ? 0 : step - 1)
-            : goBackFromBuilder(location, navigate, "/quotations")
+            ? setStep(step - 1)
+            : goBackFromBuilder(location, navigate, initialQuotation ? `/quotations/${initialQuotation.id}` : "/quotations")
         }
         className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"
       >
         <ArrowLeft className="h-4 w-4" />
         {step ? "Previous step" : "Back to quotations"}
       </button>
-      {specialWallEditor?.parent && <SpecialWallSheet parent={specialWallEditor.parent} wall={specialWallEditor.wall} walls={specialWalls} masters={masters} onClose={() => setSpecialWallEditor(null)} onSave={saveSpecialWall} onDelete={deleteSpecialWall} />}
-      <PageHeader eyebrow="New quotation" title="Create quotation" description={displaySteps[step]} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
+      {specialWallEditor?.parent && <SpecialWallSheet recovery={specialWallRecovery} onRecovery={setSpecialWallRecovery} parent={specialWallEditor.parent} wall={specialWallEditor.wall} walls={specialWalls} masters={masters} onClose={() => setSpecialWallEditor(null)} onSave={saveSpecialWall} onDelete={deleteSpecialWall} />}
+      <PageHeader eyebrow={editing ? "Draft quotation" : "New quotation"} title={editing ? "Edit Draft" : "Create quotation"} description={displaySteps[step]} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
       <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4">
         {displaySteps.map((title, index) => (
           <div key={title}>
@@ -1135,30 +1253,43 @@ export default function QuotationBuilder() {
           </div>
         ))}
       </div>
+      {!dataReady && <p role="status">Loading quotation data?</p>}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-sky-50 p-3 text-sm text-[#193750]">
+        <p role="status" className="min-w-0 flex-1">
+          {recoveryUnavailable ? "Browser recovery is unavailable. Save Draft to protect your changes." : recovered ? "Unsaved inputs restored. You can refresh or reopen this quotation in the same browser. Use Save Draft to save permanently." : "Unsaved inputs are retained when refreshing or reopening in this browser. Use Save Draft to save permanently."}
+        </p>
+        <button type="button" disabled={saving || previewingPdf} className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => {
+          if (!window.confirm("Discard unsaved inputs and reload? Your saved Draft will remain unchanged.")) return;
+          clearBrowserRecovery(); markBuilderSaved(); window.location.reload();
+        }}>Discard unsaved inputs</button>
+      </div>
+      {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4">{notice}</p>}
       {error && <div role="alert" className="quotation-validation-message rounded-xl p-4 text-sm">{error}</div>}
+      <fieldset disabled={saving || previewingPdf} className="min-w-0">
       <section className={`quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 ${step === 1 && groupedMode ? "quotation-grouped-step" : ""}`}>
         {step === 0 && (
           <div className="quotation-customer-fields grid gap-4 sm:gap-5 md:grid-cols-2">
             <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2></div>
             <label className="text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><span>Customer *</span><button type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
+              <span className="flex items-center justify-between gap-2"><span>Customer *</span><button disabled={sourceLocked} type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
               <span className="quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
-                <input value={customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
+                <input readOnly={sourceLocked} value={sourceLocked ? selectedCustomer?.name || customerSearch : customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
               </span>
-              {!customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">{item.name}</button>)}</span></span>}
+              {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">{item.name}</button>)}</span></span>}
               {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100"><b>{item.name}</b></button>)}</span>}
-              {form.customer && <span className="mt-2 block text-xs font-semibold text-emerald-700">Customer selected. Choose the property to continue.</span>}
+              {form.customer && <span className="mt-2 block text-xs font-semibold text-emerald-700">{sourceLocked ? "Saved customer and property are preserved for this Draft." : "Customer selected. Choose the property to continue."}</span>}
               {customerSearch && !form.customer && customerSearchResults.length === 0 && <span className="mt-2 block text-xs font-normal text-red-600">No matching customers found.</span>}
             </label>
             <label className="text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><span>Property *</span><button type="button" onClick={() => setShowPropertyForm(true)} disabled={!form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add Property</button></span>
+              <span className="flex items-center justify-between gap-2"><span>Property *</span><button type="button" onClick={() => setShowPropertyForm(true)} disabled={sourceLocked || !form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add Property</button></span>
               <select
+                disabled={sourceLocked}
                 value={form.property}
                 onChange={(e) => update("property", e.target.value)}
                 className={input}
               >
-                <option value="">Select property</option>
+                <option value="">Select property</option>{sourceLocked && !availableProperties.some(entry=>String(entry.id)===String(form.property)) && <option value={form.property}>{selectedProperty?.name || form.property}</option>}
                 {availableProperties.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name || item.property_type} · {item.city}
@@ -1169,12 +1300,14 @@ export default function QuotationBuilder() {
             {useMeasurements && <div className="text-sm font-medium md:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="quotation-area-calculation">Area Calculation *</label>
-                <button type="button" disabled={!form.property} onClick={() => navigate(`/properties/${form.property}/measurements?new=1`)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add measurement</button>
+                <button type="button" disabled={sourceLocked || !form.property} onClick={() => navigate(`/properties/${form.property}/measurements?new=1`)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add measurement</button>
               </div>
-              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => setSelectedMeasurementId(event.target.value)} disabled={!form.property || measurementRecordsLoading} className={input}>
-                <option value="">{!form.property ? "Select a property first" : measurementRecordsLoading ? "Loading Area Calculations..." : "Select Area Calculation"}</option>
+              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => setSelectedMeasurementId(event.target.value)} disabled={sourceLocked || !form.property || measurementRecordsLoading} className={input}>
+                <option value="">{sourceLocked && !selectedMeasurementId ? "Saved scope - no measurement version recorded" : !form.property ? "Select a property first" : measurementRecordsLoading ? "Loading Area Calculations..." : "Select Area Calculation"}</option>
+                {sourceLocked && selectedMeasurementId && !measurementRecords.some(record=>String(record.id)===String(selectedMeasurementId)) && <option value={selectedMeasurementId}>Saved measurement {selectedMeasurementId}</option>}
                 {measurementRecords.map((record) => <option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}
               </select>
+              {sourceReady && selectedMeasurementId && <p className="mt-2 text-xs text-slate-500">Measurement version {assignmentMeasurement.version}</p>}
               {form.property && !measurementRecordsLoading && !measurementRecords.length && <p className="mt-2 text-xs text-amber-700">No saved Area Calculations with measurements for this property. Add one to continue.</p>}
             </div>}
             <label className="text-sm font-medium">
@@ -1193,15 +1326,15 @@ export default function QuotationBuilder() {
             <h2 className="text-lg font-extrabold text-[#193750]">Quotation type</h2>
             
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <button type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
-              <button type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
           </div>
         )}
-        {step === 0 && useMeasurements && selectedMeasurementId && <div className="mt-6">
-          <GroupedQuotationWorkspace key={`measurements-${selectedMeasurementId}`} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} phase="measurements" />
+        {step === 0 && useMeasurements && selectedMeasurementId && sourceReady && <div className="mt-6">
+          <GroupedQuotationWorkspace key={`measurements-${selectedMeasurementId}`} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} editorRecovery={workEditorRecovery} onEditorRecovery={setWorkEditorRecovery} phase="measurements" />
         </div>}
-        {step === 1 && (groupedMode ? <GroupedQuotationWorkspace showMeasurements={false} key={selectedMeasurementId} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} /> :
+        {step === 1 && !(!useMeasurements || (editing && !groupedMode)) && (groupedMode ? <GroupedQuotationWorkspace showMeasurements={false} key={selectedMeasurementId} measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} editorRecovery={workEditorRecovery} onEditorRecovery={setWorkEditorRecovery} /> :
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1252,11 +1385,13 @@ export default function QuotationBuilder() {
               {exteriorMode&&<ExteriorMeasurementFields fields={measurementFields} selectedFieldIds={selectedFieldIds} toggle={toggleMeasurementField} items={items} serviceCategories={masters.categories} paintTypes={masters.paintTypes} brands={masters.brands} updateFieldItem={updateMeasurementFieldItem} updateFieldMaterial={updateFieldMaterial} />}
               {!exteriorMode&&<>
                 <AreaFieldGroup title="Full house Area Calculation" fields={measurementFields.filter((field) => !field.room_id)} selectedFieldIds={selectedFieldIds} toggle={toggleMeasurementField} items={items} masters={masters} updateFieldItem={updateMeasurementFieldItem} updateFieldMaterial={updateFieldMaterial} />
-                {selectedRooms.map((room) => <AreaFieldGroup key={room.id} title={room.name} specialWalls={specialWalls} onAddSpecial={() => setSpecialWallEditor({ parent: originalMeasurementFields.find((field) => field.room_id === room.id && field.surface_type === "WALL") })} onEditSpecial={(wall) => setSpecialWallEditor({ wall, parent: originalMeasurementFields.find((field) => field.field_id === wall.parent_field_id) })} fields={measurementFields.filter((field) => field.room_id === room.id)} selectedFieldIds={selectedFieldIds} toggle={toggleMeasurementField} items={items} masters={masters} updateFieldItem={updateMeasurementFieldItem} updateFieldMaterial={updateFieldMaterial} />)}
+                {selectedRooms.map((room) => <AreaFieldGroup key={room.id} title={room.name} specialWalls={specialWalls} onAddSpecial={() => { setSpecialWallRecovery(null); setSpecialWallEditor({ parent: originalMeasurementFields.find((field) => field.room_id === room.id && field.surface_type === "WALL") }); }} onEditSpecial={(wall) => { setSpecialWallRecovery(null); setSpecialWallEditor({ wall, parent: originalMeasurementFields.find((field) => field.field_id === wall.parent_field_id) }); }} fields={measurementFields.filter((field) => field.room_id === room.id)} selectedFieldIds={selectedFieldIds} toggle={toggleMeasurementField} items={items} masters={masters} updateFieldItem={updateMeasurementFieldItem} updateFieldMaterial={updateFieldMaterial} />)}
               </>}
             </div>
           </div>
         )}
+        {step === 1 && groupedMode && items.some(item=>!item.field_id) && <section className="mt-4 space-y-3"><h2 className="font-bold">Other work items</h2>{items.filter(item=>!item.field_id).map(item=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}</section>}
+        {step === 1 && (!useMeasurements || (editing && !groupedMode)) && <div className="space-y-4"><h2 className="font-bold">Work materials and specifications</h2>{items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id)).map((item)=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}<button type="button" className="min-h-11 rounded-xl border px-4" onClick={addAdditionalService}>Add services</button></div>}
         {step === 2 && (
           <div className="space-y-5">
             <div className="flex flex-wrap justify-between gap-3">
@@ -1272,154 +1407,81 @@ export default function QuotationBuilder() {
                 </button>
               </div>
             </div>
-            {groupedMode && <GroupedQuotationWorkspace measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} phase="final" requestedEditor={openingGroupRequest} onEditorRequestHandled={() => setOpeningGroupRequest(null)} />}
-            <div className="hidden">
-              <table className="w-full min-w-[1480px] border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-200 text-left">
-                    <th className="border p-2">Type of service</th>
-                    <th className="border p-2">Room Name</th>
-                    <th className="border p-2">Room type</th>
-                    <th className="border p-2">Product type</th>
-                    <th className="border p-2">Product description</th>
-                    <th className="border p-2">MOU</th>
-                    <th className="border p-2">Quantity</th>
-                    <th className="border p-2">Brand</th>
-                    <th className="border p-2">No. of coats</th>
-                    <th className="border p-2">Rate</th>
-                    <th className="border p-2">Amount</th>
-                    <th className="border p-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricedItems.map(({ item, index }) => {
-                    const amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
-                    const selectedItemRoom = savedRooms.find((room) =>
-                      String(room.id) === String(item.room_id || item.property_room_id),
-                    ) || (item.field_id && item.room_index !== "" && item.room_index !== null && item.room_index !== undefined
-                      ? selectedRooms[Number(item.room_index)]
-                      : null);
-                    const itemRoomName = item.room_name || selectedItemRoom?.name || (exteriorMode ? "Exterior" : "General");
-                    const itemRoomType = selectedItemRoom?.room_type_name || item.room_type_name || (exteriorMode ? "Exterior" : "General");
-                    return (
-                      <tr key={item.field_id || index}>
-                        <td className="border p-2">
-                          <SearchableProductType label="" placeholder="Search service" value={item.service_category} options={masters.categories} onChange={(value) => { updateItem(index, "service_category", value); const selectedService = masters.services.find((entry) => String(entry.id) === String(item.service_type)); if (selectedService && String(selectedService.category_master) !== String(value)) updateItem(index, "service_type", ""); }} controlClass="w-40 rounded border p-1.5 pl-8" />
-                        </td>
-                        <td className="border p-2">
-                          {item.field_id ? <span className="font-semibold text-slate-700">{itemRoomName}</span> : <SearchableSelect value={item.property_room_id} options={[{ value: "", label: "General / No room" }, ...savedRooms.map((room) => ({ value: room.id, label: room.name }))]} onChange={(value) => updateItem(index, "property_room_id", value)} placeholder="Search room / area" className="w-full rounded border p-1.5" />}
-                        </td>
-                        <td className="border p-2 font-semibold text-[#176b9b]">{itemRoomType}</td>
-                        <td className="border p-2">
-                          <SearchableProductType label="" value={item.paint_type} options={masters.paintTypes.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category))} onChange={(value) => updateProductType(index, value)} controlClass="w-44 rounded border p-1.5 pl-8" />
-                        </td>
-                        <td className="border p-2">
-                          <input
-                            list={`descriptions-${index}`}
-                            value={item.description}
-                            onChange={(e) => updateItem(index, "description", e.target.value)}
-                            placeholder={item.is_additional_service ? "Describe the additional service" : "Select or enter description"}
-                            className="w-56 rounded border p-1.5"
-                          />
-                          <datalist id={`descriptions-${index}`}>{masters.descriptions.filter((entry) => !item.service_category || String(entry.service_category) === String(item.service_category)).map((entry) => <option key={entry.id} value={entry.name} />)}</datalist>
-                        </td>
-                        <td className="border p-2">
-                          <select value={item.unit} onChange={(e) => updateItem(index, "unit", e.target.value)} className="w-full rounded border p-1.5"><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
-                        </td>
-                        <td className="border p-2">
-                          <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(index, "quantity", e.target.value)} className="w-24 rounded border p-1.5 text-right" title={item.field_id ? "Saved calculated square feet" : "Quantity for this quotation line"} />
-                        </td>
-                        <td className="border p-2">
-                          <SearchableProductType label="" placeholder="Search brand" emptyText="No matching brands" value={item.paint_brand} options={masters.brands} onChange={(value) => updateItem(index, "paint_brand", value)} controlClass="w-36 rounded border p-1.5 pl-8" />
-                        </td>
-                        <td className="border p-2">
-                          {item.is_additional_service ? <span className="text-slate-400">—</span> : <select
-                            value={item.coats || 1}
-                            onChange={(e) =>
-                              updateItem(index, "coats", e.target.value)
-                            }
-                            className="w-20 rounded border p-1.5"
-                          >
-                            {[1, 2, 3, 4, 5, 6].map((coats) => (
-                              <option key={coats} value={coats}>
-                                {coats}
-                              </option>
-                            ))}
-                          </select>}
-                        </td>
-                        <td className="border p-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.rate}
-                            onChange={(e) =>
-                              updateItem(index, "rate", e.target.value)
-                            }
-                            className="w-24 rounded border p-1.5 text-right"
-                          />
-                        </td>
-                        <td className="border p-2 text-right font-semibold">
-                          {money(amount)}
-                        </td>
-                        <td className="border p-2">
-                          <button
-                            onClick={() =>
-                              item.field_id
-                                ? setSelectedFieldIds((ids) =>
-                                    ids.filter((id) => id !== item.field_id),
-                                  )
-                                : setItems((value) =>
-                                    value.filter((_, i) => i !== index),
-                                  )
-                            }
-                            className="text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {useMeasurements && !groupedMode && [...measuredRateGroups.entries()].map(([key, group]) => <MeasuredRateGroup key={key} title={group.name} lines={group.lines} masters={masters} updateRate={(index, value) => updateItem(index, "rate", value)} editLine={setMobileItemIndex} />)}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {pricedItems.filter(({ item }) => !useMeasurements || !item.field_id).map(({ item, index }) => {
-                const selectedItemRoom = savedRooms.find((room) =>
-                  String(room.id) === String(item.room_id || item.property_room_id),
-                ) || (item.field_id && item.room_index !== "" && item.room_index !== null && item.room_index !== undefined
-                  ? selectedRooms[Number(item.room_index)]
-                  : null);
-                const itemRoomName = item.room_name || selectedItemRoom?.name || (exteriorMode ? "Exterior" : "General");
-                const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || item.custom_service_category || "Select service";
-                const productName = item.description || "Description not added";
-                const amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
-                const showsCoats = categoryName.toLowerCase().includes("paint");
-                const missingFields = missingQuotationFields(item);
-                return (
-                  <article key={`mobile-price-${item.field_id || index}`} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${missingFields.length ? "border-red-400 ring-2 ring-red-100" : "border-slate-200"}`}>
-                    <header className={`flex items-start justify-between gap-3 px-4 py-3 text-white ${missingFields.length ? "bg-red-950" : "bg-slate-950"}`}>
-                      <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-wider ${missingFields.length ? "text-red-200" : "text-amber-300"}`}>{categoryName}</p><h3 className="mt-1 whitespace-normal font-bold">{itemRoomName}</h3><p className="mt-0.5 whitespace-normal text-xs text-slate-300">{productName}</p></div>
-                      <button type="button" onClick={() => setMobileItemIndex(index)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/30 px-3 py-2 text-xs font-bold"><Pencil className="h-3.5 w-3.5" />{missingFields.length ? "Complete" : "Edit"}</button>
-                    </header>
-                    <div className="grid grid-cols-4 gap-px bg-slate-200">
-                      <MobilePriceValue label="Quantity" value={item.quantity || "—"} />
-                      <MobilePriceValue label="Coats" value={showsCoats ? item.coats || 1 : "—"} />
-                      <MobilePriceValue label="Rate" value={money(item.rate)} />
-                      <MobilePriceValue label="Amount" value={money(amount)} strong />
-                    </div>
-                    {missingFields.length > 0 && <p className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800">Required: {missingFields.join(", ")}</p>}
-                  </article>
-                );
-              })}
-              {!pricedItems.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">No quotation lines selected.</p>}
-            </div>
+            {groupedMode && <GroupedQuotationWorkspace measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} editorRecovery={workEditorRecovery} onEditorRecovery={setWorkEditorRecovery} phase="final" showPricing={false} requestedEditor={openingGroupRequest} onEditorRequestHandled={() => setOpeningGroupRequest(null)} />}
+            <QuotationPricingRows items={activeItems} form={form} units={masters.units} onChange={changePricingLine} onEdit={editPricingLine}/>
             <div className="flex justify-end border-t border-slate-200 pt-4">
               <button type="button" onClick={addAdditionalService} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 text-sm font-semibold text-white sm:w-auto"><Plus className="h-4 w-4" />Add services</button>
             </div>
-            {mobileItemIndex !== null && items[mobileItemIndex] && (
+
+          </div>
+        )}
+        {step === 2 && (
+          <div className="quotation-totals-workspace mt-8 border-t border-[#dce7ed] pt-6"><h2 className="mb-5 text-lg font-extrabold text-[#193750]">Pricing summary and quotation details</h2><div className="grid gap-6 xl:grid-cols-2">
+             <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
+              <QuotationDiscountControls pricing={preview} form={form} onChange={update} items={activeItems} showLineControls={false} onLineChange={(item,field,value)=>{
+                const id=item.specification_details?.assignment_id;
+                if (id) setGroupAssignments(current=>({...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field === "discount_type"?"type":"value"]:value}}}));
+                else updateItem(items.indexOf(item),field,value);
+              }} />
+              <label className="text-sm sm:col-span-2">
+                Notes
+                <textarea
+                  aria-label="Notes"
+                  rows="3"
+                  value={form.notes}
+                  onChange={(e) => update("notes", e.target.value)}
+                  className={input}
+                />
+              </label>
+              <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={input} placeholder="Name shown on quotation" /></label>
+              <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={input} placeholder="Site inspector name" /></label>
+              <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={input} placeholder="For example, 15-18 days" /></label>
+              {[["Payment terms","payment_terms"],["Product details","product_details"],["Work procedures","work_procedures"],["Terms and conditions","terms_conditions"]].map(([label,key])=><label key={key} className="text-sm sm:col-span-2">{label}<textarea aria-label={label} rows={3} value={form[key]} onChange={event=>update(key,event.target.value)} className={input}/></label>)}
+              <label className="text-sm sm:col-span-2"><input type="checkbox" checked={form.show_product_key_features} onChange={event=>update('show_product_key_features',event.target.checked)}/> Show product key features</label>
+             </div>
+            <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
+              <h2 className="font-bold">Estimated total</h2>
+              <div className="mt-5 space-y-3 text-sm">
+                <Row label="Subtotal" value={preview.subtotal} />
+                <Row label="Discount" value={preview.discount} />
+                <Row label="GST" value={preview.gst} />
+                <div className="flex justify-between border-t border-white/20 pt-4 text-xl font-bold">
+                  <span>Total</span>
+                  <span>{money(preview.total)}</span>
+                </div>
+              </div>
+              
+            </div>
+           </div><section className="qp-review" aria-label="Final read-only review"><h2>Final Review - Read only</h2><dl><dt>Customer</dt><dd>{selectedCustomer?.name}</dd><dt>Property</dt><dd>{selectedProperty?.name}</dd><dt>Measurement version</dt><dd>{useMeasurements ? selectedMeasurementId ? assignmentMeasurement.version : 'Not recorded' : 'Not applicable'}</dd></dl>{activeItems.map((item,index)=><div key={item.id || item.field_id || index} className="border-t py-3 text-sm"><strong>{item.description}</strong><p>{item.included_areas?.join(', ')} / {item.quantity} {item.unit_name || masters.units.find(unit=>String(unit.id)===String(item.unit))?.name || item.custom_unit} / Coats {item.coats}</p><p>{[masters.services.find(entry=>String(entry.id)===String(item.service_type))?.name || item.service_type_name || item.custom_service_type,masters.paintTypes.find(entry=>String(entry.id)===String(item.paint_type))?.name || item.paint_type_name || item.custom_product_type,masters.brands.find(entry=>String(entry.id)===String(item.paint_brand))?.name || item.paint_brand_name || item.custom_brand,item.color_name,`Primer coats ${item.specification_details?.primer_coats ?? 0}`].filter(Boolean).join(' / ')}</p><p>Gross {money(preview.lines[index].amount)} / Discount {money(preview.lines[index].discount)} / Net {money(preview.lines[index].net)}</p></div>)}<dl><dt>Subtotal</dt><dd>{money(preview.subtotal)}</dd><dt>Discount</dt><dd>{money(preview.discount)}</dd><dt>GST</dt><dd>{money(preview.gst)}</dd><dt>Total</dt><dd><strong>{money(preview.total)}</strong></dd></dl>{[["Notes",form.notes],["Payment terms",form.payment_terms],["Terms and conditions",form.terms_conditions]].filter(([,value])=>value).map(([label,value])=><div key={label} className="mt-3 text-sm"><strong>{label}</strong><p className="whitespace-pre-wrap">{value}</p></div>)}</section></div>
+         )}
+      </section>
+      </fieldset>
+       <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
+        {step < 2 ? (
+          <Button type="button"
+            onClick={next}
+            disabled={!dataReady || !sourceReady || saving}
+            className="quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto"
+          >
+            Continue
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : (<>
+          <Button variant="secondary" type="button" onClick={() => submit(false)} disabled={!dataReady || !sourceReady} loading={saving} className="flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none">
+            <Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}
+          </Button>
+          <Button variant="secondary" type="button" disabled={saving || !dataReady} onClick={()=>submit(false,true)}>Save &amp; Send</Button>
+          <Button type="button"
+            onClick={openQuotationPreview}
+            disabled={saving}
+            className="quotation-primary-action flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none"
+          >
+            <Eye className="h-4 w-4" />
+            Preview quotation
+          </Button>
+        </>)}
+      </div>
+       {mobileItemIndex !== null && items[mobileItemIndex] && (
               <MobileRateDialog
                 item={items[mobileItemIndex]}
                 index={mobileItemIndex}
@@ -1441,69 +1503,6 @@ export default function QuotationBuilder() {
                 }}
               />
             )}
-          </div>
-        )}
-        {step === 2 && (
-          <div className="quotation-totals-workspace mt-8 border-t border-[#dce7ed] pt-6"><h2 className="mb-5 text-lg font-extrabold text-[#193750]">Totals &amp; notes</h2><div className="grid gap-6 xl:grid-cols-2">
-             <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
-              <QuotationDiscountControls pricing={preview} form={form} onChange={update} items={activeItems} onLineChange={(item,field,value)=>{
-                const id=item.specification_details?.assignment_id;
-                if (id) setGroupAssignments(current=>({...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field === "discount_type"?"type":"value"]:value}}}));
-                else updateItem(items.indexOf(item),field,value);
-              }} />
-              <label className="text-sm sm:col-span-2">
-                Notes
-                <textarea
-                  rows="3"
-                  value={form.notes}
-                  onChange={(e) => update("notes", e.target.value)}
-                  className={input}
-                />
-              </label>
-              <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={input} placeholder="Name shown on quotation" /></label>
-              <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={input} placeholder="Site inspector name" /></label>
-              <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={input} placeholder="For example, 15-18 days" /></label>
-              
-             </div>
-            <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
-              <h2 className="font-bold">Estimated total</h2>
-              <div className="mt-5 space-y-3 text-sm">
-                <Row label="Subtotal" value={preview.subtotal} />
-                <Row label="Discount" value={preview.discount} />
-                <Row label="GST" value={preview.gst} />
-                <div className="flex justify-between border-t border-white/20 pt-4 text-xl font-bold">
-                  <span>Total</span>
-                  <span>{money(preview.total)}</span>
-                </div>
-              </div>
-              
-            </div>
-           </div></div>
-         )}
-      </section>
-       <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
-        {step < 2 ? (
-          <Button type="button"
-            onClick={next}
-            className="quotation-primary-action flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto"
-          >
-            Continue
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (<>
-          <Button variant="secondary" type="button" onClick={() => submit(false)} loading={saving} className="flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none">
-            <Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}
-          </Button>
-          <Button type="button"
-            onClick={openQuotationPreview}
-            disabled={saving}
-            className="quotation-primary-action flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none"
-          >
-            <Eye className="h-4 w-4" />
-            Preview quotation
-          </Button>
-        </>)}
-      </div>
        {showCustomerForm && <CustomerConnectionFlow quotationTheme onClose={() => setShowCustomerForm(false)} onNewCustomer={createCustomer} />}
        {showPropertyForm && <PropertyForm quotationTheme customers={customers} initialCustomer={form.customer} onSubmit={createProperty} onClose={() => setShowPropertyForm(false)} saving={savingProperty} />}
        {showPreview && (
@@ -1640,7 +1639,7 @@ function QuotationPreviewDialog({
               <table className="w-full min-w-[980px] border-collapse text-xs">
                 <thead className="bg-slate-100 text-left uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-3">Sl.</th><th className="px-3 py-3">Type of service</th><th className="px-3 py-3">Room / Area</th><th className="px-3 py-3">Product / Brand</th><th className="px-3 py-3">Description</th><th className="px-3 py-3 text-right">Qty / MOU</th><th className="px-3 py-3 text-center">Coats</th><th className="px-3 py-3 text-right">Rate</th><th className="px-3 py-3 text-right">Amount</th>
+                    <th className="px-3 py-3">Sl.</th><th className="px-3 py-3">{SERVICE_MASTER_LABELS.category}</th><th className="px-3 py-3">Room / Area</th><th className="px-3 py-3">Product / Brand</th><th className="px-3 py-3">{SERVICE_MASTER_LABELS.description}</th><th className="px-3 py-3 text-right">Qty / MOU</th><th className="px-3 py-3 text-center">Coats</th><th className="px-3 py-3 text-right">Rate</th><th className="px-3 py-3 text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -1697,7 +1696,7 @@ function QuotationPreviewDialog({
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
           <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold">Back to edit</button>
           <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Creating..." : "Create Quotation"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
         </footer>
       </section>
     </div>
@@ -1709,14 +1708,6 @@ function PreviewText({ title, value }) {
       <h3 className="text-sm font-bold text-slate-950">{title}</h3>
       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{value}</p>
     </article>
-  );
-}
-function MobilePriceValue({ label, value, strong }) {
-  return (
-    <div className="min-w-0 bg-white px-3 py-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={"mt-1 truncate text-sm tabular-nums " + (strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900")}>{value}</p>
-    </div>
   );
 }
 function uniqueProductDetails(items, products, brands) {
@@ -1732,7 +1723,7 @@ function uniqueProductDetails(items, products, brands) {
     return lines;
   }, []).join("\n");
 }
-function SearchableProductType({ value, customValue = "", options, onChange, controlClass, label = "Product type", placeholder = "Search product type", emptyText = "No matching product types", allowCustom = false }) {
+function SearchableProductType({ value, customValue = "", options, onChange, controlClass, label = SERVICE_MASTER_LABELS.productType, placeholder = "Search Service / Product Type", emptyText = "No matching Service / Product Type", allowCustom = false }) {
   const selected = options.find((entry) => String(entry.id) === String(value));
   const [query, setQuery] = useState(selected?.name || customValue || "");
   const [open, setOpen] = useState(false);
@@ -1761,12 +1752,12 @@ function SearchableProductType({ value, customValue = "", options, onChange, con
           {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
           {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">{allowCustom ? "New entry. Choose whether to save it below." : emptyText}</p>}
         </div>}
-        {!value && query.trim() && !open && !allowCustom && label === "Type of service" && <p className="mt-1 text-xs text-red-700">Choose a service from the results.</p>}
+        {!value && query.trim() && !open && !allowCustom && label === SERVICE_MASTER_LABELS.category && <p className="mt-1 text-xs text-red-700">Choose a service from the results.</p>}
       </div>
     </label>
   );
 }
-function SearchableDescription({ value, options, onChange, controlClass, invalid, label = "Product description" }) {
+function SearchableDescription({ value, options, onChange, controlClass, invalid, label = SERVICE_MASTER_LABELS.description }) {
   const [open, setOpen] = useState(false);
   const filtered = useMemo(() => {
     const term = String(value || "").trim().toLowerCase();
@@ -1782,7 +1773,7 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(event) => { onChange(event.target.value, false); setOpen(true); }}
-          placeholder="Type or select product description"
+          placeholder="Type or select Description"
           autoComplete="off"
           className={`${controlClass} pl-10`}
         />
@@ -1831,8 +1822,8 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
         </header>
         <div className="space-y-4 p-4 pb-28">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><SearchableProductType label="Type of service" placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />
-              {String(item.custom_service_category || "").trim() && <SaveMasterOption label="Type of service" checked={item.save_service_category_to_master} onChange={(value) => updateItem(index, "save_service_category_to_master", value)} />}</div>
+            <div><SearchableProductType label={SERVICE_MASTER_LABELS.category} placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />
+              {String(item.custom_service_category || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.category} checked={item.save_service_category_to_master} onChange={(value) => updateItem(index, "save_service_category_to_master", value)} />}</div>
             <label className="block text-sm font-semibold">Room / Area
               {item.field_id
                 ? <SearchableSelect value={calculatedRoomKey} options={[{ value: "", label: exteriorMode ? "Full Exterior" : "Full House" }, ...calculatedRoomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))]} onChange={(value) => { const room = calculatedRoomOptions.find((option) => option.key === value); updateItem(index, "room_index", room?.roomIndex ?? ""); updateItem(index, "room_id", room?.propertyRoomId || ""); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || (exteriorMode ? "Full Exterior" : "Full House")); updateItem(index, "scope", room ? "room" : "full"); }} placeholder="Search calculated room" className={control} />
@@ -1844,7 +1835,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
             {roomError && <p className="mt-2 text-xs font-semibold text-red-600">{roomError}</p>}
           </div>}
           <SearchableProductType
-            label={item.field_id ? "Product" : "Product type"}
+            label={item.field_id ? "Product" : SERVICE_MASTER_LABELS.productType}
             key={item.service_category || "all-products"}
             value={item.paint_type}
             customValue={item.custom_product_type}
@@ -1853,16 +1844,18 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
             onChange={(value, customName) => updateProductType(index, value, customName)}
             controlClass={control}
           />
-          {String(item.custom_product_type || "").trim() && <SaveMasterOption label="Product type" checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} />}
-          <SearchableDescription label={item.field_id ? "Description / treatment" : "Product description"} value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
+          {String(item.custom_product_type || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.productType} checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} />}
+          <label className="block text-sm font-semibold">Service<select aria-label="Service" value={item.service_type || ''} onChange={event=>updateItem(index,'service_type',event.target.value)} className={control}><option value="">No additional service specification</option>{item.service_type && !masters.services.some(service=>String(service.id)===String(item.service_type)) && <option value={item.service_type}>{item.service_type_name || 'Saved service'}</option>}{masters.services.filter(service=>!service.category_master || String(service.category_master)===String(item.service_category)).map(service=><option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
+          <SearchableDescription label={item.field_id ? SERVICE_MASTER_LABELS.description : SERVICE_MASTER_LABELS.description} value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
           {String(item.description || "").trim() && (descriptionSaved
-            ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Product Description selected</p>
-            : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Product Description for future quotations</label>)}
+            ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Description selected</p>
+            : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Description for future quotations</label>)}
           <SearchableProductType label="Brand" placeholder="Select or type a brand (optional)" value={item.paint_brand} customValue={item.custom_brand} options={masters.brands} allowCustom onChange={(value, customName) => updateMasterChoice(index, "paint_brand", "custom_brand", "save_brand_to_master", value, customName)} controlClass={control} />
           {String(item.custom_brand || "").trim() && <SaveMasterOption label="Brand" checked={item.save_brand_to_master} onChange={(value) => updateItem(index, "save_brand_to_master", value)} />}
+          <label className="block text-sm font-semibold">Colour<select aria-label="Colour" value={item.color || ''} onChange={event=>updateItem(index,'color',event.target.value)} className={control}><option value="">No colour specified</option>{item.color && !masters.colors.some(colour=>String(colour.id)===String(item.color)) && <option value={item.color}>{item.color_name || 'Saved colour'}</option>}{masters.colors.map(colour=><option key={colour.id} value={colour.id}>{colour.name}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm font-semibold">Quantity
-              <input type="number" min="0.01" step="0.01" value={item.quantity} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={requiredControl(Number(item.quantity || 0) <= 0)} />
+              <input type="number" min="0.01" step="0.01" value={item.quantity} readOnly={Boolean(item.calculation_method && item.calculation_method!=="MANUAL") || Boolean(item.field_id)} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={requiredControl(Number(item.quantity || 0) <= 0)} />
             </label>
             <label className="block text-sm font-semibold">MOU
               <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={requiredControl(!item.unit)}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
@@ -1905,7 +1898,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
               <th className="w-[5%] px-3 py-3"><span className="sr-only">Select</span></th>
               <th className="w-[20%] px-3 py-3">Room name</th>
               <th className="w-[18%] px-3 py-3">Area</th>
-              <th className="w-[30%] px-3 py-3">Type of Service</th>
+              <th className="w-[30%] px-3 py-3">{SERVICE_MASTER_LABELS.category}</th>
               <th className="w-[15%] px-3 py-3">Number of coats</th>
               <th className="w-[12%] px-3 py-3 text-right">Sq ft</th>
             </tr>
@@ -1924,7 +1917,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
                     <td className="px-4 py-3"><input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} onClick={(event) => event.stopPropagation()} aria-label={`Select ${field.room_name} ${field.description}`} /></td>
                     <td className="px-3 py-3 font-semibold text-slate-900">{field.room_name}</td>
                     <td className="px-3 py-3 font-semibold text-slate-600">{field.description}</td>
-                    <td className="px-3 py-3"><select value={item.service_category || ""} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "service_category", event.target.value); updateFieldItem(field.field_id, "paint_type", ""); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">Select type of service</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></td>
+                    <td className="px-3 py-3"><select value={item.service_category || ""} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "service_category", event.target.value); updateFieldItem(field.field_id, "paint_type", ""); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></td>
                     <td className="px-3 py-3"><select value={item.coats || 1} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "coats", event.target.value); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat} coat{coat === 1 ? "" : "s"}</option>)}</select></td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">{field.quantity} sq ft<details className="mt-2 text-left" onClick={(event) => event.stopPropagation()}><summary className="cursor-pointer text-xs font-semibold text-[#176b9b]">Material details</summary><MaterialSelections item={item} categories={serviceCategories} products={paintTypes} brands={brands} update={(values) => updateFieldMaterial(field.field_id, values)} /></details></td>
                   </tr>;
@@ -1954,8 +1947,8 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
           <section role="dialog" aria-modal="true" aria-label="Edit selected area field" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-white p-4 pb-6 shadow-2xl">
             <header className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#176b9b]">Selected area field</p><h2 className="text-lg font-bold">{mobileField.room_name}</h2><p className="text-sm text-slate-500">{mobileField.description} · {mobileField.quantity} sq ft</p></div><button type="button" onClick={() => setMobileFieldId(null)} className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button></header>
             <label className="flex items-center gap-3 rounded-xl border p-4 font-semibold"><input type="checkbox" checked={selectedFieldIds.includes(mobileField.field_id)} onChange={() => toggle(mobileField.field_id)} />Include this field in quotation</label>
-            <label className="mt-4 block text-sm font-semibold">Type of service
-              <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"><option value="">Select type of service</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
+            <label className="mt-4 block text-sm font-semibold">Service / Product Category
+              <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
             </label>
             <label className="mt-4 block text-sm font-semibold">No. of coats
               <select value={mobileItem.coats || 1} onChange={(event) => { updateFieldItem(mobileField.field_id, "coats", event.target.value); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
@@ -1969,39 +1962,6 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
   );
 }
 
-function MeasuredRateGroup({ title, lines, masters, updateRate, editLine }) {
-  return <section className="quotation-measured-rates overflow-hidden rounded-xl border border-slate-200 bg-white">
-    <header className="bg-[#245b75] text-white">
-      <div className="flex items-center justify-between px-4 py-3"><h3 className="text-sm font-bold">{title}</h3><span className="rounded-full bg-white/15 px-2 py-1 text-xs font-bold">{lines.length}</span></div>
-      <div className="quotation-rate-columns" aria-hidden="true">{["Sl.", "Type of service", "Room / Area", "Product / Brand", "Description / treatment", "Qty", "Coats", "Rate (₹)", "Amount (₹)", "Edit"].map((label) => <span key={label}>{label}</span>)}</div>
-    </header>
-    <div className="divide-y divide-slate-100">{lines.map(({ item, index, serial }) => {
-      const name = item.custom_area_name || (item.surface_type === "WALL" ? (lines.some(({ item: surface }) => surface.parent_field_id === item.field_id) ? "Normal Walls" : "All Walls") : item.surface_type === "CEILING" ? "Ceiling" : item.description);
-      const brand = masters.brands.find((entry) => String(entry.id) === String(item.paint_brand))?.name || item.custom_brand || "Not selected";
-      const product = masters.paintTypes.find((entry) => String(entry.id) === String(item.paint_type))?.name || item.custom_product_type || "Not selected";
-      const service = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || item.custom_service_category || "Not selected";
-      const missing = missingQuotationFields(item).filter((field) => field !== "Rate");
-      const area = Number(item.quantity).toLocaleString("en-IN", { maximumFractionDigits: 2 });
-      const unit = masters.units.find((entry) => String(entry.id) === String(item.unit))?.name || "sqft";
-      return <div key={item.field_id} className="quotation-rate-entry">
-        <div className="quotation-rate-row">
-          <div className="quotation-rate-serial"><span className="quotation-rate-mobile-label">Sl.</span><span>{serial}</span></div>
-          <div className="quotation-rate-service"><span className="quotation-rate-mobile-label">Type of service</span><span className="font-semibold">{service}</span></div>
-          <div className="quotation-rate-room"><span className="quotation-rate-mobile-label">Room / Area</span><span className="block font-bold text-[#193750]">{item.room_name || title}</span><span className="mt-1 block text-xs text-slate-500">{name}</span></div>
-          <div className="quotation-rate-product"><span className="quotation-rate-mobile-label">Product / Brand</span><span className="block font-semibold">{product}</span><span className="mt-1 block text-xs text-slate-500">{brand}</span></div>
-          <div className="quotation-rate-description"><span className="quotation-rate-mobile-label">Description / treatment</span><span>{item.description || "Not added"}</span></div>
-          <div className="quotation-rate-area"><span className="quotation-rate-mobile-label">Qty</span><span className="font-bold tabular-nums">{area}</span><small className="block">{unit}</small></div>
-          <div className="quotation-rate-coats"><span className="quotation-rate-mobile-label">Coats</span><span>{item.coats || 1}</span></div>
-          <label className="quotation-rate-input"><span className="quotation-rate-mobile-label">Rate (₹)</span><input type="number" min="0" step="0.01" inputMode="decimal" value={item.rate ?? ""} placeholder="Rate" aria-label={`${title}, ${name}, rate in rupees`} onChange={(event) => updateRate(index, event.target.value)} /></label>
-          <div className="quotation-rate-amount"><span className="quotation-rate-mobile-label">Amount (₹)</span><span className="font-extrabold text-[#176b9b]">{money(Number(item.quantity) * Number(item.rate || 0))}</span></div>
-          <button type="button" className="quotation-rate-edit" aria-label={`Edit ${title}, ${name}`} onClick={() => editLine(index)}><Pencil size={16} /><span className="quotation-rate-edit-text">Edit</span></button>
-        </div>
-        {missing.length > 0 && <p className="px-4 pb-3 text-xs font-semibold text-red-700">Required: {missing.join(", ")}</p>}
-      </div>;
-    })}</div>
-  </section>;
-}
-
 function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, masters, updateFieldMaterial, specialWalls = [], onAddSpecial, onEditSpecial }) {
   return (
     <section className="quotation-surface-card overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -2010,7 +1970,7 @@ function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, master
           <h3 className="truncate text-sm font-bold">{title}</h3>
           <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold">{fields.length}</span>
         </div>
-        {fields.length > 0 && <div className="quotation-surface-columns" aria-hidden="true"><span>Surface</span><span className="text-right">Area</span><div className="quotation-surface-materials"><span>Type of service</span><span>Brand</span><span>Product</span><span>Paint Coats</span></div></div>}
+        {fields.length > 0 && <div className="quotation-surface-columns" aria-hidden="true"><span>Surface</span><span className="text-right">Area</span><div className="quotation-surface-materials"><span>{SERVICE_MASTER_LABELS.category}</span><span>Brand</span><span>Product</span><span>Paint Coats</span></div></div>}
       </header>
       {fields.length ? <div className="divide-y divide-slate-100">
         {fields.map((field) => {
@@ -2033,22 +1993,10 @@ function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, master
   );
 }
 function groupPreviewLines(items, savedRooms) {
-  const grouped = new Map();
-  items.forEach((source) => {
-    const item = { ...source };
-    const room = savedRooms.find((entry) => String(entry.id) === String(item.property_room_id || item.room_id || ""));
-    const included = item.included_areas?.length
-      ? item.included_areas
-      : [`${item.room_name || room?.name || "General"}${item.field_id ? ` — ${item.description || "Work"}` : ""}`];
-    const key = JSON.stringify([item.service_category, item.custom_service_category, item.service_type, item.paint_type, item.custom_product_type, item.paint_brand, item.custom_brand, item.color, item.description, item.coats, item.unit, item.custom_unit, item.rate, item.calculation_method, item.is_additional_service, item.specification_details?.assignment_id]);
-    const current = grouped.get(key);
-    if (!current) grouped.set(key, { ...item, quantity: Number(item.quantity) || 0, included_areas: [...new Set(included)] });
-    else {
-      current.quantity += Number(item.quantity) || 0;
-      current.included_areas = [...new Set([...current.included_areas, ...included])];
-    }
+  return items.map(item=>{
+    const room=savedRooms.find(entry=>String(entry.id)===String(item.property_room_id || item.room_id || ''));
+    return {...item,included_areas:item.included_areas?.length?item.included_areas:[item.room_name || room?.name || 'General']};
   });
-  return [...grouped.values()];
 }
 
 function duplicateMeasuredWorkMessage(items, savedRooms) {
@@ -2073,7 +2021,7 @@ function MaterialSelections({ item, categories = [], products, brands, update, i
   const control = "mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base";
   const label = "min-w-0 text-xs font-bold text-slate-700";
   return <div className={inline ? "quotation-surface-materials" : "mt-3 grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-3 lg:grid-cols-4"}>
-    <label className={label}><span className="quotation-material-label">Type of service</span><select value={item.service_category || ""} onChange={(event) => update({ service_category: event.target.value, custom_service_category: "", paint_type: "" })} className={control}>{!item.service_category && <option value="">Select service</option>}{categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label className={label}><span className="quotation-material-label">{SERVICE_MASTER_LABELS.category}</span><select value={item.service_category || ""} onChange={(event) => update({ service_category: event.target.value, custom_service_category: "", paint_type: "" })} className={control}>{!item.service_category && <option value="">Select service</option>}{categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label className={label}><span className="quotation-material-label">Brand</span><select value={item.paint_brand || ""} onChange={(event) => update({ paint_brand: event.target.value })} className={control}><option value="">Select brand</option>{brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label className={label}><span className="quotation-material-label">Product</span><select value={item.paint_type || ""} onChange={(event) => {
       const product = products.find((entry) => String(entry.id) === event.target.value);
@@ -2102,6 +2050,7 @@ function formatError(data) {
 
 async function formatRequestError(error) {
   const data = error?.response?.data;
+  if (typeof data === "string") return /^\s*</.test(data) ? "" : data;
   if (data instanceof Blob) {
     const text = await data.text();
     if (!text || /^\s*</.test(text)) return "";

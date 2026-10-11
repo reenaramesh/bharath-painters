@@ -1739,5 +1739,8 @@
   "short term apartment rental agency",
   "student dormitory",
   "whatsapp number",
-  "{start} to {end}"
+  "{start} to {end}",
+  "Service / Product Category",
+  "Service / Product Type",
+  "Description"
 ]

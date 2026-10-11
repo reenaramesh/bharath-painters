@@ -168,7 +168,7 @@ export default function ProfileImageControl({
         {compact && <button type="button" onClick={() => inputRef.current?.click()} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border" aria-label={`Change ${label}`} title={`Change ${label}`}><Camera size={18} /></button>}
       </div>
       {editing && source && createPortal(
-        <div className="fixed inset-0 z-[140] grid place-items-center overflow-y-auto bg-slate-950/65 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(false); }}>
+        <div className="fixed inset-0 z-[140] grid place-items-center overflow-y-auto bg-slate-950/65 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" data-popup-protection="form" data-popup-dirty={JSON.stringify(draft)!==JSON.stringify(currentPosition) || draftShape!==shape} onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(false); }}>
           <section ref={modalRef} className={`profile-image-editor my-auto w-full max-w-xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6 ${className ? `${className}-dialog` : ""}`.trim()}>
             <header className="flex items-start justify-between gap-4">
               <div><h2 id="profile-image-editor-title" className="text-lg font-bold text-slate-900">Adjust {label.toLowerCase()}</h2><p className="mt-1 text-xs text-slate-500">Drag the image or use arrow keys, then apply and save settings.</p></div>

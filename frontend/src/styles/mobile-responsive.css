@@ -290,3 +290,123 @@
     display: none;
   }
 }
+
+
+/* Customer Dashboard — scrollable Quick Actions */
+
+.customer-quick-actions-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  padding: 8px 4px 14px;
+
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Each direct shortcut card */
+.customer-quick-actions-scroll > * {
+  flex: 0 0 130px;
+  min-width: 130px;
+  scroll-snap-align: start;
+}
+
+/* Smaller mobile screens */
+@media (max-width: 30px) {
+  .customer-quick-actions-scroll > * {
+    flex-basis: 112px;
+    min-width: 112px;
+  }
+}
+
+
+/* Keep the quick actions inside the dashboard width */
+.customer-desktop-quick-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Horizontally scrollable container */
+.customer-quick-actions-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  padding: 8px 4px 14px;
+
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Each quick-action card must not shrink */
+.customer-quick-actions-scroll > .customer-quick-action {
+  flex: 0 0 230px;
+  width: 230px;
+  min-width: 230px;
+  max-width: 230px;
+
+  scroll-snap-align: start;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .customer-quick-actions-scroll > .customer-quick-action {
+    flex: 0 0 180px;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+  }
+}
+
+@media (max-width: 600px) {
+  .customer-desktop-quick-actions {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .customer-quick-actions-scroll {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    grid-template-columns: none;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+
+    gap: 12px;
+    padding: 8px 4px 14px;
+
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+
+  .customer-quick-actions-scroll > .customer-quick-action {
+    flex: 0 0 190px !important;
+    width: 190px;
+    min-width: 190px;
+    max-width: 190px;
+    scroll-snap-align: start;
+  }
+}

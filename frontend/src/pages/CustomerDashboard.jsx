@@ -6,7 +6,6 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  ClipboardList,
   FileText,
   MessageCircle,
   ShieldCheck,
@@ -26,14 +25,6 @@ import {
 } from "../components/ui";
 import "./customer-dashboard.css";
 
-const quickActions = [
-  { label: "My contractors", detail: "Manage connections", to: "/customer/connections", icon: Users },
-  { label: "My quotations", detail: "Review estimates", to: "/customer-quotations", icon: FileText },
-  { label: "Work progress", detail: "See dates and updates", to: "/work-schedules", icon: CalendarDays },
-  { label: "Payments", detail: "View receipts and balances", to: "/customer-invoices", icon: Banknote },
-  { label: "Messages", detail: "Talk with your contractors", to: "/messages", icon: MessageCircle },
-  { label: "Service requests", detail: "Ask for painting work", to: "/service-requests", icon: ClipboardList },
-];
 
 export default function CustomerDashboard() {
   const [data, setData] = useState(null);
@@ -189,7 +180,7 @@ export default function CustomerDashboard() {
         <StatCard icon={FileText} label="My quotations" value={counts.quotations || 0} hint="Estimates shared with you" tone="success" />
       </section>
 
-      <MobileDashboardShortcuts />
+      <MobileDashboardShortcuts mobileOnly={false} />
 
       {attention.length > 0 ? (
         <SectionCard
@@ -224,18 +215,6 @@ export default function CustomerDashboard() {
 
 
 
-      <section className="customer-desktop-quick-actions" aria-label="Quick actions">
-        <h2>Quick actions</h2>
-        <div className="customer-quick-action-grid">
-          {quickActions.map(({ label, detail, to, icon: Icon }) => (
-            <Link key={to} to={to} className="customer-quick-action">
-              <span><Icon aria-hidden="true" /></span>
-              <span><strong>{label}</strong><small>{detail}</small></span>
-              <ArrowRight aria-hidden="true" />
-            </Link>
-          ))}
-        </div>
-      </section>
 
       <CustomerAds />
 

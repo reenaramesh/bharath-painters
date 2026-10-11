@@ -119,13 +119,13 @@ def import_master_row(model, row, user):
     if model in (PaintType, WorkDescription):
         category_name = row_value(row, "service_category", "type_of_service", "category")
         if not category_name:
-            raise ValueError("Type of Service is required for this section.")
+            raise ValueError("Service / Product Category is required for this section.")
         visible = ServiceCategory.objects.filter(is_active=True).filter(
             Q(created_by__isnull=True) | Q(created_by__role=BharathUser.Roles.ADMIN) | Q(created_by=user)
         )
         category = visible.filter(name__iexact=category_name).first()
         if not category:
-            raise ValueError(f"Type of Service '{category_name}' does not exist in Master Data.")
+            raise ValueError(f"Service / Product Category '{category_name}' does not exist in Master Data.")
 
     filters = {"name__iexact": name}
     values = {"name": name, "is_active": True}

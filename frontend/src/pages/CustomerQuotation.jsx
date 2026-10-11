@@ -1,4 +1,6 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
+import { QuotationRevisionHistory, QuotationRevisionDetails, QuotationRevisionPriceChanges } from "../components/QuotationRevisionDetails.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -25,6 +27,8 @@ export default function CustomerQuotation() {
     [showRevision, setShowRevision] = useState(false),
     [revisionNote, setRevisionNote] = useState(""),
     [revisionLines, setRevisionLines] = useState({});
+  const [responding, setResponding] = useState(false);
+  const responseLock = useRef(false);
   const itemDialogRef = useRef(null);
   const revisionDialogRef = useRef(null);
   const load = useCallback(async () => {
@@ -81,6 +85,7 @@ export default function CustomerQuotation() {
     }
   }
   async function respond(action, suppliedNote = "") {
+    if (responseLock.current) return;
     let note = "";
     if (action === "REVISION") {
       note = suppliedNote.trim();
@@ -91,6 +96,8 @@ export default function CustomerQuotation() {
       )
     )
       return;
+    responseLock.current = true;
+    setResponding(true);
     try {
       const { data } = await api.post(
         `/quotations/customer-portal/quotations/${id}/action/`,
@@ -120,6 +127,9 @@ export default function CustomerQuotation() {
           .flat()
           .join(" ") || "Your response could not be saved.",
       );
+    } finally {
+      responseLock.current = false;
+      setResponding(false);
     }
   }
   function submitRevisionRequest(event) {
@@ -167,12 +177,13 @@ export default function CustomerQuotation() {
         </div>
       </div>
       <CustomerRevisionSummary changes={quotation.revision_changes} />
+      <QuotationRevisionHistory versions={quotation.revision_history} currentId={quotation.id} customer />
       <SectionCard title="Work included" description="Review the services, rooms, products and measurements in this estimate." className="customer-quotation-scope" bodyClassName="p-0">
         <div className="grid gap-3 p-3 md:hidden">
           {quotation.items.map((item, index) => (
             <button type="button" key={item.id} onClick={() => setSelectedItem({ item, index })} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm active:scale-[0.99]">
               <div className="flex items-start justify-between gap-3 bg-slate-950 p-4 text-white">
-                <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-amber-300">{item.service || "Service"} · Item {index + 1}</p><h3 className="mt-1 break-words font-bold">{item.room || "General"}</h3><p className="mt-1 whitespace-normal text-sm text-slate-300">{item.description || "Description not available"}</p></div>
+                <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-amber-300">{customerServiceLabel(item)} · Item {index + 1}</p><h3 className="mt-1 break-words font-bold">{item.room || "General"}</h3><p className="mt-1 whitespace-normal text-sm text-slate-300">{item.description || "Description not available"}</p></div>
                 <b className="shrink-0 text-base text-emerald-300">₹{money(item.amount)}</b>
               </div>
               <div className="grid grid-cols-3 gap-px bg-slate-200 text-xs"><CustomerItemValue label="Quantity" value={`${item.quantity} ${item.unit || ""}`} /><CustomerItemValue label="Rate" value={`₹${money(item.rate)}`} /><CustomerItemValue label="Coats" value={item.coats || "—"} /></div>
@@ -186,9 +197,9 @@ export default function CustomerQuotation() {
               <tr>
                 {[
                   "#",
-                  "Type of service",
+                  SERVICE_MASTER_LABELS.category,
                   "Room / Area",
-                  "Description",
+                  SERVICE_MASTER_LABELS.description,
                   "Product / Brand",
                   "Coats",
                   "Qty / MOU",
@@ -204,7 +215,7 @@ export default function CustomerQuotation() {
               {quotation.items.map((item) => (
                 <tr key={item.id} className="border-b">
                   <td className="p-3">{item.serial}</td>
-                  <td className="p-3 font-semibold">{item.service || "—"}</td>
+                  <td className="p-3 font-semibold">{customerServiceLabel(item)}</td>
                   <td className="p-3">{item.room}</td>
                   <td className="break-words p-3 font-medium">{item.description}</td>
                   <td className="p-3"><p>{item.paint_type || "—"}</p><p className="mt-1 text-[11px] text-slate-500">{item.paint_brand || "No brand"}</p></td>
@@ -230,7 +241,8 @@ export default function CustomerQuotation() {
         </SectionCard>
         <div className="customer-quotation-supporting-details">
           {quotation.product_details && <SectionCard title="Product details"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{quotation.product_details}</p></SectionCard>}
-          {quotation.terms && <SectionCard title="Notes and terms"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{quotation.terms}</p></SectionCard>}
+          {(quotation.notes ?? quotation.terms) && <SectionCard title="Notes"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{quotation.notes ?? quotation.terms}</p></SectionCard>}
+          {[["Terms and conditions", quotation.terms_conditions], ["Payment terms", quotation.payment_terms], ["Work procedures", quotation.work_procedures], ["Work duration", quotation.work_duration]].filter(([, saved]) => Boolean(saved)).map(([title, saved]) => <SectionCard key={title} title={title}><p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{saved}</p></SectionCard>)}
         </div>
       </div>
 
@@ -263,16 +275,17 @@ export default function CustomerQuotation() {
         )}
         {quotation.property_access?.permissions?.approve_quotations && ["SENT", "VIEWED"].includes(quotation.status) && (
           <div className="customer-quotation-response-actions">
-            <Button onClick={() => respond("APPROVE")}>
+            <Button disabled={responding} onClick={() => respond("APPROVE")}>
               <CheckCircle2 aria-hidden="true" />Accept quotation
             </Button>
-            <Button variant="danger" onClick={() => respond("REJECT")}>
+            <Button disabled={responding} variant="danger" onClick={() => respond("REJECT")}>
               <XCircle aria-hidden="true" />Decline quotation
             </Button>
           </div>
         )}
         {quotation.property_access?.permissions?.request_quotation_changes && ["SENT", "VIEWED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS"].includes(quotation.status) && (
           <button
+            disabled={responding}
             onClick={() => { setShowRevision(true); setError(""); }}
             className="customer-quotation-revision-button mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 font-semibold text-indigo-800"
           >
@@ -293,17 +306,20 @@ export default function CustomerQuotation() {
               {quotation.items.map((item) => (
                 <label key={item.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${revisionLines[item.id] ? "border-indigo-400 bg-indigo-50" : ""}`}>
                   <input type="checkbox" checked={Boolean(revisionLines[item.id])} onChange={(event) => setRevisionLines((current) => ({ ...current, [item.id]: event.target.checked }))} className="mt-1 h-4 w-4" />
-                  <span className="min-w-0"><b className="block truncate">{item.room || "General"} · {item.service || "Service"}</b><span className="block truncate text-xs text-slate-500">{item.description || "Quotation line"} · ₹{money(item.amount)}</span></span>
+                  <span className="min-w-0"><b className="block truncate">{item.room || "General"} · {customerServiceLabel(item)}</b><span className="block truncate text-xs text-slate-500">{item.description || "Quotation line"} · ₹{money(item.amount)}</span></span>
                 </label>
               ))}
             </div>
             <label className="mt-5 block text-sm font-bold">Add work or explain changes<textarea rows="4" value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} placeholder="Example: Remove balcony painting, add kitchen ceiling, change bedroom product to Royale..." className="mt-2 w-full rounded-xl border px-4 py-3 font-normal outline-none focus:border-indigo-500" /></label>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setShowRevision(false)} className="rounded-xl border px-4 py-3 font-bold">Cancel</button><button className="rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">Send change request</button></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" disabled={responding} onClick={() => setShowRevision(false)} className="rounded-xl border px-4 py-3 font-bold">Cancel</button><button disabled={responding} className="rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">{responding ? "Sending request..." : "Send change request"}</button></div>
           </form>
         </div>
       )}
     </div>
   );
+}
+function customerServiceLabel(item) {
+  return [...new Set([item.service_category, item.service].filter(Boolean))].join(" / ") || "Service";
 }
 function CustomerItemValue({ label, value }) {
   return <div className="min-w-0 bg-white p-3"><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 truncate font-bold text-slate-900">{value}</p></div>;
@@ -312,8 +328,8 @@ function CustomerQuotationItemDialog({ item, index, close }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={itemDialogRef} role="dialog" aria-modal="true" aria-label={`Quotation item ${index + 1}`} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-white shadow-2xl sm:max-w-xl sm:rounded-[28px]">
-        <header className="sticky top-0 flex items-start justify-between gap-3 border-b bg-slate-950 p-5 text-white"><div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Quotation item {index + 1}</p><h2 className="mt-1 text-xl font-bold">{item.room || "General"}</h2><p className="mt-1 text-sm text-slate-300">{item.service || "Service"}</p></div><button type="button" aria-label="Close quotation item details" onClick={close} className="rounded-xl border border-white/30 p-2.5"><X className="h-5 w-5" /></button></header>
-        <div className="grid grid-cols-2 gap-px bg-slate-200"><CustomerDialogValue label="Product description" value={item.description} wide /><CustomerDialogValue label="Product" value={item.paint_type || "—"} /><CustomerDialogValue label="Brand" value={item.paint_brand || "—"} /><CustomerDialogValue label="Quantity" value={`${item.quantity} ${item.unit || ""}`} /><CustomerDialogValue label="Coats" value={item.coats || "—"} /><CustomerDialogValue label="Rate" value={`₹${money(item.rate)}`} /><CustomerDialogValue label="Amount" value={`₹${money(item.amount)}`} strong /></div>
+        <header className="sticky top-0 flex items-start justify-between gap-3 border-b bg-slate-950 p-5 text-white"><div><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Quotation item {index + 1}</p><h2 className="mt-1 text-xl font-bold">{item.room || "General"}</h2><p className="mt-1 text-sm text-slate-300">{customerServiceLabel(item)}</p></div><button type="button" aria-label="Close quotation item details" onClick={close} className="rounded-xl border border-white/30 p-2.5"><X className="h-5 w-5" /></button></header>
+        <div className="grid grid-cols-2 gap-px bg-slate-200"><CustomerDialogValue label={SERVICE_MASTER_LABELS.description} value={item.description} wide /><CustomerDialogValue label="Product" value={item.paint_type || "—"} /><CustomerDialogValue label="Brand" value={item.paint_brand || "—"} /><CustomerDialogValue label="Quantity" value={`${item.quantity} ${item.unit || ""}`} /><CustomerDialogValue label="Coats" value={item.coats || "—"} /><CustomerDialogValue label="Rate" value={`₹${money(item.rate)}`} /><CustomerDialogValue label="Amount" value={`₹${money(item.amount)}`} strong /></div>
         <div className="p-4"><button type="button" onClick={close} className="w-full rounded-xl bg-slate-950 px-5 py-3 font-bold text-white">Close</button></div>
       </section>
     </div>
@@ -361,7 +377,7 @@ function CustomerRevisionSummary({ changes }) {
   const added = changes.added_lines || [];
   const removed = changes.removed_lines || [];
   const priceChanges = changes.price_changes || [];
-  const hasChanges = added.length || removed.length || priceChanges.length;
+  const hasChanges = added.length || removed.length || priceChanges.length || changes.discount_changes?.length || changes.specification_changes?.length || Object.keys(changes.quotation_changes || {}).length;
   return (
     <div className="border-b bg-white">
       <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50 px-6 py-4">
@@ -379,6 +395,7 @@ function CustomerRevisionSummary({ changes }) {
         <p className="px-6 py-8 text-center text-sm text-slate-500">No service or price changes.</p>
       ) : (
         <div className="space-y-5 p-6">
+          <QuotationRevisionDetails changes={changes} />
           {priceChanges.length > 0 && (
             <details className="group overflow-hidden rounded-xl border">
               <summary className="flex cursor-pointer list-none items-center justify-between bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
@@ -386,11 +403,12 @@ function CustomerRevisionSummary({ changes }) {
                 <span className="text-xs font-semibold text-amber-700 group-open:hidden">View details ▾</span>
                 <span className="hidden text-xs font-semibold text-amber-700 group-open:inline">Hide details ▴</span>
               </summary>
-              <div className="overflow-x-auto">
+              <QuotationRevisionPriceChanges lines={priceChanges} />
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[680px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Service</th><th className="px-4 py-3">Room / Area</th><th className="px-4 py-3 text-right">Previous</th><th className="px-4 py-3 text-right">Current</th><th className="px-4 py-3 text-right">Difference</th></tr></thead>
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Service</th><th className="px-4 py-3">Room / Area</th><th className="px-4 py-3 text-right">Previous net</th><th className="px-4 py-3 text-right">Current net</th><th className="px-4 py-3 text-right">Difference</th></tr></thead>
                   <tbody className="divide-y">
-                    {priceChanges.map((line, index) => <tr key={`${line.description}-${index}`}><td className="px-4 py-3"><p className="font-semibold">{line.service}</p><p className="text-xs text-slate-500">{line.description}</p></td><td className="px-4 py-3 text-slate-600">{line.room}</td><td className="px-4 py-3 text-right text-slate-500">₹{money(line.previous_price)}</td><td className="px-4 py-3 text-right font-semibold">₹{money(line.current_price)}</td><td className={`px-4 py-3 text-right font-bold ${Number(line.difference) >= 0 ? "text-emerald-700" : "text-red-700"}`}>{signedCustomerMoney(line.difference)}</td></tr>)}
+                    {priceChanges.map((line, index) => <tr key={`${line.description}-${index}`}><td className="px-4 py-3"><p className="font-semibold">{line.service}</p><p className="text-xs text-slate-500">{line.description}</p></td><td className="px-4 py-3 text-slate-600">{line.room}</td><td className="px-4 py-3 text-right text-slate-500">₹{money(line.previous_net ?? line.previous_price)}</td><td className="px-4 py-3 text-right font-semibold">₹{money(line.current_net ?? line.current_price)}</td><td className={`px-4 py-3 text-right font-bold ${Number(line.net_difference ?? line.difference) >= 0 ? "text-emerald-700" : "text-red-700"}`}>{signedCustomerMoney(line.net_difference ?? line.difference)}</td></tr>)}
                   </tbody>
                 </table>
               </div>

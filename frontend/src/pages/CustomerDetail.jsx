@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Building2,
@@ -14,6 +14,10 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
+import useAuth from "../context/useAuth";
+import CustomerAccountStatus from "../components/CustomerAccountStatus";
+import CustomerActivationShare from "../components/CustomerActivationShare";
+import { customerAccountStatus } from "../utils/customerActivation";
 import CustomerForm from "../components/CustomerForm";
 import BackButton from "../components/BackButton";
 import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
@@ -21,6 +25,10 @@ import "./crm-pages.css";
 
 export default function CustomerDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const [activationLink, setActivationLink] = useState(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const linkBusy = useRef(false);
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,6 +63,26 @@ export default function CustomerDetail() {
     window.addEventListener("bp-open-customer-followup", openFollowUp);
     return () => window.removeEventListener("bp-open-customer-followup", openFollowUp);
   }, []);
+
+  async function shareActivation() {
+    if (linkBusy.current) return;
+    linkBusy.current = true;
+    setLinkLoading(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/quotations/customers/${id}/${activationLink ? "share-link" : "activate-account"}/`);
+      if (data.share_link) setActivationLink({ ...customer, ...data, id: customer.id });
+      else {
+        setActivationLink(null);
+        await load();
+      }
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Activation link could not be prepared.");
+    } finally {
+      linkBusy.current = false;
+      setLinkLoading(false);
+    }
+  }
 
   async function updateCustomer(values) {
     setSaving(true);
@@ -265,6 +293,9 @@ export default function CustomerDetail() {
         </div>
         <div className="flex-1">
           <PageHeader eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
+          <CustomerAccountStatus customer={customer} />
+          {customerAccountStatus(customer)?.canResend && <button type="button" disabled={linkLoading} onClick={shareActivation} className="mt-3 min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 disabled:opacity-50">{linkLoading ? "Preparing link..." : "Resend activation link"}</button>}
+          {activationLink && <CustomerActivationShare error={error} key={activationLink.share_link} customer={activationLink} contractor={user} busy={linkLoading} onRegenerate={shareActivation} onClose={() => { setActivationLink(null); load(); }} />}
           <p className="mt-2 flex items-center gap-2 text-slate-500">
             <Phone className="h-4 w-4" />
             {customer.mobile}

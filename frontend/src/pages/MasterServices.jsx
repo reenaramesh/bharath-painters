@@ -1,4 +1,6 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BedDouble,
   Building2,
@@ -30,9 +32,9 @@ import "./master-services.css";
 const groups = [
   { key: "rooms", label: "Rooms / Areas", singular: "Room / Area", endpoint: "areas", section: "areas", icon: BedDouble },
   { key: "surfaces", label: "Surface Types", singular: "Surface Type", endpoint: "measurement-surface-types", section: "measurement-surface-types", icon: Ruler },
-  { key: "categories", label: "Types of Service", singular: "Type of Service", endpoint: "service-categories", section: "service-categories", icon: Layers3 },
-  { key: "products", label: "Product Types", singular: "Product Type", endpoint: "paint-types", section: "paint-types", icon: Boxes },
-  { key: "descriptions", label: "Product Descriptions", singular: "Product Description", endpoint: "work-descriptions", section: "work-descriptions", icon: FileText },
+  { key: "categories", label: SERVICE_MASTER_LABELS.category, singular: SERVICE_MASTER_LABELS.category, endpoint: "service-categories", section: "service-categories", icon: Layers3 },
+  { key: "products", label: SERVICE_MASTER_LABELS.productType, singular: SERVICE_MASTER_LABELS.productType, endpoint: "paint-types", section: "paint-types", icon: Boxes },
+  { key: "descriptions", label: SERVICE_MASTER_LABELS.description, singular: SERVICE_MASTER_LABELS.description, endpoint: "work-descriptions", section: "work-descriptions", icon: FileText },
   { key: "brands", label: "Brands", singular: "Brand", endpoint: "brands", section: "brands", icon: Tags },
   { key: "units", label: "Measurement Units", singular: "MOU", endpoint: "units", section: "units", icon: Ruler },
   { key: "apartments", label: "Apartments", singular: "Apartment", endpoint: "master-data/apartments", section: "apartments", icon: Building2 },
@@ -361,7 +363,7 @@ const [orderBusy, setOrderBusy] = useState(false);
   const ActiveIcon = active.icon;
   return (
     <div className="space-y-6 master-services-page">
-      <PageHeader eyebrow="Quotation configuration" title="Master Data" description="Organize services, product types, units, and other options used throughout quotations." />
+      <PageHeader eyebrow="Quotation configuration" title="Master Data" description="Organize services, Service / Product Type, units, and other options used throughout quotations." />
 
       {error && !loadFailed && <p className="master-data-alert" role="alert">{error}</p>}
 
@@ -394,7 +396,7 @@ const [orderBusy, setOrderBusy] = useState(false);
                 <li key={group.key} className="shrink-0 lg:shrink">
                   <button type="button" onClick={() => setActive(group)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${selected ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-transparent text-slate-600 hover:bg-white hover:shadow-sm"}`}>
                     <Icon className={`h-4 w-4 shrink-0 ${selected ? "text-amber-300" : "text-slate-400"}`} />
-                    <span className="min-w-0 flex-1 text-sm font-semibold whitespace-nowrap">{group.label}</span>
+                    <span className="min-w-0 flex-1 text-sm font-semibold whitespace-normal break-words">{group.label}</span>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${selected ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{count === null || count === undefined ? "—" : count}</span>
                   </button>
                 </li>
@@ -420,7 +422,7 @@ const [orderBusy, setOrderBusy] = useState(false);
 
         {(active.key !== "apartments" || user?.role === "ADMIN") && showAdd && <form onSubmit={submit} className="grid gap-4 border-b bg-slate-50/60 p-4 sm:p-5 md:grid-cols-[1fr_1fr_auto]">
           <Field label={`${active.singular} name`}><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={placeholder(active.key)} /></Field>
-          {usesServiceCategory && <Field label="Type of Service"><select required value={form.service_category} onChange={(event) => setForm({ ...form, service_category: event.target.value })}><option value="">Select type of service</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>}
+          {usesServiceCategory && <Field label={SERVICE_MASTER_LABELS.category}><select required value={form.service_category} onChange={(event) => setForm({ ...form, service_category: event.target.value })}><option value="">Select Service / Product Category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>}
           {active.key === "apartments" && <><Field label="Locality"><input value={form.locality} onChange={(event) => setForm({ ...form, locality: event.target.value })} placeholder="Area or neighbourhood" /></Field><Field label="Zone / State"><input value={form.zone} onChange={(event) => setForm({ ...form, zone: event.target.value })} placeholder="Karnataka" /></Field><Field label="PIN code"><input value={form.pincode} onChange={(event) => setForm({ ...form, pincode: event.target.value })} placeholder="560001" /></Field></>}
           <div className="flex items-end gap-2"><button disabled={saving} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-semibold text-white disabled:opacity-50 md:flex-none"><Plus className="h-4 w-4" />{saving ? "Saving..." : editing ? "Update" : `Add ${active.singular}`}</button>{editing && <button type="button" onClick={() => { setEditing(null); setShowAdd(false); setForm(empty); }} className="grid h-12 w-12 place-items-center rounded-xl border" aria-label="Cancel editing"><X className="h-4 w-4" /></button>}</div>
           {active.key === "products" && <div className="grid gap-4 md:col-span-full md:grid-cols-[220px_1fr]"><Field label="Default price (optional)"><input type="number" min="0" step="0.01" value={form.default_price} onChange={(event) => setForm({ ...form, default_price: event.target.value })} placeholder="Example: 28.00" /></Field><Field label="Key features (optional)"><textarea rows="3" value={form.key_features} onChange={(event) => setForm({ ...form, key_features: event.target.value })} placeholder="Example: Stain resistance, smooth finish, 8-year warranty" /></Field></div>}
@@ -445,7 +447,7 @@ const [orderBusy, setOrderBusy] = useState(false);
         </div>
       </div>
 
-        {usesServiceCategory && <div className="master-category-filters flex flex-wrap items-center gap-2 border-b px-3 py-3 sm:px-4" role="group" aria-label="Filter by service category">
+        {usesServiceCategory && <div className="master-category-filters flex flex-wrap items-center gap-2 border-b px-3 py-3 sm:px-4" role="group" aria-label="Filter by Service / Product Category">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Service type</span>
           <button type="button" aria-pressed={categoryFilter === "ALL"} onClick={() => setCategoryFilter("ALL")} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === "ALL" ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>All types</button>
         {categories.map((category) => {
@@ -472,7 +474,7 @@ const [orderBusy, setOrderBusy] = useState(false);
               <button type="button" onClick={resetOrder} disabled={orderBusy} className="ml-auto rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">Reset to default order</button>
             </div>}
             <table className="master-data-table w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">Type of Service</th>}{showsDefaultPrice && <th className="w-36 px-4 py-3 text-right">Default price</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500"><tr><th className="w-10 px-3 py-3"><span className="sr-only">Order</span></th><th className="px-4 py-3">{active.singular}</th>{usesServiceCategory && <th className="w-[22%] px-4 py-3">{SERVICE_MASTER_LABELS.category}</th>}{showsDefaultPrice && <th className="w-36 px-4 py-3 text-right">Default price</th>}<th className="w-16 px-4 py-3 text-center">Scope</th><th className="w-[184px] px-4 py-3">Availability</th><th className="w-24 px-4 py-3 text-right">Actions</th></tr></thead>
               <tbody className="divide-y">{visibleItems.map((item) => {
                 const owned = canManageItem(item);
                 const isOff = item.is_active === false;
@@ -547,6 +549,7 @@ function QuotationDefaults() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
+  const [savedVersion, setSavedVersion] = useState(0);
 
   useEffect(() => {
     api.get("/accounts/contractor-profile/")
@@ -565,6 +568,7 @@ function QuotationDefaults() {
       const { data } = await api.patch("/accounts/contractor-profile/", values);
       setValues(Object.fromEntries(Object.keys(quotationDefaultsBlank).map((key) => [key, data[key] || ""])));
       setMessage("Default quotation details saved.");
+      setSavedVersion(current => current + 1);
     } catch (requestError) {
       setError(Object.values(requestError.response?.data || {}).flat().join(" ") || "Default quotation details could not be saved.");
     } finally {
@@ -578,7 +582,7 @@ function QuotationDefaults() {
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><FileText className="h-4 w-4" /></span>
         <span className="min-w-0 flex-1 text-sm font-bold text-slate-950">Terms and Conditions</span>
       </button>
-      {open && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="quotation-terms-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+      {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" role="dialog" data-popup-saved-version={savedVersion} aria-modal="true" aria-labelledby="quotation-terms-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
         <form onSubmit={save} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-3xl sm:rounded-3xl">
           <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-5 sm:px-6">
             <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 id="quotation-terms-title" className="text-xl font-bold">Terms and Conditions</h2></div>
@@ -599,7 +603,7 @@ function QuotationDefaults() {
           </div>
           {!loading && <footer className="sticky bottom-0 border-t bg-white p-4 sm:px-6"><button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save Terms and Conditions"}</button></footer>}
         </form>
-      </div>}
+      </div>, document.body)}
     </>
   );
 }

@@ -1,17 +1,11 @@
 import useAuth from "../context/useAuth";
-import { menuEnabled, menuRouteEnabled } from "../utils/menuVisibility";
+import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
+import { menuRouteEnabled } from "../utils/menuVisibility";
 import { Link } from "react-router-dom";
-import { ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, ClipboardList, FileText, MessageCircle, Phone, Plus, ReceiptText, RefreshCw, UserRoundPlus, Users } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, CalendarDays, CheckCircle2, FileText, MessageCircle, Phone, Plus, ReceiptText, RefreshCw, Users } from "lucide-react";
 import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-const tools = [
-  [UserRoundPlus, "Add customer", "Connect with a customer", "/customers", "add-customer"],
-  [FileText, "Create quotation", "Prepare an estimate", "/quotations/new", "new-quotation"],
-  [CalendarClock, "Site visits", "Scheduled site visits", "/site-visits"],
-  [CalendarDays, "Follow-ups", "Customer follow-ups", "/tasks"],
-  [ClipboardList, "Manage work", "Review your work schedules", "/work-schedules"],
-];
 
 function PanelLink({ to, children }) {
   return <Link className="contractor-panel-link" to={to}>{children}<ArrowRight size={16} aria-hidden="true" /></Link>;
@@ -62,12 +56,7 @@ export default function ContractorDashboard({ data, onRefresh, error, children }
       </Link>)}
     </section>
 
-    <section className="contractor-quick-actions" aria-labelledby="contractor-actions-title">
-      <div className="contractor-section-heading"><div><h2 id="contractor-actions-title">Quick actions</h2></div></div>
-      <div className="contractor-tools-grid">{tools.filter((entry) => entry[4] ? menuEnabled(user?.role, menuVisibility, entry[4]) : visible(entry[3])).map(([Icon, label, hint, to]) => <Link key={label} to={to} aria-label={`${label}: ${hint}`}>
-        <span className="contractor-icon"><Icon size={21} aria-hidden="true" /></span><span><strong>{label}</strong></span><ArrowRight size={17} aria-hidden="true" />
-      </Link>)}</div>
-    </section>
+    <MobileDashboardShortcuts mobileOnly={false} />
 
     <div className="contractor-workspace">
       <div className="contractor-workspace-column">

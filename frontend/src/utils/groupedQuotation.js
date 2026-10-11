@@ -38,10 +38,11 @@ export function assignedGroup(groups, roomId, surfaceType, editingId) {
   return groups.find((group) => group.id !== editingId && groupSurfaces(group).some(type=>types.includes(type)) && group.room_ids.some((id) => same(id, roomId)));
 }
 export function validateSpec(spec, masters) {
-  if (!masters.categories.some((entry) => same(entry.id, spec.service_category))) throw new Error("Select a work type.");
+  const category = masters.categories.find(entry => same(entry.id, spec.service_category));
+  if ((!category && spec.service_category) || (!category && !String(spec.custom_service_category || "").trim())) throw new Error("Select a work type.");
   if (spec.paint_brand && !masters.brands.some((entry) => same(entry.id, spec.paint_brand))) throw new Error("Select a brand.");
   const product = masters.paintTypes.find((entry) => same(entry.id, spec.paint_type));
-  if ((spec.paint_type && !product) || (product?.service_category && !same(product.service_category, spec.service_category)) || (!product && masters.categories.find((entry) => same(entry.id, spec.service_category))?.name.toLowerCase().includes("paint"))) throw new Error("Select a product for this work type.");
+  if ((spec.paint_type && !product) || (product?.service_category && !same(product.service_category, spec.service_category)) || (!product && !String(spec.custom_product_type || "").trim() && (category?.name || spec.custom_service_category || "").toLowerCase().includes("paint"))) throw new Error("Select a product for this work type.");
   if (!Number.isInteger(Number(spec.coats)) || Number(spec.coats) < 1 || Number(spec.coats) > 6) throw new Error("Paint coats must be between 1 and 6.");
   if (!Number.isInteger(Number(spec.primer_coats)) || Number(spec.primer_coats) < 0 || Number(spec.primer_coats) > 6) throw new Error("Primer coats must be between 0 and 6.");
 }
@@ -146,6 +147,12 @@ export function assignmentQuotationItems(measurement, state, masters) {
       property_room_id: room?.id || "", room_index: "", scope: line.kind === "service" ? "room" : "group",
       service_category: line.spec.service_category || "", paint_type: line.spec.paint_type || "", paint_brand: line.spec.paint_brand || "",
       service_type: line.spec.service_type || null,
+      custom_service_category: line.spec.custom_service_category || "",
+      custom_product_type: line.spec.custom_product_type || "",
+      custom_brand: line.spec.custom_brand || "",
+      save_service_category_to_master: Boolean(line.spec.save_service_category_to_master),
+      save_product_type_to_master: Boolean(line.spec.save_product_type_to_master),
+      save_brand_to_master: Boolean(line.spec.save_brand_to_master),
       description, promote_to_master: Boolean(line.spec.promote_to_master), coats: Number(line.spec.coats || 1), quantity: line.quantity, unit: line.unit || unit?.id || "",
       rate: state.rates[line.id] ?? "", calculation_method: "MANUAL", is_additional_service: line.kind === "service",
       discount_type: state.discounts?.[line.id]?.type || "FIXED", discount_value: state.discounts?.[line.id]?.value ?? 0,

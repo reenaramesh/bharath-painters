@@ -1,11 +1,13 @@
+import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./special-wall-sheet.css";
 import { availableWallArea } from "../utils/specialWallArea";
 
-export default function SpecialWallSheet({ parent, wall, walls, masters, onClose, onSave, onDelete }) {
-  const [draft, setDraft] = useState(() => ({ name: "", quantity: "", service_category: parent.service_category || masters.categories.find((entry) => entry.name.toLowerCase().includes("paint"))?.id || "", custom_service_category: "", paint_brand: "", paint_type: "", coats: 2, ...wall }));
+export default function SpecialWallSheet({ parent, wall, walls, masters, onClose, onSave, onDelete, recovery = null, onRecovery = null }) {
+  const [draft, setDraft] = useState(() => recovery ?? ({ name: "", quantity: "", service_category: parent.service_category || masters.categories.find((entry) => entry.name.toLowerCase().includes("paint"))?.id || "", custom_service_category: "", paint_brand: "", paint_type: "", coats: 2, ...wall }));
+  useEffect(() => { onRecovery?.(draft); }, [draft, onRecovery]);
   const dialog = useRef(null);
   const close = useRef(onClose); close.current = onClose;
   const available = availableWallArea(parent.quantity, walls, parent.field_id, wall?.field_id);
@@ -37,7 +39,7 @@ export default function SpecialWallSheet({ parent, wall, walls, masters, onClose
         <div className="special-wall-options">{["Texture Wall", "Accent Wall", "Damp Area", "Custom"].map((name) => <button key={name} type="button" onClick={() => { update("name", name === "Custom" ? "" : name); dialog.current.querySelector("input").focus(); }}>{name}</button>)}</div>
         <label>Area<div className="special-wall-area"><input type="number" inputMode="decimal" required min="0.01" step="0.01" max={available} value={draft.quantity} aria-invalid={tooLarge} aria-describedby="special-wall-maximum special-wall-error" onChange={(event) => update("quantity", event.target.value)} /><span>sqft</span></div><small id="special-wall-maximum">Maximum available: {available} sqft</small></label>
         <p id="special-wall-error" className="special-wall-error" role="alert">{tooLarge ? `Area cannot exceed the available wall area of ${available} sqft.` : draft.quantity !== "" && area <= 0 ? "Enter an area greater than zero." : ""}</p>
-        <label>Type of service<select value={draft.service_category || ""} onChange={(event) => setDraft((current) => ({ ...current, service_category: event.target.value, custom_service_category: "", paint_type: "" }))}>{!draft.service_category && <option value="">Select service</option>}{masters.categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+        <label>{SERVICE_MASTER_LABELS.category}<select value={draft.service_category || ""} onChange={(event) => setDraft((current) => ({ ...current, service_category: event.target.value, custom_service_category: "", paint_type: "" }))}>{!draft.service_category && <option value="">Select service</option>}{masters.categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
         <label>Brand<select value={draft.paint_brand} onChange={(event) => update("paint_brand", event.target.value)}><option value="">Select brand</option>{masters.brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
         <label>Product<select value={draft.paint_type} onChange={(event) => {
           const product = masters.paintTypes.find((entry) => String(entry.id) === event.target.value);

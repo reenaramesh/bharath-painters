@@ -32,7 +32,7 @@ from rest_framework import generics, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.throttling import ScopedRateThrottle
 from accounts.models import BharathUser, ContractorProfile, PainterProfile, PasswordResetOTP
 from accounts.mobile import normalize_mobile as canonical_mobile, matching_mobile_users
@@ -546,6 +546,8 @@ class CustomerShareLinkCreateView(APIView):
         ).first()
         if not connection or connection.customer.status == Customer.Status.CANCELLED:
             return Response({"detail": "Customer contact not found."}, status=status.HTTP_404_NOT_FOUND)
+        if connection.customer.portal_user and not connection.customer.portal_user.is_active:
+            return Response({"detail": "This account is disabled. Activation links are unavailable."}, status=status.HTTP_409_CONFLICT)
         if connection.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
             purpose = CustomerShareLink.Purpose.CONNECTION
         elif connection.status == ContractorCustomerConnection.Status.CONNECTED and connection.customer.portal_user and not connection.customer.portal_user.has_usable_password():
@@ -2929,6 +2931,22 @@ def contractor_can_message_painter(contractor, painter):
         or ApplicatorBooking.objects.filter(
             contractor=contractor, applicator=painter,
         ).exists()
+        # An eligible Painter may initiate contact about a public hiring post.
+        # Replies stay limited to that exact participant pair.
+        or ChatConversation.objects.filter(contractor=contractor, painter=painter, customer__isnull=True).exists()
+    )
+
+
+def painter_can_contact_job_contractor(contractor, painter):
+    if contractor_can_message_painter(contractor, painter):
+        return True
+    from jobs.models import Job
+    from jobs.views import verified_painter, verified_contractor, is_inhouse_applicator
+    return (
+        painter.is_active and contractor.is_active
+        and verified_painter(painter) and verified_contractor(contractor)
+        and not is_inhouse_applicator(painter)
+        and Job.objects.filter(contractor=contractor, status__in=[Job.Status.OPEN, Job.Status.PARTIALLY_FILLED]).exists()
     )
 
 
@@ -3138,7 +3156,7 @@ class ChatConversationListView(APIView):
                 contractor = BharathUser.objects.filter(
                     pk=contractor_id, role=BharathUser.Roles.CONTRACTOR, is_active=True,
                 ).first()
-                if not contractor or not contractor_can_message_painter(contractor, request.user):
+                if not contractor or not painter_can_contact_job_contractor(contractor, request.user):
                     return Response({"detail": "This contractor is not connected to your work."}, status=status.HTTP_403_FORBIDDEN)
                 ChatConversation.objects.get_or_create(contractor=contractor, painter=request.user, customer=None)
             conversations = ChatConversation.objects.filter(painter=request.user)
@@ -3179,7 +3197,7 @@ class ChatConversationListView(APIView):
             contractor = BharathUser.objects.filter(
                 pk=request.data.get("contractor"), role=BharathUser.Roles.CONTRACTOR, is_active=True,
             ).first()
-            if not contractor or not contractor_can_message_painter(contractor, request.user):
+            if not contractor or not painter_can_contact_job_contractor(contractor, request.user):
                 return Response({"contractor": "Select a contractor connected to your work."}, status=status.HTTP_400_BAD_REQUEST)
             conversation, _ = ChatConversation.objects.get_or_create(
                 contractor=contractor, painter=request.user, customer=None,
@@ -5234,7 +5252,7 @@ class CustomerQuotationView(APIView):
             "customer", "property", "contractor", "contractor__contractor_profile",
             "customer_contact__customer",
         ).prefetch_related(
-            "items__room__property_room__room_type", "items__service_type", "items__paint_type", "items__paint_brand", "items__unit"
+            "items__room__property_room__room_type", "items__service_type", "items__service_category", "items__paint_type", "items__paint_brand", "items__unit"
         ).filter(pk=pk).filter(
             Q(property_id__in=Subquery(allowed_property_ids))
             | Q(property__isnull=True, customer__portal_user=request.user)
@@ -5242,7 +5260,10 @@ class CustomerQuotationView(APIView):
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         identity = quotation_contractor_identity(quotation, request)
-        property_snapshot = quotation.property_snapshot or {}
+        from .document_identity import quotation_party_details
+        from .quotation_pdf_labels import quotation_room_area_label
+        from .revision_utils import quotation_revision_history
+        customer_details, property_details = quotation_party_details(quotation)
         response = Response({
             "id": quotation.id, "quotation_number": quotation.quotation_number,
             "property_id": quotation.property_id,
@@ -5250,6 +5271,9 @@ class CustomerQuotationView(APIView):
             "revision_of": quotation.revision_of_id,
             "version_number": quotation.version_number,
             "revision_changes": quotation_revision_changes(quotation),
+            "revision_history": quotation_revision_history(quotation),
+            "customer_details": customer_details,
+            "property_details": property_details,
             "quotation_date": quotation.quotation_date, "valid_until": quotation.valid_until,
             "status": quotation.status,
             "contractor_name": identity["company_name"],
@@ -5258,11 +5282,15 @@ class CustomerQuotationView(APIView):
                 "name": quotation.customer_contact.customer.name,
                 "role": quotation.customer_contact.role,
             } if quotation.customer_contact_id else None,
-            "property_name": property_snapshot.get("name") or quotation.property.name or quotation.property.property_type,
+            "property_name": property_details["name"],
             "subtotal": quotation.subtotal, "discount": quotation.discount,
             "discount_mode": quotation.discount_mode, "discount_type": quotation.discount_type, "discount_value": quotation.discount_value,
             "gst_amount": quotation.gst_amount, "grand_total": quotation.grand_total,
+            "gst_mode": quotation.gst_mode, "gst_percentage": quotation.gst_percentage,
             "terms": quotation.notes,
+            "notes": quotation.notes, "terms_conditions": quotation.terms_conditions,
+            "payment_terms": quotation.payment_terms, "work_procedures": quotation.work_procedures,
+            "work_duration": quotation.work_duration,
             "show_product_key_features": quotation.show_product_key_features,
             "product_details": consolidated_product_details(quotation),
             "customer_response_note": quotation.customer_response_note,
@@ -5270,16 +5298,17 @@ class CustomerQuotationView(APIView):
             "accepted_via_receipt_at": quotation.accepted_via_receipt_at,
             "items": [{
                 "id": item.id, "serial": index,
-                "room": ", ".join(item.included_areas) if item.included_areas else (item.room.name if item.room else "General"),
+                "room": quotation_room_area_label(item) or "General",
                 "included_areas": item.included_areas or [],
                 "room_type": (
                     item.room.room_type_name_snapshot
                     if item.room and item.room.room_type_name_snapshot
-                    else "Exterior" if quotation.property.measurement_type == "EXTERIOR" and item.room
+                    else "Exterior" if property_details["measurement_type"] == "EXTERIOR" and item.room
                     else item.room.name if item.room else "General"
                 ),
                 "description": item.description,
-                "service": item.service_name_snapshot or (item.service_type.name if item.service_type else ""),
+                "service_category": item.service_category_name_snapshot or item.custom_service_category or (item.service_category.name if item.service_category else ""),
+                "service": item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else ""),
                 "paint_type": item.product_type_name_snapshot or (item.paint_type.name if item.paint_type else ""),
                 "paint_type_features": (item.product_type_features_snapshot or (item.paint_type.key_features if item.paint_type else "")) if quotation.show_product_key_features else "",
                 "paint_brand": item.brand_name_snapshot or (item.paint_brand.name if item.paint_brand else ""),
@@ -5326,7 +5355,8 @@ class CustomerQuotationListView(APIView):
         results = []
         for item in quotations:
             identity = quotation_contractor_identity(item, request)
-            property_snapshot = item.property_snapshot or {}
+            from .document_identity import quotation_party_details
+            _, property_details = quotation_party_details(item)
             schedule = item.work_schedule if hasattr(item, "work_schedule") else None
             results.append({
                 "id": item.id, "quotation_number": item.quotation_number,
@@ -5342,7 +5372,7 @@ class CustomerQuotationListView(APIView):
                 "accepted_via_receipt_at": item.accepted_via_receipt_at,
                 "grand_total": item.grand_total, "quotation_date": item.quotation_date,
                 "updated_at": item.updated_at,
-                "property_name": property_snapshot.get("name") or item.property.name or item.property.property_type,
+                "property_name": property_details["name"],
                 "contractor_name": identity["company_name"],
                 "contractor_owner": identity["owner_name"],
                 "contractor_mobile": identity["mobile"],
@@ -6479,18 +6509,34 @@ class RoomMeasurementSaveView(APIView):
         property_obj = Property.objects.filter(
             contractor_property_scope(request.user), id=property_id,
         ).first()
-        record = measurement_record_for(request, property_obj, create=True) if property_obj else None
-        work_area = "EXTERIOR" if property_obj and property_obj.measurement_type == "EXTERIOR" else "INTERIOR"
+        if not property_obj:
+            return Response({"room_id": "Select a valid room for this property."}, status=400)
+        work_area = "EXTERIOR" if property_obj.measurement_type == "EXTERIOR" else "INTERIOR"
         legacy_exterior = work_area == "EXTERIOR" and request.data.get("room_id") == "exterior"
+        raw_room_id = request.data.get("room_id")
+        room_id = None
+        if not legacy_exterior:
+            try:
+                if isinstance(raw_room_id, bool) or not isinstance(raw_room_id, (int, str)):
+                    raise ValueError()
+                room_id = int(raw_room_id)
+                if not 0 < room_id <= 9223372036854775807:
+                    raise ValueError()
+            except (TypeError, ValueError, OverflowError):
+                return Response({"room_id": "Select a valid room for this property."}, status=400)
         room = PropertyRoom.objects.filter(
-            id=None if legacy_exterior else request.data.get("room_id"), property=property_obj
+            id=room_id, property=property_obj
         ).first()
+        if not room and not legacy_exterior:
+            return Response({"room_id": "Select a valid room for this property."}, status=400)
+        record = measurement_record_for(request, property_obj, create=True)
         if room and not room.measurement_record_id:
             room.measurement_record = record
             room.save(update_fields=("measurement_record", "updated_at"))
         elif room and room.measurement_record_id != record.id:
             room = None
-        if not property_obj or (not room and not legacy_exterior):
+        if not room and not legacy_exterior:
+            transaction.set_rollback(True)
             return Response({"room_id": "Select a valid room for this property."}, status=400)
         walls = request.data.get("walls", [])
         if not isinstance(walls, list):

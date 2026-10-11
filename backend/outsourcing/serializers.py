@@ -34,6 +34,8 @@ class SubcontractWorkOrderScopeSerializer(serializers.ModelSerializer):
             data.pop("unit_rate", None)
         if not privileged:
             data.pop("source_quotation_item",None)
+        if instance.work_order.private_pricing.get("margin"):
+            data["unit_rate"] = instance.specification_snapshot.get("vendor_rate", data.get("unit_rate"))
         return data
 
     class Meta:
@@ -168,6 +170,14 @@ class AdditionalWorkRequestSerializer(serializers.ModelSerializer):
 
 
 class SubcontractQuoteLineSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.quote.pricing.get("basis") == "MARGIN":
+            import json
+            spec = json.loads(instance.specification or "{}")
+            data["unit_rate"] = spec.get("vendor_rate", data["unit_rate"])
+        return data
+
     discount_amount = serializers.SerializerMethodField()
     net_amount = serializers.SerializerMethodField()
 
@@ -439,6 +449,12 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
             accepted = instance.quotes.filter(status=SubcontractQuote.Status.ACCEPTED, is_current=True).first()
             if not instance.material_mode:
                 data["agreed_amount"] = self.fields["agreed_amount"].to_representation(accepted.total) if accepted else None
+        if instance.private_pricing.get("margin"):
+            from .sharing import recipient_details, pricing_adjustment
+            data["site_details"] = recipient_details(instance)
+            data["pricing_adjustment"] = pricing_adjustment(instance)
+            if not owner_or_admin:
+                data["site_address"] = data["site_details"]["address"] or data["site_details"]["approximate_location"]
         return data
 
     scopes = SubcontractWorkOrderScopeSerializer(many=True, read_only=True)
@@ -535,10 +551,10 @@ class SubcontractWorkOrderSerializer(serializers.ModelSerializer):
         ]
 
     def get_main_contractor_name(self, obj):
-        return user_label(obj.main_contractor)
+        return obj.private_pricing.get("issued_identity", {}).get("issuer") or user_label(obj.main_contractor)
 
     def get_receiving_contractor_name(self, obj):
-        return user_label(obj.receiving_contractor)
+        return obj.private_pricing.get("issued_identity", {}).get("vendor") or user_label(obj.receiving_contractor)
 
     def get_quotation_reference(self, obj):
         return obj.private_pricing.get("source_reference") or obj.quotation.quotation_number or str(obj.quotation_id)

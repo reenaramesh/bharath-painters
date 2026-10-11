@@ -145,7 +145,7 @@ export default function PdfPreviewHost() {
   if (!preview) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5">
+    <div className="fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5" data-popup-protection="readonly">
       <section className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="bp-pdf-preview-toolbar flex items-center gap-1 border-b border-slate-200 px-3 py-3 sm:gap-3 sm:px-5">
           <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white sm:grid">

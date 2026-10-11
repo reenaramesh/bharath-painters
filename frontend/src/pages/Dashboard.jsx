@@ -197,7 +197,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           <RefreshCw className="h-5 w-5" />
         </button>
       </header>
-      <MobileDashboardShortcuts />
+      <MobileDashboardShortcuts mobileOnly={false} />
       <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
         <ApplicatorMetric
           icon={ClipboardList}

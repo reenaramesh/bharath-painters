@@ -147,6 +147,12 @@ def transition(user, work_order, target_status, note=""):
         if price is None:
             raise ValidationError({"pricing":"Save complete agreed pricing before changing status."})
         if target_status == "SENT":
+            if work_order.private_pricing.get("margin"):
+                from .serializers import user_label
+                private = dict(work_order.private_pricing)
+                private["issued_identity"] = {"issuer": user_label(work_order.main_contractor), "vendor": user_label(work_order.receiving_contractor)}
+                work_order.private_pricing = private
+                work_order.save(update_fields=["private_pricing"])
             price.status=SubcontractQuote.Status.SENT;price.sent_at=now
             price.save(update_fields=["status","sent_at","updated_at"])
         elif target_status in {"ACCEPTED","DECLINED","WITHDRAWN"}:

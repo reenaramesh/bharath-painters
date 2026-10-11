@@ -1,8 +1,11 @@
 ﻿from django.urls import path
 
+from .allocations import OfferCatalogView, AllocationDraftView
 from .views import (
     WorkOrderDraftPricingView,
     WorkOrderPdfView,
+    WorkOrderOpenPreviewView,
+    WorkOrderMarginPreviewView,
     AdditionalWorkDecisionView,
     AdditionalWorkRequestView,
     WorkOrderAssignmentView,
@@ -20,6 +23,10 @@ from .views import (
 )
 
 urlpatterns = [
+    path("work-orders/offer-catalog/", OfferCatalogView.as_view(), name="work-order-offer-catalog"),
+    path("work-orders/allocation-drafts/", AllocationDraftView.as_view(), name="work-order-allocation-drafts"),
+    path("work-orders/pricing-preview/", WorkOrderMarginPreviewView.as_view(), name="work-order-margin-preview"),
+    path("work-orders/<int:pk>/open-preview/", WorkOrderOpenPreviewView.as_view(), name="work-order-open-preview"),
     path("work-orders/<int:pk>/draft-pricing/",WorkOrderDraftPricingView.as_view(),name="work-order-draft-pricing"),
     path("work-orders/<int:pk>/pdf/",WorkOrderPdfView.as_view(),name="work-order-pdf"),
     path("work-orders/", WorkOrderListCreateView.as_view(), name="work-order-list-create"),

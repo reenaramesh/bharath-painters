@@ -10,12 +10,21 @@ export default function systemCopyPlugin({ types: t }) {
     return value;
   }).filter(Boolean).join(' ');
   const displayLiteral = (node) => t.isStringLiteral(node) && /[A-Za-z]/.test(node.value);
-  const staticData = (node) => t.isStringLiteral(node) || t.isNumericLiteral(node) || t.isBooleanLiteral(node) || t.isNullLiteral(node)
+  // This object contains display copy only, never record names or API values.
+  const masterLabel = (node) => t.isMemberExpression(node) && !node.computed
+    && t.isIdentifier(node.object, { name: 'SERVICE_MASTER_LABELS' })
+    && ['category', 'productType', 'description'].includes(node.property.name);
+  const staticData = (node) => masterLabel(node) || t.isStringLiteral(node) || t.isNumericLiteral(node) || t.isBooleanLiteral(node) || t.isNullLiteral(node)
     || t.isArrayExpression(node) && node.elements.every((item) => item && staticData(item))
     || t.isObjectExpression(node) && node.properties.every((item) => t.isObjectProperty(item) && staticData(item.value));
   const staticProperty = (node, property) => t.isArrayExpression(node) && node.elements.every((item) =>
     t.isObjectExpression(item) && item.properties.some((entry) => t.isObjectProperty(entry) && (entry.key.name || entry.key.value) === property && staticData(entry.value)));
   const safeBinding = (path, node) => {
+    if (masterLabel(node)) {
+      const binding = path.scope.getBinding(node.object.name);
+      return binding?.path.isImportSpecifier()
+        && binding.path.parent.source.value.endsWith('/utils/serviceMasterLabels.js');
+    }
     const identifier = t.isMemberExpression(node) ? node.object : node;
     if (!t.isIdentifier(identifier)) return false;
     const binding = path.scope.getBinding(identifier.name);

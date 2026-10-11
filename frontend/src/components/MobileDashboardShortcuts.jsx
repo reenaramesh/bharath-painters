@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarClock,
+  CalendarCheck,
   ClipboardList,
   FileText,
   IndianRupee,
@@ -18,6 +19,7 @@ import {
   ReceiptText,
   Ruler,
   UserRoundCheck,
+  UserRoundPlus,
   Users,
   Wrench,
   X,
@@ -26,18 +28,22 @@ import { menuRouteEnabled } from "../utils/menuVisibility";
 import useAuth from "../context/useAuth";
 import ShareAppButton from "./ShareAppButton";
 import { visibleNavigation } from "../config/navigation";
+import "./dashboard-shortcuts.css";
 
 const shortcutsByRole = {
   CONTRACTOR: [
+    { label: "Add customer", icon: UserRoundPlus, to: "/customers?action=add" },
+    { label: "New quotation", icon: FileText, to: "/quotations/new" },
+    { label: "Messages", icon: MessageCircle, to: "/messages" },
+    { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
+    { label: "Site visits", icon: CalendarCheck, to: "/site-visits" },
+    { label: "Sub network", icon: Network, to: "/contractor-network" },
     { label: "Customers", icon: Users, to: "/customers" },
     { label: "Properties", icon: Building2, to: "/properties" },
     { label: "Quotations", icon: FileText, to: "/quotations" },
     { label: "Invoices", icon: ReceiptText, to: "/invoices" },
     { label: "Work Network", icon: Network, to: "/jobs?post=1" },
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
-    { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
-    { label: "Site Visits", icon: CalendarClock, to: "/site-visits" },
-    { label: "Messages", icon: MessageCircle, to: "/messages" },
     { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
     { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
   ],
@@ -72,7 +78,7 @@ const shortcutsByRole = {
   ],
 };
 
-export default function MobileDashboardShortcuts() {
+export default function MobileDashboardShortcuts({ mobileOnly = true }) {
   const { user, menuVisibility } = useAuth();
   const { employmentStatus = "loading" } = useOutletContext() || {};
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -86,30 +92,19 @@ export default function MobileDashboardShortcuts() {
   if (!shortcuts.length) return null;
   return (
     <>
-      <section className="bp-dashboard-shortcuts md:hidden" aria-label="Quick access">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-800">Quick access</h2>
-          
-        </div>
-        <div className="bp-dashboard-shortcut-scroll overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="bp-dashboard-shortcut-items flex w-max snap-x snap-mandatory gap-3">
-            <button type="button" onClick={() => setScannerOpen(true)} className="w-[72px] shrink-0 snap-start text-center">
-              <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-white shadow-sm transition active:scale-95">
-                <QrCode className="h-7 w-7" strokeWidth={1.8} />
-              </span>
-              <span className="mt-2 block min-h-4 whitespace-nowrap text-[9px] font-semibold leading-4 text-slate-800">
-                Scan QR
-              </span>
+      <section className={`bp-dashboard-shortcuts ${mobileOnly ? "md:hidden" : ""}`} aria-label="Quick actions">
+        <h2 className="bp-shortcut-heading">Quick actions</h2>
+        <div className="bp-dashboard-shortcut-scroll" tabIndex={0} role="region" aria-label="Dashboard shortcuts, scroll for more">
+          <div className="bp-dashboard-shortcut-items">
+            <button type="button" onClick={() => setScannerOpen(true)} className="bp-dashboard-shortcut">
+              <span className="bp-shortcut-icon bp-shortcut-icon-primary"><QrCode aria-hidden="true" strokeWidth={1.8} /></span>
+              <span className="bp-shortcut-label">Scan QR</span>
             </button>
             <ShareAppButton shortcut />
             {shortcuts.map(({ label, icon: Icon, to }) => (
-              <Link key={`${label}-${to}`} to={to} className="w-[72px] shrink-0 snap-start text-center">
-                <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 shadow-sm transition active:scale-95">
-                  <Icon className="h-7 w-7" strokeWidth={1.8} />
-                </span>
-                <span className="mt-2 block min-h-4 whitespace-nowrap text-[10px] font-medium leading-4 text-slate-700">
-                  {label}
-                </span>
+              <Link key={`${label}-${to}`} to={to} className="bp-dashboard-shortcut">
+                <span className="bp-shortcut-icon"><Icon aria-hidden="true" strokeWidth={1.8} /></span>
+                <span className="bp-shortcut-label">{label}</span>
               </Link>
             ))}
           </div>

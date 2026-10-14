@@ -14,7 +14,6 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         app: fileURLToPath(new URL('./index.html', import.meta.url)),
-        uiPreview: fileURLToPath(new URL('./ui-preview.html', import.meta.url)),
       },
     },
   },

@@ -25,7 +25,7 @@ import { previewPdf } from "../components/PdfPreview";
 import { profileImageStyle } from "../utils/profileImagePosition";
 import { Button, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
-import { consumeQuotationSubmission } from "../utils/quotationSubmission.js";
+import { consumeQuotationSubmission, quotationSubmissionError } from "../utils/quotationSubmission.js";
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -65,6 +65,7 @@ export default function QuotationDetail() {
   const [downloading, setDownloading] = useState(false);
   const [pdfSectionSelection, setPdfSectionSelection] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [creatingRevision, setCreatingRevision] = useState(false);
   const submitLock = useRef(false);
   const [converting, setConverting] = useState(false);
   const convertingRef = useRef(false);
@@ -187,6 +188,27 @@ export default function QuotationDetail() {
       setDeleting(false);
     }
   }
+  async function editSubmittedQuotation() {
+    if (creatingRevision) return;
+    setCreatingRevision(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/quotations/${id}/revision-draft/`, {});
+      navigate(`/quotations/${data.id}/edit`);
+    } catch (requestError) {
+      const details = requestError.response?.data;
+      if (requestError.response?.status === 404 && (typeof details === "string" && /^\s*</.test(details) || details?.detail === "Not found.")) {
+        setError("The connected API does not have quotation revision editing enabled yet. Restart or update the Django backend from the feature branch, then try again.");
+        return;
+      }
+      const message = details && typeof details === "object"
+        ? Object.values(details).flat().filter((value) => typeof value === "string").join(" ")
+        : "";
+      setError(message || "A revision draft could not be opened. Please try again.");
+    } finally {
+      setCreatingRevision(false);
+    }
+  }
   async function downloadPdf() {
     setDownloading(true);
     setError("");
@@ -213,11 +235,7 @@ export default function QuotationDetail() {
       setCustomerLogin(data.temporary_password ? { customer_id: data.customer_id, mobile: data.customer_mobile, temporary_password: data.temporary_password } : null);
       setShowShare(true);
     } catch (requestError) {
-      setError(
-        Object.values(requestError.response?.data || {})
-          .flat()
-          .join(" ") || "Quotation could not be submitted.",
-      );
+      setError(quotationSubmissionError(requestError));
     } finally {
       submitLock.current = false;
       setSubmitting(false);
@@ -335,6 +353,17 @@ export default function QuotationDetail() {
               <Edit3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Edit Draft
             </Link>
+          )}
+          {["SENT", "VIEWED", "REVISION_REQUESTED", "REJECTED", "EXPIRED"].includes(quotation.status) && (
+            <button
+              type="button"
+              onClick={editSubmittedQuotation}
+              disabled={creatingRevision}
+              className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
+            >
+              <Edit3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              {creatingRevision ? "Opening revision..." : "Edit quotation"}
+            </button>
           )}
           {quotation.status === "COMPLETED" && (
             <button

@@ -22,6 +22,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [billing, setBilling] = useState(null);
+  const [revenue, setRevenue] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
@@ -30,8 +32,9 @@ export default function Dashboard() {
       return;
     }
     setLoading(true);
+    setRevenueLoading(user.role === "CONTRACTOR");
     try {
-      const [dashboardResponse, billingResponse, invoiceResponse] = await Promise.all([
+      const [dashboardResponse, billingResponse, invoiceResponse, revenueResponse] = await Promise.all([
         api.get(
           user.role === "PAINTER"
             ? "/jobs/applicator-dashboard/"
@@ -41,11 +44,15 @@ export default function Dashboard() {
         user.role === "CONTRACTOR"
           ? api.get("/quotations/invoices/").catch(() => null)
           : Promise.resolve(null),
+        user.role === "CONTRACTOR"
+          ? api.get("/billing/contractor-revenue/", { params: { year: new Date().getFullYear() } }).catch(() => null)
+          : Promise.resolve(null),
       ]);
       setData(user.role === "CONTRACTOR"
         ? dashboardWithInvoiceCount(dashboardResponse.data, invoiceResponse?.data)
         : dashboardResponse.data);
       setBilling(billingResponse.data);
+      setRevenue(revenueResponse?.data ?? null);
       setError("");
     } catch {
       setError(
@@ -55,6 +62,7 @@ export default function Dashboard() {
       );
     } finally {
       setLoading(false);
+      setRevenueLoading(false);
     }
   }, [user]);
   useEffect(() => {
@@ -102,7 +110,7 @@ export default function Dashboard() {
         </button>
       </div>
     );
-  return <ContractorDashboard data={data} onRefresh={load} error={error}><SubscriptionCard billing={billing} /></ContractorDashboard>;
+  return <ContractorDashboard data={data} revenue={revenue} revenueLoading={revenueLoading} onRefresh={load} error={error}><SubscriptionCard billing={billing} /></ContractorDashboard>;
 }
 function Empty({ text }) {
   return <p className="p-8 text-center text-sm text-slate-400">{text}</p>;

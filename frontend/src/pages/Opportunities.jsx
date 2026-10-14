@@ -96,7 +96,7 @@ export default function Opportunities() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search ID, client, mobile, property or service"
-              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-900 bp-ui-control"
+              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-900 bp-control-leading-icon bp-ui-control"
             />
           </div>
           <div className="flex flex-wrap gap-1.5">

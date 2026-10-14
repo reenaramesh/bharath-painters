@@ -220,6 +220,13 @@ DATABASES = {
     )
 }
 
+if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+    # Acquire the write lock before reading in atomic transactions. Deferred
+    # read-to-write upgrades can fail immediately despite SQLite's timeout.
+    DATABASES["default"].setdefault("OPTIONS", {}).update(
+        transaction_mode="IMMEDIATE", timeout=20,
+    )
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 

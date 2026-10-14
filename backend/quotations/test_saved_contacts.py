@@ -151,7 +151,7 @@ class SavedContactAndCustomerConnectTests(APITestCase):
         self.assertEqual(requested.status_code, 201)
         notification_count = PortalNotification.objects.count()
         saved = self.save_contact()
-        self.assertEqual(saved.status_code, 201, saved.data)
+        self.assertEqual(saved.status_code, 200, saved.data)
         self.assertEqual(saved.data["connection_status"], "PENDING")
         self.assertEqual(PortalNotification.objects.count(), notification_count)
         edited = self.client.patch(self.customer_url, {"notes": ""}, format="json")

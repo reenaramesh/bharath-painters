@@ -55,7 +55,7 @@ export const NAVIGATION = [
   item("invoices", "Invoices", "/invoices", FileText, "Finance", C, { verified: true }),
   item("receipts", "Customer Payments & Revenue", "/contractor-revenue", ReceiptText, "Finance", C, { verified: true }),
   item("earnings", "My Payments", "/in-house-earnings", WalletCards, "Finance", E, { description: "Existing earnings screen; eligibility and records remain controlled by the backend." }),
-  item("customer-invoices", "Payments & Invoices", "/customer-invoices", ReceiptText, "Finance", U),
+  item("customer-invoices", "Approved Projects & Payments", "/customer-invoices", ReceiptText, "Finance", U),
   item("billing", "Billing", "/billing", CreditCard, "Finance", A),
   item("revenue", "Subscription Revenue", "/revenue", BarChart3, "Finance", A),
   item("messages", "Messages", "/messages", MessageCircle, "Communication", [...C, ...E, ...U], { badge: "messages" }),

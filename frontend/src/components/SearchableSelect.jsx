@@ -47,7 +47,7 @@ export default function SearchableSelect({
           onChange("");
           setOpen(true);
         }}
-        className={(`${className} pl-10 ${invalid ? "border-red-400 bg-red-50" : ""}`) + " bp-ui-control"}
+        className={(`${className} pl-10 bp-control-leading-icon ${invalid ? "border-red-400 bg-red-50" : ""}`) + " bp-ui-control"}
       />
       {open && !disabled && (
         <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl">

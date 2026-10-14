@@ -7,6 +7,7 @@ import ProfileImageControl from "./ProfileImageControl";
 import ContractorProfilePreviewModal from "./ContractorProfilePreviewModal";
 import ServiceLocationLookup from "./ServiceLocationLookup";
 import SocialIconUpload from "./SocialIconUpload";
+import { resolveAppTheme } from "../utils/appTheme";
 import "./business-settings.css";
 
 function SectionCard({ children, ...props }) {
@@ -18,6 +19,7 @@ function Field({ label, required, children }) {
 function Input(props) { return <input className="bp-ui-control" {...props} />; }
 function Textarea(props) { return <textarea className="bp-ui-control" {...props} />; }
 const APP_THEMES = [
+  { name: "Studio Painterly", primary: "#2563EB", accent: "#F59E0B" },
   { name: "Coastal", primary: "#176B9B", accent: "#508398" },
   { name: "Indigo", primary: "#4F46E5", accent: "#7771E8" },
   { name: "Forest", primary: "#276749", accent: "#8BBF9F" },
@@ -37,8 +39,9 @@ const SOCIAL_FIELDS = [
 export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, onSave, live = false, renderAppearance }) {
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "appearance" ? "appearance" : "business";
-  const [form, setForm] = useState(() => structuredClone(initial));
-  const [saved, setSaved] = useState(() => structuredClone(initial));
+  const initialForm = () => { const value = structuredClone(initial); return { ...value, ...resolveAppTheme(value) }; };
+  const [form, setForm] = useState(initialForm);
+  const [saved, setSaved] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [files, setFiles] = useState({});

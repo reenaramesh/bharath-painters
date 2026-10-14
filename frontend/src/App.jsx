@@ -25,6 +25,7 @@ const Dashboard = page("Dashboard");
 const Customers = page("Customers");
 const CallInbox = page("CallInbox");
 const CustomerDetail = page("CustomerDetail");
+const CustomerProjectAccount = page("CustomerProjectAccount");
 const CustomerQuotationHistory = page("CustomerQuotationHistory");
 const Properties = page("Properties");
 const PropertyDetail = page("PropertyDetail");
@@ -187,6 +188,7 @@ function AppRoutes() {
             <Route path="/customers" element={<Customers />} />
             <Route path="/call-inbox" element={<CallInbox />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/customers/:id/project-account" element={<VerifiedContractorRoute><CustomerProjectAccount /></VerifiedContractorRoute>} />
             <Route
               path="/customers/:id/quotations"
               element={<CustomerQuotationHistory />}

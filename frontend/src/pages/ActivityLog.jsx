@@ -87,7 +87,7 @@ export default function ActivityLog() {
       <section className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-6">
         <label className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search user, activity or ID" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 bp-ui-control" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search user, activity or ID" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 bp-control-leading-icon bp-ui-control" />
         </label>
         <select value={action} onChange={(event) => setAction(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 bp-ui-control">
           <option value="">All actions</option><option value="CREATE">Created</option><option value="UPDATE">Updated</option><option value="DELETE">Deleted</option>

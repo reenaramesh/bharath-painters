@@ -2,13 +2,15 @@
 
 Independent Android-first Expo SDK 55 / React Native / TypeScript / Expo Router app with React Native Paper Material Design 3. Existing backend, PostgreSQL, web and deployment are untouched.
 
+The supplied starter ZIP's blue-and-white theme, metric cards, action cards and dashboard layout have been merged into this existing secure foundation. See [starter integration and module status](docs/STARTER_INTEGRATION.md). Home now reads the Contractor business profile as well as dashboard data, with a 60-second session cache and pull-to-refresh. The sample "active projects" count was removed because the dashboard API does not provide it.
+
 ## Run
 
 Node 22.13+ (Node 24 recommended). From this directory:
 
 ```powershell
 npm ci
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 # Set EXPO_PUBLIC_API_URL to your existing reachable API, including /api.
 npm start
 # Press a for an Android emulator, or scan the QR code with a compatible Expo Go.

@@ -1,5 +1,22 @@
 # Foundation verification — 9 October 2026
 
+# Contractor module increment — 10 October 2026
+
+- Strict TypeScript: `npm run typecheck` passed after adding connected-customer property creation and the Outsourced & Received Work list/detail route.
+- Mobile unit tests: `npm test` passed (22 tests), including property validation/payload tests and subcontract data-mapping/filter tests for participant direction, hidden recipient pricing, and omitted per-scope unit rates.
+- Android JS/Hermes export: `npm run export:android -- --max-workers 1` passed. This is a bundle export, not an APK or device test.
+- `git diff --check` passed.
+- The Vercel route returned the deployed SPA shell (HTTP 200). Its authenticated screen was not rendered in this session; the route and feature were checked against the existing local web implementation and role-scoped Django REST contracts. No production API or mutation was called.
+- Browser interaction and native-device QA for the newly added form and subcontract screens remain pending. The browser QA script could not run because Python was unavailable on PATH and the backend venv has no Playwright package; no package was installed as part of this increment.
+
+## Latest starter integration checks
+
+Blue-and-white starter merge: strict TypeScript passed; all 12 targeted unit tests passed, including request deduplication, 60-second cache, profile failure, invalid responses and logout cache invalidation. Expo public configuration resolved SDK 55, Router, SecureStore and Android keyboard resize. `expo install --check` reported dependencies up to date using installed compatibility metadata; online validation was not performed (offline tool warning).
+
+Both browser suites passed after the merge: sample navigation and widths 320/360/390/430, dark mode and logout; mocked login, dashboard and business-profile reads, empty/error states, disabled menus and role isolation. No production API was contacted. The latest changes were not exported to Android or tested on a device; earlier Android export below applies to the preceding foundation. Advisory counts below are historical and were not rescanned in this increment. See STARTER_INTEGRATION.md for current module coverage.
+
+## Earlier foundation checks
+
 Redesign re-verification: navy/ivory/orange theme and Manrope fonts pass strict TypeScript, all eight core tests, Android Hermes export, and both Python Playwright suites. Visually inspected light/dark Home and a 1440px desktop preview with its centred phone frame. Original device-validation and upstream advisory limitations below still apply.
 
 ## Passed

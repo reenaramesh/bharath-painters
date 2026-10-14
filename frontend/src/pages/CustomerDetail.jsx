@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Phone,
   Plus,
+  ReceiptText,
   X,
 } from "lucide-react";
 import api from "../api/client";
@@ -324,6 +325,7 @@ export default function CustomerDetail() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {customer.connection_status === "CONNECTED" && <Link to={`/customers/${customer.id}/project-account`} className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><ReceiptText className="h-4 w-4" />Payment History</Link>}
           <a
             href={`tel:${customer.mobile}`}
             className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"

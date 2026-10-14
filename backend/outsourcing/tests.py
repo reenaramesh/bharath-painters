@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import BharathUser, ProviderProfile, ProviderServiceClaim
+from jobs.models import ContractorApplicatorTeam
 from quotations.models import (
     ContractorConnection,
     Customer,
@@ -238,6 +239,14 @@ class WorkOrderWorkflowTests(OutsourcingTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         work_order.refresh_from_db()
 
+        self.employee.is_active = True
+        self.employee.is_verified = True
+        self.employee.verification_status = BharathUser.VerificationStatus.VERIFIED
+        self.employee.save(update_fields=("is_active", "is_verified", "verification_status"))
+        ContractorApplicatorTeam.objects.get_or_create(
+            contractor=self.receiving, painter=self.employee,
+            defaults={"employment_type": ContractorApplicatorTeam.EmploymentType.IN_HOUSE},
+        )
         response = self.client.post(
             reverse("work-order-assignment", args=[work_order.pk]),
             {"employee": self.employee.pk},
@@ -245,7 +254,16 @@ class WorkOrderWorkflowTests(OutsourcingTestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
 
-        workflow.transition(self.receiving, work_order, "IN_PROGRESS")
+        assignment = WorkOrderAssignment.objects.get(work_order=work_order, employee=self.employee)
+        self.client.force_authenticate(self.employee)
+        for action in ("ACCEPT", "START", "COMPLETE"):
+            response = self.client.post(
+                reverse("work-order-assignment-response", args=[assignment.pk]),
+                {"action": action}, format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.client.force_authenticate(self.receiving)
+        work_order.refresh_from_db()
         workflow.transition(self.receiving, work_order, "SUBMITTED_FOR_REVIEW", note="Walls finished")
         self.assertEqual(work_order.completions.count(), 1)
 

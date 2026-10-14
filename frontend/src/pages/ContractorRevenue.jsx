@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import {
   Download,
   FileText,
@@ -39,13 +39,25 @@ const label = (value) =>
     .replaceAll("_", " ")
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const registerViews = {
+  collected: { label: "Total collected", tab: "RECEIPTS" },
+  advances: { label: "Advance received", tab: "RECEIPTS" },
+  credits: { label: "Customer credits", tab: "RECEIPTS" },
+  invoices: { label: "Invoices raised", tab: "INVOICES" },
+  outstanding: { label: "Outstanding", tab: "DUES" },
+};
 
 export default function ContractorRevenue() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const registerKey = registerViews[searchParams.get("register")] ? searchParams.get("register") : "collected";
+  const selectedRegister = registerViews[registerKey];
+  const hasExplicitRegister = searchParams.has("register");
   const [data, setData] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [tab, setTab] = useState("RECEIPTS");
+  const registerRef = useRef(null);
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState("");
   const [showReceiptForm, setShowReceiptForm] = useState(false);
@@ -63,6 +75,14 @@ export default function ContractorRevenue() {
     notes: "",
   });
   const [error, setError] = useState("");
+  useEffect(() => {
+    setTab(selectedRegister.tab);
+    setSearch("");
+    if (hasExplicitRegister) {
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      registerRef.current?.scrollIntoView({ behavior, block: "start" });
+    }
+  }, [registerKey, selectedRegister.tab, hasExplicitRegister]);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -92,6 +112,11 @@ export default function ContractorRevenue() {
       ]),
     [data, search],
   );
+  const registerReceipts = useMemo(() => {
+    if (registerKey === "advances") return receipts.filter((row) => ["ADVANCE", "QUOTATION RECEIPT"].includes(row.kind));
+    if (registerKey === "credits") return receipts.filter((row) => row.is_customer_credit);
+    return receipts;
+  }, [receipts, registerKey]);
   const invoices = useMemo(
     () =>
       filterRows(data?.invoices, search, [
@@ -128,6 +153,12 @@ export default function ContractorRevenue() {
     } finally {
       setBusy("");
     }
+  }
+  function selectRegister(key) {
+    const next = new URLSearchParams(searchParams);
+    next.set("register", key);
+    setSearchParams(next);
+    setTab(registerViews[key].tab);
   }
   async function createReceipt(event) {
     event.preventDefault();
@@ -361,40 +392,28 @@ export default function ContractorRevenue() {
       )}
       {data === null && loading ? <LoadingState label="Loading revenue and payment history..." className="finance-loading" /> : data && <>
       <section className="finance-summary-grid grid grid-cols-2 gap-3 xl:grid-cols-5" aria-label="Revenue summary">
-        <StatCard
-          icon={IndianRupee}
-          label="Total collected"
-          value={money(data?.total_collected)}
-          tone="success"
-          className="finance-summary-primary"
-        />
-        <StatCard
-          icon={ReceiptText}
-          label="Advance received"
-          value={money(data?.advance_received)}
-          
-          tone="info"
-        />
-        <StatCard
-          icon={WalletCards}
-          label="Customer credits"
-          value={money(data?.credits)}
-          
-          tone="brand"
-        />
-        <StatCard
-          icon={FileText}
-          label="Invoices raised"
-          value={money(data?.invoices_raised)}
-          hint={`${data?.invoices_count || 0} final invoice(s)`}
-          tone="neutral"
-        />
-        <StatCard
-          icon={IndianRupee}
-          label="Outstanding"
-          value={money(data?.outstanding)}
-          tone="warning"
-        />
+        {[
+          { key: "collected", icon: IndianRupee, label: "Total collected", value: data?.total_collected, tone: "success", className: "finance-summary-primary" },
+          { key: "advances", icon: ReceiptText, label: "Advance received", value: data?.advance_received, tone: "info" },
+          { key: "credits", icon: WalletCards, label: "Customer credits", value: data?.credits, tone: "brand" },
+          { key: "invoices", icon: FileText, label: "Invoices raised", value: data?.invoices_raised, hint: `${data?.invoices_count || 0} final invoice(s)`, tone: "neutral" },
+          { key: "outstanding", icon: IndianRupee, label: "Outstanding", value: data?.outstanding, tone: "warning" },
+        ].map((card) => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set("register", card.key);
+          const active = registerKey === card.key;
+          return (
+            <Link
+              key={card.key}
+              to={{ search: `?${nextParams.toString()}` }}
+              aria-current={active ? "page" : undefined}
+              aria-label={`Open ${card.label} payment register. ${money(card.value)}${card.hint ? `, ${card.hint}` : ""}`}
+              className={`finance-summary-action${active ? " is-active" : ""}`}
+            >
+              <StatCard icon={card.icon} label={card.label} value={money(card.value)} hint={card.hint} tone={card.tone} className={card.className || ""} />
+            </Link>
+          );
+        })}
       </section>
       <SectionCard title="Reporting period" description={`Showing ${month ? `${months[month]} ` : "all months "}${year}. Totals follow this selected period.`} className="finance-filter-card" bodyClassName="p-4">
         <div className="flex flex-col gap-3 lg:flex-row">
@@ -424,40 +443,42 @@ export default function ContractorRevenue() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search receipt, customer, project, quotation or invoice"
-              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-ui-control"
+              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-control-leading-icon bp-ui-control"
             />
           </label>
         </div>
       </SectionCard>
-      <SectionCard title="Payment register"  className="finance-register-card" bodyClassName="p-0">
+      <div ref={registerRef} id="payment-register" className="scroll-mt-24">
+      <SectionCard title={`Payment register - ${selectedRegister.label}`} className="finance-register-card" bodyClassName="p-0">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-slate-600">{tab === "RECEIPTS" ? `${receipts.length} matching receipts` : tab === "INVOICES" ? `${invoices.length} matching invoices` : `${dues.length} matching customer balances`}</p>
+          <p aria-live="polite" className="text-sm font-semibold text-slate-600">{tab === "RECEIPTS" ? `${registerReceipts.length} matching receipts` : tab === "INVOICES" ? `${invoices.length} matching invoices` : `${dues.length} matching customer balances`}</p>
           <div className="finance-tabs flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Payment register views">
-            <Tab active={tab === "RECEIPTS"} onClick={() => setTab("RECEIPTS")}>
+            <Tab active={tab === "RECEIPTS"} onClick={() => selectRegister("collected")}>
               Receipts {receipts.length}
             </Tab>
-            <Tab active={tab === "INVOICES"} onClick={() => setTab("INVOICES")}>
+            <Tab active={tab === "INVOICES"} onClick={() => selectRegister("invoices")}>
               Invoices {invoices.length}
             </Tab>
-            <Tab active={tab === "DUES"} onClick={() => setTab("DUES")}>
+            <Tab active={tab === "DUES"} onClick={() => selectRegister("outstanding")}>
               Customer dues {dues.length}
             </Tab>
           </div>
         </div>
         {tab === "RECEIPTS" ? (
-          <Receipts rows={receipts} busy={busy} download={downloadReceipt} />
+          <Receipts rows={registerReceipts} busy={busy} download={downloadReceipt} emptyTitle={registerKey === "credits" ? "No customer credits in this period" : registerKey === "advances" ? "No advance payments in this period" : "No payment receipts found"} />
         ) : tab === "INVOICES" ? (
           <Invoices rows={invoices} />
         ) : (
           <CustomerDues rows={dues} />
         )}
       </SectionCard>
+      </div>
       </>}
     </div>
   );
 }
 
-function Receipts({ rows, busy, download }) {
+function Receipts({ rows, busy, download, emptyTitle = "No payment receipts found" }) {
   return (
     <div className="finance-table-scroll overflow-x-auto">
       <div className="finance-mobile-records">
@@ -519,7 +540,7 @@ function Receipts({ rows, busy, download }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && <EmptyState title="No payment receipts found"  />}
+      {!rows.length && <EmptyState title={emptyTitle} description="Try another reporting period or clear the search." />}
     </div>
   );
 }

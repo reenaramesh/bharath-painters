@@ -10,6 +10,7 @@ import CustomerConnectionPrompt from "../components/CustomerConnectionPrompt";
 import MobileBottomNav from "../components/MobileBottomNav";
 import FloatingQuickActions from "../components/FloatingQuickActions";
 import useEmploymentStatus from "../hooks/useEmploymentStatus";
+import { resolveAppTheme } from "../utils/appTheme";
 import "../pages/contractor-dashboard.css";
 import "../pages/customer-portal.css";
 
@@ -19,6 +20,8 @@ export default function DashboardLayout() {
   const pathname = useLocation().pathname;
   const messagesPage = pathname === "/messages";
   const contractorWorkspace = user?.role === "CONTRACTOR";
+  const premiumContractorDashboard = contractorWorkspace && pathname === "/dashboard";
+  const premiumContractorQuotationWorkspace = contractorWorkspace && (pathname === "/quotations" || pathname.startsWith("/quotations/"));
   const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN", "SUPPORT"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigationOpenerRef = useRef(null);
@@ -29,17 +32,19 @@ export default function DashboardLayout() {
     if (!themedWorkspace) return undefined;
     let active = true;
     const updateColors = (colors) => {
-      const primary = colors.app_primary_color || "#176B9B";
+      const theme = resolveAppTheme(colors);
+      const primary = theme.app_primary_color;
       const channels = [1, 3, 5].map((index) => parseInt(primary.slice(index, index + 2), 16) / 255);
       const luminance = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
       if (active) setAppColors({
         "--app-primary": primary,
-        "--app-accent": colors.app_accent_color || "#508398",
+        "--app-accent": theme.app_accent_color,
         "--app-on-primary": luminance[0] * 0.2126 + luminance[1] * 0.7152 + luminance[2] * 0.0722 > 0.18 ? "#172033" : "#ffffff",
       });
     };
+    const fallbackColors = { app_primary_color: user?.app_primary_color, app_accent_color: user?.app_accent_color };
     if (contractorWorkspace) api.get("/accounts/contractor-profile/").then(({ data }) => updateColors(data)).catch(() => {});
-    else api.get("/accounts/me/").then(({ data }) => updateColors(data)).catch(() => updateColors(user));
+    else api.get("/accounts/me/").then(({ data }) => updateColors(data)).catch(() => updateColors(fallbackColors));
     const onThemeChange = (event) => updateColors(event.detail);
     window.addEventListener("bp-app-theme-changed", onThemeChange);
     return () => { active = false; window.removeEventListener("bp-app-theme-changed", onThemeChange); };
@@ -54,7 +59,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${premiumContractorDashboard ? "bp-contractor-mosaic" : ""} ${premiumContractorQuotationWorkspace ? "bp-contractor-quotation" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
@@ -81,7 +86,7 @@ export default function DashboardLayout() {
           <Outlet context={{ employmentStatus }} />
         </main>
         <MobileBottomNav employmentStatus={employmentStatus} />
-        <FloatingQuickActions key={pathname} employmentStatus={employmentStatus} />
+        <FloatingQuickActions key={pathname} employmentStatus={employmentStatus} pathname={pathname} />
       </div>
     </div>
   );

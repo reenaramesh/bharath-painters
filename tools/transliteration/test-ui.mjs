@@ -10,6 +10,21 @@ const renderer = require('react-test-renderer');
 const { transformSync } = require('@babel/core');
 const { build } = await import(pathToFileURL(require.resolve('vite')));
 const root = fileURLToPath(new URL('../../frontend', import.meta.url));
+const masterCopy = transformSync(`
+  import { SERVICE_MASTER_LABELS } from '../utils/serviceMasterLabels.js';
+  const sections = [{ key: 'products', label: SERVICE_MASTER_LABELS.productType }];
+  function Master({ saved }) { return <div>
+    <Field label={SERVICE_MASTER_LABELS.category} />
+    <p>{SERVICE_MASTER_LABELS.description}</p>
+    {sections.map(section => <option value={section.key}>{section.label}</option>)}
+    <input value={saved.service_category} /><p>{saved.description}</p>
+  </div>; }
+`, { configFile: false, babelrc: false, parserOpts: { plugins: ['jsx'] }, plugins: [systemCopyPlugin] }).code;
+assert.match(masterCopy, /systemSource: SERVICE_MASTER_LABELS.category/);
+assert.match(masterCopy, /__ScriptText source=\{SERVICE_MASTER_LABELS.description\}/);
+assert.match(masterCopy, /__ScriptText source=\{section.label\}/);
+assert.match(masterCopy, /value=\{saved.service_category\}/);
+assert.match(masterCopy, /<p>\{saved.description\}<\/p>/);
 const { transliterate, formatSystemText } = await import(new URL('../../frontend/src/i18n/transliterate.js', import.meta.url));
 for (const script of ['te', 'kn', 'hi', 'ta']) {
   const protectedText = 'Bharath Apps Bharath Painters Asian Paints person@example.com https://example.com/Save INV-SAVE-001 sqft mm kg 0123456789 #176B9B {name} {{amount}}';

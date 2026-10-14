@@ -3,6 +3,7 @@ import { AccessibilityInfo, AppState, Platform, useColorScheme } from 'react-nat
 import * as SecureStore from 'expo-secure-store';
 import { PaperProvider } from 'react-native-paper';
 import { ApiClient, ApiError } from '../core/api';
+import { WorkspaceRepository } from '../core/workspace';
 import type { Session } from '../core/contracts';
 import type { User } from '../core/navigation';
 import { demoUser } from '../data/demo';
@@ -10,6 +11,7 @@ import { createTheme } from '../theme';
 import { useFonts, Manrope_400Regular, Manrope_600SemiBold, Manrope_700Bold } from '@expo-google-fonts/manrope';
 
 export const api = new ApiClient(process.env.EXPO_PUBLIC_API_URL || '');
+export const workspace = new WorkspaceRepository(api);
 const storageKey = 'bharath.mobile.session.v1';
 type ThemeMode = 'system' | 'light' | 'dark';
 type ContextValue = {
@@ -45,13 +47,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     writeQueue.current = next; return next;
   }, []);
   const logout = useCallback(async () => {
+    workspace.clear();
     authVersion.current++; api.setTokens(null); currentUser.current = null;
     setUser(null); setDemo(false); setMenuReady(false); setDisabledMenus([]);
     await persist(null);
   }, [persist]);
   useEffect(() => {
     api.onTokens = async tokens => { if (tokens && currentUser.current) await persist({ ...tokens, user: currentUser.current }); else await persist(null); };
-    api.onExpired = () => { authVersion.current++; currentUser.current = null; setUser(null); setDemo(false); setMenuReady(false); };
+    api.onExpired = () => { workspace.clear(); authVersion.current++; currentUser.current = null; setUser(null); setDemo(false); setMenuReady(false); };
     return () => { api.onTokens = async () => {}; api.onExpired = () => {}; };
   }, [persist]);
   const restore = useCallback(async () => {
@@ -74,6 +77,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
   useEffect(() => { void restore(); }, [restore]);
   const login = useCallback(async (identifier: string, password: string) => {
+    workspace.clear();
     const version = ++authVersion.current;
     const session = await api.request<Session>('/accounts/login/', { identifier: identifier.trim(), password }, false);
     if (version !== authVersion.current) return;
@@ -84,6 +88,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDemo(false); setUser(session.user);
   }, [persist]);
   const enterDemo = useCallback(() => {
+    workspace.clear();
     authVersion.current++; api.setTokens(null); currentUser.current = null;
     setDemo(true); setUser(demoUser); setDisabledMenus([]); setMenuReady(true); setMenuError(null);
   }, []);

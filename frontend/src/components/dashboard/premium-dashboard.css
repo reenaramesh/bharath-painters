@@ -1,0 +1,332 @@
+/* Contractor dashboard component tokens. Keep these local to this page. */
+.bp-contractor-mosaic {
+  --app-primary: #4f46e5;
+  --app-accent: #f43f5e;
+  --app-on-primary: #ffffff;
+  --bp-brand: #4f46e5;
+  --bp-brand-dark: #4338ca;
+  --bp-accent: #f59e0b;
+  --bp-focus-ring: #4f46e5;
+  --bp-color-focus: #4f46e5;
+  --mosaic-primary: #4f46e5;
+  --mosaic-secondary: #7c3aed;
+  --mosaic-sky: #0ea5e9;
+  --mosaic-success: #10b981;
+  --mosaic-warning: #f59e0b;
+  --mosaic-accent: #f43f5e;
+  --mosaic-sidebar: #0b1736;
+  --mosaic-canvas: #f4f7fc;
+  --mosaic-surface: #ffffff;
+  --mosaic-ink: #17233d;
+  --mosaic-muted: #5e6b82;
+  --mosaic-line: #e4eaf4;
+  --mosaic-radius: 16px;
+  --mosaic-shadow-tight: 0 2px 6px rgb(11 23 54 / 0.06);
+  --mosaic-shadow-float: 0 14px 32px rgb(11 23 54 / 0.08);
+  --mosaic-space-1: 4px;
+  --mosaic-space-2: 8px;
+  --mosaic-space-3: 12px;
+  --mosaic-space-4: 16px;
+  --mosaic-space-5: 20px;
+  --mosaic-space-6: 24px;
+  --mosaic-space-8: 32px;
+  --mosaic-fast: 140ms;
+  background: var(--mosaic-canvas);
+}
+
+.bp-contractor-mosaic.bp-ui { background: var(--mosaic-canvas); }
+.bp-contractor-mosaic .bp-navigation-surface { --ws-card: var(--mosaic-sidebar); --ws-text: #f8faff; --ws-muted: #cad4e8; --ws-line: #263453; --ws-brand: #93c5fd; --ws-focus: #fbbf24; --ws-active: #18294c; }
+.bp-contractor-mosaic .ws-nav-logo { background: linear-gradient(135deg,#4f46e5,#7c3aed); }
+.bp-contractor-mosaic .ws-nav-link.is-active { background: #4f46e5; box-shadow: inset 3px 0 0 #f43f5e; }
+.bp-contractor-mosaic .bp-topbar { border-color: var(--mosaic-line); background: rgb(255 255 255 / .94); box-shadow: var(--mosaic-shadow-tight); }
+.bp-contractor-mosaic .bp-topbar .bp-shell-icon-button:hover { border-color: #d8def0; background: #f4f3ff; color: #4f46e5; }
+.bp-contractor-mosaic .bp-mobile-bottom-nav { border-color: var(--mosaic-line); background: rgb(255 255 255 / .97); box-shadow: 0 -8px 28px rgb(11 23 54 / .10); backdrop-filter: blur(18px); }
+.bp-contractor-mosaic .bp-mobile-bottom-nav :is(a,button)[aria-current="page"] { color: #4f46e5; }
+.bp-contractor-mosaic .bp-page-container { background: transparent; }
+
+.contractor-dashboard {
+  --dashboard-ink: var(--mosaic-ink, #17233d);
+  --dashboard-muted: var(--mosaic-muted, #5e6b82);
+  --dashboard-line: var(--mosaic-line, #e4eaf4);
+  --dashboard-canvas: var(--mosaic-canvas, #f4f7fc);
+  --dashboard-surface: var(--mosaic-surface, #ffffff);
+  --dashboard-surface-tint: #f2f1ff;
+  --dashboard-navy: #111d3a;
+  --dashboard-primary: var(--mosaic-primary, #4f46e5);
+  --dashboard-secondary: var(--mosaic-secondary, #7c3aed);
+  --dashboard-sky: var(--mosaic-sky, #0ea5e9);
+  --dashboard-accent: var(--mosaic-warning, #f59e0b);
+  --dashboard-positive: var(--mosaic-success, #10b981);
+  --dashboard-warning: #b96a06;
+  --dashboard-radius: var(--mosaic-radius, 16px);
+  --dashboard-shadow: var(--mosaic-shadow-tight, 0 2px 6px rgb(11 23 54 / 0.06)), 0 10px 24px rgb(11 23 54 / 0.045);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--dashboard-ink);
+  font-size: 14px;
+}
+
+.contractor-dashboard :is(h1,h2,h3) { font-family: "Plus Jakarta Sans", Inter, sans-serif; }
+.contractor-dashboard :is(a,button):focus-visible { outline: 3px solid var(--dashboard-primary); outline-offset: 3px; }
+.contractor-dashboard__hero {
+  position: relative;
+  display: grid;
+  min-height: 176px;
+  grid-template-columns: minmax(0,1fr) minmax(185px,265px);
+  align-items: center;
+  gap: 20px;
+  overflow: hidden;
+  padding: 21px 25px;
+  border: 1px solid color-mix(in srgb,var(--dashboard-primary) 12%,white);
+  border-radius: 20px;
+  background: linear-gradient(112deg,#f0f6ff 0%,#e8f2ff 58%,#dceaff 100%);
+  box-shadow: var(--dashboard-shadow);
+}
+.contractor-dashboard__hero::after { position: absolute; inset: auto -44px -118px auto; width: 260px; height: 260px; border: 1px solid rgb(37 99 235 / .08); border-radius: 50%; content: ""; box-shadow: 0 0 0 28px rgb(37 99 235 / .025),0 0 0 57px rgb(37 99 235 / .02); pointer-events: none; }
+.contractor-dashboard__hero-copy { position: relative; z-index: 1; min-width: 0; }
+.contractor-dashboard__eyebrow { margin: 0 0 7px; color: var(--dashboard-primary); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.contractor-dashboard__hero h1 { margin: 0; color: var(--dashboard-navy); font-size: clamp(23px,2.2vw,31px); font-weight: 800; letter-spacing: -.045em; line-height: 1.16; text-wrap: balance; }
+.contractor-dashboard__hero-description { max-width: 60ch; margin: 8px 0 0; color: #506384; font-size: 13px; line-height: 1.55; }
+.contractor-dashboard__hero-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 15px; }
+.contractor-dashboard__hero-actions :is(a,button) { min-height: 44px; }
+.contractor-dashboard__hero-cta { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 15px; border-radius: 10px; background: var(--dashboard-primary); color: var(--app-on-primary,#fff); font-size: 12px; font-weight: 800; text-decoration: none; box-shadow: 0 6px 15px color-mix(in srgb,var(--dashboard-primary) 23%,transparent); }
+.contractor-dashboard__hero-cta:hover { filter: brightness(.96); transform: translateY(-1px); }
+.contractor-dashboard__hero-refresh { min-height: 44px; border-color: #cbd8ec; color: #29446f; }
+.contractor-dashboard__illustration { position: relative; z-index: 1; display: block; width: 100%; max-width: 250px; max-height: 160px; justify-self: center; object-fit: contain; filter: drop-shadow(0 13px 13px rgb(29 53 91 / .16)); }
+
+.contractor-dashboard__priority { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,330px),1fr)); gap: 10px; }
+.contractor-dashboard .contractor-priority-item { min-height: 76px; padding: 13px 15px; border-radius: 14px; box-shadow: var(--dashboard-shadow); }
+.contractor-dashboard .contractor-priority-urgent { border-color: #f6d6b0; background: #fff8ec; color: #783d06; }
+.contractor-dashboard .contractor-priority-urgent .contractor-priority-icon { background: #ffedcb; color: #9a5300; }
+.contractor-dashboard .contractor-profile-prompt { border-color: #cfddf7; background: #f2f6ff; color: var(--dashboard-ink); }
+.contractor-dashboard .contractor-profile-prompt .contractor-priority-icon { color: var(--dashboard-primary); }
+
+.contractor-dashboard__metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.premium-dashboard-metric { position: relative; display: flex; min-width: 0; min-height: 120px; flex-direction: column; justify-content: space-between; gap: 10px; overflow: hidden; padding: 14px 15px; border: 1px solid var(--dashboard-line); border-radius: var(--dashboard-radius); background: var(--dashboard-surface); color: var(--dashboard-ink); box-shadow: var(--dashboard-shadow); text-decoration: none; }
+.premium-dashboard-metric--link { transition: border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
+.premium-dashboard-metric--link:hover { transform: translateY(-2px); border-color: color-mix(in srgb,var(--dashboard-primary) 38%,white); box-shadow: 0 12px 26px color-mix(in srgb,var(--dashboard-primary) 11%,transparent); }
+.premium-dashboard-metric__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.premium-dashboard-metric__label { min-width: 0; color: #64748b; font-size: 11px; font-weight: 700; }
+.premium-dashboard-metric__value { display: block; overflow-wrap: anywhere; color: #172a4f; font-size: clamp(20px,2vw,25px); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.045em; line-height: 1.1; }
+.premium-dashboard-metric__hint { display: block; padding-right: 16px; color: #5f6b7e; font-size: 12px; line-height: 1.4; }
+.premium-dashboard-metric__arrow { position: absolute; right: 13px; bottom: 13px; display: grid; color: var(--dashboard-primary); opacity: 0; transform: translateX(-3px); transition: transform .16s ease,opacity .16s ease; }
+.premium-dashboard-metric--link:hover .premium-dashboard-metric__arrow,.premium-dashboard-metric--link:focus-visible .premium-dashboard-metric__arrow { opacity: 1; transform: translateX(0); }
+.premium-dashboard-icon { position: relative; display: inline-grid; width: 39px; height: 39px; flex: 0 0 39px; place-items: center; overflow: hidden; border: 1px solid rgb(255 255 255 / .8); border-radius: 12px; color: #1759cf; background: linear-gradient(145deg,#f4f8ff,#bcd8ff); box-shadow: inset 0 2px rgb(255 255 255 / .8),0 5px 11px rgb(32 66 126 / .12); transform: rotate(-2deg); }
+.premium-dashboard-icon::after { position: absolute; inset: 1px 4px auto; height: 38%; border-radius: 50%; background: linear-gradient(rgb(255 255 255 / .55),transparent); content: ""; pointer-events: none; }
+.premium-dashboard-icon svg { position: relative; z-index: 1; width: 20px; height: 20px; filter: drop-shadow(0 1px 1px rgb(11 35 86 / .14)); }
+.premium-dashboard-icon--sky { color: #1371a9; background: linear-gradient(145deg,#f0fcff,#bdeeff); }
+.premium-dashboard-icon--purple { color: #6942bd; background: linear-gradient(145deg,#f8f2ff,#ddceff); }
+.premium-dashboard-icon--green { color: #07855f; background: linear-gradient(145deg,#f0fff7,#b8f0d3); }
+.premium-dashboard-icon--amber { color: #a65c00; background: linear-gradient(145deg,#fff9e9,#ffdf9b); }
+.premium-dashboard-icon--rose { color: #bd4352; background: linear-gradient(145deg,#fff3f3,#ffd0d5); }
+.premium-dashboard-icon--cyan { color: #087da0; background: linear-gradient(145deg,#eefcff,#b8eff4); }
+
+.contractor-dashboard .bp-dashboard-shortcuts { padding: 12px 14px 8px; border: 1px solid var(--dashboard-line); border-radius: 15px; background: white; box-shadow: var(--dashboard-shadow); }
+.contractor-dashboard .bp-dashboard-shortcuts .bp-shortcut-heading { margin: 0 0 8px; color: var(--dashboard-ink); font-size: 12px; font-weight: 800; }
+.contractor-dashboard .bp-dashboard-shortcut-scroll { scrollbar-color: #bfcee7 transparent; }
+.contractor-dashboard .bp-dashboard-shortcut-items { gap: 8px; }
+.contractor-dashboard .bp-dashboard-shortcuts .bp-dashboard-shortcut { flex-basis: 84px; width: 84px; min-height: 78px; gap: 6px; padding: 2px 3px; color: #263955; }
+.contractor-dashboard .bp-dashboard-shortcuts .bp-shortcut-icon { width: 43px; height: 43px; flex-basis: 43px; border: 1px solid #e3edff; border-radius: 13px; background: linear-gradient(145deg,#f6f9ff,#e3edff); color: var(--dashboard-primary); box-shadow: inset 0 1px #fff,0 3px 7px rgb(24 54 105 / .08); transition: transform .16s ease,box-shadow .16s ease,border-color .16s ease; }
+.contractor-dashboard .bp-dashboard-shortcut:hover .bp-shortcut-icon { transform: translateY(-2px); border-color: color-mix(in srgb,var(--dashboard-primary) 30%,white); box-shadow: 0 6px 12px color-mix(in srgb,var(--dashboard-primary) 14%,transparent); }
+.contractor-dashboard .bp-dashboard-shortcuts .bp-shortcut-icon-primary { background: linear-gradient(145deg,var(--dashboard-primary),color-mix(in srgb,var(--dashboard-primary) 75%,var(--dashboard-navy))); color: var(--app-on-primary,#fff); }
+.contractor-dashboard .bp-dashboard-shortcuts .bp-shortcut-label { font-size: 12px; font-weight: 700; line-height: 1.25; }
+
+.contractor-dashboard__grid { display: grid; min-width: 0; grid-template-columns: minmax(0,1.25fr) minmax(300px,1fr); gap: 14px; align-items: start; }
+.contractor-dashboard__column { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
+.contractor-dashboard .contractor-dashboard__panel { min-width: 0; overflow: hidden; border: 1px solid var(--dashboard-line); border-radius: var(--dashboard-radius); background: var(--dashboard-surface); box-shadow: var(--dashboard-shadow); }
+.contractor-dashboard .contractor-dashboard__panel > header { min-height: 54px; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--dashboard-line); background: linear-gradient(100deg,#eff4ff,#f5f5ff); }
+.contractor-dashboard .contractor-dashboard__panel > header h2 { color: #21385e; font-size: 13px; font-weight: 800; letter-spacing: -.02em; }
+.contractor-dashboard .contractor-dashboard__panel > header p { margin: 3px 0 0; color: var(--dashboard-muted); font-size: 12px; }
+.contractor-dashboard .contractor-dashboard__panel > header .contractor-panel-link { min-height: 44px; flex-shrink: 0; color: var(--dashboard-primary); font-size: 12px; }
+.contractor-dashboard .contractor-dashboard__panel-body { min-width: 0; padding: 9px 14px; }
+.contractor-dashboard .contractor-dashboard__panel-body:empty { display: none; }
+.premium-dashboard-empty.bp-state { min-height: 115px; padding: 18px; color: #64748b; }
+.premium-dashboard-empty.bp-state svg { width: 22px; height: 22px; color: #8292aa; }
+
+.premium-dashboard-quote { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #edf1f7; color: inherit; text-decoration: none; }
+.premium-dashboard-quote:last-of-type { border-bottom: 0; }
+.premium-dashboard-quote:hover .premium-dashboard-quote__main strong { color: var(--dashboard-primary); }
+.premium-dashboard-quote__main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.premium-dashboard-quote__main strong { overflow-wrap: anywhere; font-size: 11px; line-height: 1.4; }
+.premium-dashboard-quote__main span { overflow-wrap: anywhere; color: var(--dashboard-muted); font-size: 12px; }
+.premium-dashboard-quote__side { display: flex; max-width: 42%; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 5px; }
+.premium-dashboard-quote__side strong { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.premium-dashboard-quote__side .bp-badge { max-width: 100%; font-size: 11px; }
+.premium-dashboard-create { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; margin: 7px 0 4px; border-radius: 10px; background: var(--dashboard-primary); color: var(--app-on-primary,#fff); font-size: 11px; font-weight: 800; text-decoration: none; }
+.premium-dashboard-create:hover { filter: brightness(.95); }
+
+.premium-dashboard-schedule,.premium-dashboard-followups,.premium-dashboard-customers { display: flex; min-width: 0; flex-direction: column; }
+.premium-dashboard-record { display: flex; min-width: 0; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #edf1f7; color: inherit; text-decoration: none; }
+.premium-dashboard-record:last-child { border-bottom: 0; }
+.premium-dashboard-record__content { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.premium-dashboard-record__content strong { overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
+.premium-dashboard-record__content > span { overflow-wrap: anywhere; color: var(--dashboard-muted); font-size: 11px; line-height: 1.45; }
+.premium-dashboard-record__meta { flex: 0 0 auto; color: #596b84; font-size: 11px; font-weight: 700; text-align: right; }
+.premium-dashboard-record .premium-dashboard-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
+.premium-dashboard-record .premium-dashboard-icon svg { width: 17px; height: 17px; }
+.premium-dashboard-record:hover .premium-dashboard-record__content strong { color: var(--dashboard-primary); }
+.premium-dashboard-record__phone { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--dashboard-primary); font-size: 12px; font-weight: 700; text-decoration: none; }
+
+.contractor-dashboard__pipeline { display: flex; min-width: 0; flex-direction: column; gap: 9px; }
+.contractor-dashboard__pipeline-track { display: flex; height: 9px; gap: 3px; overflow: hidden; border-radius: 99px; background: #e8edf5; }
+.contractor-dashboard__pipeline-segment { min-width: 3px; border-radius: 99px; background: #b9c7de; }
+.contractor-dashboard__pipeline-segment:nth-child(6n+2) { background: #5f8cf4; }
+.contractor-dashboard__pipeline-segment:nth-child(6n+3) { background: #9470dc; }
+.contractor-dashboard__pipeline-segment:nth-child(6n+4) { background: #17a987; }
+.contractor-dashboard__pipeline-segment:nth-child(6n+5) { background: #f0a33c; }
+.contractor-dashboard__pipeline-segment:nth-child(6n+6) { background: #3c9db9; }
+.contractor-dashboard__pipeline-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px 12px; margin: 0; padding: 0; list-style: none; }
+.contractor-dashboard__pipeline-list li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 6px; color: #52627b; font-size: 11px; }
+.contractor-dashboard__pipeline-list li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-dashboard__pipeline-list strong { color: #1f3152; font-size: 12px; font-variant-numeric: tabular-nums; }
+.contractor-dashboard__pipeline-caption { color: var(--dashboard-muted); font-size: 11px; }
+.contractor-dashboard__requests { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #edf1f7; }
+.contractor-dashboard__requests h3 { margin: 0; color: #586a83; font-size: 12px; font-weight: 800; }
+.contractor-dashboard__requests a { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; color: inherit; text-decoration: none; }
+.contractor-dashboard__requests a > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.contractor-dashboard__requests a strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-dashboard__requests a small { color: var(--dashboard-muted); font-size: 11px; }
+.contractor-dashboard__footer { display: flex; flex-direction: column; gap: 10px; }
+
+@media(max-width:1279px) {
+  .contractor-dashboard__metrics { gap: 9px; }
+  .contractor-dashboard__grid { grid-template-columns: minmax(0,1.15fr) minmax(280px,1fr); gap: 11px; }
+}
+@media(max-width:900px) {
+  .contractor-dashboard__hero { min-height: 160px; grid-template-columns: minmax(0,1fr) 190px; padding: 18px; }
+  .contractor-dashboard__grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .contractor-dashboard__column { gap: 11px; }
+  .contractor-dashboard .contractor-dashboard__panel > header { padding: 11px 12px; }
+  .contractor-dashboard .contractor-dashboard__panel-body { padding: 8px 11px; }
+}
+@media(max-width:767px) {
+  .contractor-dashboard { gap: 12px; }
+  .contractor-dashboard__hero { min-height: 144px; grid-template-columns: minmax(0,1fr) 112px; gap: 5px; padding: 15px 13px; border-radius: 16px; }
+  .contractor-dashboard__hero h1 { font-size: clamp(19px,5vw,24px); }
+  .contractor-dashboard__hero-description { max-width: 38ch; margin-top: 6px; font-size: 11px; }
+  .contractor-dashboard__hero-actions { gap: 6px; margin-top: 10px; }
+  .contractor-dashboard__hero-actions :is(a,button) { min-height: 42px; }
+  .contractor-dashboard__hero-cta { padding: 0 10px; font-size: 12px; }
+  .contractor-dashboard__illustration { width: 120px; max-height: 118px; }
+  .contractor-dashboard__metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .premium-dashboard-metric { min-height: 104px; gap: 7px; padding: 10px; border-radius: 14px; }
+  .premium-dashboard-metric__value { font-size: clamp(18px,5vw,22px); }
+  .premium-dashboard-metric__hint { font-size: 11px; }
+  .premium-dashboard-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 11px; }
+  .premium-dashboard-icon svg { width: 18px; height: 18px; }
+  .contractor-dashboard .bp-dashboard-shortcuts { padding: 10px 10px 5px; border-radius: 14px; }
+  .contractor-dashboard .bp-dashboard-shortcuts .bp-dashboard-shortcut { flex-basis: 75px; width: 75px; min-height: 70px; }
+  .contractor-dashboard .bp-dashboard-shortcuts .bp-shortcut-icon { width: 40px; height: 40px; flex-basis: 40px; }
+  .contractor-dashboard__grid { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .contractor-dashboard__column { gap: 10px; }
+  .contractor-dashboard .contractor-dashboard__panel { border-radius: 14px; }
+  .contractor-dashboard .contractor-dashboard__panel > header { min-height: 50px; padding: 10px 12px; }
+  .contractor-dashboard .contractor-dashboard__panel > header h2 { font-size: 12px; }
+  .contractor-dashboard .contractor-dashboard__panel > header .contractor-panel-link { min-height: 44px; font-size: 11px; }
+  .premium-dashboard-quote { gap: 8px; }
+  .premium-dashboard-quote__side { max-width: 44%; }
+  .contractor-dashboard__pipeline-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:390px) {
+  .contractor-dashboard__hero { grid-template-columns: minmax(0,1fr) 82px; min-height: 137px; padding: 13px 11px; }
+  .contractor-dashboard__illustration { width: 94px; max-height: 98px; }
+  .contractor-dashboard__hero h1 { font-size: 19px; }
+  .contractor-dashboard__hero-description { font-size: 12px; }
+  .contractor-dashboard__hero-cta { gap: 5px; padding: 0 8px; font-size: 11px; }
+  .premium-dashboard-metric { min-height: 98px; padding: 9px; }
+  .premium-dashboard-metric__label { font-size: 12px; }
+  .premium-dashboard-metric__hint { padding-right: 0; }
+  .contractor-dashboard .contractor-dashboard__panel > header { align-items: flex-start; }
+  .contractor-dashboard .contractor-dashboard__panel > header .contractor-panel-link { white-space: nowrap; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .contractor-dashboard :is(*,::before,::after) { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* Mosaic-inspired Bharath shell and analytics, scoped to contractor /dashboard only. */
+.bp-contractor-mosaic .contractor-dashboard__hero {
+  min-height: 190px;
+  grid-template-columns: minmax(0,1fr) minmax(220px,290px);
+  border-color: #d9e1fb;
+  background: radial-gradient(circle at 80% 24%,#ffffff 0 2px,transparent 3px),linear-gradient(112deg,#f2f2ff 0%,#eef5ff 52%,#e7efff 100%);
+  box-shadow: var(--mosaic-shadow-tight),var(--mosaic-shadow-float);
+}
+.bp-contractor-mosaic .contractor-dashboard__hero::after { border-color: rgb(79 70 229 / .12); box-shadow: 0 0 0 28px rgb(79 70 229 / .035),0 0 0 57px rgb(14 165 233 / .025); }
+.bp-contractor-mosaic .contractor-dashboard__hero h1 { color: #111d3a; }
+.bp-contractor-mosaic .contractor-dashboard__eyebrow { color: var(--mosaic-primary); }
+.bp-contractor-mosaic .contractor-dashboard__hero-cta { background: linear-gradient(135deg,#4f46e5,#6d43d5); }
+.bp-contractor-mosaic .contractor-dashboard__metrics { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.bp-contractor-mosaic .premium-dashboard-metric { min-height: 126px; border-color: #e4e9f5; box-shadow: var(--mosaic-shadow-tight),0 8px 22px rgb(11 23 54 / .035); }
+.bp-contractor-mosaic .premium-dashboard-metric--link:hover { border-color: #a9a4f5; box-shadow: 0 12px 28px rgb(79 70 229 / .12); }
+.bp-contractor-mosaic .premium-dashboard-icon { color: #4f46e5; background: linear-gradient(145deg,#f2f2ff,#d7d4ff); }
+.bp-contractor-mosaic .premium-dashboard-icon--sky { color: #087db3; background: linear-gradient(145deg,#f0fbff,#c7efff); }
+.bp-contractor-mosaic .premium-dashboard-icon--purple { color: #6d28d9; background: linear-gradient(145deg,#f8f2ff,#e4d7ff); }
+.bp-contractor-mosaic .premium-dashboard-icon--green { color: #07875f; background: linear-gradient(145deg,#effff8,#bdf2da); }
+.bp-contractor-mosaic .premium-dashboard-icon--amber { color: #975700; background: linear-gradient(145deg,#fff9e9,#ffdfa0); }
+.bp-contractor-mosaic .premium-dashboard-icon--rose { color: #be3451; background: linear-gradient(145deg,#fff2f4,#ffd2dc); }
+.bp-contractor-mosaic .contractor-dashboard__panel { border-color: #e2e8f3; box-shadow: var(--mosaic-shadow-tight),0 8px 24px rgb(11 23 54 / .035); }
+.bp-contractor-mosaic .contractor-dashboard .contractor-dashboard__panel > header { background: linear-gradient(100deg,#f1f2ff,#f7f6ff 64%,#eff8ff); }
+.bp-contractor-mosaic .contractor-dashboard .contractor-dashboard__panel > header h2 { color: #172448; font-size: 14px; }
+.bp-contractor-mosaic .premium-dashboard-metric__label { color: #4d5a73; font-size: 12px; }
+.bp-contractor-mosaic .premium-dashboard-metric__hint { color: #536179; font-size: 12px; }
+.bp-contractor-mosaic .contractor-dashboard :is(a,button):focus-visible { outline: 3px solid #4f46e5; outline-offset: 3px; }
+
+.premium-service-directory { min-width: 0; padding: 14px 16px 12px; border: 1px solid var(--dashboard-line); border-radius: var(--dashboard-radius); background: #fff; box-shadow: var(--dashboard-shadow); }
+.premium-service-directory__heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.premium-service-directory__heading h2 { margin: 1px 0 0; color: #172448; font-size: 15px; font-weight: 800; }
+.premium-dashboard-section-kicker { margin: 0; color: var(--dashboard-muted); font-size: 11px; font-weight: 650; }
+.premium-service-directory__heading .contractor-panel-link { min-height: 44px; }
+.premium-service-directory__list { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.premium-service-directory__list li { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 5px; color: #35415d; font-size: 11px; font-weight: 700; text-align: center; }
+.premium-service-directory__image { display: grid; width: 62px; height: 56px; place-items: center; overflow: hidden; }
+.premium-service-directory__image img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 5px 6px rgb(24 42 84 / .12)); transition: transform var(--mosaic-fast) ease; }
+.premium-service-directory__list li:hover img { transform: translateY(-2px) scale(1.05); }
+
+.premium-dashboard-panel__description { margin: 0 0 10px; color: #586781; font-size: 12px; line-height: 1.45; }
+.contractor-dashboard__quotation-pipeline { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.contractor-dashboard__quotation-track { display: flex; height: 11px; gap: 3px; overflow: hidden; border-radius: 99px; background: #edf0f7; }
+.contractor-dashboard__quotation-segment { min-width: 5px; border-radius: 99px; background: #4f46e5; }
+.contractor-dashboard__quotation-segment--1 { background: #7c3aed; }
+.contractor-dashboard__quotation-segment--2 { background: #0ea5e9; }
+.contractor-dashboard__quotation-segment--3 { background: #10b981; }
+.contractor-dashboard__quotation-segment--4 { background: #f59e0b; }
+.contractor-dashboard__quotation-segment--5 { background: #f43f5e; }
+.contractor-dashboard__quotation-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(138px,1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.contractor-dashboard__quotation-list li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 7px; border: 1px solid #edf0f7; border-radius: 10px; background: #fbfcff; }
+.contractor-dashboard__quotation-list .bp-badge { max-width: 100%; overflow-wrap: anywhere; }
+.contractor-dashboard__quotation-list strong { color: #1c2d52; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.premium-dashboard-revenue-total { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 12px; }
+.premium-dashboard-revenue-total > span:first-child { color: #56637b; font-size: 12px; font-weight: 700; }
+.premium-dashboard-revenue-total > strong { color: #172448; font-size: 25px; font-weight: 850; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.premium-dashboard-revenue-total > span:last-child { color: #586781; font-size: 11px; }
+.premium-dashboard-revenue-chart { display: grid; min-height: 134px; grid-template-columns: repeat(12,minmax(0,1fr)); align-items: end; gap: 6px; padding: 10px 5px 0; border-top: 1px solid #edf0f7; }
+.premium-dashboard-revenue-month { display: flex; min-width: 0; height: 116px; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; color: #5e6b82; font-size: 10px; }
+.premium-dashboard-revenue-bar-track { display: flex; width: 100%; height: 88px; align-items: flex-end; justify-content: center; overflow: hidden; border-radius: 7px 7px 2px 2px; background: #f1f3fb; }
+.premium-dashboard-revenue-bar { display: block; width: min(70%,24px); min-height: 3px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg,#7c3aed,#4f46e5); box-shadow: 0 3px 8px rgb(79 70 229 / .2); }
+.premium-dashboard-loading { display: grid; min-height: 140px; place-items: center; color: #586781; font-size: 13px; }
+.premium-dashboard-team-links { display: flex; flex-direction: column; }
+.premium-dashboard-team-links .premium-dashboard-record { min-height: 54px; align-items: center; }
+.premium-dashboard-team-links .premium-dashboard-record:last-child { border-bottom: 0; }
+
+@media(max-width:900px) {
+  .bp-contractor-mosaic .contractor-dashboard__metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .premium-service-directory__list { grid-template-columns: repeat(7,minmax(80px,1fr)); overflow-x: auto; scrollbar-color: #c5cce6 transparent; }
+}
+@media(max-width:767px) {
+  .bp-contractor-mosaic .contractor-dashboard__hero { min-height: 156px; grid-template-columns: minmax(0,1fr) 105px; padding: 15px 13px; }
+  .bp-contractor-mosaic .contractor-dashboard__illustration { width: 110px; max-height: 120px; }
+  .premium-service-directory { padding: 11px 12px 10px; }
+  .premium-service-directory__heading { align-items: flex-start; }
+  .premium-service-directory__heading .contractor-panel-link { min-height: 44px; font-size: 11px; }
+  .premium-service-directory__list { grid-template-columns: repeat(7,78px); justify-content: flex-start; margin-inline: -5px; padding: 0 5px 3px; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .premium-service-directory__image { width: 58px; height: 52px; }
+  .premium-dashboard-revenue-chart { gap: 3px; padding-inline: 0; }
+  .premium-dashboard-revenue-month { font-size: 10px; }
+  .contractor-dashboard__quotation-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .bp-contractor-mosaic :is(*,::before,::after) { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

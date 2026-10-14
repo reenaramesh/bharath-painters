@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.urls import reverse
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
@@ -20,6 +21,7 @@ class CustomerShareLinkTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         return response
 
+    @override_settings(DEBUG=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_activation_token_is_opaque_one_use_and_regeneratable(self):
         created = self.create_customer()
         customer = Customer.objects.get(pk=created.data["id"])
@@ -34,7 +36,12 @@ class CustomerShareLinkTests(APITestCase):
         self.assertEqual(self.client.get(reverse("customer-share-link", args=[path])).status_code, 404)
         new_token = regenerated.data["share_link"].split("/")[-1]
         self.assertEqual(self.client.get(reverse("customer-share-link", args=[new_token])).status_code, 200)
+        requested = self.client.post(reverse("customer-share-link", args=[new_token]), {
+            "action": "request_email_otp", "email": "maya.activation@example.com",
+        }, format="json")
+        self.assertEqual(requested.status_code, 200, requested.data)
         activated = self.client.post(reverse("customer-share-link", args=[new_token]), {
+            "challenge_id": requested.data["challenge_id"], "otp": requested.data["test_otp"],
             "password": "BetterPass123!", "policy_version": POLICY_VERSION,
             "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True,
         }, format="json")

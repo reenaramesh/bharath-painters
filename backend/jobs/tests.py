@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import BharathUser
-from .models import ApplicatorBooking, Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter
+from .models import ApplicatorBooking, ContractorApplicatorTeam, Job, JobApplication, JobTransferRequest, WorkSchedule, WorkSchedulePainter
 from quotations.models import ChatConversation, Customer, Property, Quotation
 
 from .views import distance_km, geo_values
@@ -71,6 +71,12 @@ class WorkScheduleProgressTests(TestCase):
         )
         self.painter = BharathUser.objects.create_user(
             mobile="9888111103", role=BharathUser.Roles.PAINTER,
+            is_verified=True,
+            verification_status=BharathUser.VerificationStatus.VERIFIED,
+        )
+        ContractorApplicatorTeam.objects.create(
+            contractor=self.contractor, painter=self.painter,
+            employment_type=ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
         )
         customer = Customer.objects.create(
             contractor=self.contractor, portal_user=self.customer_user,
@@ -96,6 +102,11 @@ class WorkScheduleProgressTests(TestCase):
         WorkSchedulePainter.objects.create(schedule=self.schedule, painter=self.painter)
 
     def test_start_work_on_india_local_schedule_date(self):
+        self.client.force_authenticate(self.painter)
+        self.client.post(
+            reverse("painter-assignment-progress", args=(self.schedule.painter_assignments.get().id,)),
+            {"action": "ACCEPT"}, format="json",
+        )
         self.client.force_authenticate(self.contractor)
         response = self.client.post(
             reverse("work-schedule-progress", args=(self.schedule.id,)),
@@ -107,6 +118,85 @@ class WorkScheduleProgressTests(TestCase):
         self.assertEqual(self.schedule.status, WorkSchedule.Status.IN_PROGRESS)
         self.assertEqual(self.quotation.status, Quotation.Status.IN_PROGRESS)
         self.assertIsNotNone(self.schedule.work_started_at)
+
+    def test_contractor_cannot_start_while_assignment_response_is_pending(self):
+        self.client.force_authenticate(self.contractor)
+        response = self.client.post(reverse("work-schedule-progress", args=(self.schedule.id,)), {"action": "START"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.schedule.refresh_from_db()
+        self.assertEqual(self.schedule.status, WorkSchedule.Status.CONFIRMED)
+
+    def test_assigned_painter_cannot_bypass_another_pending_response(self):
+        second = BharathUser.objects.create_user(
+            mobile="9888111106", role=BharathUser.Roles.PAINTER,
+            is_verified=True, verification_status=BharathUser.VerificationStatus.VERIFIED,
+        )
+        ContractorApplicatorTeam.objects.create(
+            contractor=self.contractor, painter=second,
+            employment_type=ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+        )
+        WorkSchedulePainter.objects.create(schedule=self.schedule, painter=second)
+        self.client.force_authenticate(self.painter)
+        assignment = self.schedule.painter_assignments.get(painter=self.painter)
+        self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "ACCEPT"}, format="json")
+        response = self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "START"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "ACCEPTED")
+
+    def test_painter_can_accept_or_decline_only_their_pending_assignment(self):
+        assignment = self.schedule.painter_assignments.get()
+        self.client.force_authenticate(self.painter)
+        response = self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "ACCEPT"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "ACCEPTED")
+        self.assertIsNotNone(assignment.responded_at)
+
+        second = WorkSchedulePainter.objects.create(schedule=self.schedule, painter=BharathUser.objects.create_user(mobile="9888111104", role=BharathUser.Roles.PAINTER))
+        self.client.force_authenticate(second.painter)
+        response = self.client.post(reverse("painter-assignment-progress", args=(second.id,)), {"action": "REJECT"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        second.refresh_from_db()
+        self.assertEqual(second.status, "DECLINED")
+        self.assertIsNotNone(second.responded_at)
+
+    def test_assignment_cannot_be_started_until_accepted_and_advance_confirmed(self):
+        assignment = self.schedule.painter_assignments.get()
+        self.client.force_authenticate(self.painter)
+        self.assertEqual(self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "START"}, format="json").status_code, 400)
+        self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "ACCEPT"}, format="json")
+        self.schedule.payment_status = WorkSchedule.PaymentStatus.NOT_REQUESTED
+        self.schedule.save(update_fields=("payment_status",))
+        response = self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "START"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "ACCEPTED")
+        self.schedule.payment_status = WorkSchedule.PaymentStatus.CONFIRMED
+        self.schedule.save(update_fields=("payment_status",))
+        self.assertEqual(self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "START"}, format="json").status_code, 200)
+
+    def test_work_schedule_completion_waits_for_all_active_painters(self):
+        assignment = self.schedule.painter_assignments.get()
+        assignment.status = "COMPLETED"
+        assignment.save(update_fields=("status",))
+        other = WorkSchedulePainter.objects.create(schedule=self.schedule, painter=BharathUser.objects.create_user(mobile="9888111105", role=BharathUser.Roles.PAINTER), status="IN_PROGRESS")
+        self.schedule.status = WorkSchedule.Status.IN_PROGRESS
+        self.schedule.save(update_fields=("status",))
+        self.client.force_authenticate(self.contractor)
+        response = self.client.post(reverse("work-schedule-progress", args=(self.schedule.id,)), {"action": "COMPLETE"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.schedule.refresh_from_db()
+        self.assertEqual(self.schedule.status, WorkSchedule.Status.IN_PROGRESS)
+        self.assertTrue(WorkSchedulePainter.objects.filter(pk=other.pk).exists())
+
+    def test_removing_painter_preserves_assignment_row_as_released(self):
+        assignment = self.schedule.painter_assignments.get()
+        self.client.force_authenticate(self.contractor)
+        response = self.client.put(reverse("work-schedule-painters", args=(self.schedule.id,)), {"painters": []}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "RELEASED")
 
 
 class JobLocationTests(TestCase):
@@ -220,6 +310,7 @@ class JobAssignmentChangeTests(TestCase):
         self.assertEqual((self.application.contractor_rating, self.application.painter_rating), (4, 5))
 
     def test_painter_can_message_contractor_before_applying(self):
+        self.make_job("Open hiring post", 20)
         unassigned_painter = BharathUser.objects.create_user(
             mobile="9000000003", role=BharathUser.Roles.PAINTER, is_verified=True,
             verification_status=BharathUser.VerificationStatus.VERIFIED,
@@ -230,3 +321,35 @@ class JobAssignmentChangeTests(TestCase):
         conversation = ChatConversation.objects.get(contractor=self.contractor, painter=unassigned_painter)
         self.assertEqual(response.data[0]["id"], conversation.id)
         self.assertEqual(response.data[0]["contractor_mobile"], self.contractor.mobile)
+        self.assertFalse(JobApplication.objects.filter(painter=unassigned_painter).exists())
+        self.client.force_authenticate(self.contractor)
+        reply=self.client.post(reverse("chat-messages",kwargs={"pk":conversation.id}),{"text":"Please share your availability."},format="json")
+        self.assertEqual(reply.status_code,201,reply.data)
+
+    def test_public_hiring_does_not_allow_contractor_to_start_arbitrary_painter_chat(self):
+        self.make_job("Open hiring post",20)
+        stranger=BharathUser.objects.create_user(mobile="9000000007",role="PAINTER",is_verified=True,verification_status="VERIFIED")
+        self.client.force_authenticate(self.contractor)
+        response=self.client.post(reverse("chat-conversations"),{"painter":stranger.id},format="json")
+        self.assertEqual(response.status_code,400)
+        self.assertFalse(ChatConversation.objects.filter(contractor=self.contractor,painter=stranger).exists())
+
+    def test_unconnected_painter_cannot_message_without_an_available_job(self):
+        painter = BharathUser.objects.create_user(mobile="9000000004", role="PAINTER", is_verified=True, verification_status="VERIFIED")
+        self.client.force_authenticate(painter)
+        response = self.client.get(reverse("chat-conversations"), {"contractor_id": self.contractor.id})
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ChatConversation.objects.filter(contractor=self.contractor, painter=painter).exists())
+
+    def test_public_job_contact_requires_verified_freelance_painter(self):
+        from .models import ContractorApplicatorTeam
+        self.make_job("Open hiring post", 20)
+        painter = BharathUser.objects.create_user(mobile="9000000005", role="PAINTER")
+        self.client.force_authenticate(painter)
+        url=reverse("chat-conversations")
+        self.assertEqual(self.client.get(url, {"contractor_id": self.contractor.id}).status_code,403)
+        painter.is_verified=True;painter.verification_status="VERIFIED";painter.save()
+        employer=BharathUser.objects.create_user(mobile="9000000006",role="CONTRACTOR")
+        ContractorApplicatorTeam.objects.create(contractor=employer,painter=painter,employment_type="IN_HOUSE",is_active=True)
+        self.assertEqual(self.client.get(url, {"contractor_id": self.contractor.id}).status_code,403)
+        self.assertFalse(ChatConversation.objects.filter(contractor=self.contractor,painter=painter).exists())

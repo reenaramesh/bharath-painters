@@ -7,12 +7,46 @@ import { transformWithOxc } from "vite";
 import { measurement, masters, exampleAssignments } from "../preview/quotationGrouping/fixtures.js";
 import { assignmentQuotationItems, groupedQuotationRoom, surfaceOptions, roomContribution, quotationRoomAreaLabel } from "./groupedQuotation.js";
 
-const sourceUrl = new URL("../components/GroupedQuotationWorkspace.jsx", import.meta.url);
-const source = (await fs.readFile(sourceUrl, "utf8")).replace(/^import\s+["'][^"']+\.css["'];?\s*$/gm, "");
-const transformed = await transformWithOxc(source, sourceUrl.pathname, { jsx: { runtime: "automatic" } });
-const code = transformed.code.replace(/from\s+(["'])([^"']+)\1/g, (_match, _quote, specifier) => `from ${JSON.stringify(specifier.startsWith(".") ? new URL(specifier, sourceUrl).href : import.meta.resolve(specifier))}`);
-const { default: Workspace } = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+async function componentModule(url) {
+  let source = (await fs.readFile(url, 'utf8')).replace(/^import\s+["'][^"']+\.css["'];?\s*$/gm, '');
+  const imports = [...source.matchAll(/from\s+(["'])([^"']+)\1/g)];
+  for (const match of imports) {
+    const name = match[2];
+    const target = name.startsWith('.') ? new URL(name, url) : null;
+    const resolved = target?.pathname.endsWith('.jsx') ? await componentModule(target) : target?.href || import.meta.resolve(name);
+    source = source.replace(match[0], `from ${JSON.stringify(resolved)}`);
+  }
+  const result = await transformWithOxc(source, url.pathname, {jsx:{runtime:'automatic'}});
+  const code = result.code.replace(/from\s+(["'])([^"']+)\1/g, (match, _quote, name) => name.startsWith('data:') || name.startsWith('file:') ? match : `from ${JSON.stringify(import.meta.resolve(name))}`);
+  return `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+}
+const { default: Workspace } = await import(await componentModule(new URL('../components/GroupedQuotationWorkspace.jsx', import.meta.url)));
 const text = (node) => typeof node === "string" || typeof node === "number" ? String(node) : (node?.children || []).map(text).join("");
+
+test("grouped assignment workspace exposes and opens measured special wall creation", async () => {
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  const previousActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  globalThis.window = { confirm: () => true };
+  globalThis.document = { body: { style: { overflow: "" } }, activeElement: { focus() {} }, addEventListener() {}, removeEventListener() {} };
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const state = { groups: [], specials: [], services: [], rates: {} };
+  let view;
+  try {
+    await act(async () => { view = create(React.createElement(Workspace, { measurement, masters, state, onChange: () => {}, phase: "assignments", showMeasurements: false }), { createNodeMock: () => ({ showModal() {}, close() {}, querySelector: () => ({ focus() {} }), querySelectorAll: () => [] }) }); });
+    const add = view.root.findAllByType("button").find((node) => text(node) === "Add Special Wall");
+    assert.ok(add, "special-wall entry should be visible in grouped assignments");
+    await act(async () => add.props.onClick());
+    const dialog = view.root.findByType("dialog");
+    assert.match(text(dialog), /Create Special Wall/);
+    assert.ok(dialog.findAllByType("input").some((node) => node.props.type === "checkbox"), "measured walls should be selectable");
+  } finally {
+    if (view) await act(async () => view.unmount());
+    globalThis.window = previousWindow;
+    globalThis.document = previousDocument;
+    globalThis.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+});
 
 test("production adapter emits original API fields with complete source references", () => {
   const items = assignmentQuotationItems(measurement, exampleAssignments(), masters);
@@ -40,6 +74,9 @@ test("production workspace uses provided master IDs, edits rates and opens read-
   const originalDocument = globalThis.document;
   const originalAct = globalThis.IS_REACT_ACT_ENVIRONMENT;
   const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  let discardPrompts = 0;
+  globalThis.window = { confirm() { discardPrompts++; return false; } };
   let state;
   let apiCalls = 0;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -72,7 +109,8 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     const label = (name) => view.root.findAllByType("label").find((node) => text(node).startsWith(name));
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Measurements").length, 1);
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Services & Product").length, 1);
-    assert.equal(view.root.findAllByType("button").filter((node) => /Assign Products|Add Special Wall/.test(text(node))).length, 0);
+    assert.equal(view.root.findAllByType("button").filter((node) => /Assign Products/.test(text(node))).length, 0);
+    assert.equal(view.root.findAllByType("button").filter((node) => text(node) === "Add Special Wall").length, 1);
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Deducted Surfaces").length, 0);
     // Preserve the room tables and their full detail actions on mobile.
     for (const table of view.root.findAllByType("table")) {
@@ -107,19 +145,34 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     await click("Close");
     await click("Create Paint Areas");
     const balances = () => view.root.findByProps({ "aria-label": "Remaining surface areas" });
+    assert.equal(view.root.findAllByProps({ "aria-label": "Surface choices" }).length, 0);
+    assert.equal(balances().findAllByType("input").filter(node => node.props.type === "checkbox").length > 0, true);
+    assert.equal(view.root.findAllByProps({ "aria-label": "Services Master (opens in a new tab)" }).length, 0);
     const wallBalance = () => balances().findByProps({ "data-surface": "WALL" });
     assert.match(text(wallBalance()), /2,570 sqft/);
+    assert.equal(wallBalance().findByType("input").props.checked, false, "New Paint Areas must not preselect Walls");
+    await act(async () => wallBalance().findByType("input").props.onChange({target:{checked:true}}));
     const ceilingBefore = text(balances().findByProps({ "data-surface": "CEILING" }));
     await click("Select all");
     assert.match(text(wallBalance()), /Remaining: 0 sqft/);
     assert.equal(text(balances().findByProps({ "data-surface": "CEILING" })), ceilingBefore);
     await click("Continue");
-    assert.equal(label("Type of service").findByType("select").props.value, 101);
+    assert.equal(label("Service / Product Category").findByType("select").props.value, 101);
     assert.equal(label("Notes"), undefined);
     assert.equal(label("Finish"), undefined);
     await act(async () => label("Area Name").findByType("input").props.onChange({ target: { value: "Basic Painting" } }));
     await act(async () => label("Product").findByType("select").props.onChange({ target: { value: "201" } }));
     await act(async () => view.root.findByProps({ "aria-label": "Assignment rate" }).props.onChange({ target: { value: "10" } }));
+    const backdrop = view.root.findAllByType("div").find(node => node.props.className === "special-wall-backdrop gq-dialog-backdrop");
+    const outside = {};
+    await act(async () => backdrop.props.onClick({target:outside,currentTarget:outside}));
+    assert.equal(view.root.findAllByProps({role:"dialog"}).length,1,"Outside click must retain the unfinished Paint Area");
+    assert.equal(label("Area Name").findByType("input").props.value,"Basic Painting");
+    await act(async () => view.root.findByProps({"aria-label":"Close popup"}).props.onClick());
+    assert.equal(view.root.findAllByProps({role:"dialog"}).length,1);
+    await click("Cancel");
+    assert.equal(label("Area Name").findByType("input").props.value,"Basic Painting");
+    assert.equal(discardPrompts,2,"Both explicit dismissal controls confirm before discarding");
     await click("Save Paint Areas");
     assert.equal(state.groups[0].spec.service_category, 101);
     assert.equal(state.groups[0].spec.paint_type, 201);
@@ -132,6 +185,18 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.equal(text(balances().findByProps({ "data-surface": "CEILING" })), ceilingBefore);
     await click("Cancel");
     assert.equal(view.root.findAllByType("button").some(node => text(node) === "Room contribution details"), false);
+    await click("Add General Service");
+    await act(async () => label("Description").findByType("textarea").props.onChange({target:{value:"Unfinished general service"}}));
+    const serviceBackdrop = view.root.findAllByType("div").find(node => node.props.className === "special-wall-backdrop gq-dialog-backdrop");
+    await act(async () => serviceBackdrop.props.onClick({target:outside,currentTarget:outside}));
+    assert.equal(label("Description").findByType("textarea").props.value,"Unfinished general service");
+    await act(async () => view.root.findByProps({"aria-label":"Close popup"}).props.onClick());
+    assert.equal(view.root.findAllByProps({role:"dialog"}).length,1);
+    globalThis.window.confirm = () => true;
+    await click("Cancel");
+    assert.equal(view.root.findAllByProps({role:"dialog"}).length,0);
+    assert.equal(state.services.length,0,"Confirmed discard never creates a service");
+    globalThis.window.confirm = () => false;
     await act(async () => view.root.findByProps({ "aria-label": "View rooms for Basic Painting" }).props.onClick());
     assert.match(text(view.root.findByProps({ role: "dialog" })), /470 sqft/);
     await click("Close");
@@ -154,6 +219,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     globalThis.document = originalDocument;
     globalThis.IS_REACT_ACT_ENVIRONMENT = originalAct;
     globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
   }
 });
 

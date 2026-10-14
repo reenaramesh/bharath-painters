@@ -6,6 +6,7 @@ import useAuth from "../context/useAuth";
 import ProfileImageControl from "../components/ProfileImageControl";
 import { LoadingState } from "../components/ui";
 import { profileImageStyle } from "../utils/profileImagePosition";
+import { resolveAppTheme } from "../utils/appTheme";
 
 const pdfColorTemplates = [
   { value: "STUDIO", label: "Studio", colors: ["#142743", "#ff991f"] },
@@ -17,6 +18,7 @@ const pdfColorTemplates = [
   { value: "MIST", label: "Mist", colors: ["#7B8285", "#D9EDF5"] },
 ];
 const appColorPresets = [
+  { label: "Studio Painterly", primary: "#2563EB", accent: "#F59E0B" },
   { label: "Coastal", primary: "#176B9B", accent: "#508398" },
   { label: "Deep teal", primary: "#395F6E", accent: "#FCB29B" },
   { label: "Indigo", primary: "#4F46E5", accent: "#7771E8" },
@@ -79,8 +81,8 @@ const blank = {
   pdf_custom_primary_color: "#142743",
   pdf_custom_accent_color: "#FF991F",
   pdf_custom_text_color: "#172033",
-  app_primary_color: "#176B9B",
-  app_accent_color: "#508398",
+  app_primary_color: "#2563EB",
+  app_accent_color: "#F59E0B",
   office_address: "",
   service_areas: "",
   work_skills: "",
@@ -159,6 +161,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
         setForm({
           ...blank,
           ...data,
+          ...resolveAppTheme(data),
           company_logo: null,
           company_logo_url: data.company_logo || "",
           company_logo_position: data.company_logo_position || { x: 50, y: 50, zoom: 1 },
@@ -341,10 +344,10 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
           <h2 className="text-lg font-bold bp-ui-section-heading">App theme</h2>
            {!fieldsOnly && null}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={(`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#176b9b] ring-2 ring-[#e8f3f8]" : "border-slate-200"}`) + " bp-ui-action"}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
+            {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={(`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#2563eb] ring-2 ring-[#dbeafe]" : "border-slate-200"}`) + " bp-ui-action"}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {[["app_primary_color", "Primary color"], ["app_accent_color", "Accent color"]].map(([field, label]) => <label key={field} className="text-sm font-medium">{label}<span className="mt-1.5 flex items-center gap-2"><input type="color" value={/^#[0-9a-fA-F]{6}$/.test(form[field]) ? form[field] : "#176B9B"} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="h-11 w-12 cursor-pointer rounded border border-slate-300 bg-white p-1" aria-label={`${label} picker`} /><input type="text" name={field} value={form[field]} onChange={update} pattern="#[0-9a-fA-F]{6}" title="Enter a six-digit hex color" className={(`${input} mt-0 font-mono uppercase`) + " bp-ui-control"} /></span></label>)}
+            {[["app_primary_color", "Primary color"], ["app_accent_color", "Accent color"]].map(([field, label]) => <label key={field} className="text-sm font-medium">{label}<span className="mt-1.5 flex items-center gap-2"><input type="color" value={/^#[0-9a-fA-F]{6}$/.test(form[field]) ? form[field] : "#2563EB"} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="h-11 w-12 cursor-pointer rounded border border-slate-300 bg-white p-1" aria-label={`${label} picker`} /><input type="text" name={field} value={form[field]} onChange={update} pattern="#[0-9a-fA-F]{6}" title="Enter a six-digit hex color" className={(`${input} mt-0 font-mono uppercase`) + " bp-ui-control"} /></span></label>)}
           </div>
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"><span className="grid h-10 w-10 place-items-center rounded-lg text-sm font-bold text-white" style={{ background: form.app_primary_color }}>BP</span><span className="text-sm font-semibold" style={{ color: form.app_primary_color }}>Buttons and selected navigation</span><span className="ml-auto h-5 w-10 rounded-full" style={{ background: form.app_accent_color }} /></div>
         </div>

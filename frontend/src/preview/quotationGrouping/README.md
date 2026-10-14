@@ -25,6 +25,20 @@ The new HTML entry can also be opened at `/quotation-grouping-test.html` on the 
 
 Click **Load example** to load the attached scenario, or create groups from scratch. **Reset test** clears only in-memory sample assignments and rates.
 
+The isolated development server uses:
+
+**http://127.0.0.1:5175/quotation-grouping-test.html**
+
+From `frontend`, start it if necessary:
+
+```powershell
+node node_modules/vite/bin/vite.js --config src/preview/quotationGrouping/vite.config.mjs --configLoader runner
+```
+
+The new HTML entry can also be opened at `/quotation-grouping-test.html` on the existing frontend development server. No application route changes are needed.
+
+Click **Load example** to load the attached scenario, or create groups from scratch. **Reset test** clears only in-memory sample assignments and rates.
+
 ## Scope and implementation audit
 
 The read-only audit covered:

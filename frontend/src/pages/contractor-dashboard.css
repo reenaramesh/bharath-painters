@@ -1,5 +1,5 @@
-.contractor-shell.minimia-shell { --bp-canvas: #f7f9fb; --bp-ink: #121b2e; background: var(--bp-canvas); }
-.contractor-shell .bp-sidebar { background: #f1f3ff; border-color: var(--app-soft); }
+.contractor-shell.minimia-shell { --bp-canvas: var(--bp-color-canvas); --bp-ink: var(--bp-color-ink); background: var(--bp-canvas); }
+.contractor-shell .bp-sidebar { background: var(--bp-color-surface-container); border-color: var(--app-soft); }
 .contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: white; }
 .contractor-shell .bp-sidebar nav a[aria-current="page"]::before { display: none; }
 .contractor-dashboard { display: flex; flex-direction: column; gap: 24px; min-width: 0; color: #172033; font-size: 15px; }
@@ -49,7 +49,7 @@
 .contractor-panel.bp-section-card > header p { margin-top: 4px; font-size: 14px; }
 .contractor-panel.bp-section-card > header .contractor-panel-link { flex-shrink: 0; }
 .contractor-panel.bp-section-card > .contractor-quote-list,.contractor-panel.bp-section-card > .contractor-customer-list,.contractor-panel.bp-section-card > .contractor-communication { padding: 0; }
-.contractor-quote { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-quote { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--bp-line); color: var(--bp-ink); text-decoration: none; }
 .contractor-quote:hover,.contractor-customer:hover,.contractor-communication > a:hover { background: var(--app-soft); }
 .contractor-quote-main,.contractor-customer-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
 .contractor-quote-main strong,.contractor-customer-main strong { overflow-wrap: anywhere; font-size: 15px; }
@@ -70,16 +70,16 @@
 .contractor-task-content > a strong { font-size: 15px; }
 .contractor-task-content p { overflow-wrap: anywhere; }
 .contractor-call { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; margin-top: 4px; color: var(--app-primary); font-weight: 650; text-decoration: none; }
-.contractor-customer { display: flex; min-height: 68px; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-customer { display: flex; min-height: 68px; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--bp-line); color: var(--bp-ink); text-decoration: none; }
 .contractor-customer-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; background: var(--app-soft); color: var(--app-primary); font-weight: 800; }
 .contractor-communication { padding: 8px 16px 16px !important; }
-.contractor-communication > a { display: flex; min-height: 60px; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-communication > a { display: flex; min-height: 60px; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px solid var(--bp-line); color: var(--bp-ink); text-decoration: none; }
 .contractor-communication > a > span:nth-child(2) { flex: 1; font-size: 14px; font-weight: 650; }
 .contractor-communication > a > strong { min-width: 32px; text-align: center; font-size: 18px; }
 .contractor-communication > a > svg:last-child { color: var(--app-primary); }
 .contractor-request-list { padding-top: 16px; }
 .contractor-request-list h3 { margin-bottom: 6px; font-size: 15px; }
-.contractor-request-list > a { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid #e8ebf0; color: #172033; text-decoration: none; }
+.contractor-request-list > a { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--bp-line); color: var(--bp-ink); text-decoration: none; }
 .contractor-request-list > a > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .contractor-request-list > a strong { overflow-wrap: anywhere; font-size: 14px; }
 .contractor-request-list > a > span > span { color: #596579; font-size: 13px; }
@@ -139,34 +139,34 @@
 
 /* Continue the contractor visual system through workflows and dialogs. */
 .contractor-shell main { --contractor-primary: var(--app-primary); --contractor-primary-container: var(--app-primary); --contractor-canvas: var(--bp-canvas); --contractor-line: var(--app-line); }
-.contractor-shell main > *:not(.contractor-dashboard) { color: #121b2e; }
-.contractor-shell main h1 { color: #121b2e; font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; letter-spacing: -.035em; }
+.contractor-shell main > *:not(.contractor-dashboard) { color: var(--bp-ink); }
+.contractor-shell main h1 { color: var(--bp-ink); font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; letter-spacing: -.035em; }
 .contractor-shell main h2,.contractor-shell main h3 { font-family: "Plus Jakarta Sans", Inter, sans-serif; letter-spacing: -.02em; }
 .contractor-shell main section.rounded-2xl,.contractor-shell main article.rounded-2xl { border-color: var(--app-line); border-radius: 14px; box-shadow: 0 1px 4px #121b2e0a; }
 .contractor-shell main button[class*="bg-slate-950"],.contractor-shell main a[class*="bg-slate-950"] { background-color: var(--app-primary); }
 .contractor-shell main button[class*="bg-slate-950"]:hover,.contractor-shell main a[class*="bg-slate-950"]:hover { background-color: var(--app-primary); }
 .contractor-shell main button[class*="bg-[#0056d2]"],.contractor-shell main button[class*="bg-blue-600"],.contractor-shell main a[class*="bg-blue-600"] { background-color: var(--app-primary); }
 .contractor-shell main button[class*="text-[#0056d2]"],.contractor-shell main a[class*="text-[#0056d2]"],.contractor-shell main button[class*="text-blue-600"],.contractor-shell main a[class*="text-blue-600"] { color: var(--app-primary); }
-.contractor-shell main input:not([type="checkbox"]):not([type="radio"]),.contractor-shell main select,.contractor-shell main textarea { min-height: 44px; border-color: #c7c4d8; border-radius: 10px; color: #121b2e; }
+.contractor-shell main input:not([type="checkbox"]):not([type="radio"]),.contractor-shell main select,.contractor-shell main textarea { min-height: 44px; border-color: var(--bp-line); border-radius: var(--bp-radius-control); color: var(--bp-ink); }
 .contractor-shell main input:focus,.contractor-shell main select:focus,.contractor-shell main textarea:focus { border-color: var(--app-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 12%, transparent); }
-.contractor-shell main label { color: #343448; font-size: 13px; font-weight: 650; }
-.contractor-shell main table thead { background: #f1f3ff; color: #464555; }
+.contractor-shell main label { color: var(--bp-color-text); font-size: 13px; font-weight: 650; }
+.contractor-shell main table thead { background: var(--bp-color-surface-container); color: var(--bp-color-brand-strong); }
 .contractor-shell main table thead th { font-size: 11px; font-weight: 800; letter-spacing: .04em; }
 .contractor-shell main table tbody tr:hover { background: var(--bp-canvas); }
 .contractor-shell .bp-sidebar nav a:not([aria-current="page"]):hover { background: var(--app-soft); color: var(--app-primary); }
 .contractor-shell .bp-sidebar button[class*="bg-indigo-50"] { background: var(--app-soft); color: var(--app-primary); }
-.contractor-shell .bp-sidebar button[class*="bg-amber-50"] { background: #ffdcc6; color: #753800; }
-.contractor-shell .bp-sidebar button[class*="bg-emerald-50"] { background: #dae2ff; color: #0040a1; }
+.contractor-shell .bp-sidebar button[class*="bg-amber-50"] { background: var(--bp-color-warning-surface); color: var(--bp-color-warning); }
+.contractor-shell .bp-sidebar button[class*="bg-emerald-50"] { background: var(--bp-color-success-surface); color: var(--bp-color-success); }
 .contractor-shell .bp-sidebar button[class*="bg-violet-50"] { background: var(--app-soft); color: var(--app-primary); }
 .contractor-shell main .fixed.inset-0.z-50 > div { box-shadow: -12px 0 36px #121b2e1a; }
 
 /* Contractor app colors are saved in the profile and set on the workspace root. */
 .contractor-shell {
-  --app-primary: #176B9B;
-  --app-accent: #508398;
+  --app-primary: #2563EB;
+  --app-accent: #F59E0B;
   --app-on-primary: #ffffff;
-  --app-soft: color-mix(in srgb, var(--app-accent) 12%, white);
-  --app-line: color-mix(in srgb, var(--app-accent) 28%, white);
+  --app-soft: var(--bp-color-info-surface);
+  --app-line: color-mix(in srgb, var(--app-primary) 22%, white);
   font-family: "Plus Jakarta Sans", Inter, sans-serif;
   --bp-brand: var(--app-primary);
   --bp-brand-dark: color-mix(in srgb, var(--app-primary) 78%, black);

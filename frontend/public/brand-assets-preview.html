@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1e3a8a">
+  <title>Bharath Painters — Application Template Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{font-family:"Plus Jakarta Sans",Inter,system-ui,sans-serif;color:#0f172a;background:#f8fafc;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;--blue:#2563eb;--navy:#1e3a8a;--amber:#f59e0b;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--lav:#f2f3ff;--green:#047857;--surface:#fff;--shadow:0 2px 8px #0f172a0b}
+    *{box-sizing:border-box}body{margin:0;min-width:320px}button{font:inherit}.preview{max-width:1440px;margin:auto;padding:32px clamp(16px,4vw,56px) 64px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}h1{font-size:clamp(25px,3vw,38px);line-height:1.12;letter-spacing:-.04em;margin:8px 0}h2{font-size:20px;letter-spacing:-.025em;margin:0}.intro{color:var(--muted);max-width:720px;line-height:1.65;margin:10px 0 28px}.section{margin-top:32px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:14px}.section-head p{margin:4px 0 0;color:var(--muted);font-size:13px}.tag{color:var(--navy);background:#eaf0ff;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+    .app{display:grid;grid-template-columns:220px 1fr;overflow:hidden;border:1px solid #dce3ee;border-radius:20px;background:var(--surface);box-shadow:0 18px 45px #0f172a12;min-height:630px}.sidebar{background:var(--navy);color:#eaf1ff;padding:20px 13px;display:flex;flex-direction:column;gap:19px}.brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:800;letter-spacing:-.02em;font-size:15px}.brand small{display:block;color:#c7d2fe;font-weight:500;font-size:10px;letter-spacing:0;margin-top:2px}.brand-mark{width:38px;height:38px;display:grid;place-items:center;background:var(--blue);border-radius:12px;color:white;box-shadow:inset 0 1px #ffffff30}.nav-group{display:grid;gap:4px}.nav-label{font-size:9px;font-weight:800;letter-spacing:.12em;color:#a8bce9;padding:0 10px 4px}.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;min-height:40px;border-radius:10px;font-size:11px;font-weight:600;color:#e4ecff}.nav-item.active{background:var(--blue);color:white;box-shadow:inset 3px 0 var(--amber)}.nav-item svg{width:17px;height:17px}.nav-bottom{margin-top:auto;padding-top:14px;border-top:1px solid #ffffff1b}.work-area{min-width:0;background:#f8fafc}.topbar{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:white;border-bottom:1px solid var(--line);font-size:11px;color:#475569}.search{width:min(340px,44%);height:34px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;background:#fafbff;color:#94a3b8}.top-right{display:flex;align-items:center;gap:16px}.avatar{width:29px;height:29px;display:grid;place-items:center;background:#dbeafe;color:var(--navy);border-radius:50%;font-weight:800}.content{padding:22px}.page-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:17px}.page-head h2{font-size:21px}.page-head p{font-size:11px;color:var(--muted);margin:4px 0 0}.btn{border:0;border-radius:9px;padding:10px 14px;color:#fff;background:var(--blue);font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:7px;min-height:38px}.btn svg{width:15px;height:15px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}.stat,.panel,.job,.project,.logo-card,.icon-card{background:white;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}.stat{padding:13px}.stat-top{display:flex;align-items:center;justify-content:space-between;color:#64748b;font-size:10px;font-weight:700}.stat-icon{width:30px;height:30px;border-radius:9px;background:#eff6ff;color:var(--blue);display:grid;place-items:center}.stat-icon svg{width:16px;height:16px}.stat strong{display:block;font-size:22px;letter-spacing:-.04em;margin-top:6px}.stat small{font-size:10px;color:#64748b}.dashboard-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:13px;margin-top:14px}.panel{overflow:hidden}.panel-title{background:var(--lav);padding:13px 15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800}.panel-title a{color:var(--blue);font-size:10px;text-decoration:none}.panel-body{padding:13px 15px}.job{padding:12px;margin-bottom:9px;box-shadow:none}.job:last-child{margin-bottom:0}.job-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.job-title{font-size:11px;font-weight:800}.job-sub{font-size:10px;color:var(--muted);margin-top:3px}.status{border-radius:999px;background:#ecfdf5;color:var(--green);padding:4px 8px;font-size:9px;font-weight:800;white-space:nowrap}.status.pending{background:#fef3c7;color:#92400e}.progress{height:6px;background:#eaf0ff;border-radius:999px;margin-top:10px;overflow:hidden}.progress span{display:block;height:100%;width:68%;background:var(--blue);border-radius:999px}.receipt{display:grid;grid-template-columns:1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid #eef2f7;font-size:10px}.receipt:last-child{border:0}.receipt span{color:var(--muted)}.receipt b{font-variant-numeric:tabular-nums}.receipt .good{color:var(--green)}.badge{background:#eff6ff;border-radius:7px;color:var(--navy);padding:4px 7px;font-weight:800;font-size:9px}
+    .kit-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:14px}.logo-card{padding:18px;display:flex;flex-direction:column;justify-content:space-between;min-height:152px}.logo-variants{display:flex;flex-wrap:wrap;align-items:center;gap:22px}.logo-light{color:#fff;background:var(--navy);padding:12px 14px;border-radius:13px}.logo-light .brand-mark{background:#fff;color:var(--blue)}.logo-light .brand small{color:#bfcef1}.logo-stacked{display:flex;align-items:center;gap:9px}.logo-note{font-size:10px;color:var(--muted);margin-top:12px}.icons-grid{display:grid;grid-template-columns:repeat(8,minmax(60px,1fr));gap:8px}.icon-card{box-shadow:none;padding:11px 7px 9px;text-align:center;min-height:80px}.icon-well{width:34px;height:34px;margin:0 auto 7px;display:grid;place-items:center;background:#eff6ff;color:var(--blue);border-radius:10px}.icon-well svg{width:19px;height:19px}.icon-card span{font-size:9px;color:#475569;font-weight:700}.template-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.project{padding:15px;box-shadow:none}.project-icon{width:38px;height:38px;border-radius:11px;background:#eff6ff;color:var(--blue);display:grid;place-items:center;margin-bottom:12px}.project-icon svg{width:20px;height:20px}.project h3{font-size:12px;margin:0 0 5px}.project p{font-size:10px;line-height:1.55;color:var(--muted);margin:0}.project .tag{display:inline-block;margin-top:11px}
+    svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.skip{position:absolute;left:-999px;top:8px;background:white;padding:10px}.skip:focus{left:8px;z-index:99}.focus-demo:focus-visible{outline:3px solid var(--amber);outline-offset:3px}
+    @media(max-width:900px){.app{grid-template-columns:62px 1fr}.sidebar{padding:15px 8px;align-items:center}.brand-copy,.nav-label,.nav-item span,.nav-bottom{display:none}.brand{margin-bottom:4px}.nav-group{width:100%}.nav-item{justify-content:center;padding:10px 0}.nav-item.active{box-shadow:inset 0 -3px var(--amber)}.nav-item svg{width:19px;height:19px}.search{width:42%}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-grid{grid-template-columns:1fr}}
+    @media(max-width:560px){.preview{padding:24px 14px 42px}.intro{font-size:14px}.section-head{align-items:start;flex-direction:column}.app{display:block;min-height:0;border-radius:15px}.sidebar{display:none}.topbar{height:53px;padding:0 12px}.top-right{gap:9px}.search{width:44%;font-size:9px}.content{padding:14px 11px 16px}.page-head{align-items:start}.page-head h2{font-size:18px}.btn{padding:9px 10px;font-size:10px}.stats{gap:7px}.stat{padding:10px}.stat strong{font-size:19px}.dashboard-grid{gap:9px}.panel-title{padding:11px 12px}.panel-body{padding:10px}.kit-grid{grid-template-columns:1fr}.logo-card{min-height:130px}.icons-grid{grid-template-columns:repeat(4,1fr)}.template-row{grid-template-columns:1fr}.tag{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to preview</a>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <symbol id="drop-mark" viewBox="0 0 40 40"><path d="M20 4C15 11 8 18 8 25a12 12 0 0 0 24 0c0-7-7-14-12-21Z" fill="currentColor" stroke="none"/><path d="M14 26c1 4 4 6 8 6" stroke="#fff" stroke-width="2.2"/></symbol>
+    <symbol id="roller" viewBox="0 0 24 24"><path d="M4 5h12a2 2 0 0 1 2 2v3H6a2 2 0 0 1-2-2V5Z"/><path d="M18 8h2v5h-7v3m0 0v4m-2-4h4"/></symbol>
+    <symbol id="dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></symbol>
+    <symbol id="customers" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="quote" viewBox="0 0 24 24"><path d="M7 3h8l5 5v13H7z"/><path d="M15 3v5h5M10 13h7M10 17h7"/><path d="M4 6v15"/></symbol>
+    <symbol id="payment" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h4"/><path d="m9 2 3 3 3-3"/></symbol>
+    <symbol id="work" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18m-11 0v2h4v-2"/></symbol>
+    <symbol id="invoice" viewBox="0 0 24 24"><path d="M5 3h14v18l-2-1-2 1-3-1-3 1-2-1-2 1V3Z"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="message" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/></symbol>
+    <symbol id="settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.6a8 8 0 0 1-1.8 1l-.3 1.8h-3l-.3-1.8a8 8 0 0 1-1.8-1l-1.7.6-1.5-2.6 1.4-1.1a8 8 0 0 1 0-2l-1.4-1.1 1.5-2.6 1.7.6a8 8 0 0 1 1.8-1l.3-1.8h3l.3 1.8a8 8 0 0 1 1.8 1l1.7-.6 1.5 2.6-1.4 1.1a8 8 0 0 1 0 2Z" transform="translate(-1 -1)"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="area" viewBox="0 0 24 24"><path d="m3 17 14-14 4 4L7 21H3z"/><path d="m14 6 4 4m-7-1 2 2m-5 1 2 2"/></symbol>
+  </svg>
+  <main id="main" class="preview">
+    <p class="eyebrow">Bharath Painters · application template preview</p>
+    <h1>One consistent screen system, with a painter’s identity.</h1>
+    <p class="intro">This preview shows how the approved colors can work with a proper app template and a matching set of crisp vector icons. It’s a visual proposal only; the production logo and icons stay untouched until you choose a direction.</p>
+
+    <section class="section" aria-labelledby="app-heading">
+      <div class="section-head"><div><h2 id="app-heading">Contractor workspace</h2><p>Desktop layout, compact navigation, readable job and payment cards.</p></div><span class="tag">Responsive · 1440 → 390</span></div>
+      <div class="app">
+        <aside class="sidebar" aria-label="Template navigation">
+          <div class="brand"><span class="brand-mark"><svg width="25" height="25"><use href="#drop-mark"/></svg></span><span class="brand-copy">Bharath Painters<small>PAINTING WORKSPACE</small></span></div>
+          <nav class="nav-group" aria-label="Main menu"><div class="nav-label">WORKSPACE</div>
+            <div class="nav-item active"><svg><use href="#dashboard"/></svg><span>Dashboard</span></div>
+            <div class="nav-item"><svg><use href="#customers"/></svg><span>Customers</span></div>
+            <div class="nav-item"><svg><use href="#quote"/></svg><span>Quotations</span></div>
+            <div class="nav-item"><svg><use href="#payment"/></svg><span>Payment history</span></div>
+            <div class="nav-item"><svg><use href="#invoice"/></svg><span>Invoices</span></div>
+            <div class="nav-item"><svg><use href="#work"/></svg><span>Work orders</span></div>
+          </nav>
+          <nav class="nav-group nav-bottom" aria-label="Account menu"><div class="nav-item"><svg><use href="#settings"/></svg><span>Settings</span></div></nav>
+        </aside>
+        <div class="work-area">
+          <header class="topbar"><div class="search"><svg width="14" height="14" style="vertical-align:-3px;margin-right:6px"><use href="#search"/></svg>Search customers, quotes, projects…</div><div class="top-right"><svg width="17" height="17"><use href="#bell"/></svg><span>Workspace</span><span class="avatar" aria-label="User profile">B</span></div></header>
+          <div class="content">
+            <header class="page-head"><div><p class="eyebrow">TUESDAY, 14 OCTOBER</p><h2>Good morning, Bharath</h2><p>Your projects, quotations, and customer payments at a glance.</p></div><button class="btn focus-demo" type="button"><svg><use href="#plus"/></svg>New quotation</button></header>
+            <div class="stats">
+              <article class="stat"><div class="stat-top"><span>Active projects</span><span class="stat-icon"><svg><use href="#work"/></svg></span></div><strong>08</strong><small>Across 6 customers</small></article>
+              <article class="stat"><div class="stat-top"><span>Quotes awaiting</span><span class="stat-icon"><svg><use href="#quote"/></svg></span></div><strong>03</strong><small>₹2,41,500 total value</small></article>
+              <article class="stat"><div class="stat-top"><span>Payments received</span><span class="stat-icon"><svg><use href="#payment"/></svg></span></div><strong>₹40,590</strong><small>This month</small></article>
+              <article class="stat"><div class="stat-top"><span>Outstanding</span><span class="stat-icon"><svg><use href="#invoice"/></svg></span></div><strong>₹18,250</strong><small>Across 2 projects</small></article>
+            </div>
+            <div class="dashboard-grid">
+              <section class="panel"><div class="panel-title"><span>Current projects</span><a href="#template-notes">View all&nbsp; →</a></div><div class="panel-body">
+                <article class="job"><div class="job-line"><div><div class="job-title">Green Glen Apartments · Flat 3B</div><div class="job-sub">Interior painting · Customer: Rani</div></div><span class="status">On track</span></div><div class="progress"><span style="width:72%"></span></div></article>
+                <article class="job"><div class="job-line"><div><div class="job-title">Sobha Dream Acres · Tower 14</div><div class="job-sub">Interior + waterproofing · Customer: Ananya</div></div><span class="status pending">Awaiting approval</span></div><div class="progress"><span style="width:42%"></span></div></article>
+                <article class="job"><div class="job-line"><div><div class="job-title">Prestige Lakeside · Villa 402</div><div class="job-sub">Exterior repaint · Customer: Vikram</div></div><span class="status">In progress</span></div><div class="progress"><span style="width:58%"></span></div></article>
+              </div></section>
+              <section class="panel"><div class="panel-title"><span>Recent payments</span><a href="#template-notes">Open register&nbsp; →</a></div><div class="panel-body">
+                <div class="receipt"><span>Rani · Green Glen · Advance</span><b class="good">₹15,000</b></div>
+                <div class="receipt"><span>Ananya · Sobha · Site payment</span><b class="good">₹18,500</b></div>
+                <div class="receipt"><span>Vikram · Prestige · Materials</span><b class="good">₹7,090</b></div>
+                <div class="receipt"><span>Today · 3 receipts recorded</span><span class="badge">View receipts</span></div>
+              </div></section>
+              <section class="panel"><div class="panel-title"><span>Quotation follow-ups</span><a href="#template-notes">See all&nbsp; →</a></div><div class="panel-body"><div class="receipt"><span>BP-2026-0084 · Ananya R.</span><b>₹1,64,450</b></div><div class="receipt"><span>BP-2026-0081 · Rani</span><b>₹48,200</b></div><div class="receipt"><span>BP-2026-0079 · Vikram S.</span><b>₹28,850</b></div></div></section>
+              <section class="panel"><div class="panel-title"><span>Quick actions</span><span class="tag">Common tasks</span></div><div class="panel-body" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"><div class="job"><div class="job-line"><span class="stat-icon"><svg><use href="#customers"/></svg></span><b class="job-title">Add customer</b></div></div><div class="job"><div class="job-line"><span class="stat-icon"><svg><use href="#area"/></svg></span><b class="job-title">Measure area</b></div></div><div class="job"><div class="job-line"><span class="stat-icon"><svg><use href="#message"/></svg></span><b class="job-title">Messages</b></div></div><div class="job"><div class="job-line"><span class="stat-icon"><svg><use href="#work"/></svg></span><b class="job-title">New work order</b></div></div></div></section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="kit-heading">
+      <div class="section-head"><div><h2 id="kit-heading">Logo and icon kit</h2><p>A small set of reusable SVG marks, with one consistent line weight and rounded shape.</p></div><span class="tag">Vector · crisp at every size</span></div>
+      <div class="kit-grid">
+        <div class="logo-card"><div class="logo-variants"><div class="brand"><span class="brand-mark"><svg width="27" height="27"><use href="#drop-mark"/></svg></span><span style="color:#0f172a">Bharath Painters<small style="color:#64748b">PAINTING WORKSPACE</small></span></div><div class="brand logo-light"><span class="brand-mark"><svg width="27" height="27"><use href="#drop-mark"/></svg></span><span>Bharath Painters<small>PAINTING WORKSPACE</small></span></div></div><div class="logo-note">Primary lockup for the sidebar and compact mark for mobile/app icon.</div></div>
+        <div class="logo-card"><div class="icons-grid" aria-label="Preview of navigation and action icons">
+          <div class="icon-card"><div class="icon-well"><svg><use href="#dashboard"/></svg></div><span>Dashboard</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#customers"/></svg></div><span>Customers</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#quote"/></svg></div><span>Quotations</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#payment"/></svg></div><span>Payments</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#invoice"/></svg></div><span>Invoices</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#work"/></svg></div><span>Work orders</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#message"/></svg></div><span>Messages</span></div><div class="icon-card"><div class="icon-well"><svg><use href="#roller"/></svg></div><span>Paint work</span></div>
+        </div><div class="logo-note">Icons remain recognizable in the full sidebar and in compact mobile navigation.</div></div>
+      </div>
+    </section>
+
+    <section class="section" id="template-notes" aria-labelledby="screens-heading">
+      <div class="section-head"><div><h2 id="screens-heading">Same template across the application</h2><p>Use shared page headers, cards, status chips, spacing, and icon rules for each role.</p></div></div>
+      <div class="template-row">
+        <article class="project"><span class="project-icon"><svg><use href="#quote"/></svg></span><h3>Quotation & measurements</h3><p>Clear customer summary, scope rows, room measurements, estimate totals, and a strong send action.</p><span class="tag">Contractor + customer</span></article>
+        <article class="project"><span class="project-icon"><svg><use href="#payment"/></svg></span><h3>Payment history</h3><p>Project-linked receipts, payment dates and methods, remaining balance, and combined customer totals.</p><span class="tag">Shared account view</span></article>
+        <article class="project"><span class="project-icon"><svg><use href="#work"/></svg></span><h3>Work orders</h3><p>Subcontractor assignment, scope and amount, progress, payment register, and clear status.</p><span class="tag">Contractor workspace</span></article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

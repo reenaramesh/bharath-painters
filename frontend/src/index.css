@@ -2,8 +2,8 @@
 
 :root {
   font-family:
-    Inter,
     "Plus Jakarta Sans",
+    Inter,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
@@ -15,26 +15,29 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   /* Shared Bharath Painters / Bharath Apps design tokens. */
-  --bp-color-canvas: #f4f6fa;
+  --bp-color-canvas: #f8fafc;
   --bp-color-surface: #ffffff;
-  --bp-color-surface-muted: #f8fafc;
-  --bp-color-ink: #172033;
-  --bp-color-text: #344054;
-  --bp-color-muted: #596579;
-  --bp-color-border: #dce3eb;
-  --bp-color-brand: #176b9b;
-  --bp-color-brand-strong: #145875;
-  --bp-color-accent: #508398;
+  --bp-color-surface-muted: #faf8ff;
+  --bp-color-surface-container: #f2f3ff;
+  --bp-color-ink: #0f172a;
+  --bp-color-text: #334155;
+  --bp-color-muted: #475569;
+  --bp-color-border: #e2e8f0;
+  --bp-color-brand: #2563eb;
+  --bp-color-brand-strong: #1e3a8a;
+  --bp-color-accent: #f59e0b;
+  --bp-color-paint: #ea580c;
+  --bp-color-tertiary: #10b981;
   --bp-color-on-brand: #ffffff;
-  --bp-color-focus: #175cd3;
-  --bp-color-success: #176b48;
-  --bp-color-success-surface: #ecfdf3;
-  --bp-color-info: #175cd3;
-  --bp-color-info-surface: #eff8ff;
-  --bp-color-warning: #8a4b08;
-  --bp-color-warning-surface: #fffaeb;
+  --bp-color-focus: #2563eb;
+  --bp-color-success: #047857;
+  --bp-color-success-surface: #ecfdf5;
+  --bp-color-info: #1d4ed8;
+  --bp-color-info-surface: #eff6ff;
+  --bp-color-warning: #b45309;
+  --bp-color-warning-surface: #fef3c7;
   --bp-color-danger: #b42318;
-  --bp-color-danger-surface: #fef3f2;
+  --bp-color-danger-surface: #fef2f2;
 
   --bp-space-1: 4px;
   --bp-space-2: 8px;
@@ -54,12 +57,12 @@
   --bp-type-metadata: 0.75rem;
   --bp-leading-body: 1.5;
 
-  --bp-radius-control: 0.75rem;
+  --bp-radius-control: 0.5rem;
   --bp-radius-card: 0.75rem;
   --bp-radius-panel: 1rem;
   --bp-radius-pill: 999px;
   --bp-shadow:
-    0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px -18px rgb(16 24 40 / 0.22);
+    0 1px 3px rgb(15 23 42 / 0.05), 0 8px 24px -18px rgb(15 23 42 / 0.18);
 
   /* Backward-compatible names used by existing pages and components. */
   --bp-brand: var(--bp-color-brand);
@@ -111,21 +114,15 @@ svg {
 
 .minimia-shell {
   --bp-brand: var(--app-primary, var(--bp-color-brand));
-  --bp-brand-dark: color-mix(in srgb, var(--bp-brand) 78%, #172033);
+  --bp-brand-dark: color-mix(in srgb, var(--bp-brand) 82%, var(--bp-color-brand-strong));
   --bp-accent: var(--app-accent, var(--bp-color-accent));
   --bp-on-brand: var(--app-on-primary, var(--bp-color-on-brand));
-  --bp-focus-ring: color-mix(in srgb, var(--bp-brand) 76%, #172033);
+  --bp-focus-ring: color-mix(in srgb, var(--bp-brand) 76%, var(--bp-color-ink));
   min-height: 100vh;
   color: var(--bp-ink);
   font-size: var(--bp-type-body);
   line-height: var(--bp-leading-body);
-  background:
-    radial-gradient(
-      900px 420px at 92% -10%,
-      rgb(99 102 241 / 0.08),
-      transparent 58%
-    ),
-    var(--bp-canvas);
+  background: var(--bp-canvas);
   color-scheme: light;
 }
 .minimia-shell main > * {
@@ -133,6 +130,7 @@ svg {
 }
 .minimia-shell main h1 {
   color: var(--bp-ink);
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
   font-weight: 800;
   letter-spacing: -0.035em;
 }
@@ -949,7 +947,7 @@ textarea.bp-control {
   min-height: 64px;
   border-bottom: 1px solid var(--bp-line);
   background: color-mix(in srgb, var(--bp-card) 94%, transparent);
-  box-shadow: 0 1px 3px rgb(16 24 40 / 0.06);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.05);
   backdrop-filter: blur(16px);
 }
 .bp-topbar button:focus-visible,
@@ -1108,10 +1106,10 @@ textarea.bp-control {
 
 /* Formal quotation presentation, scoped to the contractor and customer views. */
 .bp-quotation-page {
-  --quotation-ink: #172033;
-  --quotation-brand: #312e81;
-  --quotation-line: #e2e8f0;
-  --quotation-muted: #64748b;
+  --quotation-ink: var(--bp-color-ink);
+  --quotation-brand: var(--bp-brand);
+  --quotation-line: var(--bp-line);
+  --quotation-muted: var(--bp-muted);
   color: var(--quotation-ink);
 }
 .bp-quotation-page > :is(.quotation-toolbar, .quotation-sheet, .quotation-items, .quotation-supporting-info, .quotation-pdf-options, .quotation-customer-actions) {
@@ -1137,7 +1135,7 @@ textarea.bp-control {
 .bp-quotation-page .quotation-sheet::before {
   display: block;
   height: 0.4rem;
-  background: #4f46e5;
+  background: var(--bp-brand);
   content: "";
 }
 .bp-quotation-page .quotation-company-header,
@@ -1171,7 +1169,7 @@ textarea.bp-control {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0.25rem;
-  background: #4f46e5;
+  background: var(--bp-brand);
   content: "";
 }
 .bp-quotation-page .quotation-items {
@@ -1308,7 +1306,7 @@ textarea.bp-control {
 }
 .bp-quotation-page .quotation-pdf-check input {
   flex: none;
-  accent-color: #4f46e5;
+  accent-color: var(--bp-brand);
 }
 .bp-quotation-page .quotation-customer-actions {
   border-color: var(--quotation-line);

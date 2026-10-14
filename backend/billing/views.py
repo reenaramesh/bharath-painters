@@ -17,7 +17,10 @@ from rest_framework.views import APIView
 
 from accounts.models import BharathUser
 from jobs.models import WorkSchedule
-from quotations.models import Invoice, InvoicePayment, PortalNotification, ProjectReceipt, Quotation
+from quotations.models import (
+    ContractorCustomerConnection, Customer, Invoice, InvoicePayment,
+    PortalNotification, ProjectReceipt, Quotation,
+)
 from quotations.pdf_utils import build_project_receipt_pdf
 from quotations.document_languages import document_language
 from quotations.property_access import PropertyPermission, accessible_properties
@@ -451,6 +454,12 @@ class ContractorRevenueView(APIView):
         outstanding = filtered_invoices.aggregate(value=Sum("grand_total") - Sum("amount_paid"))["value"] or Decimal("0")
         credit_total = filtered_advances.exclude(status=WorkSchedule.Status.COMPLETED).aggregate(value=Sum("advance_amount"))["value"] or Decimal("0")
         credit_total += filtered_manual.exclude(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED).aggregate(value=Sum("amount"))["value"] or Decimal("0")
+        credit_advance_ids = set(filtered_advances.exclude(
+            status=WorkSchedule.Status.COMPLETED,
+        ).values_list("id", flat=True))
+        credit_receipt_ids = set(filtered_manual.exclude(
+            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+        ).values_list("id", flat=True))
         receipts = []
         for item in filtered_advances.order_by("-payment_confirmed_at"):
             receipts.append({
@@ -459,6 +468,7 @@ class ContractorRevenueView(APIView):
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode or "OTHER",
                 "reference": item.payment_reference, "amount": item.advance_amount,
+                "is_customer_credit": item.id in credit_advance_ids,
                 "download_url": f"/jobs/work-schedules/{item.id}/advance-receipt/",
             })
         for item in filtered_manual.order_by("-received_date", "-id"):
@@ -468,6 +478,7 @@ class ContractorRevenueView(APIView):
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode,
                 "reference": item.payment_reference, "amount": item.amount,
+                "is_customer_credit": item.id in credit_receipt_ids,
                 "download_url": f"/billing/contractor-revenue/receipts/{item.id}/pdf/",
             })
         for item in filtered_payments.order_by("-received_date", "-id"):
@@ -484,7 +495,7 @@ class ContractorRevenueView(APIView):
             "total": item.grand_total, "paid": item.amount_paid, "balance": item.balance_due,
         } for item in filtered_invoices.order_by("-invoice_date", "-id")]
         due_map = {}
-        for item in invoices.filter(grand_total__gt=models.F("amount_paid")):
+        for item in filtered_invoices.filter(grand_total__gt=models.F("amount_paid")):
             customer = item.quotation.customer
             key = customer.id
             row = due_map.setdefault(key, {
@@ -655,6 +666,53 @@ class ContractorProjectReceiptPdfView(APIView):
         return response
 
 
+PROJECT_QUOTATION_STATUSES = (
+    Quotation.Status.ACCEPTED,
+    Quotation.Status.SCHEDULED,
+    Quotation.Status.IN_PROGRESS,
+    Quotation.Status.COMPLETED,
+    Quotation.Status.CONVERTED,
+)
+
+
+def build_project_ledger(quotations, receipts, invoices, can_view_invoices, can_view_payments):
+    receipts_by_quotation = {}
+    for receipt in receipts:
+        quotation_id = receipt.get("quotation_id")
+        if quotation_id:
+            receipts_by_quotation.setdefault(quotation_id, []).append(receipt)
+    invoice_by_quotation = {invoice.quotation_id: invoice for invoice in invoices if invoice.quotation_id}
+    projects = []
+    for quotation in quotations:
+        invoice = invoice_by_quotation.get(quotation.id)
+        project_receipts = receipts_by_quotation.get(quotation.id, [])
+        project_total = invoice.grand_total if invoice else quotation.grand_total
+        paid = invoice.amount_paid if invoice else sum(
+            (Decimal(str(item.get("amount") or 0)) for item in project_receipts), Decimal("0")
+        )
+        projects.append({
+            "quotation_id": quotation.id,
+            "quotation_number": quotation.quotation_number,
+            "property_name": (
+                quotation.property.name or quotation.property.property_type
+                if quotation.property_id else "Project"
+            ),
+            "status": quotation.status,
+            "invoice_id": invoice.id if invoice else None,
+            "invoice_number": invoice.invoice_number if invoice else None,
+            "project_total": project_total if can_view_invoices else None,
+            "amount_paid": paid if can_view_payments else None,
+            "balance_due": max(project_total - paid, Decimal("0")) if can_view_payments else None,
+            "receipts": project_receipts if can_view_payments else [],
+        })
+    totals = {
+        "project_value": sum((Decimal(str(row["project_total"] or 0)) for row in projects), Decimal("0")) if can_view_invoices else None,
+        "project_total_paid": sum((Decimal(str(row["amount_paid"] or 0)) for row in projects), Decimal("0")) if can_view_payments else None,
+        "project_balance_due": sum((Decimal(str(row["balance_due"] or 0)) for row in projects), Decimal("0")) if can_view_payments else None,
+    }
+    return projects, totals
+
+
 class CustomerProjectFinanceView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -708,24 +766,34 @@ class CustomerProjectFinanceView(APIView):
         ).select_related("invoice", "invoice__quotation__property", "invoice__contractor")
 
         receipts = []
+        credit_advance_ids = set(advances.filter(
+            quotation__invoice__isnull=True,
+        ).values_list("id", flat=True))
+        credit_receipt_ids = set(quotation_receipts.filter(
+            quotation__invoice__isnull=True,
+        ).values_list("id", flat=True))
         for item in advances.order_by("-payment_confirmed_at"):
             receipts.append({
                 "id": f"advance-{item.id}", "date": item.payment_confirmed_at,
                 "receipt_number": item.advance_receipt_number, "kind": "ADVANCE",
+                "quotation_id": item.quotation_id,
                 "contractor": item.quotation.contractor.get_full_name() or item.quotation.contractor.mobile,
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode or "OTHER",
                 "reference": item.payment_reference, "amount": item.advance_amount,
+                "is_customer_credit": item.id in credit_advance_ids,
                 "download_url": f"/jobs/work-schedules/{item.id}/advance-receipt/",
             })
         for item in quotation_receipts.order_by("-received_date", "-id"):
             receipts.append({
                 "id": f"quotation-{item.id}", "date": item.received_date,
                 "receipt_number": item.receipt_number, "kind": "QUOTATION RECEIPT",
+                "quotation_id": item.quotation_id,
                 "contractor": item.quotation.contractor.get_full_name() or item.quotation.contractor.mobile,
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode,
                 "reference": item.payment_reference, "amount": item.amount,
+                "is_customer_credit": item.id in credit_receipt_ids,
                 "download_url": f"/billing/customer-finance/receipts/{item.id}/pdf/",
             })
         for item in invoice_payments.order_by("-received_date", "-id"):
@@ -733,6 +801,7 @@ class CustomerProjectFinanceView(APIView):
             receipts.append({
                 "id": f"invoice-{item.id}", "date": item.received_date,
                 "receipt_number": item.invoice.receipt_number, "kind": "INVOICE PAYMENT",
+                "quotation_id": item.invoice.quotation_id,
                 "contractor": item.invoice.contractor.get_full_name() or item.invoice.contractor.mobile,
                 "project": item.invoice.property_name, "document": item.invoice.invoice_number if can_download else None,
                 "mode": item.payment_mode, "reference": item.payment_reference, "amount": item.amount,
@@ -746,12 +815,117 @@ class CustomerProjectFinanceView(APIView):
         unadjusted_advances = advances.filter(quotation__invoice__isnull=True).aggregate(value=Sum("advance_amount"))["value"] or Decimal("0")
         unadjusted_receipts = quotation_receipts.filter(quotation__invoice__isnull=True).aggregate(value=Sum("amount"))["value"] or Decimal("0")
         credits = unadjusted_advances + unadjusted_receipts
+        project_scope = (
+            Q(customer__portal_user=request.user, property__isnull=True)
+            | Q(property_id__in=payment_property_ids)
+            | Q(property_id__in=invoice_property_ids)
+        )
+        project_quotations = Quotation.objects.filter(
+            project_scope, status__in=PROJECT_QUOTATION_STATUSES,
+            deleted_at__isnull=True,
+        ).select_related("property").distinct().order_by("-updated_at", "-id")
+        project_invoice_map = {
+            invoice.quotation_id: invoice
+            for invoice in invoices
+            if invoice.quotation_id
+        }
+        project_quotation_ids = {quotation.id for quotation in project_quotations}
+        visible_receipts = receipts if can_view_payments else []
+        project_receipts = [row for row in visible_receipts if row.get("quotation_id") in project_quotation_ids]
+        projects, project_totals = build_project_ledger(
+            project_quotations,
+            project_receipts,
+            project_invoice_map.values(),
+            can_view_invoices,
+            can_view_payments,
+        )
         return Response({
             "total_billed": billed if can_view_invoices else None, "total_paid": invoice_paid + credits if can_view_payments else None,
             "balance_due": due if can_view_payments else None, "advance_credit": credits if can_view_payments else None,
             "receipts_count": len(receipts) if can_view_payments else None,
-            "receipts": sorted(receipts, key=lambda row: str(row["date"]), reverse=True),
+            "receipts": sorted(visible_receipts, key=lambda row: str(row["date"] or ""), reverse=True),
+            "projects": projects,
+            **project_totals,
             "permissions": {"view_invoices": can_view_invoices, "view_payments": can_view_payments},
+        })
+
+
+class ContractorCustomerProjectFinanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, customer_id):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        customer = Customer.objects.filter(
+            pk=customer_id,
+            contractor_connections__contractor=request.user,
+            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+        ).first()
+        if not customer:
+            return Response({"detail": "Customer account not found."}, status=status.HTTP_404_NOT_FOUND)
+        quotations = Quotation.objects.filter(
+            contractor=request.user, customer=customer,
+            status__in=PROJECT_QUOTATION_STATUSES, deleted_at__isnull=True,
+        ).select_related("property").distinct().order_by("-updated_at", "-id")
+        quotation_ids = quotations.values("id")
+        receipts = []
+        advances = WorkSchedule.objects.filter(
+            quotation_id__in=quotation_ids,
+            payment_status=WorkSchedule.PaymentStatus.CONFIRMED,
+            advance_amount__gt=0,
+        ).select_related("quotation__property").order_by("-payment_confirmed_at")
+        for item in advances:
+            receipts.append({
+                "id": f"advance-{item.id}", "date": item.payment_confirmed_at,
+                "receipt_number": item.advance_receipt_number, "kind": "ADVANCE",
+                "quotation_id": item.quotation_id,
+                "project": item.quotation.property.name or item.quotation.property.property_type if item.quotation.property_id else "Project",
+                "document": item.quotation.quotation_number,
+                "mode": item.payment_mode or "OTHER", "reference": item.payment_reference,
+                "amount": item.advance_amount,
+                "download_url": f"/jobs/work-schedules/{item.id}/advance-receipt/",
+            })
+        quotation_receipts = ProjectReceipt.objects.filter(
+            quotation_id__in=quotation_ids, contractor=request.user,
+        ).select_related("quotation__property").order_by("-received_date", "-id")
+        for item in quotation_receipts:
+            receipts.append({
+                "id": f"quotation-{item.id}", "date": item.received_date,
+                "receipt_number": item.receipt_number, "kind": "QUOTATION RECEIPT",
+                "quotation_id": item.quotation_id,
+                "project": item.quotation.property.name or item.quotation.property.property_type if item.quotation.property_id else "Project",
+                "document": item.quotation.quotation_number,
+                "mode": item.payment_mode, "reference": item.payment_reference,
+                "amount": item.amount,
+                "download_url": f"/billing/contractor-revenue/receipts/{item.id}/pdf/",
+            })
+        invoices = Invoice.objects.filter(
+            quotation_id__in=quotation_ids,
+            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+            contractor=request.user,
+        ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation").distinct()
+        invoice_ids = invoices.values("id")
+        payments = InvoicePayment.objects.filter(invoice_id__in=invoice_ids).exclude(
+            Q(notes__startswith="Advance payment (schedule #")
+            | Q(notes__startswith="Quotation receipt (")
+        ).select_related("invoice").order_by("-received_date", "-id")
+        for item in payments:
+            receipts.append({
+                "id": f"invoice-{item.id}", "date": item.received_date,
+                "receipt_number": item.invoice.receipt_number, "kind": "INVOICE PAYMENT",
+                "quotation_id": item.invoice.quotation_id,
+                "project": item.invoice.property_name,
+                "document": item.invoice.invoice_number,
+                "mode": item.payment_mode, "reference": item.payment_reference,
+                "amount": item.amount,
+                "download_url": f"/quotations/invoices/{item.invoice_id}/receipt/",
+            })
+        projects, totals = build_project_ledger(quotations, receipts, invoices, True, True)
+        return Response({
+            "customer": {"id": customer.id, "name": customer.name, "bharath_id": customer.bharath_id},
+            "projects": projects,
+            **totals,
+            "receipts": sorted(receipts, key=lambda row: str(row["date"] or ""), reverse=True),
         })
 
 

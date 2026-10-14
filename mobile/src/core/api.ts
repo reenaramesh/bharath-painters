@@ -16,7 +16,7 @@ export class ApiClient {
   }
   setTokens(tokens: Tokens | null) { this.generation++; this.tokens = tokens; this.refreshing = null; }
   private url(path: string) {
-    if (!/^\/[a-zA-Z0-9/_-]*\/?$/.test(path) || path.startsWith('//')) throw new Error('Invalid API path');
+    if (!/^\/[a-zA-Z0-9/_-]*\/?(?:\?[a-zA-Z0-9_%=&+.-]*)?$/.test(path) || path.startsWith('//')) throw new Error('Invalid API path');
     if (!this.base) throw new Error('Configure EXPO_PUBLIC_API_URL to sign in.');
     const url = new URL(this.base);
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && /^(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(url.hostname))) throw new Error('Use HTTPS for the API URL.');
@@ -68,5 +68,8 @@ export class ApiClient {
     }
     return await response.json() as T;
   }
-  get<T>(path: string) { return this.request<T>(path); }
+  get<T>(path: string, params?: Record<string, string | number>) {
+    const query = params ? new URLSearchParams(Object.entries(params).map(([key,value])=>[key,String(value)])).toString() : '';
+    return this.request<T>(path + (query ? `?${query}` : ''));
+  }
 }

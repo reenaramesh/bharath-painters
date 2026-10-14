@@ -1,13 +1,14 @@
 import type { Dashboard } from '../core/contracts';
 import type { ModuleId, RecordItem, User } from '../core/navigation';
+import { indiaDate } from '../core/dashboardPresentation';
 export const demoUser: User = { id: -1, role: 'CONTRACTOR', first_name: 'Bharath', is_verified: true, verification_status: 'VERIFIED' };
 export const demoDashboard: Dashboard = {
   contractor_name: 'Bharath', profile_completion: { percent: 80, missing: ['Company address'] },
-  counts: { customers: 24, properties: 18, quotations: 12, quotation_value: '845000', active_leads: 7, invoices: 8, due_tasks: 2, unread_messages: 3, site_visits: 2, new_requests: 1 },
+  counts: { customers: 148, properties: 18, quotations: 26, quotation_value: '845000', active_leads: 7, invoices: 8, due_tasks: 5, unread_messages: 3, site_visits: 3, new_requests: 1 },
   recent_customers: [{ id: 1, name: 'Ananya Rao', city: 'Bengaluru', mobile: 'Sample contact', status: 'ACTIVE' }, { id: 2, name: 'Vikram Shah', city: 'Mysuru', mobile: 'Sample contact', status: 'NEW' }],
   recent_quotations: [{ id: 1, number: 'QT-2026-042', customer: 'Ananya Rao', property: 'Whitefield residence', status: 'SENT', amount: '148500' }, { id: 2, number: 'QT-2026-043', customer: 'Vikram Shah', property: 'Lakeview apartment', status: 'DRAFT', amount: '82000' }],
   tasks: [{ id: 1, customer: 1, customer_name: 'Ananya Rao', comment: 'Discuss the exterior painting estimate', next_follow_up: '2026-10-09T05:00:00Z', overdue: true }],
-  site_visits: [{ id: 1, customer_name: 'Vikram Shah', property_name: 'Lakeview apartment', scheduled_date: '2026-10-10', scheduled_time: '10:30', status: 'SCHEDULED' }],
+  site_visits: [{ id: 1, customer_name: 'Ananya Rao', property_name: 'Prestige Lakeside Habitat', scheduled_date: indiaDate(), scheduled_time: '10:30', status: 'SCHEDULED' }, { id: 2, customer_name: 'Vikram Shah', property_name: 'Marvel Domicilia', scheduled_date: indiaDate(), scheduled_time: '14:00', status: 'SCHEDULED' }, { id: 3, customer_name: 'Priya Nair', property_name: 'Whitefield residence', scheduled_date: indiaDate(), scheduled_time: '16:00', status: 'SCHEDULED' }],
   pipeline: [{ status: 'NEW', label: 'New', count: 3 }, { status: 'CONTACTED', label: 'Contacted', count: 4 }],
 };
 export const demoRecords: Record<ModuleId, RecordItem[]> = {
@@ -20,5 +21,6 @@ export const demoRecords: Record<ModuleId, RecordItem[]> = {
   schedules: [{ id: '1', title: 'Lakeview site visit', subtitle: '10 Oct · 10:30 AM · Vikram Shah', status: 'SCHEDULED' }, { id: '2', title: 'Whitefield painting', subtitle: '12 Oct · Interior preparation', status: 'CONFIRMED' }],
   payments: [{ id: '1', title: 'Whitefield invoice', subtitle: 'INV-2026-018 · Ananya Rao', status: 'PENDING', amount: '48500', note: 'Sample invoice amount. No payment can be collected in this prototype.' }],
   messages: [{ id: '1', title: 'Ananya Rao', subtitle: 'Can we discuss the exterior colours?', status: 'UNREAD' }, { id: '2', title: 'Vikram Shah', subtitle: 'Thank you, see you at the site visit.', status: 'READ' }],
+  subcontracts: [{ id: '1', title: 'Prestige Lakeside Habitat', subtitle: 'You received this work · Sample contractor', status: 'SENT', note: 'Sample subcontract work order. Financial and workflow actions are not enabled.' }],
   settings: [],
 };

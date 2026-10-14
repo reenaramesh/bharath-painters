@@ -1,5 +1,5 @@
 .admin-shell main {
-  --admin-accent: var(--app-primary, #176b9b);
+  --admin-accent: var(--app-primary, #2563eb);
   --admin-line: var(--bp-line, #dce3eb);
   --admin-soft: color-mix(in srgb, var(--admin-accent) 6%, white);
   min-width: 0;

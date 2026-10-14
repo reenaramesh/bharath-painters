@@ -221,7 +221,7 @@ class PropertyInvitationApiTests(APITestCase):
         contact = PropertyContact.objects.get(property=self.property, customer=accepted_customer)
         self.assertEqual(contact.relationship, PropertyContact.Relationship.TENANT)
         self.assertEqual(contact.access_level, PropertyContact.AccessLevel.SITE_COORDINATION)
-        invitation = PropertyInvitation.objects.get(pk=created.data["id"])
+        invitation = PropertyInvitation.objects.get(pk=created.data["invitation"]["id"])
         self.assertEqual(invitation.status, PropertyInvitation.Status.ACCEPTED)
         self.assertEqual(invitation.token_hash, hashlib.sha256(token.encode()).hexdigest())
         self.assertEqual(
@@ -357,10 +357,10 @@ class PropertyInvitationApiTests(APITestCase):
         self.assertEqual(rejected.status_code, 403)
 
         self.client.force_authenticate(self.primary_user)
-        revoked = self.client.post(reverse("property-invitation-revoke", args=(created.data["id"],)))
+        revoked = self.client.post(reverse("property-invitation-revoke", args=(created.data["invitation"]["id"],)))
         self.assertEqual(revoked.status_code, 200)
         self.assertEqual(
-            PropertyInvitation.objects.get(pk=created.data["id"]).status,
+            PropertyInvitation.objects.get(pk=created.data["invitation"]["id"]).status,
             PropertyInvitation.Status.REVOKED,
         )
         self.client.force_authenticate(None)
@@ -372,7 +372,7 @@ class PropertyInvitationApiTests(APITestCase):
     def test_expired_invitation_cannot_be_previewed_or_accepted(self):
         created = self.create_invitation()
         token = created.data["invite_url"].rsplit("/", 1)[-1]
-        PropertyInvitation.objects.filter(pk=created.data["id"]).update(
+        PropertyInvitation.objects.filter(pk=created.data["invitation"]["id"]).update(
             expires_at=timezone.now() - timedelta(seconds=1),
         )
         self.client.force_authenticate(None)
@@ -437,7 +437,9 @@ class PropertyInvitationApiTests(APITestCase):
             property=self.property,
             customer=self.invitee_customer,
             role=PropertyContact.Role.TENANT,
-            access_level=PropertyContact.AccessLevel.QUOTATION_APPROVAL,
+            relationship=PropertyContact.Relationship.TENANT,
+            access_level=PropertyContact.AccessLevel.CUSTOM,
+            custom_permissions=["view_property", "view_quotations", "view_measurements", "view_jobs", "view_schedules", "view_progress"],
         )
         quotation = Quotation.objects.create(
             contractor=self.contractor,
@@ -543,6 +545,25 @@ class PropertyInvitationApiTests(APITestCase):
         self.assertEqual(restricted.data["measurement_records"], [])
         self.assertEqual(restricted.data["surfaces"], [])
         self.assertEqual(pdf.status_code, 403)
+
+    def test_explicit_quotation_approval_grant_is_independent_of_relationship(self):
+        contact=PropertyContact.objects.create(
+            property=self.property,customer=self.invitee_customer,
+            role=PropertyContact.Role.AUTHORIZED_CONTACT,
+            relationship=PropertyContact.Relationship.TENANT,
+            access_level=PropertyContact.AccessLevel.QUOTATION_APPROVAL,
+        )
+        quotation=Quotation.objects.create(
+            contractor=self.contractor,customer=self.primary_customer,property=self.property,
+            connection=self.connection,status=Quotation.Status.SENT,subtotal=2500,grand_total=2500,
+        )
+        self.client.force_authenticate(self.invitee_user)
+        approved=self.client.post(reverse("customer-quotation-action",args=(quotation.id,)),{"action":"APPROVE"},format="json")
+        self.assertEqual(approved.status_code,200,approved.data)
+        quotation.refresh_from_db()
+        self.assertEqual(quotation.status,Quotation.Status.ACCEPTED)
+        self.assertFalse(contact.is_primary)
+        self.assertEqual(self.property.customer_id,self.primary_customer.id)
 
     def test_primary_transfer_demotes_old_primary_and_audits(self):
         target = PropertyContact.objects.create(

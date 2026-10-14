@@ -24,6 +24,6 @@ function RootNavigator() {
 function MobileViewport() {
   const theme = useTheme();
   if (Platform.OS !== 'web') return <RootNavigator />;
-  return <View style={{ flex: 1, alignItems: 'center', backgroundColor: theme.dark ? '#0A1421' : '#EAE7E1' }}><View style={{ flex: 1, width: '100%', maxWidth: 430, borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.colors.outlineVariant }}><RootNavigator /></View></View>;
+  return <View style={{ flex: 1, alignItems: 'center', backgroundColor: theme.dark ? '#0A1421' : '#E8EEF7' }}><View style={{ flex: 1, width: '100%', maxWidth: 430, borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.colors.outlineVariant }}><RootNavigator /></View></View>;
 }
 export default function RootLayout() { return <SafeAreaProvider><AppProvider><MobileViewport /></AppProvider></SafeAreaProvider>; }

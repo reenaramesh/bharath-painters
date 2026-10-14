@@ -1,0 +1,18 @@
+{
+  "platform": "Expo web; not native Android",
+  "checks": [
+    {
+      "width": 360,
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "horizontal_overflow": false
+    },
+    {
+      "width": 430,
+      "horizontal_overflow": false
+    }
+  ],
+  "page_errors": []
+}

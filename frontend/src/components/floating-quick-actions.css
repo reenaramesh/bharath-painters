@@ -7,4 +7,5 @@
 .bp-floating-actions-toggle > span { width:40px; height:40px; background:var(--app-primary,#176b9b); color:var(--app-on-primary,#fff); border-color:transparent; }
 .bp-floating-actions :is(a,button):focus-visible { outline:2px solid #176b9b; outline-offset:2px; border-radius:10px; }
 body:has(dialog[open]) .bp-floating-actions { visibility:hidden; }
+@media(max-width:767px) { .bp-floating-actions-quotation { display:none; } }
 @media(min-width:768px) { .bp-floating-actions { bottom:24px; right:20px; } }

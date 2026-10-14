@@ -91,12 +91,79 @@
   align-items: stretch;
 }
 
+.contractor-revenue-page .finance-summary-action {
+  display: block;
+  min-width: 0;
+  border-radius: 15px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.contractor-revenue-page .finance-summary-action .bp-stat-card {
+  height: 100%;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.contractor-revenue-page .finance-summary-action:hover .bp-stat-card {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--bp-brand) 44%, white);
+  box-shadow: 0 5px 16px rgb(15 23 42 / 8%);
+}
+
+.contractor-revenue-page .finance-summary-action.is-active .bp-stat-card {
+  border-color: color-mix(in srgb, var(--bp-brand) 48%, white);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bp-brand) 32%, transparent), 0 3px 12px rgb(15 23 42 / 6%);
+}
+
+.contractor-revenue-page .finance-summary-action:focus-visible {
+  outline: 3px solid var(--bp-brand);
+  outline-offset: 3px;
+}
+
 .finance-page .finance-summary-grid .bp-stat-card {
   min-width: 0;
   min-height: 120px;
   align-items: flex-start;
   gap: 12px;
   padding: 18px;
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--bp-brand) 44%, white);
+  box-shadow: 0 5px 16px rgb(15 23 42 / 8%);
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--bp-brand) 52%, white);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bp-brand) 30%, transparent), 0 3px 12px rgb(15 23 42 / 6%);
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action:focus-visible {
+  outline: 3px solid var(--bp-brand);
+  outline-offset: 3px;
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action .bp-stat-card-content {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.finance-page .finance-summary-grid .bp-stat-card-action .bp-stat-card-label {
+  display: block;
+  color: var(--bp-muted);
+  font-size: var(--bp-type-supporting);
+  font-weight: 650;
 }
 
 .finance-page .finance-summary-grid .bp-stat-card > div {

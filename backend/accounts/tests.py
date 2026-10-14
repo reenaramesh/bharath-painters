@@ -565,7 +565,8 @@ class CustomerSelfRegistrationTests(APITestCase):
             invited_by=inviter,
             invitee_name="New customer",
             invitee_mobile="+919888877778",
-            role=PropertyContact.Role.TENANT,
+            role=PropertyContact.Role.AUTHORIZED_CONTACT,
+            relationship=PropertyContact.Relationship.TENANT,
             token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
             expires_at=timezone.now() + timedelta(days=3),
         )
@@ -581,7 +582,9 @@ class CustomerSelfRegistrationTests(APITestCase):
         customer = Customer.objects.get(normalized_mobile="+919888877778")
         contact = PropertyContact.objects.get(property=property_obj, customer=customer)
         invitation.refresh_from_db()
-        self.assertEqual(contact.role, PropertyContact.Role.TENANT)
+        self.assertEqual(contact.role, PropertyContact.Role.AUTHORIZED_CONTACT)
+        self.assertEqual(contact.relationship, PropertyContact.Relationship.TENANT)
+        self.assertEqual(contact.access_level, PropertyContact.AccessLevel.SITE_COORDINATION)
         self.assertEqual(customer.portal_user.mobile, "+919888877778")
         self.assertEqual(invitation.status, PropertyInvitation.Status.ACCEPTED)
         self.assertTrue(PropertyAccessAudit.objects.filter(

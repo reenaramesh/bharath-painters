@@ -4,7 +4,7 @@ import useAuth from '../context/useAuth';
 import ContractorProfileView from './ContractorProfileView';
 import { loadContractorPublicProfile } from '../utils/contractorPublicProfile';
 import { mapContractorProfile } from '../utils/contractorProfileMapping';
-import { API_BASE_URL } from '../api/client';
+import { contractorProfileLink } from '../utils/contractorProfileLink.js';
 
 export default function ContractorProfileAdapter({ profile, data: suppliedData, own = false, contextActions = {}, onBack, onEditProfile }) {
   const { user } = useAuth();
@@ -32,9 +32,7 @@ export default function ContractorProfileAdapter({ profile, data: suppliedData, 
   const presentation = mapContractorProfile(resolved, profile, { isOwnProfile });
   const card = resolved?.digital_card;
   const phone = String(card?.mobile || profile?.mobile || '').replace(/[^+\d]/g, '');
-  const publicPath = resolved?.profile_url || (profile?.bharath_id
-    ? `${API_BASE_URL.replace(/\/$/, '')}/accounts/verify-page/${encodeURIComponent(profile.bharath_id)}/` : null);
-  const publicUrl = publicPath ? new URL(publicPath, window.location.origin).href : null;
+  const publicUrl = contractorProfileLink(card?.bharath_id || profile?.bharath_id) || null;
   function saveContact() {
     const escape = value => String(value || '').replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
     const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${escape(presentation.name)}`, `TEL;TYPE=WORK,VOICE:${phone}`];
@@ -54,7 +52,7 @@ export default function ContractorProfileAdapter({ profile, data: suppliedData, 
   }
   const requestHref = contextActions.assignHref || contextActions.quoteHref;
   return <>
-    {error && <p role="status">{error} <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
+    {error && <p role="status">{error} <button className="bp-ui-action" type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
     <ContractorProfileView profile={presentation} isOwnProfile={isOwnProfile}
       onBack={onBack || (() => window.history.state?.idx > 0 ? navigate(-1) : navigate(user?.role === 'CUSTOMER' ? '/customer-dashboard' : '/contractor-network'))}
       onShare={publicUrl ? share : undefined}

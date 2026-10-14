@@ -1,3 +1,4 @@
+import EmployeeQuickActions from "../components/EmployeeQuickActions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
@@ -28,6 +29,7 @@ export default function InHouseEmployeeCreate() {
   });
   async function submit(e) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       const { data } = await api.post("/jobs/my-team/create-applicator/", form);
@@ -45,39 +47,40 @@ export default function InHouseEmployeeCreate() {
     }
   }
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header>
+    <div className="employee-page mx-auto max-w-5xl space-y-6">
+      <header className="bp-ui-page-header">
         <Link to="/in-house-applicators" className="text-sm text-slate-500">
           ← Employees
         </Link>
-        <h1 className="mt-3 text-3xl font-bold">Create in-house employee</h1>
+        <h1 className="mt-3 text-3xl font-bold bp-ui-page-title">Create in-house employee</h1>
         
       </header>
+      <EmployeeQuickActions />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>
       )}
       <form onSubmit={submit} className="rounded-2xl border bg-white p-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name">
-            <input required {...bind("name")} />
+            <input className="bp-ui-control" required {...bind("name")} />
           </Field>
           <Field label="Employee ID">
-            <input
+            <input className="bp-ui-control"
               disabled
               value="Generated automatically (BPE-YEAR-0001)"
             />
           </Field>
           <Field label="Phone number">
-            <input required {...bind("mobile")} />
+            <input className="bp-ui-control" required {...bind("mobile")} />
           </Field>
           <Field label="Login password">
-            <input required minLength="8" {...bind("password")} />
+            <input className="bp-ui-control" required minLength="8" {...bind("password")} />
           </Field>
           <Field label="Date of birth">
-            <input type="date" {...bind("date_of_birth")} />
+            <input className="bp-ui-control" type="date" {...bind("date_of_birth")} />
           </Field>
           <Field label="Blood group">
-            <select {...bind("blood_group")}>
+            <select className="bp-ui-control" {...bind("blood_group")}>
               <option value="">Select</option>
               {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((x) => (
                 <option key={x}>{x}</option>
@@ -85,20 +88,20 @@ export default function InHouseEmployeeCreate() {
             </select>
           </Field>
           <Field label="Date of joining">
-            <input type="date" required {...bind("joined_on")} />
+            <input className="bp-ui-control" type="date" required {...bind("joined_on")} />
           </Field>
           <Field label="Years of experience">
-            <input type="number" min="0" {...bind("experience_years")} />
+            <input className="bp-ui-control" type="number" min="0" {...bind("experience_years")} />
           </Field>
           <Field label="Salary type">
-            <select {...bind("salary_basis")}>
+            <select className="bp-ui-control" {...bind("salary_basis")}>
               <option value="MONTHLY">Fixed monthly salary</option>
               <option value="WEEKLY">Weekly wage</option>
               <option value="DAILY">Daily wage</option>
             </select>
           </Field>
           <Field label="Salary / wage">
-            <input
+            <input className="bp-ui-control"
               required
               type="number"
               min="0"
@@ -107,7 +110,7 @@ export default function InHouseEmployeeCreate() {
             />
           </Field>
           <Field label="Skills" wide>
-            <textarea required rows="3" {...bind("skills")} />
+            <textarea className="bp-ui-control" required rows="3" {...bind("skills")} />
           </Field>
           <Check
             label="ESI applicable"
@@ -122,7 +125,7 @@ export default function InHouseEmployeeCreate() {
         </div>
         <button
           disabled={saving}
-          className="mt-6 rounded-xl bg-slate-950 px-7 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-6 rounded-xl bg-slate-950 px-7 py-3 font-semibold text-white disabled:opacity-50 bp-ui-action"
         >
           {saving ? "Creating..." : "Create employee"}
         </button>

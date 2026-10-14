@@ -1,3 +1,6 @@
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
+import "./mobile-workspace.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -24,6 +27,7 @@ import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components
 import "./crm-pages.css";
 
 export default function CustomerDetail() {
+  const mobile = useMobileView();
   const { id } = useParams();
   const { user } = useAuth();
   const [activationLink, setActivationLink] = useState(null);
@@ -42,6 +46,7 @@ export default function CustomerDetail() {
   });
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [completingId, setCompletingId] = useState(null);
+  const [callEvents, setCallEvents] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +63,13 @@ export default function CustomerDetail() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    api.get(`/call-inbox/customers/${id}/events/`).then(({ data }) => {
+      if (active) setCallEvents(data.results || []);
+    }).catch(() => { if (active) setCallEvents([]); });
+    return () => { active = false; };
+  }, [id]);
   useEffect(() => {
     const openFollowUp = () => setShowFollowUp(true);
     window.addEventListener("bp-open-customer-followup", openFollowUp);
@@ -232,9 +244,9 @@ export default function CustomerDetail() {
     <BackButton fallback="/customers" label="Back to customers" />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
-    <section className="rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} /><p className="mt-4 text-sm text-slate-500">{customer.connection_status === "PENDING" ? "You can prepare properties, Area Calculations, and quotation drafts for this customer. Drafts stay private and cannot be sent until the customer approves your connection." : "Your contact details are saved. Send a connection request to prepare customer-specific work."}</p>
+    <section className="rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} />
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
-      <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
+      <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold bp-ui-action">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
     </section>
     <div className="grid gap-6 md:grid-cols-2">
       <Summary
@@ -265,11 +277,11 @@ export default function CustomerDetail() {
 
   const inputClass =
     "rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900";
-  const followUps = [...(customer.follow_ups || [])]
+  const followUps = (mobile ? recentFirst(customer.follow_ups || [], ["created_at", "follow_up_date", "next_follow_up"]) : [...(customer.follow_ups || [])])
     .filter((item) => !item.is_completed)
     .sort(
     (first, second) =>
-      new Date(second.follow_up_date) - new Date(first.follow_up_date),
+      mobile ? 0 : new Date(second.follow_up_date) - new Date(first.follow_up_date),
   );
   const whatsappUrl = getWhatsAppUrl(customer.whatsapp || customer.mobile);
 
@@ -294,7 +306,7 @@ export default function CustomerDetail() {
         <div className="flex-1">
           <PageHeader eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
           <CustomerAccountStatus customer={customer} />
-          {customerAccountStatus(customer)?.canResend && <button type="button" disabled={linkLoading} onClick={shareActivation} className="mt-3 min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 disabled:opacity-50">{linkLoading ? "Preparing link..." : "Resend activation link"}</button>}
+          {customerAccountStatus(customer)?.canResend && <button type="button" disabled={linkLoading} onClick={shareActivation} className="mt-3 min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 disabled:opacity-50 bp-ui-action">{linkLoading ? "Preparing link..." : "Resend activation link"}</button>}
           {activationLink && <CustomerActivationShare error={error} key={activationLink.share_link} customer={activationLink} contractor={user} busy={linkLoading} onRegenerate={shareActivation} onClose={() => { setActivationLink(null); load(); }} />}
           <p className="mt-2 flex items-center gap-2 text-slate-500">
             <Phone className="h-4 w-4" />
@@ -341,14 +353,14 @@ export default function CustomerDetail() {
           )}
           <button
             onClick={() => setShowFollowUp(true)}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"
+            className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white bp-ui-action"
           >
             <Plus className="h-4 w-4" />
             Add follow-up
           </button>
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
+            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
           >
             <Edit3 className="h-4 w-4" />
             Edit
@@ -419,11 +431,19 @@ export default function CustomerDetail() {
         />
       </div>
 
+      <section className="rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 sm:p-6">
+          <div><h2 className="font-bold text-slate-900 bp-ui-section-heading">Call history</h2><p className="mt-1 text-sm text-slate-500">Incoming calls matched to this customer.</p></div>
+          <div className="flex flex-wrap gap-3 text-sm font-semibold"><Link className="text-slate-700" to={`/properties?customer=${customer.id}`}>Properties</Link><Link className="text-slate-700" to={`/customers/${customer.id}/quotations`}>Quotations</Link><Link className="text-slate-700" to="/leads">Leads</Link><button type="button" className="text-slate-700" onClick={() => setShowFollowUp(true)}>Add follow-up</button></div>
+        </div>
+        {callEvents.length ? <div className="divide-y divide-slate-100">{callEvents.slice(0, 8).map((event) => <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6"><div><p className="font-semibold text-slate-900">{event.call_status || "Incoming call"}</p><p className="mt-1 text-sm text-slate-500">{new Date(event.occurred_at).toLocaleString("en-IN")}</p></div><a className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold text-slate-700" href={`tel:${event.phone_number}`}><Phone className="h-4 w-4"/>Call back</a></div>)}</div> : <p className="p-6 text-sm text-slate-500">No incoming calls have been linked to this customer.</p>}
+      </section>
+
       <div>
         <section className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white">
             <div className="border-b border-slate-100 p-6">
-              <h2 className="font-bold text-slate-900">Follow-up timeline</h2>
+              <h2 className="font-bold text-slate-900 bp-ui-section-heading">Follow-up timeline</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Most recent activity appears first
               </p>
@@ -448,7 +468,7 @@ export default function CustomerDetail() {
                       <button
                         onClick={() => completeFollowUp(item)}
                         disabled={completingId === item.id}
-                        className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50"
+                        className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50 bp-ui-action"
                       >
                         {completingId === item.id ? "Saving..." : "Mark done"}
                       </button>
@@ -476,7 +496,7 @@ export default function CustomerDetail() {
               <div>
                 <h2
                   id="follow-up-title"
-                  className="text-xl font-bold text-slate-900"
+                  className="text-xl font-bold text-slate-900 bp-ui-section-heading"
                 >
                   Add follow-up
                 </h2>
@@ -485,7 +505,7 @@ export default function CustomerDetail() {
               <button
                 type="button"
                 onClick={() => setShowFollowUp(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 bp-ui-icon-action"
                 aria-label="Close follow-up form"
               >
                 <X className="h-5 w-5" />
@@ -502,7 +522,7 @@ export default function CustomerDetail() {
                   onChange={(e) =>
                     setFollowUp({ ...followUp, follow_up_type: e.target.value })
                   }
-                  className={`mt-2 w-full ${inputClass}`}
+                  className={(`mt-2 w-full ${inputClass}`) + " bp-ui-control"}
                 >
                   {["CALL", "WHATSAPP", "NOTE", "SITE_VISIT", "MEETING"].map(
                     (item) => (
@@ -522,7 +542,7 @@ export default function CustomerDetail() {
                   onChange={(e) =>
                     setFollowUp({ ...followUp, next_follow_up: e.target.value })
                   }
-                  className={`mt-2 w-full ${inputClass}`}
+                  className={(`mt-2 w-full ${inputClass}`) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
@@ -535,20 +555,20 @@ export default function CustomerDetail() {
                   onChange={(e) =>
                     setFollowUp({ ...followUp, comment: e.target.value })
                   }
-                  className={`mt-2 w-full resize-none ${inputClass}`}
+                  className={(`mt-2 w-full resize-none ${inputClass}`) + " bp-ui-control"}
                 />
               </label>
               <div className="flex justify-end gap-2 border-t pt-4 sm:col-span-2">
                 <button
                   type="button"
                   onClick={() => setShowFollowUp(false)}
-                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={saving}
-                  className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
                 >
                   {saving ? "Saving..." : "Add follow-up"}
                 </button>
@@ -576,7 +596,7 @@ function Summary({ title, icon: Icon, value, items = [], action }) {
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100">
           <Icon className="h-5 w-5" />
         </span>
-        <h2 className="min-w-0 flex-1 font-bold text-slate-900">{title}</h2>
+        <h2 className="min-w-0 flex-1 font-bold text-slate-900 bp-ui-section-heading">{title}</h2>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
           {value}
         </span>

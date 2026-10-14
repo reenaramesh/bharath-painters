@@ -661,8 +661,16 @@ class CustomerProjectFinanceView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        payment_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).values("pk")
-        invoice_property_ids = accessible_properties(request.user, PropertyPermission.VIEW_INVOICES).values("pk")
+        payment_properties = accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS)
+        invoice_properties = accessible_properties(request.user, PropertyPermission.VIEW_INVOICES)
+        property_id = request.query_params.get("property_id")
+        if property_id:
+            payment_properties = payment_properties.filter(pk=property_id)
+            invoice_properties = invoice_properties.filter(pk=property_id)
+            if not payment_properties.exists() and not invoice_properties.exists():
+                return Response({"detail": "Financial access is not available for this property."}, status=status.HTTP_403_FORBIDDEN)
+        payment_property_ids = payment_properties.values("pk")
+        invoice_property_ids = invoice_properties.values("pk")
         advances = WorkSchedule.objects.filter(
             Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
             | Q(quotation__property_id__in=payment_property_ids),
@@ -679,15 +687,21 @@ class CustomerProjectFinanceView(APIView):
             | Q(site_property_id__in=invoice_property_ids),
             quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
         ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation", "contractor")
-        property_id = request.query_params.get("property_id")
+        payment_invoices = Invoice.objects.filter(
+            Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
+            | Q(quotation__property_id__in=payment_property_ids)
+            | Q(site_property_id__in=payment_property_ids),
+            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+        ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation", "contractor")
         if property_id:
-            if not accessible_properties(request.user, PropertyPermission.VIEW_PAYMENTS).filter(pk=property_id).exists():
-                return Response({"detail": "Payment access is not available for this property."}, status=status.HTTP_403_FORBIDDEN)
             advances = advances.filter(quotation__property_id=property_id)
             quotation_receipts = quotation_receipts.filter(quotation__property_id=property_id)
             invoices = invoices.filter(Q(quotation__property_id=property_id) | Q(site_property_id=property_id))
+            payment_invoices = payment_invoices.filter(Q(quotation__property_id=property_id) | Q(site_property_id=property_id))
+        can_view_invoices = invoice_properties.exists() or invoices.exists()
+        can_view_payments = payment_properties.exists() or payment_invoices.exists() or advances.exists() or quotation_receipts.exists()
         invoice_payments = InvoicePayment.objects.filter(
-            invoice__in=invoices,
+            invoice__in=payment_invoices,
         ).exclude(
             Q(notes__startswith="Advance payment (schedule #") |
             Q(notes__startswith="Quotation receipt (")
@@ -715,26 +729,29 @@ class CustomerProjectFinanceView(APIView):
                 "download_url": f"/billing/customer-finance/receipts/{item.id}/pdf/",
             })
         for item in invoice_payments.order_by("-received_date", "-id"):
+            can_download = invoices.filter(pk=item.invoice_id).exists()
             receipts.append({
                 "id": f"invoice-{item.id}", "date": item.received_date,
                 "receipt_number": item.invoice.receipt_number, "kind": "INVOICE PAYMENT",
                 "contractor": item.invoice.contractor.get_full_name() or item.invoice.contractor.mobile,
-                "project": item.invoice.property_name, "document": item.invoice.invoice_number,
+                "project": item.invoice.property_name, "document": item.invoice.invoice_number if can_download else None,
                 "mode": item.payment_mode, "reference": item.payment_reference, "amount": item.amount,
-                "download_url": f"/quotations/customer-portal/invoices/{item.invoice_id}/receipt/",
+                "download_url": f"/quotations/customer-portal/invoices/{item.invoice_id}/receipt/" if can_download else None,
+                "download_unavailable_reason": None if can_download else "Invoice access is required to download this receipt.",
             })
 
         billed = invoices.aggregate(value=Sum("grand_total"))["value"] or Decimal("0")
-        invoice_paid = invoices.aggregate(value=Sum("amount_paid"))["value"] or Decimal("0")
-        due = sum((item.balance_due for item in invoices), Decimal("0"))
+        invoice_paid = payment_invoices.aggregate(value=Sum("amount_paid"))["value"] or Decimal("0")
+        due = sum((item.balance_due for item in payment_invoices), Decimal("0"))
         unadjusted_advances = advances.filter(quotation__invoice__isnull=True).aggregate(value=Sum("advance_amount"))["value"] or Decimal("0")
         unadjusted_receipts = quotation_receipts.filter(quotation__invoice__isnull=True).aggregate(value=Sum("amount"))["value"] or Decimal("0")
         credits = unadjusted_advances + unadjusted_receipts
         return Response({
-            "total_billed": billed, "total_paid": invoice_paid + credits,
-            "balance_due": due, "advance_credit": credits,
-            "receipts_count": len(receipts),
+            "total_billed": billed if can_view_invoices else None, "total_paid": invoice_paid + credits if can_view_payments else None,
+            "balance_due": due if can_view_payments else None, "advance_credit": credits if can_view_payments else None,
+            "receipts_count": len(receipts) if can_view_payments else None,
             "receipts": sorted(receipts, key=lambda row: str(row["date"]), reverse=True),
+            "permissions": {"view_invoices": can_view_invoices, "view_payments": can_view_payments},
         })
 
 

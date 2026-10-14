@@ -69,7 +69,7 @@ export default function Opportunities() {
 
   return (
     <div className="space-y-6 crm-page crm-opportunities-page">
-      <PageHeader eyebrow="Sales pipeline" title="Sales Opportunities" description="Track each service enquiry through its own sales journey." actions={<Button
+      <PageHeader eyebrow="Sales pipeline" title="Sales Opportunities"  actions={<Button
           onClick={() => navigate("/opportunities/new")}
           aria-label="Create a sales opportunity"
         >
@@ -88,7 +88,7 @@ export default function Opportunities() {
         <SharedStatCard label="Lost" value={counts.lost} tone="danger" className="crm-opportunity-stat" />
       </div>
 
-      <SectionCard title="Find opportunities" description="Search and refine the pipeline" className="crm-filters-card" bodyClassName="space-y-3">
+      <SectionCard title="Find opportunities"  className="crm-filters-card" bodyClassName="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -96,7 +96,7 @@ export default function Opportunities() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search ID, client, mobile, property or service"
-              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-900"
+              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-900 bp-ui-control"
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -109,11 +109,11 @@ export default function Opportunities() {
               <button
                 key={value}
                 onClick={() => setView(value)}
-                className={`rounded-xl px-3 py-2 text-xs font-bold ${
+                className={(`rounded-xl px-3 py-2 text-xs font-bold ${
                   view === value
                     ? "bg-slate-950 text-white"
                     : "border bg-white text-slate-600"
-                }`}
+                }`) + " bp-ui-action"}
               >
                 {label}
               </button>
@@ -124,7 +124,7 @@ export default function Opportunities() {
           <select
             value={stage}
             onChange={(event) => setStage(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900"
+            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
           >
             <option value="">All stages</option>
             {OPPORTUNITY_STAGES.map((value) => (
@@ -136,7 +136,7 @@ export default function Opportunities() {
           <select
             value={source}
             onChange={(event) => setSource(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900"
+            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
           >
             <option value="">All sources</option>
             {SOURCE_OPTIONS.map(([value, label]) => (
@@ -148,7 +148,7 @@ export default function Opportunities() {
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900"
+            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
           >
             <option value="">Any priority</option>
             {PRIORITY_OPTIONS.map(([value, label]) => (
@@ -164,7 +164,7 @@ export default function Opportunities() {
               value={dateFrom}
               max={dateTo || undefined}
               onChange={(event) => setDateFrom(event.target.value)}
-              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900"
+              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
             />
           </label>
           <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
@@ -174,7 +174,7 @@ export default function Opportunities() {
               value={dateTo}
               min={dateFrom || undefined}
               onChange={(event) => setDateTo(event.target.value)}
-              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900"
+              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
             />
           </label>
         </div>
@@ -184,7 +184,7 @@ export default function Opportunities() {
         <SectionCard title="Opportunity records" description={`${items.length} matching ${items.length === 1 ? "opportunity" : "opportunities"}`} className="crm-records-card" bodyClassName="p-0">
           <div className="crm-opportunity-mobile-list">{items.map((item) => <OpportunityCard key={item.id} item={item} />)}</div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-left text-sm">
+            <table className="w-full min-w-[1200px] text-left text-sm bp-ui-table">
               <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Opportunity</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Source</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
               </thead>
@@ -206,7 +206,7 @@ export default function Opportunities() {
           </div>
         </SectionCard>
       ) : (
-        <EmptyState title="No opportunities found" description="Create an opportunity or adjust the current filters." />
+        <EmptyState title="No opportunities found"  />
       )}
     </div>
   );

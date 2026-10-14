@@ -1,3 +1,5 @@
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -26,6 +28,7 @@ import {
 } from "../utils/subcontract";
 
 export default function SubcontractWorkOrderDetail() {
+  const mobile = useMobileView();
   const { id } = useParams();
   const navigate = useNavigate();
   const [workOrder, setWorkOrder] = useState(null);
@@ -85,7 +88,7 @@ export default function SubcontractWorkOrderDetail() {
     return (
       <EmptyState
         title="Work order not found"
-        description="It may have been removed, or you may not be part of it."
+        
       />
     );
   }
@@ -113,11 +116,11 @@ export default function SubcontractWorkOrderDetail() {
         </Link>
       </div>
 
-      <header className="rounded-2xl border bg-white p-6">
+      <header className="rounded-2xl border bg-white p-6 bp-ui-page-header">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="font-mono text-xs text-slate-500">{workOrder.reference}</p>
-            <h1 className="mt-1 text-2xl font-bold">{workOrder.project_title}</h1>
+            <h1 className="mt-1 text-2xl font-bold bp-ui-page-title">{workOrder.project_title}</h1>
             <p className="mt-1 text-sm text-slate-500">
               {isReceiving ? "Sent by" : "Sent to"} {counterparty || "—"} · Project{" "}
               {workOrder.quotation_reference}
@@ -143,7 +146,7 @@ export default function SubcontractWorkOrderDetail() {
 
       {!editingPricing && (transitions.length > 0 || canAskForCorrections) && (
         <section className="rounded-2xl border bg-white p-5">
-          <h2 className="font-bold">What you can do now</h2>
+          <h2 className="font-bold bp-ui-section-heading">What you can do now</h2>
           {actionError && (
             <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>
           )}
@@ -214,7 +217,7 @@ export default function SubcontractWorkOrderDetail() {
       {(workOrder.events || []).length > 0 && (
         <SectionCard title="History">
           <ol className="space-y-3">
-            {workOrder.events.map((event) => (
+            {(mobile ? recentFirst(workOrder.events) : workOrder.events).map((event) => (
               <li key={event.id} className="flex gap-3">
                 <History className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                 <div>
@@ -235,7 +238,7 @@ export default function SubcontractWorkOrderDetail() {
       <div className="pb-4">
         <button
           onClick={() => navigate("/subcontract-work-orders")}
-          className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+          className="text-sm font-semibold text-slate-600 hover:text-slate-900 bp-ui-action"
         >
           Back to work orders
         </button>
@@ -263,7 +266,7 @@ function ScopeSnapshot({ scopes }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+      <table className="w-full text-left text-sm bp-ui-table">
         <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th className="py-2 pr-3">Scope</th>
@@ -361,7 +364,7 @@ function NoteAction({ status, busy, onConfirm }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
+        className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white bp-ui-action"
       >
         {label}
       </button>
@@ -377,7 +380,7 @@ function NoteAction({ status, busy, onConfirm }) {
         rows={2}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bp-ui-control"
         placeholder={
           status === "SUBMITTED_FOR_REVIEW"
             ? "Two coat putty done on internal walls. Ladder work tomorrow."
@@ -388,13 +391,13 @@ function NoteAction({ status, busy, onConfirm }) {
         <button
           disabled={busy || !note.trim()}
           onClick={() => onConfirm(note)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
         >
           {label}
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg border px-4 py-2 text-sm font-semibold"
+          className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
         >
           Cancel
         </button>
@@ -413,11 +416,11 @@ function ConfirmAction({ status, busy, onConfirm }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className={`rounded-xl px-4 py-2.5 text-sm font-bold ${
+        className={(`rounded-xl px-4 py-2.5 text-sm font-bold ${
           destructive
             ? "border border-red-200 text-red-700"
             : "bg-slate-900 text-white"
-        }`}
+        }`) + " bp-ui-action"}
       >
         {label}
       </button>
@@ -433,21 +436,21 @@ function ConfirmAction({ status, busy, onConfirm }) {
         value={note}
         onChange={(event) => setNote(event.target.value)}
         placeholder="Note (optional)"
-        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bp-ui-control"
       />
       <div className="mt-2 flex gap-2">
         <button
           disabled={busy}
           onClick={() => onConfirm(note)}
-          className={`rounded-lg px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
+          className={(`rounded-lg px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
             destructive ? "bg-red-600" : "bg-slate-900"
-          }`}
+          }`) + " bp-ui-action"}
         >
           Yes, {label.toLowerCase()}
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg border px-4 py-2 text-sm font-semibold"
+          className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
         >
           Cancel
         </button>
@@ -464,7 +467,7 @@ function CorrectionAction({ busy, onConfirm }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-bold text-amber-800"
+        className="inline-flex items-center gap-2 rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-bold text-amber-800 bp-ui-action"
       >
         <MessageSquareWarning className="h-4 w-4" /> Ask for corrections
       </button>
@@ -481,20 +484,20 @@ function CorrectionAction({ busy, onConfirm }) {
         rows={2}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bp-ui-control"
         placeholder="Patch the seepage stain near the window."
       />
       <div className="mt-2 flex gap-2">
         <button
           disabled={busy || !note.trim()}
           onClick={() => onConfirm(note)}
-          className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
         >
           Send correction request
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg border px-4 py-2 text-sm font-semibold"
+          className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
         >
           Cancel
         </button>

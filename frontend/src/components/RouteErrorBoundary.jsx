@@ -42,7 +42,7 @@ export default class RouteErrorBoundary extends Component {
           <button
             type="button"
             onClick={this.retry}
-            className="bp-button bp-button-primary"
+            className="bp-button bp-button-primary bp-ui-action"
           >
             <RotateCcw className="h-4 w-4" />
             Try again

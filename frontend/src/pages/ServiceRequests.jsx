@@ -201,11 +201,7 @@ export default function ServiceRequests() {
       <PageHeader
         eyebrow="Painting services"
         title="Service requests"
-        description={
-          isCustomer
-            ? "Request a new painting service and track its progress."
-            : "Review and manage requests raised by your customers."
-        }
+        
         actions={
           isCustomer && (
             <Button onClick={() => setShowForm(true)}>
@@ -248,7 +244,7 @@ export default function ServiceRequests() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search customer, mobile or service"
-              className="w-full min-w-0 bg-transparent text-sm outline-none"
+              className="w-full min-w-0 bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <label className="sr-only" htmlFor="service-request-status-filter">
@@ -258,7 +254,7 @@ export default function ServiceRequests() {
             id="service-request-status-filter"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="rounded-xl border px-4 text-sm"
+            className="rounded-xl border px-4 text-sm bp-ui-control"
           >
             <option value="">All statuses</option>
             {statuses.map((item) => (
@@ -290,7 +286,7 @@ export default function ServiceRequests() {
                       <p className="service-request-type">
                         {item.service_name || "Painting service"}
                       </p>
-                      <h2>{item.title}</h2>
+                      <h2 className="bp-ui-section-heading">{item.title}</h2>
                     </div>
                     <StatusBadge
                       status={item.status}
@@ -356,7 +352,7 @@ export default function ServiceRequests() {
                 ) : (
                   <label className="service-request-status-control">
                     <span>Status</span>
-                    <select
+                    <select className="bp-ui-control"
                       value={item.status}
                       onChange={(event) => updateStatus(item, event.target.value)}
                     >
@@ -374,11 +370,7 @@ export default function ServiceRequests() {
         ) : (
           <EmptyState
             title="No service requests found"
-            description={
-              isCustomer
-                ? "Your requests will appear here after you submit one."
-                : "Requests from your customers will appear here."
-            }
+            
             className="communication-state"
           />
         )}
@@ -393,15 +385,13 @@ export default function ServiceRequests() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="bp-eyebrow">Customer request</p>
-                <h2 className="mt-1 text-xl font-bold">{isAppointment ? 'Book Appointment' : 'New service request'}</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  {isAppointment ? 'Choose a preferred date and describe the visit. Your contractor will confirm the appointment.' : 'Tell your contractor what work you need.'}
-                </p>
+                <h2 className="mt-1 text-xl font-bold bp-ui-section-heading">{isAppointment ? 'Book Appointment' : 'New service request'}</h2>
+                
               </div>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="communication-icon-action"
+                className="communication-icon-action bp-ui-icon-action"
                 aria-label="Close new service request"
               >
                 <X aria-hidden="true" />
@@ -418,7 +408,7 @@ export default function ServiceRequests() {
                   required
                   value={form.customer}
                   onChange={(event) => chooseContractor(event.target.value)}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="">Select contractor</option>
                   {options.map((item) => (
@@ -441,7 +431,7 @@ export default function ServiceRequests() {
                         )?.name || form.title,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="">Other service</option>
                   {selectedContractor?.services.map((service) => (
@@ -456,7 +446,7 @@ export default function ServiceRequests() {
                   required
                   value={form.title}
                   onChange={(event) => setForm({ ...form, title: event.target.value })}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Preferred date">
@@ -468,7 +458,7 @@ export default function ServiceRequests() {
                   onChange={(event) =>
                     setForm({ ...form, preferred_date: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Work address" wide>
@@ -476,7 +466,7 @@ export default function ServiceRequests() {
                   rows="2"
                   value={form.address}
                   onChange={(event) => setForm({ ...form, address: event.target.value })}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Describe the work" wide>
@@ -486,7 +476,7 @@ export default function ServiceRequests() {
                   onChange={(event) =>
                     setForm({ ...form, description: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
             </div>
@@ -506,7 +496,7 @@ export default function ServiceRequests() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="bp-eyebrow">Request follow-up</p>
-                <h2 className="mt-1 text-xl font-bold">Schedule customer follow-up</h2>
+                <h2 className="mt-1 text-xl font-bold bp-ui-section-heading">Schedule customer follow-up</h2>
                 <p className="mt-1 break-words text-sm text-slate-600">
                   {schedule.customer_name} · {schedule.title}
                 </p>
@@ -514,7 +504,7 @@ export default function ServiceRequests() {
               <button
                 type="button"
                 onClick={() => setSchedule(null)}
-                className="communication-icon-action"
+                className="communication-icon-action bp-ui-icon-action"
                 aria-label="Close follow-up form"
               >
                 <X aria-hidden="true" />
@@ -535,7 +525,7 @@ export default function ServiceRequests() {
                       follow_up_type: event.target.value,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="CALL">Callback</option>
                   <option value="SITE_VISIT">Site visit</option>
@@ -554,7 +544,7 @@ export default function ServiceRequests() {
                       next_follow_up: event.target.value,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Task note" wide>
@@ -565,7 +555,7 @@ export default function ServiceRequests() {
                   onChange={(event) =>
                     setScheduleForm({ ...scheduleForm, comment: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
             </div>

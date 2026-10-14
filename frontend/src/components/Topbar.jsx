@@ -139,7 +139,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
   };
   return (
     <header className={`bp-topbar flex items-center justify-between px-3 sm:px-4 md:px-7 ${compactMobileHeader ? "compact-mobile-topbar" : ""}`}>
-      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+      <div className="bp-topbar-main flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
           ref={menuButtonRef}
@@ -149,7 +149,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
           aria-label={t(navigationLabel)}
           aria-controls="workspace-navigation"
           aria-expanded={navigationExpanded}
-          className="bp-shell-icon-button"
+          className="bp-shell-icon-button bp-ui-icon-action"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -159,26 +159,26 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             onClick={goBack}
             aria-label="Go back"
             title="Back"
-            className="bp-shell-icon-button"
+            className="bp-shell-icon-button bp-ui-icon-action"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <button
+        {!desktopLayout && (<button
           type="button"
           onClick={() => navigate(dashboardPath)}
           aria-label="Home"
           title="Home"
-          className="bp-shell-icon-button hidden md:grid"
+          className="bp-shell-icon-button hidden md:grid bp-ui-icon-action"
         >
           <Home className="h-5 w-5" />
-        </button>
+        </button>)}
 
         <p className="max-w-[170px] truncate text-sm font-semibold capitalize text-[var(--bp-ink)] md:hidden">
           {page}
         </p>
-        <div className="hidden items-center gap-2 md:flex">
-          <div className="mr-4 hidden min-w-36 lg:block">
+        <div className="bp-topbar-workspace hidden items-center gap-2 md:flex">
+          {!desktopLayout && (<div className="mr-4 hidden min-w-36 xl:block">
             <p className="text-xs font-semibold capitalize text-[var(--bp-muted)]">
               {t("Workspace")}{" "}
               {crumbs.length > 1 && (
@@ -188,7 +188,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             <p className="mt-0.5 text-sm font-semibold capitalize text-[var(--bp-ink)]">
               {page}
             </p>
-          </div>
+          </div>)}
           <div className="bp-topbar-search relative flex w-56 items-center gap-2 border px-3.5 py-2.5 lg:w-72">
             <Search className="w-4 h-4 shrink-0 text-[var(--bp-muted)]" aria-hidden="true" />
 
@@ -198,7 +198,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search customers, quotes, properties..."
-              className="w-full min-w-0 bg-transparent text-sm"
+              className="w-full min-w-0 bg-transparent text-sm bp-ui-control"
             />
             {results.length > 0 && (
               <div className="absolute left-0 top-12 z-50 w-[min(26.25rem,calc(100vw-2rem))] overflow-hidden rounded-xl border bg-[var(--bp-card)] shadow-2xl">
@@ -206,7 +206,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                   <button
                     key={`${item.type}-${item.link}-${index}`}
                     onClick={() => chooseResult(item)}
-                    className="flex w-full items-center gap-3 border-b px-4 py-3 text-left hover:bg-slate-50"
+                    className="flex w-full items-center gap-3 border-b px-4 py-3 text-left hover:bg-slate-50 bp-ui-action"
                   >
                     <span className="rounded-md bg-[color-mix(in_srgb,var(--app-primary,#176b9b)_10%,white)] px-2 py-1 text-xs font-bold uppercase text-[var(--app-primary,#176b9b)]">
                       {item.type}
@@ -223,7 +223,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
+      <div className="bp-topbar-right flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
         <div className={compactMobileHeader ? "hidden md:block" : ""}><LanguageSelector compact /></div>
         <div className="relative shrink-0">
           <button
@@ -233,7 +233,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             aria-controls="topbar-notifications-panel"
             aria-expanded={open}
             onClick={() => { setProfileOpen(false); setOpen((value) => !value); }}
-            className="bp-shell-icon-button relative"
+            className="bp-shell-icon-button relative bp-ui-action"
           >
             <Bell className="w-5 h-5 text-slate-600" />
             {unread > 0 && (
@@ -246,13 +246,13 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             <div id="topbar-notifications-panel" className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border border-[var(--bp-line)] bg-[var(--bp-card)] shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[380px] sm:max-h-[min(80vh,560px)]">
               <div className="flex items-center justify-between border-b p-4">
                 <div>
-                  <h2 className="font-bold">{t("Notifications")}</h2>
+                  <h2 className="font-bold bp-ui-section-heading">{t("Notifications")}</h2>
                   <p className="text-sm text-[var(--bp-muted)]">{unread} unread</p>
                 </div>
                 {unread > 0 && (
                   <button
                     onClick={readAll}
-                    className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[var(--app-primary,var(--bp-brand))] hover:bg-[var(--bp-color-surface-muted)]"
+                    className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[var(--app-primary,var(--bp-brand))] hover:bg-[var(--bp-color-surface-muted)] bp-ui-action"
                   >
                       {t("Mark all read")}
                   </button>
@@ -265,7 +265,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                     <button
                       key={item.id}
                       onClick={() => readNotification(item)}
-                      className={`block w-full border-b p-4 text-left hover:bg-slate-50 ${item.is_read ? "bg-white" : "bg-indigo-50/60"}`}
+                      className={(`block w-full border-b p-4 text-left hover:bg-slate-50 ${item.is_read ? "bg-white" : "bg-indigo-50/60"}`) + " bp-ui-action"}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <strong className="min-w-0 break-words text-sm">{item.event_type === "MESSAGE" ? "New message" : <ScriptKnownText source={item.title} />}</strong>
@@ -289,6 +289,26 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
           )}
         </div>
 
+        {desktopLayout && <div className="bp-topbar-desktop-identity flex items-center gap-2"><button
+          type="button"
+          onClick={() => navigate(dashboardPath)}
+          aria-label="Home"
+          title="Home"
+          className="bp-shell-icon-button grid bp-ui-icon-action"
+        >
+          <Home className="h-5 w-5" />
+        </button><div className="bp-topbar-page-reference min-w-0 max-w-32">
+            <p className="text-xs font-semibold capitalize text-[var(--bp-muted)]">
+              {t("Workspace")}{" "}
+              {crumbs.length > 1 && (
+                <span> / {crumbs.slice(0, -1).join(" / ")}</span>
+              )}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold capitalize text-[var(--bp-ink)]">
+              {page}
+            </p>
+          </div></div>}
+
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
@@ -297,20 +317,20 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
             aria-label={t("Profile menu")}
             aria-expanded={profileOpen}
             aria-controls="topbar-profile-menu"
-            className="bp-topbar-profile flex items-center gap-2 text-left hover:bg-[var(--bp-color-surface-muted)]"
+            className="bp-topbar-profile flex items-center gap-2 text-left hover:bg-[var(--bp-color-surface-muted)] bp-ui-action"
           >
             <div className="bp-topbar-avatar flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold shadow-sm ring-2 ring-white">
               {name.charAt(0).toUpperCase()}
             </div>
 
-            <div className="hidden sm:block">
+            <div className="hidden xl:block">
               <p className="max-w-40 truncate whitespace-nowrap text-xs font-semibold text-slate-900" title={name}>{name}</p>
 
               <p className="whitespace-nowrap text-[10px] font-medium uppercase tracking-normal text-slate-500">
                 {user?.role?.toLowerCase() || "Member"} portal
               </p>
             </div>
-            <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
+            <ChevronDown className="hidden h-4 w-4 text-slate-400 xl:block" />
           </button>
           {profileOpen && (
             <div id="topbar-profile-menu" className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-[var(--bp-line)] bg-[var(--bp-card)] shadow-2xl">
@@ -334,7 +354,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                       setProfileOpen(false);
                       navigate(["CONTRACTOR", "PAINTER"].includes(user?.role) ? "/settings" : "/appearance");
                     }}
-                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)]"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)] bp-ui-action"
                   >
                     <Settings className="h-4 w-4" />
                     {t("Profile settings")}
@@ -346,7 +366,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                     setProfileOpen(false);
                     navigate("/profile");
                   }}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)]"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[var(--bp-color-surface-muted)] bp-ui-action"
                 >
                   <UserRound className="h-4 w-4" />
                   {t("My account")}
@@ -354,7 +374,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--bp-color-danger)] hover:bg-[var(--bp-color-danger-surface)]"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--bp-color-danger)] hover:bg-[var(--bp-color-danger-surface)] bp-ui-action"
                 >
                   <LogOut className="h-4 w-4" />
                   {t("Logout")}

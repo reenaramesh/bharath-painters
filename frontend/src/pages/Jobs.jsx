@@ -335,7 +335,7 @@ export default function Jobs() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-jobs-page">
       <MobilePageBack />
-      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")} description={contractor ? "Post requirements and manage Paint Applicator applications." : "Find contractor requirements that match your skills and location."} actions={<div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")}  actions={<div className="flex flex-wrap gap-2">
           <Link
             to={APPLICATOR_AVAILABILITY_PATH}
             className="bp-button bp-button-secondary inline-flex items-center gap-2"
@@ -346,7 +346,7 @@ export default function Jobs() {
           {contractor && (
             <button
               onClick={openForm}
-              className="bp-button bp-button-primary inline-flex items-center gap-2"
+              className="bp-button bp-button-primary inline-flex items-center gap-2 bp-ui-action"
             >
               <Plus className="h-4 w-4" />
               {t("Post requirement")}
@@ -361,7 +361,7 @@ export default function Jobs() {
       />
 
       {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
-      <SectionCard title="Job requirements" description={contractor ? "Review posted work and applicant activity." : "Compare work location, dates, crew size and wage."} className="job-list-card" bodyClassName="p-0">
+      <SectionCard title="Job requirements"  className="job-list-card" bodyClassName="p-0">
         <div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -369,16 +369,16 @@ export default function Jobs() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search service, skill or job"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <label className="rounded-xl bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
             Available from
-            <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none" />
+            <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none bp-ui-control" />
           </label>
           <label className="rounded-xl bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
             Available until
-            <input type="date" min={dateFrom || undefined} value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none" />
+            <input type="date" min={dateFrom || undefined} value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none bp-ui-control" />
           </label>
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <MapPin className="h-4 w-4 text-slate-400" />
@@ -386,17 +386,17 @@ export default function Jobs() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="City, area or PIN code"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <div className="flex gap-2 md:col-span-2 xl:col-span-5">
-            <button type="button" onClick={useNearbyJobs} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+            <button type="button" onClick={useNearbyJobs} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">
               <Crosshair className="h-4 w-4" />{locating ? "Finding..." : "Jobs near my mobile location"}
             </button>
-            <select value={searchGeo.radius_km} onChange={(event) => setSearchGeo((old) => ({ ...old, radius_km: Number(event.target.value) }))} className="rounded-xl border bg-white px-3 text-sm font-semibold">
+            <select value={searchGeo.radius_km} onChange={(event) => setSearchGeo((old) => ({ ...old, radius_km: Number(event.target.value) }))} className="rounded-xl border bg-white px-3 text-sm font-semibold bp-ui-control">
               {[5, 10, 15, 25, 50, 100].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}
             </select>
-            {searchGeo.latitude != null && <button type="button" onClick={() => setSearchGeo((old) => ({ ...old, latitude: null, longitude: null }))} className="rounded-xl border px-3 text-sm font-semibold">Show all locations</button>}
+            {searchGeo.latitude != null && <button type="button" onClick={() => setSearchGeo((old) => ({ ...old, latitude: null, longitude: null }))} className="rounded-xl border px-3 text-sm font-semibold bp-ui-action">Show all locations</button>}
           </div>
         </div>
         {jobs.length ? (
@@ -409,7 +409,7 @@ export default function Jobs() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-bold">{job.title}</h2>
+                      <h2 className="font-bold bp-ui-section-heading">{job.title}</h2>
                       <StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} />
                       <Badge>{job.job_type}</Badge>
                     </div>
@@ -455,12 +455,12 @@ export default function Jobs() {
                   {contractor ? (
                       <button
                         onClick={() => viewApplications(job)}
-                        className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold"
+                        className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bp-ui-action"
                       >
                         <Eye className="h-4 w-4" /> Manage applicants
                     </button>
                   ) : (
-                      <button onClick={() => setDetailJob(job)} className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold">
+                      <button onClick={() => setDetailJob(job)} className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bp-ui-action">
                       <Eye className="h-4 w-4" /> View details
                     </button>
                   )}
@@ -471,11 +471,11 @@ export default function Jobs() {
           </div>
         ) : (
           <div className="job-empty-state p-6 text-center sm:p-10">
-            <EmptyState title={contractor ? "No requirements found" : "No available jobs found"} description={contractor ? "Adjust your filters or post a new work requirement." : "Adjust your location or filters to look for matching work."} />
+            <EmptyState title={contractor ? "No requirements found" : "No available jobs found"}  />
             {contractor ? (
               <button
                 onClick={openForm}
-                className="job-primary-action mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold"
+                className="job-primary-action mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold bp-ui-action"
               >
                 <Plus className="h-4 w-4" />
                 {t("Post requirement")}
@@ -535,10 +535,10 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b bg-white p-5 sm:p-6">
           <div>
             <div className="flex flex-wrap items-center gap-2"><StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} /><Badge>{job.job_type}</Badge></div>
-            <h2 className="mt-3 text-2xl font-extrabold text-slate-950">{job.title}</h2>
+            <h2 className="mt-3 text-2xl font-extrabold text-slate-950 bp-ui-section-heading">{job.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{contractor ? `${job.applications_count} applications` : job.contractor_name}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border p-2" aria-label="Close job details"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="rounded-full border p-2 bp-ui-icon-action" aria-label="Close job details"><X className="h-5 w-5" /></button>
         </header>
         <div className="p-5 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -560,9 +560,9 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
             <ApplicationList items={applications} saving={saving} onDecide={onDecide} onCancel={onCancel} onKeep={onKeep} onMessage={onPainterMessage} onRate={onRate} onTransferResponse={onTransferResponse} onReassign={onReassign} transferTargets={transferTargets} />
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <button type="button" onClick={onCall} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold"><Phone className="h-4 w-4" /> Call</button>
-              <button type="button" onClick={onMessage} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-bold text-blue-700"><MessageCircle className="h-4 w-4" /> Message</button>
-              <button type="button" disabled={saving || job.has_applied} onClick={onApply} className="col-span-2 rounded-xl bg-slate-950 px-3 py-3 text-sm font-bold text-white disabled:bg-emerald-100 disabled:text-emerald-700 sm:col-span-1">{job.has_applied ? "Applied" : "Apply"}</button>
+              <button type="button" onClick={onCall} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold bp-ui-action"><Phone className="h-4 w-4" /> Call</button>
+              <button type="button" onClick={onMessage} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-bold text-blue-700 bp-ui-action"><MessageCircle className="h-4 w-4" /> Message</button>
+              <button type="button" disabled={saving || job.has_applied} onClick={onApply} className="col-span-2 rounded-xl bg-slate-950 px-3 py-3 text-sm font-bold text-white disabled:bg-emerald-100 disabled:text-emerald-700 sm:col-span-1 bp-ui-action">{job.has_applied ? "Applied" : "Apply"}</button>
             </div>
           )}
         </div>
@@ -602,26 +602,26 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
                 {item.cancellation_reason && (
                   <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">Reason: {item.cancellation_reason}</p>
                 )}
-                {item.transfer_request && <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"><p className="font-bold">Transfer requested: {item.transfer_request.target_job}</p><p className="mt-1">{item.transfer_request.target_start_date} to {item.transfer_request.target_end_date} · {item.transfer_request.reason}</p>{item.transfer_request.can_respond ? <div className="mt-2 flex gap-2"><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "REJECT")} className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 font-bold">Decline</button><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "ACCEPT")} className="rounded-lg bg-blue-700 px-3 py-1.5 font-bold text-white">Accept transfer</button></div> : <p className="mt-2 font-bold">Waiting for Paint Applicator approval</p>}</div>}
+                {item.transfer_request && <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"><p className="font-bold">Transfer requested: {item.transfer_request.target_job}</p><p className="mt-1">{item.transfer_request.target_start_date} to {item.transfer_request.target_end_date} · {item.transfer_request.reason}</p>{item.transfer_request.can_respond ? <div className="mt-2 flex gap-2"><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "REJECT")} className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 font-bold bp-ui-action">Decline</button><button disabled={saving} onClick={() => onTransferResponse(item.transfer_request.id, "ACCEPT")} className="rounded-lg bg-blue-700 px-3 py-1.5 font-bold text-white bp-ui-action">Accept transfer</button></div> : <p className="mt-2 font-bold">Waiting for Paint Applicator approval</p>}</div>}
               </div>
               <StatusBadge status={item.status} label={labelStatus(item.status)} tone={applicationTone(item.status)} />
               <div className="flex gap-2">
-                <a href={`tel:${item.mobile}`} title={`Call ${item.mobile}`} className="grid h-10 w-10 place-items-center rounded-lg border"><Phone className="h-4 w-4"/></a>
-                <button onClick={() => onMessage(item.painter_id)} title="Message applicator" className="grid h-10 w-10 place-items-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700"><MessageCircle className="h-4 w-4"/></button>
+                <a href={`tel:${item.mobile}`} title={`Call ${item.mobile}`} className="grid h-10 w-10 place-items-center rounded-lg border bp-ui-icon-action"><Phone className="h-4 w-4"/></a>
+                <button onClick={() => onMessage(item.painter_id)} title="Message applicator" className="grid h-10 w-10 place-items-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 bp-ui-icon-action"><MessageCircle className="h-4 w-4"/></button>
               </div>
               {item.status === "APPLIED" && (
                 <div className="flex gap-2">
                   <button
                     disabled={saving}
                     onClick={() => onDecide(item.application_id, "reject")}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600"
+                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 bp-ui-action"
                   >
                     Reject
                   </button>
                   <button
                     disabled={saving}
                     onClick={() => onDecide(item.application_id, "accept")}
-                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white"
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white bp-ui-action"
                   >
                     Accept
                   </button>
@@ -630,23 +630,23 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
               {item.status === "ACCEPTED" && !item.transfer_request && (
                 <div className="flex flex-wrap items-center gap-2">
                   {selectableTargets.length > 0 && <>
-                    <select value={targets[item.application_id] || ""} onChange={(event) => setTargets((old) => ({ ...old, [item.application_id]: event.target.value }))} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <select value={targets[item.application_id] || ""} onChange={(event) => setTargets((old) => ({ ...old, [item.application_id]: event.target.value }))} className="rounded-lg border bg-white px-3 py-2 text-sm bp-ui-control">
                       <option value="">Request transfer to job</option>
                       {selectableTargets.map((job) => <option key={job.id} value={job.id}>{job.label}</option>)}
                     </select>
-                    <button disabled={saving || !targets[item.application_id]} onClick={() => onReassign(item.application_id, targets[item.application_id])} className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40">Send request</button>
+                    <button disabled={saving || !targets[item.application_id]} onClick={() => onReassign(item.application_id, targets[item.application_id])} className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-40 bp-ui-action">Send request</button>
                   </>}
-                  <button disabled={saving} onClick={() => onCancel(item, "CANCEL")} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600">Cancel assignment</button>
+                  <button disabled={saving} onClick={() => onCancel(item, "CANCEL")} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 bp-ui-action">Cancel assignment</button>
                 </div>
               )}
               {item.status === "CANCELLATION_REQUESTED" && (
                 <div className="flex gap-2">
-                  <button disabled={saving} onClick={() => onKeep(item.application_id)} className="rounded-lg border px-3 py-2 text-sm font-semibold">Keep assignment</button>
-                  <button disabled={saving} onClick={() => onCancel(item, "APPROVE")} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white">Approve cancellation</button>
+                  <button disabled={saving} onClick={() => onKeep(item.application_id)} className="rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action">Keep assignment</button>
+                  <button disabled={saving} onClick={() => onCancel(item, "APPROVE")} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white bp-ui-action">Approve cancellation</button>
                 </div>
               )}
               {item.status === "CANCELLED" && !item.contractor_rating && (
-                <button disabled={saving} onClick={() => onRate(item.application_id)} className="rounded-lg border px-3 py-2 text-sm font-semibold">Rate applicator (optional)</button>
+                <button disabled={saving} onClick={() => onRate(item.application_id)} className="rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action">Rate applicator (optional)</button>
               )}
               {item.contractor_rating && <span className="text-sm font-bold text-amber-600">★ {item.contractor_rating}/5</span>}
             </div>
@@ -680,20 +680,20 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold bp-ui-section-heading">
               {t("Post requirement")}
             </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close post requirement form">
+          <button className="bp-ui-icon-action" type="button" onClick={onClose} aria-label="Close post requirement form">
             <X />
           </button>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label="Job title">
-            <input required {...field("title")} className={input} />
+            <input required {...field("title")} className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Service type">
-            <input required {...field("service_type")} className={input} />
+            <input required {...field("service_type")} className={(input) + " bp-ui-control"} />
           </Field>
           <IndiaLocationPicker value={form} onChange={setForm} required title="Job site location" />
           <Field label="Start date">
@@ -701,11 +701,11 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               required
               type="date"
               {...field("start_date")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Payment type">
-            <select {...field("job_type")} className={input}>
+            <select {...field("job_type")} className={(input) + " bp-ui-control"}>
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
             </select>
@@ -720,7 +720,7 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               {...field(
                 form.job_type === "DAILY" ? "daily_wage" : "weekly_wage",
               )}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Paint Applicators required">
@@ -729,7 +729,7 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               type="number"
               min="1"
               {...field("number_of_painters")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Minimum experience (years)">
@@ -737,7 +737,7 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               type="number"
               min="0"
               {...field("required_experience")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Estimated days">
@@ -746,22 +746,22 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
               type="number"
               min="1"
               {...field("estimated_days")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <div className="sm:col-span-2">
             <p className="text-sm font-semibold">Required skills</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-              {skillOptions.map((skill) => <button type="button" key={skill} onClick={() => toggleSkill(skill)} className={`rounded-xl border px-3 py-2.5 text-left text-sm font-semibold ${selectedSkills.has(skill) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white text-slate-600"}`}>{selectedSkills.has(skill) ? "✓ " : ""}{skill}</button>)}
+              {skillOptions.map((skill) => <button type="button" key={skill} onClick={() => toggleSkill(skill)} className={(`rounded-xl border px-3 py-2.5 text-left text-sm font-semibold ${selectedSkills.has(skill) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white text-slate-600"}`) + " bp-ui-action"}>{selectedSkills.has(skill) ? "✓ " : ""}{skill}</button>)}
             </div>
           </div>
           <Field label="Description" wide>
-            <textarea rows="3" {...field("description")} className={input} />
+            <textarea rows="3" {...field("description")} className={(input) + " bp-ui-control"} />
           </Field>
         </div>
         <button
           disabled={saving || !form.required_skills || !form.location || !form.city}
-          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50 bp-ui-action"
         >
           {saving ? "Posting..." : t("Post requirement")}
         </button>

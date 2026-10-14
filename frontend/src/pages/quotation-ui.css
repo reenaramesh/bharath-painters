@@ -1,0 +1,124 @@
+/* Bharath Apps quotation system. Selectors intentionally exclude other modules. */
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) {
+  --quote-surface: var(--bp-color-surface);
+  --quote-muted-surface: var(--bp-color-surface-muted);
+  --quote-brand: var(--bp-brand);
+  color: var(--bp-ink);
+  min-width: 0;
+  font-size: var(--bp-type-body);
+  line-height: var(--bp-leading-body);
+}
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(.flex,.grid,label,article,section,form) > * { min-width:0; }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(h1,h2,h3,p,dd,dt,output) { overflow-wrap:anywhere; }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(input,select,textarea) {
+  max-width:100%;
+  min-width:0;
+  border-color:var(--bp-line);
+  border-radius:var(--bp-radius-control);
+  color:var(--bp-ink);
+  font:inherit;
+}
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(input,textarea)::placeholder { color:var(--bp-muted); opacity:1; }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(input,select,textarea):disabled { opacity:1; color:var(--bp-muted); background:var(--bp-color-surface-muted); }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(button,a,input,select,textarea):focus-visible { outline:2px solid var(--bp-focus-ring); outline-offset:3px; }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(button,a) { white-space:normal; }
+:is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history) :is(output,.tabular-nums) { font-variant-numeric:tabular-nums; }
+.quotation-filter-field { display:flex; flex-direction:column; gap:var(--bp-space-2); font-size:var(--bp-type-supporting); font-weight:600; min-width:0; }
+.quotation-search-control { display:flex; align-items:center; gap:var(--bp-space-2); min-height:44px; border:1px solid var(--bp-line); border-radius:var(--bp-radius-control); padding:0 var(--bp-space-3); background:var(--bp-color-surface); }
+.quotation-search-control svg { flex-shrink:0; color:var(--bp-muted); }
+.quotation-search-control input { width:100%; background:transparent; font-weight:400; }
+.quotation-filter-field select { min-height:44px; padding:var(--bp-space-3); border:1px solid var(--bp-line); background:var(--bp-color-surface); font-weight:400; }
+.bp-quotation-list .quotation-results-card .truncate,
+.bp-quotation-history .truncate,
+.bp-quotation-page .truncate,
+.bp-quotation-dialog .truncate { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.bp-quotation-list .quotation-results-card button > .grid { grid-template-columns:minmax(0,1fr); }
+.bp-quotation-list .quotation-results-card button > .grid > :last-child { text-align:left; }
+.bp-quotation-list .quotation-results-card .bp-badge { flex-shrink:0; min-width:max-content; white-space:nowrap; align-self:flex-start; }
+.bp-quotation-builder .quotation-totals-workspace :is(.flex.justify-between,.lsq-subtotal),
+.bp-quotation-detail .quotation-totals > div { gap:var(--bp-space-3); flex-wrap:wrap; }
+.bp-quotation-builder .quotation-totals-workspace .flex.justify-between > :last-child,
+.bp-quotation-detail .quotation-totals > div > :last-child { overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.bp-quotation-dialog { font-family:inherit; }
+.bp-quotation-dialog > header { padding:var(--bp-space-4); }
+.bp-quotation-dialog :is(header,footer) { flex-shrink:0; }
+.bp-quotation-dialog button { min-height:44px; }
+.bp-quotation-dialog :is(.bg-slate-950,.bg-\[\#245b75\]) { background:var(--bp-brand); color:var(--bp-color-on-brand); }
+.bp-quotation-dialog .text-emerald-300 { color:var(--bp-color-on-brand); }
+.quotation-inline-error { margin-top:var(--bp-space-2); color:var(--bp-color-danger); font-size:var(--bp-type-supporting); font-weight:400; }
+.bp-quotation-builder > .bp-page-header { padding:var(--bp-space-4); border-left:4px solid var(--bp-brand); border-radius:var(--bp-radius-panel); background:var(--bp-color-surface); }
+.bp-quotation-builder :is(.qp-pricing > h2,.quotation-totals-workspace > h2,.gq-panel > .gq-heading) { padding:var(--bp-space-4); border-left:4px solid var(--bp-brand); border-radius:var(--bp-radius-control); background:var(--bp-color-info-surface); color:var(--bp-brand-dark); }
+[data-quotation-preview] { margin:0; width:100%; max-width:none; height:100dvh; max-height:none; border:0; overflow:hidden; color:var(--bp-ink); }
+[data-quotation-preview] > section { display:flex; flex-direction:column; height:100%; min-height:0; }
+[data-quotation-preview] > section > .space-y-4 { overflow-y:auto; min-height:0; flex:1; overscroll-behavior:contain; }
+[data-quotation-preview] > section > :is(header,footer) { flex-shrink:0; }
+[data-quotation-preview] footer button { min-width:0; white-space:normal; }
+[data-quotation-preview] article > .flex { flex-wrap:wrap; }
+[data-quotation-preview] article > .flex > b { margin-left:auto; overflow-wrap:anywhere; }
+.bp-quotation-property-dialog { margin:auto; height:auto; max-height:90dvh; border:1px solid var(--bp-line); border-radius:var(--bp-radius-panel); }
+.bp-quotation-property-dialog form > .border-t { position:sticky; bottom:0; padding:var(--bp-space-4); background:var(--bp-color-surface); flex-wrap:wrap; }
+.bp-quotation-property-dialog form > .border-t button { flex:1; min-height:44px; }
+.bp-quotation-pdf .bp-pdf-preview-toolbar { flex-wrap:wrap; gap:var(--bp-space-2); }
+.bp-quotation-pdf .bp-pdf-preview-toolbar > div { flex:1 1 180px; }
+.bp-quotation-pdf .bp-pdf-preview-toolbar button { min-height:44px; min-width:44px; border-radius:var(--bp-radius-control); }
+.bp-quotation-pdf select { min-height:44px; max-width:100%; font-size:16px; }
+.bp-quotation-pdf > section { border-radius:var(--bp-radius-panel); }
+.bp-quotation-pdf { margin:0; width:100%; max-width:none; height:100dvh; max-height:none; border:0; }
+.quotation-revision-dialog { margin:auto; padding:0; width:calc(100% - 32px); max-width:640px; max-height:90dvh; border:1px solid var(--bp-line); border-radius:var(--bp-radius-panel); }
+.quotation-revision-dialog::backdrop { background:#17203380; }
+.quotation-revision-dialog form > div:first-child { position:sticky; top:0; padding-bottom:var(--bp-space-3); background:var(--bp-color-surface); z-index:1; }
+.quotation-revision-dialog form > .grid:last-child { position:sticky; bottom:0; padding-top:var(--bp-space-3); background:var(--bp-color-surface); }
+.quotation-revision-dialog :is(.truncate,b) { white-space:normal; overflow-wrap:anywhere; }
+@media(max-width:639px) {
+  .quotation-revision-dialog { inset:0; margin:0; width:100%; max-width:none; height:100dvh; max-height:100dvh; border:0; border-radius:0; }
+  .quotation-revision-dialog form { max-height:100dvh; border-radius:0; }
+}
+@media(max-width:639px) {
+  .bp-quotation-property-dialog { margin:0; height:100dvh; max-height:100dvh; border:0; border-radius:0; }
+  [data-quotation-preview] { padding:0; }
+  [data-quotation-preview] > section { border-radius:0; }
+  [data-quotation-preview] footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+}
+@media(max-width:767px) {
+  .customer-shell main .customer-quotation-pulse { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .customer-shell main .customer-quotation-pulse-total { grid-column:1/-1; }
+  .customer-shell main .customer-quotation-pulse-total strong { white-space:nowrap; }
+  :is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history,.bp-quotation-dialog) :is(input,select,textarea):not([type=checkbox]):not([type=radio]) { font-size:16px; min-height:44px; }
+  :is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history) .text-\[10px\],
+  :is(.quotation-measurement-page,.bp-quotation-page,.customer-quotations-page,.bp-quotation-history) .text-\[9px\] { font-size:12px; letter-spacing:0; }
+  .bp-quotation-builder .quotation-step-card { padding:var(--bp-space-4); }
+  .bp-quotation-history > header h1 { font-size:24px; }
+  .bp-quotation-dialog { max-width:100%; }
+  .quotation-filter-field { width:100%; }
+}
+
+.bp-quotation-page .quotation-party-header { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:24px; }
+.quotation-party-header .quotation-contractor-details { min-width:0; }
+.quotation-party-header .quotation-contractor-details :is(h2,p) { overflow-wrap:anywhere; }
+.quotation-party-header .quotation-contractor-contact { margin-top:16px; text-align:left; }
+.bp-quotation-page .quotation-party-details { display:grid; gap:12px; width:100%; justify-self:start; text-align:left; }
+.bp-quotation-page .quotation-party-details > div { display:flex; flex-direction:row; justify-content:flex-start; padding:12px 16px; gap:12px; }
+.bp-quotation-page .quotation-party-details > div > svg { flex-shrink:0; }
+.bp-quotation-page .quotation-party-details > div > div { min-width:0; }
+.bp-quotation-page .quotation-party-details p { overflow-wrap:anywhere; }
+.bp-quotation-page .quotation-party-details > div::before { inset:0 auto 0 0; }
+@media(min-width:768px) {
+  .bp-quotation-page .quotation-party-header { grid-template-columns:minmax(0,1fr) minmax(0,min(44%,480px)); }
+}
+
+.bp-quotation-page .quotation-identity-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.quotation-identity-text { min-width:0; text-align:left; }
+.quotation-identity-text h2 { margin:6px 0; overflow-wrap:anywhere; font-size:20px; color:var(--bp-brand-dark); }
+.quotation-identity-label { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; margin:0; font-size:14px; font-weight:650; }
+.quotation-identity-label span { font-size:12px; font-weight:400; color:var(--bp-muted); }
+@media(min-width:768px) {
+  .quotation-party-header .quotation-contractor-details { text-align:right; }
+  .quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
+  .quotation-party-header .quotation-contractor-contact { text-align:right; }
+  .quotation-party-header .quotation-contractor-contact p { margin-left:auto; }
+}
+
+.quotation-party-header .quotation-contractor-details { text-align:right; }
+.quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
+.quotation-party-header .quotation-contractor-contact { text-align:right; }
+.quotation-party-header .quotation-contractor-contact p { margin-left:auto; }

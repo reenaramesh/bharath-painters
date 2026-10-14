@@ -166,9 +166,9 @@ export default function MobileTableDialogs() {
         <header>
           <div className="min-w-0">
             <p>Record details</p>
-            <h2 id="bp-mobile-table-title">{dialog.title}</h2>
+            <h2 className="bp-ui-section-heading" id="bp-mobile-table-title">{dialog.title}</h2>
           </div>
-          <button
+          <button className="bp-ui-icon-action"
             type="button"
             onClick={() => setDialog(null)}
             aria-label="Close details"
@@ -187,7 +187,7 @@ export default function MobileTableDialogs() {
         <footer>
           <button
             type="button"
-            className="bp-mobile-table-close"
+            className="bp-mobile-table-close bp-ui-action"
             onClick={() => setDialog(null)}
           >
             Close
@@ -195,7 +195,7 @@ export default function MobileTableDialogs() {
           {dialog.openOriginal && (
             <button
               type="button"
-              className="bp-mobile-table-open"
+              className="bp-mobile-table-open bp-ui-action"
               onClick={openRecord}
             >
               Open record <ArrowRight />

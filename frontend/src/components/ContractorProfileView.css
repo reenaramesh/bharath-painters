@@ -1,9 +1,11 @@
 .contractor-profile-shell {
+  container-type: inline-size;
   width: 100%;
   min-width: 0;
   background: #f5f7fb;
   color: #0f172a;
 }
+
 
 .contractor-profile {
   width: 100%;
@@ -989,3 +991,11 @@
 .cp-social-links img { width: 24px; height: 24px; object-fit: contain; }
 .cp-action-preview-hint { margin-top: 8px; color: #64748b; font-size: 11px; }
 .cp-actions button:disabled { cursor: default; }
+
+/* A profile can be narrower than the viewport inside the network dialog. */
+@container (max-width: 440px) {
+  .cp-topbar { height:auto; min-height:88px; grid-template-columns:44px minmax(0,1fr); padding:6px 8px; }
+  .contractor-profile .cp-topbar h1 { font-size:16px !important; line-height:1.3; overflow-wrap:normal; }
+  .cp-topbar-actions { grid-column:1/-1; justify-content:flex-end; }
+  .cp-service-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

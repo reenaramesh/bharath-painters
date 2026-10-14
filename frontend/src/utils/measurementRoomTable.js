@@ -1,5 +1,11 @@
 const measured = (group) => group.gross > 0 || group.deduction > 0 || group.addition > 0;
 
+export function roomMeasurementSurfaces(surfaces, roomId) {
+  return surfaces.filter(surface => roomId === 'exterior'
+    ? !surface.room && surface.work_area === 'EXTERIOR'
+    : String(surface.room) === String(roomId));
+}
+
 export function measurementRoomTable(areas, summaries) {
   const columns = new Map();
   const rows = areas.flatMap((area) => {

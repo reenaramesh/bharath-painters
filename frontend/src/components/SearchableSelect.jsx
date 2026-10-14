@@ -47,7 +47,7 @@ export default function SearchableSelect({
           onChange("");
           setOpen(true);
         }}
-        className={`${className} pl-10 ${invalid ? "border-red-400 bg-red-50" : ""}`}
+        className={(`${className} pl-10 ${invalid ? "border-red-400 bg-red-50" : ""}`) + " bp-ui-control"}
       />
       {open && !disabled && (
         <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl">
@@ -64,7 +64,7 @@ export default function SearchableSelect({
                   setQuery(label);
                   setOpen(false);
                 }}
-                className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-violet-50"
+                className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-violet-50 bp-ui-action"
               >
                 {label}
               </button>

@@ -478,6 +478,8 @@ class WorkScheduleListCreateView(APIView):
             return Response({"start_date": "Work cannot be scheduled for a past date."}, status=status.HTTP_400_BAD_REQUEST)
         is_customer = request.user.role == BharathUser.Roles.CUSTOMER
         existing = WorkSchedule.objects.filter(quotation=quotation).first()
+        if existing and existing.status in {WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED, WorkSchedule.Status.CANCELLED}:
+            return Response({"detail": "A started, completed or cancelled schedule cannot be rescheduled."}, status=status.HTTP_400_BAD_REQUEST)
         if is_customer and quotation.accepted_via_receipt_at and not existing:
             return Response({"quotation": "The contractor will propose work dates for you to confirm."}, status=status.HTTP_400_BAD_REQUEST)
         if existing and is_customer:
@@ -503,9 +505,15 @@ class WorkScheduleListCreateView(APIView):
                 "payment_note": "Advance recorded in quotation receipt" if receipt_total else "",
                 "payment_submitted_at": None, "payment_confirmed_at": timezone.now() if receipt_total else None,
             })
+        date_range_changed = bool(existing and (
+            existing.proposed_start_date != start or existing.proposed_end_date != end
+        ))
         item, _ = WorkSchedule.objects.update_or_create(quotation=quotation, defaults=schedule_defaults)
-        # A changed date range requires fresh mutual approval and fresh painter availability checks.
-        item.painter_assignments.all().delete()
+        # Keep assignment rows for history. A changed date range releases the old roster.
+        if date_range_changed:
+            item.painter_assignments.exclude(status=WorkSchedulePainter.Status.COMPLETED).update(
+                status=WorkSchedulePainter.Status.RELEASED,
+            )
         recipient = quotation.contractor if is_customer else quotation.customer.portal_user
         notify(recipient, request.user, "SCHEDULE", "Work dates proposed", f"{quotation.quotation_number}: {start} to {end}", "/work-schedules")
         return Response(schedule_data(item), status=status.HTTP_201_CREATED)
@@ -542,31 +550,82 @@ class WorkScheduleAcceptView(APIView):
 class WorkSchedulePainterView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def put(self, request, pk):
-        item = WorkSchedule.objects.select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").filter(pk=pk, quotation__contractor=request.user, status=WorkSchedule.Status.CONFIRMED).first()
+        item = WorkSchedule.objects.select_for_update().select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").filter(pk=pk, quotation__contractor=request.user, status=WorkSchedule.Status.CONFIRMED).first()
         if not item:
             return Response({"detail": "A mutually confirmed schedule is required."}, status=status.HTTP_400_BAD_REQUEST)
         raw_painters = request.data.get("painters") or []
-        painter_ids = list(dict.fromkeys([entry.get("id") if isinstance(entry, dict) else entry for entry in raw_painters]))
-        team_ids = set(ContractorApplicatorTeam.objects.filter(contractor=request.user, painter_id__in=painter_ids).values_list("painter_id", flat=True))
+        try:
+            painter_ids = list(dict.fromkeys(int(entry.get("id") if isinstance(entry, dict) else entry) for entry in raw_painters))
+        except (TypeError, ValueError):
+            return Response({"painters": "Select valid Paint Applicators."}, status=status.HTTP_400_BAD_REQUEST)
+        existing_assignments = {
+            row.painter_id: row for row in WorkSchedulePainter.objects.select_for_update().filter(schedule=item)
+        }
+        existing_assignment_ids = set(existing_assignments)
+        team_ids = set(ContractorApplicatorTeam.objects.filter(
+            contractor=request.user, painter_id__in=painter_ids, is_active=True,
+            employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                 ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+        ).values_list("painter_id", flat=True))
         team_ids.update(ApplicatorBooking.objects.filter(contractor=request.user, applicator_id__in=painter_ids, status=ApplicatorBooking.Status.CONFIRMED, start_date__lte=item.proposed_end_date, end_date__gte=item.proposed_start_date).values_list("applicator_id", flat=True))
+        team_ids.update(existing_assignment_ids.intersection(painter_ids))
         if team_ids != set(painter_ids):
             return Response({"painters": "Select a verified team member or confirmed booked Paint Applicator for these dates."}, status=status.HTTP_400_BAD_REQUEST)
-        painters = BharathUser.objects.filter(id__in=painter_ids, role=BharathUser.Roles.PAINTER, is_verified=True, verification_status=BharathUser.VerificationStatus.VERIFIED)
+        painters = BharathUser.objects.filter(id__in=painter_ids, role=BharathUser.Roles.PAINTER, is_active=True, is_verified=True, verification_status=BharathUser.VerificationStatus.VERIFIED)
         if painters.count() != len(painter_ids):
             return Response({"painters": "Select verified Paint Applicators only."}, status=status.HTTP_400_BAD_REQUEST)
-        busy = WorkSchedulePainter.objects.filter(painter__in=painters, schedule__status=WorkSchedule.Status.CONFIRMED, schedule__proposed_start_date__lte=item.proposed_end_date, schedule__proposed_end_date__gte=item.proposed_start_date).exclude(schedule=item)
+        busy = WorkSchedulePainter.objects.filter(
+            painter__in=painters, schedule__status=WorkSchedule.Status.CONFIRMED,
+            schedule__proposed_start_date__lte=item.proposed_end_date,
+            schedule__proposed_end_date__gte=item.proposed_start_date,
+        ).exclude(schedule=item).exclude(status__in=(WorkSchedulePainter.Status.RELEASED, WorkSchedulePainter.Status.DECLINED))
         if busy.exists():
             return Response({"painters": f"{busy.first().painter.get_full_name() or busy.first().painter.mobile} is already assigned during these dates."}, status=status.HTTP_400_BAD_REQUEST)
         terms = {int(entry["id"]): entry for entry in raw_painters if isinstance(entry, dict) and entry.get("id")}
-        WorkSchedulePainter.objects.filter(schedule=item).delete()
         assignments = []
+        notifications = []
+        desired_ids = set(painter_ids)
+        for painter_id, existing_assignment in existing_assignments.items():
+            if painter_id in desired_ids or existing_assignment.status in {
+                WorkSchedulePainter.Status.RELEASED,
+                WorkSchedulePainter.Status.COMPLETED,
+            }:
+                continue
+            if existing_assignment.status == WorkSchedulePainter.Status.IN_PROGRESS:
+                return Response({"painters": "An active Paint Applicator cannot be removed after work starts."}, status=status.HTTP_400_BAD_REQUEST)
+            existing_assignment.status = WorkSchedulePainter.Status.RELEASED
+            existing_assignment.save(update_fields=("status",))
         for painter in painters:
             term = terms.get(painter.id, {})
             wage_type = term.get("wage_type") if term.get("wage_type") in {"DAILY", "WEEKLY"} else "DAILY"
+            existing_assignment = existing_assignments.get(painter.id)
+            if existing_assignment:
+                if existing_assignment.status == WorkSchedulePainter.Status.COMPLETED:
+                    continue
+                reactivated = existing_assignment.status in {WorkSchedulePainter.Status.RELEASED, WorkSchedulePainter.Status.DECLINED}
+                existing_assignment.status = WorkSchedulePainter.Status.ASSIGNED if reactivated else existing_assignment.status
+                existing_assignment.wage_type = wage_type
+                existing_assignment.agreed_wage = term.get("agreed_wage") or None
+                if reactivated:
+                    existing_assignment.responded_at = None
+                    existing_assignment.work_started_at = None
+                    existing_assignment.work_completed_at = None
+                    existing_assignment.on_the_way_at = None
+                    existing_assignment.assigned_at = timezone.now()
+                    existing_assignment.save(update_fields=(
+                        "status", "wage_type", "agreed_wage", "responded_at",
+                        "work_started_at", "work_completed_at", "on_the_way_at", "assigned_at",
+                    ))
+                    notifications.append(painter)
+                elif existing_assignment.status == WorkSchedulePainter.Status.ASSIGNED:
+                    existing_assignment.save(update_fields=("wage_type", "agreed_wage"))
+                continue
             assignments.append(WorkSchedulePainter(schedule=item, painter=painter, wage_type=wage_type, agreed_wage=term.get("agreed_wage") or None))
+            notifications.append(painter)
         WorkSchedulePainter.objects.bulk_create(assignments)
-        for painter in painters:
+        for painter in notifications:
             notify(painter, request.user, "ASSIGNMENT", "New work assignment", f"{item.quotation.quotation_number}: {item.proposed_start_date} to {item.proposed_end_date}", "/painter-assignments")
         item = WorkSchedule.objects.select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").get(pk=item.pk)
         return Response(schedule_data(item))
@@ -686,13 +745,18 @@ class WorkScheduleCancelView(APIView):
         item = WorkSchedule.objects.select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").filter(pk=pk, quotation__contractor=request.user).first()
         if not item:
             return Response({"detail": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+        if item.status in {WorkSchedule.Status.IN_PROGRESS, WorkSchedule.Status.COMPLETED}:
+            return Response({"detail": "Work that has started cannot be cancelled."}, status=status.HTTP_400_BAD_REQUEST)
         if item.payment_status == WorkSchedule.PaymentStatus.CONFIRMED:
             return Response({"detail": "A paid schedule cannot be cancelled through the unpaid-payment action."}, status=status.HTTP_400_BAD_REQUEST)
         reason = str(request.data.get("reason") or "").strip()
         if not reason:
             return Response({"reason": "Give a reason for cancelling the unpaid schedule."}, status=status.HTTP_400_BAD_REQUEST)
         item.status = WorkSchedule.Status.CANCELLED; item.cancellation_reason = reason
-        item.painter_assignments.all().delete(); item.save(update_fields=("status", "cancellation_reason", "updated_at"))
+        item.painter_assignments.exclude(status__in=(WorkSchedulePainter.Status.COMPLETED, WorkSchedulePainter.Status.RELEASED)).update(
+            status=WorkSchedulePainter.Status.RELEASED,
+        )
+        item.save(update_fields=("status", "cancellation_reason", "updated_at"))
         if item.quotation.status == Quotation.Status.SCHEDULED:
             item.quotation.status = Quotation.Status.ACCEPTED
             item.quotation.save(update_fields=("status", "updated_at"))
@@ -702,6 +766,7 @@ class WorkScheduleCancelView(APIView):
 class WorkScheduleProgressView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pk):
         item = WorkSchedule.objects.select_related("quotation", "quotation__customer", "quotation__property", "quotation__contractor", "proposed_by").prefetch_related("painter_assignments__painter").filter(pk=pk, quotation__contractor=request.user).first()
         if not item:
@@ -719,8 +784,13 @@ class WorkScheduleProgressView(APIView):
                 return Response({"detail": "Confirm the advance payment before starting work."}, status=status.HTTP_400_BAD_REQUEST)
             if timezone.localdate() < item.proposed_start_date:
                 return Response({"detail": f"Work can be started on or after {item.proposed_start_date}."}, status=status.HTTP_400_BAD_REQUEST)
-            if not item.painter_assignments.exists():
+            active_assignments = item.painter_assignments.exclude(status__in=(
+                WorkSchedulePainter.Status.RELEASED, WorkSchedulePainter.Status.DECLINED,
+            ))
+            if not active_assignments.exists():
                 return Response({"detail": "Assign at least one Paint Applicator before starting work."}, status=status.HTTP_400_BAD_REQUEST)
+            if active_assignments.exclude(status=WorkSchedulePainter.Status.ACCEPTED).exists():
+                return Response({"detail": "Every active Paint Applicator must accept before work starts. Remove declined assignments or wait for pending responses."}, status=status.HTTP_400_BAD_REQUEST)
             item.status = WorkSchedule.Status.IN_PROGRESS; item.work_started_at = timezone.now(); item.customer_seen_update_at = None
             item.quotation.status = Quotation.Status.IN_PROGRESS
             item.quotation.save(update_fields=("status", "updated_at"))
@@ -728,6 +798,11 @@ class WorkScheduleProgressView(APIView):
         elif action == "COMPLETE":
             if item.status != WorkSchedule.Status.IN_PROGRESS:
                 return Response({"detail": "Start the work before marking it completed."}, status=status.HTTP_400_BAD_REQUEST)
+            active_assignments = item.painter_assignments.exclude(status=WorkSchedulePainter.Status.RELEASED)
+            if not active_assignments.exists():
+                return Response({"detail": "Assign Paint Applicators before completing this schedule."}, status=status.HTTP_400_BAD_REQUEST)
+            if active_assignments.exclude(status=WorkSchedulePainter.Status.COMPLETED).exists():
+                return Response({"detail": "Every active Paint Applicator must complete work before the schedule can be completed."}, status=status.HTTP_400_BAD_REQUEST)
             item.status = WorkSchedule.Status.COMPLETED; item.work_completed_at = timezone.now(); item.customer_seen_update_at = None
             item.quotation.status = Quotation.Status.COMPLETED
             item.quotation.save(update_fields=("status", "updated_at"))
@@ -932,8 +1007,13 @@ class ContractorApplicatorTeamDetailView(APIView):
     def delete(self, request, pk):
         if not verified_contractor(request.user):
             return Response({"detail": "Verified contractor access only."}, status=status.HTTP_403_FORBIDDEN)
-        deleted, _ = ContractorApplicatorTeam.objects.filter(pk=pk, contractor=request.user).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT if deleted else status.HTTP_404_NOT_FOUND)
+        item = ContractorApplicatorTeam.objects.filter(pk=pk, contractor=request.user).first()
+        if not item:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if item.is_active:
+            item.is_active = False
+            item.save(update_fields=("is_active",))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def inhouse_summary(item, request):
@@ -1011,7 +1091,10 @@ class InHouseApplicatorDetailView(APIView):
         elif date_from and date_to:
             ledger = ledger.filter(date__range=(date_from, date_to))
         data["ledger"] = [{"id": row.id, "date": row.date, "entry_type": row.entry_type, "amount": row.amount, "payment_mode": row.payment_mode, "reference": row.reference, "note": row.note, "schedule": row.schedule_id} for row in ledger[:370]]
-        data["assignments"] = [painter_assignment_data(row) for row in WorkSchedulePainter.objects.filter(painter=item.painter).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property")[:30]]
+        assignment_rows = WorkSchedulePainter.objects.filter(painter=item.painter).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property")
+        if request.user.role == BharathUser.Roles.CONTRACTOR:
+            assignment_rows = assignment_rows.filter(schedule__quotation__contractor=request.user)
+        data["assignments"] = [painter_assignment_data(row) for row in assignment_rows[:30]]
         return Response(data)
 
     def patch(self, request, pk):
@@ -1052,20 +1135,38 @@ class InHouseAttendanceView(APIView):
         membership = base.filter(contractor=request.user).first() if request.user.role == BharathUser.Roles.CONTRACTOR else base.filter(painter=request.user).first()
         if not membership:
             return Response({"detail": "Active in-house applicator not found."}, status=status.HTTP_404_NOT_FOUND)
-        day = parse_date(str(request.data.get("date") or ""))
+        multiple = "dates" in request.data
+        if multiple and not verified_contractor(request.user):
+            return Response({"detail": "Only the verified issuing contractor can record multiple attendance days."}, status=status.HTTP_403_FORBIDDEN)
+        values = request.data.get("dates") if multiple else [request.data.get("date")]
+        if not isinstance(values, list) or not values or len(values) > 366:
+            return Response({"dates": "Select between 1 and 366 attendance days."}, status=status.HTTP_400_BAD_REQUEST)
+        days = []
+        for value in values:
+            try:
+                day = parse_date(str(value or ""))
+            except ValueError:
+                day = None
+            if not day:
+                return Response({"dates" if multiple else "date": "Select valid attendance dates."}, status=status.HTTP_400_BAD_REQUEST)
+            if day > timezone.localdate():
+                return Response({"dates" if multiple else "date": "Attendance cannot be recorded for a future date."}, status=status.HTTP_400_BAD_REQUEST)
+            if day not in days:
+                days.append(day)
         attendance_status = str(request.data.get("status") or "").upper()
-        if not day or attendance_status not in {choice[0] for choice in ApplicatorAttendance.Status.choices}:
-            return Response({"detail": "Select a valid date and attendance status."}, status=status.HTTP_400_BAD_REQUEST)
-        if day > timezone.localdate():
-            return Response({"date": "Attendance cannot be recorded for a future date."}, status=status.HTTP_400_BAD_REQUEST)
-        if day > timezone.localdate():
-            return Response({"date": "Attendance cannot be recorded for a future date."}, status=status.HTTP_400_BAD_REQUEST)
-        try: overtime_hours = Decimal(str(request.data.get("overtime_hours") or "0"))
-        except InvalidOperation: return Response({"overtime_hours": "Enter valid overtime hours."}, status=status.HTTP_400_BAD_REQUEST)
-        if overtime_hours < 0 or overtime_hours > 24:
+        if attendance_status not in {choice[0] for choice in ApplicatorAttendance.Status.choices}:
+            return Response({"status": "Select a valid attendance status."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            overtime_hours = Decimal(str(request.data.get("overtime_hours") or "0"))
+        except InvalidOperation:
+            return Response({"overtime_hours": "Enter valid overtime hours."}, status=status.HTTP_400_BAD_REQUEST)
+        if not overtime_hours.is_finite() or overtime_hours < 0 or overtime_hours > 24:
             return Response({"overtime_hours": "Overtime must be between 0 and 24 hours."}, status=status.HTTP_400_BAD_REQUEST)
+        note = str(request.data.get("note") or "").strip()
+        if len(note) > 180:
+            return Response({"note": "Attendance notes must be at most 180 characters."}, status=status.HTTP_400_BAD_REQUEST)
         if request.user == membership.painter:
-            if attendance_status != ApplicatorAttendance.Status.PRESENT or day != timezone.localdate():
+            if attendance_status != ApplicatorAttendance.Status.PRESENT or days != [timezone.localdate()]:
                 return Response({"detail": "You can mark only today's attendance as Present."}, status=status.HTTP_403_FORBIDDEN)
             schedule = WorkSchedule.objects.filter(pk=request.data.get("schedule"), painter_assignments__painter=request.user).first()
             if not schedule:
@@ -1073,8 +1174,19 @@ class InHouseAttendanceView(APIView):
             overtime_hours = Decimal("0")
         else:
             schedule = WorkSchedule.objects.filter(pk=request.data.get("schedule"), quotation__contractor=request.user).first() if request.data.get("schedule") else None
-        row, _ = ApplicatorAttendance.objects.update_or_create(membership=membership, date=day, defaults={"status": attendance_status, "schedule": schedule, "note": str(request.data.get("note") or "").strip(), "overtime_hours": overtime_hours})
-        return Response({"id": row.id, "date": row.date, "status": row.status, "note": row.note, "overtime_hours": row.overtime_hours}, status=status.HTTP_201_CREATED)
+            if request.data.get("schedule") and not schedule:
+                return Response({"schedule": "Select a work site assigned to this employee under your contractor account."}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate the complete selection before replacing any saved day. Lock the
+        # membership so bulk/single updates and deactivation cannot race silently.
+        with transaction.atomic():
+            membership = ContractorApplicatorTeam.objects.select_for_update().filter(pk=membership.pk, is_active=True).first()
+            if not membership:
+                return Response({"detail": "Active in-house applicator not found."}, status=status.HTTP_404_NOT_FOUND)
+            results = []
+            for day in days:
+                row, _ = ApplicatorAttendance.objects.update_or_create(membership=membership, date=day, defaults={"status": attendance_status, "schedule": schedule, "note": note, "overtime_hours": overtime_hours})
+                results.append({"id": row.id, "date": row.date, "status": row.status, "note": row.note, "overtime_hours": row.overtime_hours})
+        return Response({"results": results} if multiple else results[0], status=status.HTTP_201_CREATED)
 
 
 class MyInHouseEmploymentView(APIView):
@@ -1096,7 +1208,7 @@ class MyInHouseEmploymentView(APIView):
         rows = list(attendance[:370])
         data["attendance"] = [{"date": row.date, "status": row.status, "note": row.note, "schedule": row.schedule_id, "overtime_hours": row.overtime_hours} for row in rows]
         data["attendance_summary"] = {"present": sum(1 for row in rows if row.status == ApplicatorAttendance.Status.PRESENT), "half_day": sum(1 for row in rows if row.status == ApplicatorAttendance.Status.HALF_DAY), "absent": sum(1 for row in rows if row.status == ApplicatorAttendance.Status.ABSENT), "leave": sum(1 for row in rows if row.status == ApplicatorAttendance.Status.LEAVE), "overtime_hours": sum((row.overtime_hours for row in rows), Decimal("0"))}
-        data["assignments"] = [painter_assignment_data(row) for row in WorkSchedulePainter.objects.filter(painter=request.user).exclude(status=WorkSchedulePainter.Status.COMPLETED).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property")]
+        data["assignments"] = [painter_assignment_data(row) for row in WorkSchedulePainter.objects.filter(painter=request.user).exclude(status__in=(WorkSchedulePainter.Status.COMPLETED, WorkSchedulePainter.Status.RELEASED, WorkSchedulePainter.Status.DECLINED)).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property")]
         return Response(data)
 
 
@@ -1453,7 +1565,7 @@ class PainterAssignmentListView(APIView):
     def get(self, request):
         if request.user.role != BharathUser.Roles.PAINTER:
             return Response({"detail": "Paint Applicator access only."}, status=status.HTTP_403_FORBIDDEN)
-        queryset = WorkSchedulePainter.objects.filter(painter=request.user).exclude(status=WorkSchedulePainter.Status.COMPLETED).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property").prefetch_related("schedule__quotation__items__room", "schedule__quotation__items__service_type", "schedule__quotation__items__paint_type", "schedule__quotation__items__paint_brand", "schedule__quotation__items__color", "schedule__quotation__items__unit")
+        queryset = WorkSchedulePainter.objects.filter(painter=request.user).exclude(status__in=(WorkSchedulePainter.Status.COMPLETED, WorkSchedulePainter.Status.RELEASED)).select_related("schedule", "schedule__quotation", "schedule__quotation__contractor", "schedule__quotation__customer", "schedule__quotation__property").prefetch_related("schedule__quotation__items__room", "schedule__quotation__items__service_type", "schedule__quotation__items__paint_type", "schedule__quotation__items__paint_brand", "schedule__quotation__items__color", "schedule__quotation__items__unit")
         return Response([painter_assignment_data(item) for item in queryset.order_by("-assigned_at")])
 
 
@@ -1503,17 +1615,76 @@ class PainterAssignmentProgressView(APIView):
             return Response({"detail": "This work schedule has been cancelled."}, status=status.HTTP_400_BAD_REQUEST)
         action = str(request.data.get("action") or "").upper()
         now = timezone.now()
+        if action in {"ACCEPT", "REJECT"}:
+            if schedule.status != WorkSchedule.Status.CONFIRMED:
+                return Response({"detail": "Only a confirmed work schedule can be accepted or declined."}, status=status.HTTP_400_BAD_REQUEST)
+            if item.status != WorkSchedulePainter.Status.ASSIGNED or item.responded_at:
+                return Response({"detail": "This assignment has already received a response or is no longer pending."}, status=status.HTTP_400_BAD_REQUEST)
+            if action == "ACCEPT":
+                active_team_member = ContractorApplicatorTeam.objects.filter(
+                    contractor=schedule.quotation.contractor, painter=request.user, is_active=True,
+                    employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                         ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+                ).exists()
+                active_booking = ApplicatorBooking.objects.filter(
+                    contractor=schedule.quotation.contractor, applicator=request.user,
+                    status=ApplicatorBooking.Status.CONFIRMED,
+                    start_date__lte=schedule.proposed_end_date,
+                    end_date__gte=schedule.proposed_start_date,
+                ).exists()
+                if (not request.user.is_active or not request.user.is_verified
+                        or request.user.verification_status != BharathUser.VerificationStatus.VERIFIED
+                        or not (active_team_member or active_booking)):
+                    return Response({"detail": "An active verified employee or confirmed booking is required to accept this assignment."}, status=status.HTTP_403_FORBIDDEN)
+                item.status = WorkSchedulePainter.Status.ACCEPTED
+            else:
+                item.status = WorkSchedulePainter.Status.DECLINED
+                item.painter_note = str(request.data.get("note") or "").strip()[:500]
+            item.responded_at = now
+            item.save(update_fields=("status", "responded_at", "painter_note"))
+            notify(
+                schedule.quotation.contractor, request.user, "ASSIGNMENT_RESPONSE",
+                "Paint Applicator response",
+                f"{request.user.get_full_name() or request.user.mobile} {'accepted' if action == 'ACCEPT' else 'declined'} {schedule.quotation.quotation_number}.",
+                "/work-schedules",
+            )
+            return Response(painter_assignment_data(item))
         if action == "ON_THE_WAY":
-            if item.status != WorkSchedulePainter.Status.ASSIGNED:
-                return Response({"detail": "This notification is available before work starts."}, status=status.HTTP_400_BAD_REQUEST)
+            if item.status != WorkSchedulePainter.Status.ACCEPTED:
+                return Response({"detail": "Accept this assignment before notifying that you are on the way."}, status=status.HTTP_400_BAD_REQUEST)
             item.on_the_way_at = now
             item.save(update_fields=("on_the_way_at",))
             customer = schedule.quotation.customer.portal_user
             notify(customer, request.user, "ON_THE_WAY", "Applicator is on the way", f"{request.user.get_full_name() or request.user.mobile} is travelling to {schedule.quotation.property.name or schedule.quotation.property.property_type}.", "/work-schedules")
             notify(schedule.quotation.contractor, request.user, "ON_THE_WAY", "Applicator is on the way", f"{request.user.get_full_name() or request.user.mobile} is travelling to the site.", "/work-schedules")
         elif action == "START":
-            if item.status != WorkSchedulePainter.Status.ASSIGNED:
-                return Response({"detail": "Only an assigned job can be started."}, status=status.HTTP_400_BAD_REQUEST)
+            if item.status != WorkSchedulePainter.Status.ACCEPTED:
+                return Response({"detail": "Accept this assignment before starting work."}, status=status.HTTP_400_BAD_REQUEST)
+            if not request.user.is_active or not request.user.is_verified or request.user.verification_status != BharathUser.VerificationStatus.VERIFIED:
+                return Response({"detail": "An active verified Paint Applicator account is required to start work."}, status=status.HTTP_403_FORBIDDEN)
+            active_team_member = ContractorApplicatorTeam.objects.filter(
+                contractor=schedule.quotation.contractor, painter=request.user, is_active=True,
+                employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                     ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+            ).exists()
+            active_booking = ApplicatorBooking.objects.filter(
+                contractor=schedule.quotation.contractor, applicator=request.user,
+                status=ApplicatorBooking.Status.CONFIRMED,
+                start_date__lte=schedule.proposed_end_date,
+                end_date__gte=schedule.proposed_start_date,
+            ).exists()
+            if not (active_team_member or active_booking):
+                return Response({"detail": "An active employee or confirmed booking is required to start work."}, status=status.HTTP_403_FORBIDDEN)
+            if schedule.payment_status != WorkSchedule.PaymentStatus.CONFIRMED:
+                return Response({"detail": "The contractor must confirm the schedule advance before work starts."}, status=status.HTTP_400_BAD_REQUEST)
+            if schedule.status not in {WorkSchedule.Status.CONFIRMED, WorkSchedule.Status.IN_PROGRESS}:
+                return Response({"detail": "Only a confirmed active schedule can be started."}, status=status.HTTP_400_BAD_REQUEST)
+            if schedule.painter_assignments.exclude(status__in=(
+                WorkSchedulePainter.Status.ACCEPTED, WorkSchedulePainter.Status.IN_PROGRESS,
+                WorkSchedulePainter.Status.COMPLETED, WorkSchedulePainter.Status.RELEASED,
+                WorkSchedulePainter.Status.DECLINED,
+            )).exists():
+                return Response({"detail": "Every active Paint Applicator must accept before work starts."}, status=status.HTTP_400_BAD_REQUEST)
             if timezone.localdate() < schedule.proposed_start_date:
                 return Response({"detail": f"Work can be started on or after {schedule.proposed_start_date}."}, status=status.HTTP_400_BAD_REQUEST)
             item.status = WorkSchedulePainter.Status.IN_PROGRESS
@@ -1532,7 +1703,7 @@ class PainterAssignmentProgressView(APIView):
             item.status = WorkSchedulePainter.Status.COMPLETED
             item.work_completed_at = now
             item.save(update_fields=("status", "work_completed_at"))
-            if not schedule.painter_assignments.exclude(status=WorkSchedulePainter.Status.COMPLETED).exists():
+            if not schedule.painter_assignments.exclude(status__in=(WorkSchedulePainter.Status.COMPLETED, WorkSchedulePainter.Status.RELEASED)).exists():
                 schedule.status = WorkSchedule.Status.COMPLETED
                 schedule.work_completed_at = now
                 schedule.customer_seen_update_at = None
@@ -1540,7 +1711,7 @@ class PainterAssignmentProgressView(APIView):
                 schedule.quotation.status = Quotation.Status.COMPLETED
                 schedule.quotation.save(update_fields=("status", "updated_at"))
         else:
-            return Response({"action": "Select START or COMPLETE."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"action": "Select ACCEPT, REJECT, START, COMPLETE, or ON_THE_WAY."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(painter_assignment_data(item))
 
 

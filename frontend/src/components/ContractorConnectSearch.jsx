@@ -1,6 +1,7 @@
+import { contractorProfileLink } from "../utils/contractorProfileLink.js";
 import { useState } from "react";
 import { ArrowRight, ExternalLink, Search, UserPlus } from "lucide-react";
-import api, { API_BASE_URL } from "../api/client";
+import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { Button, SectionCard, StatusBadge } from "../components/ui";
 import "../pages/customer-connections.css";
@@ -60,23 +61,18 @@ export default function ContractorConnectSearch({ onConnected }) {
   const invitation = `Hello, I would like to connect with you on Bharath Apps. Register as a contractor here: ${window.location.origin}/register. My customer mobile number is ${user?.mobile || "available from me"}. After registration, we can connect and share quotations and project updates.`;
   const invitationNumber = String(result?.mobile || "").replace(/[^0-9]/g, "");
   const contractor = result?.contractor || {};
-  const profileUrl = contractor.contractor_id
-    ? new URL(
-        `${API_BASE_URL.replace(/\/$/, "")}/accounts/verify-page/${encodeURIComponent(contractor.contractor_id)}/`,
-        window.location.origin,
-      ).href
-    : "";
+  const profileUrl = contractorProfileLink(contractor?.contractor_id);
 
   return (
     <SectionCard
       title="Find your contractor"
-      description="Search by the mobile number you already know. If they are not registered, you can invite them."
+      
       className="contractor-search-card"
     >
       <form onSubmit={search} className="contractor-search-form">
         <label className="contractor-search-field">
           <span>Contractor mobile number</span>
-          <input
+          <input className="bp-ui-control"
             required
             disabled={busy}
             inputMode="tel"

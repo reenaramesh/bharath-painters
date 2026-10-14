@@ -124,7 +124,7 @@ export default function ApplicatorProfile({ embedded = false }) {
           <p className="text-sm font-semibold text-[#176b9b]">
             {user?.branding?.employee_singular_label || "Employee"} profile
           </p>
-          <h2 className={embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold"}>
+          <h2 className={(embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold") + " bp-ui-section-heading"}>
             Personal details
           </h2>
           
@@ -150,7 +150,7 @@ export default function ApplicatorProfile({ embedded = false }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold">{form.name}</h2>
+              <h2 className="text-xl font-bold bp-ui-section-heading">{form.name}</h2>
               <BadgeCheck className="h-5 w-5 text-blue-600" />
             </div>
             <p className="mt-1 text-sm text-slate-500">
@@ -164,10 +164,10 @@ export default function ApplicatorProfile({ embedded = false }) {
         </div>
         <form onSubmit={save} className="mt-6 grid gap-5 sm:grid-cols-2">
           <Field label="Name">
-            <input required {...field("name")} className={input} />
+            <input required {...field("name")} className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Years of experience">
-            <select {...field("experience_years")} className={input}>
+            <select {...field("experience_years")} className={(input) + " bp-ui-control"}>
               {Array.from({ length: 41 }, (_, value) => (
                 <option key={value} value={value}>
                   {value} {value === 1 ? "year" : "years"}
@@ -176,7 +176,7 @@ export default function ApplicatorProfile({ embedded = false }) {
             </select>
           </Field>
           <Field label="Other skills (free text)" wide>
-            <textarea {...field("skills")} className={input} rows={2} placeholder="Keep any existing skills, including skills outside the trade catalogue" />
+            <textarea {...field("skills")} className={(input) + " bp-ui-control"} rows={2} placeholder="Keep any existing skills, including skills outside the trade catalogue" />
             {!embedded && (
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {skills.map((skill) => (
@@ -184,7 +184,7 @@ export default function ApplicatorProfile({ embedded = false }) {
                   type="button"
                   key={skill}
                   onClick={() => toggle(skill)}
-                  className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${selected.has(skill) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white"}`}
+                  className={(`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${selected.has(skill) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white"}`) + " bp-ui-action"}
                 >
                   {selected.has(skill) ? "✓ " : ""}
                   {skill}
@@ -194,20 +194,20 @@ export default function ApplicatorProfile({ embedded = false }) {
             )}
           </Field>
           <Field label="Preferred work locations" wide>
-            <input {...field("preferred_locations")} placeholder="For example: Whitefield, Marathahalli" className={input} />
+            <input {...field("preferred_locations")} placeholder="For example: Whitefield, Marathahalli" className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Emergency contact name">
-            <input {...field("emergency_contact_name")} className={input} />
+            <input {...field("emergency_contact_name")} className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Emergency contact number">
             <input
               inputMode="tel"
               {...field("emergency_contact_number")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Blood group">
-            <select {...field("blood_group")} className={input}>
+            <select {...field("blood_group")} className={(input) + " bp-ui-control"}>
               {bloodGroups.map((group) => (
                 <option key={group} value={group}>
                   {group || "Select blood group"}
@@ -216,7 +216,7 @@ export default function ApplicatorProfile({ embedded = false }) {
             </select>
           </Field>
           <Field label="Current work-seeking location">
-            <select {...field("current_location")} className={input}>
+            <select {...field("current_location")} className={(input) + " bp-ui-control"}>
               {form.current_location && !locations.includes(form.current_location) && <option value={form.current_location}>{form.current_location}</option>}
               {locations.map((location) => (
                 <option key={location} value={location}>
@@ -229,7 +229,7 @@ export default function ApplicatorProfile({ embedded = false }) {
             <textarea
               rows="3"
               {...field("permanent_address")}
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 sm:col-span-2">
@@ -238,7 +238,7 @@ export default function ApplicatorProfile({ embedded = false }) {
           </p>
           <button
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-50 bp-ui-action"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save profile"}

@@ -874,40 +874,34 @@ def build_quotation_pdf(quotation, included_sections=None):
             ]),
         )
         story += [Spacer(1, 2*mm), info_cards, Spacer(1, 10)]
-    rows = [["Sl.", "Type of service", "Room / Area", "Product / Brand", "Description / treatment", "Qty", "Coats", "Rate (₹)", "Amount (₹)"]]
-    # Issued documents retain their existing headings when downloaded again.
-    if quotation.status == "DRAFT":
-        draft_header_style = ParagraphStyle("bp-draft-service-category", fontName=fonts[1], fontSize=7, leading=9, textColor=palette["on_dark"])
-        rows[0][1] = Paragraph("Service / Product Category", draft_header_style)
-        rows[0][4] = "Description"
+    headers = ["Service / Product Category", "Room / Area & Surface", "Description", "Brand / Product", "Coats", "Sqft", "Rate", "Total"]
+    header_style = ParagraphStyle("bp-quotation-item-heading", fontName=fonts[1], fontSize=6.2, leading=7.8, textColor=palette["on_dark"])
+    rows = [[Paragraph(_text(label), header_style) for label in headers]]
     table_body_style = ParagraphStyle("bp-quotation-table-body", parent=s["body"], fontSize=7, leading=8.5, spaceAfter=0)
     numeric_cell = ParagraphStyle("bp-quotation-number", parent=table_body_style, alignment=TA_RIGHT)
-    rate_amount_cell = ParagraphStyle("bp-quotation-rate-amount", parent=table_body_style, alignment=TA_RIGHT)
-    product_style = table_body_style
-    for serial, item in enumerate(quotation.items.select_related("room", "service_type", "paint_type", "paint_brand", "unit").all(), 1):
+    def surface_label(value):
+        return value[6:] if value.startswith("OTHER:") else {"WALL":"Walls", "CEILING":"Ceiling", "DOOR":"Door", "WINDOW":"Window", "OTHER":"Other surface"}.get(value, value.replace("_", " "))
+    for item in quotation.items.select_related("room", "service_category", "service_type", "paint_type", "paint_brand", "unit").all():
+        details = item.specification_details or {}
         category = item.service_category_name_snapshot or item.custom_service_category or (item.service_category.name if item.service_category else "")
         service = item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else "")
-        room = quotation_room_area_label(item)
+        room_names = list(dict.fromkeys(entry.get("room_name") for entry in details.get("contributions", []) if entry.get("room_name") and float(entry.get("quantity", 0)) > 0))
+        room = ", ".join(room_names) or quotation_room_area_label(item)
+        surfaces = details.get("surfaces") or [details.get("surface") or item.surface_type]
+        surface = " + ".join(surface_label(value) for value in surfaces if value)
         product = item.product_type_name_snapshot or item.custom_product_type or (item.paint_type.name if item.paint_type else "")
         brand = item.brand_name_snapshot or item.custom_brand or (item.paint_brand.name if item.paint_brand else "")
-        unit = item.unit_name_snapshot or item.custom_unit or (item.unit.name if item.unit else "")
-        service_value = _joined([category, service], " / ")
-        product_brand = Paragraph(f"{_text(product) or '-'}<br/>{_text(brand)}", product_style)
-        quantity_value = Paragraph(f"{_text(_indian_number(item.quantity, 2))}<br/><font color=\"#64748B\" size=6.2>{_text(unit) or '-'}</font>", numeric_cell)
-        coats = str(item.coats) if item.coats not in (None, "") else ""
-        coat_value = "-" if item.is_additional_service or not coats else coats
-        rate_value = Paragraph(_text(_indian_number(item.rate, 2)), numeric_cell)
-        amount_value = Paragraph(f"<b>{_text(_indian_number(item.amount, 2))}</b>", rate_amount_cell)
-        description = _text(item.description) or "-"
-        if quotation.discount_mode == "LINE" and "discount" in included_sections:
+        description = details.get("base_description", item.description)
+        coats = str(item.coats or 1)
+        total = item.amount
+        if quotation.discount_mode in ("LINE", "BOTH") and "discount" in included_sections:
             from .discounts import line_discount
-            reduction = line_discount(item)
-            description += f"<br/><font size=6.2>Line discount {_text(money(reduction, 2))}<br/>Net {_text(money(item.amount - reduction, 2))}</font>"
-        rows.append([str(serial), Paragraph(_text(service_value) or "-", table_body_style), Paragraph(_text(room) or "-", table_body_style), product_brand, Paragraph(description, table_body_style), quantity_value, Paragraph(_text(coat_value), numeric_cell), rate_value, amount_value])
-    quotation_table = _data_table(rows, [7*mm, 23*mm, 20*mm, 27*mm, 39*mm, 16*mm, 10*mm, 17*mm, 21*mm], numeric_from=5, font_size=7, emphasis_columns=[], corner_radii=[8]*4, header_color=palette["dark"], fonts=fonts, body_text_color=palette["text"])
+            total -= line_discount(item)
+        values = [category or service or "-", _joined([room, surface], " / ") or "-", description or "-", _joined([brand, product], " / ") or "-", coats, _indian_number(item.quantity, 2), _indian_number(item.rate, 2), _indian_number(total, 2)]
+        rows.append([Paragraph(_text(value), table_body_style if index < 4 else numeric_cell) for index, value in enumerate(values)])
+    quotation_table = _data_table(rows, [26*mm, 32*mm, 38*mm, 32*mm, 8*mm, 12*mm, 14*mm, 18*mm], numeric_from=4, font_size=7, emphasis_columns=[], corner_radii=[8]*4, header_color=palette["dark"], fonts=fonts, body_text_color=palette["text"])
     quotation_table.setStyle(TableStyle([
         ("TEXTCOLOR", (0, 0), (-1, 0), palette["on_dark"]),
-        ("ALIGN", (0, 1), (0, -1), "CENTER"), ("ALIGN", (6, 1), (6, -1), "CENTER"),
         ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
@@ -917,7 +911,17 @@ def build_quotation_pdf(quotation, included_sections=None):
     if "subtotal" in included_sections:
         totals.append(["Subtotal", money(quotation.subtotal, 2)])
     if "discount" in included_sections and quotation.discount:
-        totals.append(["Discount", f"- {money(quotation.discount, 2)}"])
+        if quotation.discount_mode == "BOTH":
+            from .pricing import discount_breakdown
+            _, line_total, overall_total = discount_breakdown(quotation.items.all(), quotation)
+            totals.append(["Line discounts", f"- {money(line_total, 2)}"])
+            totals.append(["Overall discount", f"- {money(overall_total, 2)}"])
+        elif quotation.discount_mode == "LINE":
+            totals.append(["Line discounts", f"- {money(quotation.discount, 2)}"])
+        elif quotation.discount_mode == "OVERALL":
+            totals.append(["Overall discount", f"- {money(quotation.discount, 2)}"])
+        else:
+            totals.append(["Discount", f"- {money(quotation.discount, 2)}"])
     if "gst" in included_sections and quotation.gst_amount:
         totals.append([f"GST ({_indian_number(quotation.gst_percentage, 2).rstrip('0').rstrip('.')}%)", money(quotation.gst_amount, 2)])
     if "grand_total" in included_sections:
@@ -1123,6 +1127,31 @@ def _measurement_pdf_header(context, reference, version, measured_on, s, palette
     return [heading, details]
 
 
+def _measurement_aggregate_table(groups, total_label, s, palette, fonts, totals_only=False):
+    buckets = [("Walls", "WALL"), ("Ceilings", "CEILING"), ("Doors", "DOOR"), ("Windows", "WINDOW"), ("Other surfaces", "OTHER")]
+    def bucket(surface):
+        return surface.surface_type if surface.surface_type in {"WALL", "CEILING", "DOOR", "WINDOW"} else "OTHER"
+    visible = [(label, kind) for label, kind in buckets if any(
+        bucket(surface) == kind and (surface.gross_area > 0 or surface.deduction_area > 0 or surface.addition_area > 0)
+        for _, _, surfaces, _ in groups for surface in surfaces)]
+    def totals(surfaces):
+        return [sum((surface.net_area for surface in surfaces if bucket(surface) == kind), Decimal("0")) for _, kind in visible] + [sum((surface.net_area for surface in surfaces), Decimal("0"))]
+    headings = [label for label, _ in visible] + ["Net Area"]
+    rows = [["Total", *headings]] if totals_only else [["Room / Area", "Classification", *headings]]
+    if not totals_only:
+        for _, room_name, surfaces, values in groups:
+            rows.append([Paragraph(_text(room_name), s["body"]), values["classification"], *[area(value) for value in totals(surfaces)]])
+    all_surfaces = [surface for _, _, surfaces, _ in groups for surface in surfaces]
+    label_cells = [Paragraph(total_label, s["bold"])] + ([] if totals_only else [""])
+    rows.append([*label_cells, *[area(value) for value in totals(all_surfaces)]])
+    widths = [65*mm] if totals_only else [40*mm, 25*mm]
+    widths += [115*mm / len(headings)] * len(headings)
+    table = _data_table(rows, widths, numeric_from=1 if totals_only else 2, font_size=7.1,
+                        header_color=palette["dark"], header_text_color=palette["on_dark"], body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
+    table.setStyle(TableStyle([("BACKGROUND", (0,-1), (-1,-1), PANEL), ("FONTNAME", (0,-1), (-1,-1), fonts[1])]))
+    return table
+
+
 def build_measurement_pdf(property_obj, measurement_record=None):
     buffer = BytesIO()
     contractor = (measurement_record.contractor if measurement_record else None) or property_obj.contractor or property_obj.customer.contractor
@@ -1212,7 +1241,14 @@ def build_measurement_pdf(property_obj, measurement_record=None):
         ceiling_openings = [opening for surface in ceiling_surfaces for opening in surface.openings.all()]
         door_total, _ = distinct_opening_total(room_surfaces, room_openings, "DOOR", "DOOR")
         window_total, _ = distinct_opening_total(room_surfaces, room_openings, "WINDOW", "WINDOW")
+        room = room_surfaces[0].room if room_surfaces else None
+        labels = {"INTERIOR": "Interior", "EXTERIOR": "Exterior", "OTHER": "Others"}
+        classification = labels.get(getattr(room, "painting_area", ""))
+        if not classification:
+            work_areas = {surface.work_area for surface in room_surfaces}
+            classification = labels.get(next(iter(work_areas)), "-") if len(work_areas) == 1 else "Mixed"
         return {
+            "classification": classification,
             "walls": wall_surfaces,
             "ceilings": ceiling_surfaces,
             "other_surfaces": other_surfaces,
@@ -1231,46 +1267,29 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             "windows": window_total,
         }
 
-    populated_groups = [(name, room_surfaces, room_values(room_surfaces)) for name, room_surfaces in groups if any(surface.gross_area > 0 or surface.addition_area > 0 or surface.deduction_area > 0 or any(opening.area > 0 for opening in surface.openings.all()) for surface in room_surfaces)]
-    # One shared room list for every measured surface, including balconies/custom areas.
-    column_specs = [
-        ("Walls", "net_walls", "wall_present"),
-        ("Ceilings", "net_ceiling", "ceiling_present"),
-        ("Doors", "doors", "doors"),
-        ("Windows", "windows", "windows"),
-    ]
-    for _, _, values in populated_groups:
-        values["wall_present"] = any(values[key] > 0 for key in ("wall_gross", "wall_deductions", "wall_additions"))
-        values["ceiling_present"] = any(values[key] > 0 for key in ("ceiling_gross", "ceiling_deductions", "ceiling_additions"))
-        values["other_measured"] = sum((surface.net_area for surface in values["other_surfaces"]
-            if surface.surface_type not in {"DOOR", "WINDOW"}), Decimal("0"))
-        values["other_gross"] = sum((surface.gross_area for surface in values["other_surfaces"]
-            if surface.surface_type not in {"DOOR", "WINDOW"}), Decimal("0"))
-        values["other_present"] = any(surface.gross_area > 0 or surface.deduction_area > 0 or surface.addition_area > 0
-            for surface in values["other_surfaces"] if surface.surface_type not in {"DOOR", "WINDOW"})
-        values["room_net"] = values["net_walls"] + values["net_ceiling"] + values["other_area"]
-    column_specs.append(("Other surfaces", "other_measured", "other_present"))
-    visible_columns = [spec for spec in column_specs if any(values[spec[2]] > 0 for _, _, values in populated_groups)]
-    common_rows = [["Room / Area", *[label for label, _, _ in visible_columns], "Net Area"]]
-    for room_name, _, values in populated_groups:
-        common_rows.append([Paragraph(_text(room_name), s["body"]),
-            *[area(values[key]) if values[presence] > 0 else "-" for _, key, presence in visible_columns],
-            area(values["room_net"])])
-    if len(common_rows) > 1:
-        common_rows.append([Paragraph("ALL ROOMS TOTAL", s["bold"]),
-            *[area(sum((values[key] for _, _, values in populated_groups), Decimal("0"))) for _, key, _ in visible_columns],
-            area(sum((values["room_net"] for _, _, values in populated_groups), Decimal("0")))])
-        numeric_width = 140*mm / (len(visible_columns) + 1)
-        common_table = _data_table(common_rows, [40*mm] + [numeric_width]*(len(visible_columns)+1),
-            numeric_from=1, font_size=7.1, header_color=palette["dark"], header_text_color=palette["on_dark"],
-            body_text_color=palette["text"], fonts=fonts, corner_radii=[8]*4)
-        common_table.setStyle(TableStyle([("BACKGROUND", (0, -1), (-1, -1), PANEL), ("FONTNAME", (0, -1), (-1, -1), fonts[1])]))
-        story.extend([Paragraph("ALL ROOM MEASUREMENTS", s["section"]), common_table, Spacer(1, 2*mm)])
+    def section_for(surface):
+        room_category = getattr(surface.room, "painting_area", "") if surface.room_id else ""
+        return room_category if room_category in {"INTERIOR", "EXTERIOR"} else surface.work_area
 
-    story.extend([Paragraph("AREA CALCULATION DETAILS", s["section"])])
-    linear = property_obj.linear_unit_label
-    for room_name, room_surfaces, values in populated_groups:
-        rows = [["Category", "Name", "Height / Width", "Length / Width", "Qty", "Calculation", "Action", "Area"]]
+    populated_groups = []
+    for work_area in ("INTERIOR", "EXTERIOR"):
+        for name, room_surfaces in groups:
+            selected = [surface for surface in room_surfaces if section_for(surface) == work_area]
+            if any(surface.gross_area > 0 or surface.addition_area > 0 or surface.deduction_area > 0 or any(opening.area > 0 for opening in surface.openings.all()) for surface in selected):
+                populated_groups.append((work_area, name, selected, room_values(selected)))
+
+    for work_area in ("INTERIOR", "EXTERIOR"):
+        aggregate = [group for group in populated_groups if group[0] == work_area]
+        if not aggregate:
+            continue
+        heading = "INTERIOR MEASUREMENTS" if work_area == "INTERIOR" else "EXTERIOR MEASUREMENTS"
+        total_label = "INTERIOR TOTAL" if work_area == "INTERIOR" else "EXTERIOR TOTAL"
+        story.extend([CondPageBreak(48*mm), Paragraph(heading, s["section"]),
+                      _measurement_aggregate_table(aggregate, total_label, s, palette, fonts), Spacer(1, 2*mm)])
+
+    for work_area, room_name, room_surfaces, values in populated_groups:
+        rows = [["Category", "Name", "Height / Width", "Length / Width", "Qty", "Calculation", "Classification", "Area"]]
+        classification = "Interior" if work_area == "INTERIOR" else "Exterior"
         linked_surface_ids = {x.linked_surface_id for x in values["openings"] if x.linked_surface_id}
         opening_types = {x.opening_type for x in values["openings"]}
         for surface in room_surfaces:
@@ -1298,7 +1317,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
                 if surface.paintable_sides != 1:
                     factors.append(f"{surface.paintable_sides} sides")
                 calculation = " x ".join(factors)
-            rows.append([category, Paragraph(_text(surface.name), s["body"]), first_dimension, second_dimension, str(surface.quantity), calculation, "Measured", area(surface.gross_area)])
+            rows.append([category, Paragraph(_text(surface.name), s["body"]), first_dimension, second_dimension, str(surface.quantity), calculation, classification, area(surface.gross_area)])
         for opening in values["openings"]:
             if opening.area <= 0:
                 continue
@@ -1314,7 +1333,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             calculation = f"{quantity(opening.height)} x {quantity(opening.width)}"
             if opening.quantity != 1:
                 calculation += f" x {opening.quantity}"
-            rows.append([opening.get_opening_type_display(), Paragraph(_text(opening.name), s["body"]), quantity(opening.height), quantity(opening.width), str(opening.quantity), calculation, action, area(measured_area)])
+            rows.append([opening.get_opening_type_display(), Paragraph(f"{_text(opening.name)}<br/>{_text(action)}", s["body"]), quantity(opening.height), quantity(opening.width), str(opening.quantity), calculation, classification, area(measured_area)])
         totals = [
             ("Wall total", values["wall_gross"]),
             ("Door total", values["doors"]),
@@ -1343,6 +1362,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             total_styles.extend([("TOPPADDING", (0, 0), (-1, -1), 2.2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2)])
             table.setStyle(TableStyle(total_styles))
             story.append(KeepTogether([Paragraph(_text(room_name), s["section"]), table, Spacer(1, 2*mm)]))
+    story.extend([Spacer(1, 2*mm), Paragraph("OVERALL TOTALS", s["section"]),
+                  _measurement_aggregate_table(populated_groups, "TOTAL MEASURED AREA", s, palette, fonts, totals_only=True)])
     if measurement_record and measurement_record.notes: story += _section("Measurement remarks", measurement_record.notes, s, palette)
     prepared = measurement_record.created_by.get_full_name() if measurement_record and measurement_record.created_by else context["owner"]
     signature = Table([[Paragraph("PREPARED BY", s["label"]), Paragraph("SIGNATURE", s["label"])], [Paragraph(_text(prepared), s["body"]), ""]], colWidths=[90*mm, 90*mm])

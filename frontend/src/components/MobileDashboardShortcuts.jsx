@@ -32,12 +32,14 @@ import "./dashboard-shortcuts.css";
 
 const shortcutsByRole = {
   CONTRACTOR: [
+    { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
     { label: "Add customer", icon: UserRoundPlus, to: "/customers?action=add" },
     { label: "New quotation", icon: FileText, to: "/quotations/new" },
     { label: "Messages", icon: MessageCircle, to: "/messages" },
     { label: "Follow-ups", icon: ListTodo, to: "/tasks" },
     { label: "Site visits", icon: CalendarCheck, to: "/site-visits" },
-    { label: "Sub network", icon: Network, to: "/contractor-network" },
+    { label: "Work Orders", icon: ClipboardList, to: "/subcontract-work-orders" },
+    { label: "Subcontractors", icon: Network, to: "/contractor-network" },
     { label: "Customers", icon: Users, to: "/customers" },
     { label: "Properties", icon: Building2, to: "/properties" },
     { label: "Quotations", icon: FileText, to: "/quotations" },
@@ -45,7 +47,6 @@ const shortcutsByRole = {
     { label: "Work Network", icon: Network, to: "/jobs?post=1" },
     { label: "Work", icon: CalendarClock, to: "/work-schedules" },
     { label: "Colors & Shades", icon: Palette, to: "/colors-shades" },
-    { label: "Area", icon: Ruler, to: "/properties?calculator=1" },
   ],
   PAINTER: [
     { label: "Work Network", icon: Network, to: "/jobs" },
@@ -90,23 +91,25 @@ export default function MobileDashboardShortcuts({ mobileOnly = true }) {
     (user?.role !== "PAINTER" || eligiblePainterRoutes.has(entry.to))
     && menuRouteEnabled(user?.role, menuVisibility, entry.to));
   if (!shortcuts.length) return null;
+  const scannerShortcut = (<button type="button" onClick={() => setScannerOpen(true)} className="bp-dashboard-shortcut bp-ui-action">
+              <span className="bp-shortcut-icon bp-shortcut-icon-primary"><QrCode aria-hidden="true" strokeWidth={1.8} /></span>
+              <span className="bp-shortcut-label">Scan QR</span>
+            </button>);
   return (
     <>
       <section className={`bp-dashboard-shortcuts ${mobileOnly ? "md:hidden" : ""}`} aria-label="Quick actions">
-        <h2 className="bp-shortcut-heading">Quick actions</h2>
+        <h2 className="bp-shortcut-heading bp-ui-section-heading">Quick actions</h2>
         <div className="bp-dashboard-shortcut-scroll" tabIndex={0} role="region" aria-label="Dashboard shortcuts, scroll for more">
           <div className="bp-dashboard-shortcut-items">
-            <button type="button" onClick={() => setScannerOpen(true)} className="bp-dashboard-shortcut">
-              <span className="bp-shortcut-icon bp-shortcut-icon-primary"><QrCode aria-hidden="true" strokeWidth={1.8} /></span>
-              <span className="bp-shortcut-label">Scan QR</span>
-            </button>
-            <ShareAppButton shortcut />
+            {user?.role !== "CONTRACTOR" && scannerShortcut}
             {shortcuts.map(({ label, icon: Icon, to }) => (
               <Link key={`${label}-${to}`} to={to} className="bp-dashboard-shortcut">
                 <span className="bp-shortcut-icon"><Icon aria-hidden="true" strokeWidth={1.8} /></span>
                 <span className="bp-shortcut-label">{label}</span>
               </Link>
             ))}
+            <ShareAppButton shortcut />
+            {user?.role === "CONTRACTOR" && scannerShortcut}
           </div>
         </div>
       </section>
@@ -218,10 +221,10 @@ function QrScanner({ close }) {
       <div className="w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div>
-            <h2 className="text-lg font-bold">Scan QR</h2>
+            <h2 className="text-lg font-bold bp-ui-section-heading">Scan QR</h2>
             
           </div>
-          <button type="button" onClick={() => { stopCamera(); close(); }} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100" aria-label="Close scanner">
+          <button type="button" onClick={() => { stopCamera(); close(); }} className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 bp-ui-icon-action" aria-label="Close scanner">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -245,7 +248,7 @@ function QrScanner({ close }) {
           <div className="mt-4 grid grid-cols-2 gap-3">
             {!result ? (
               <>
-                <button type="button" onClick={scanning ? stopCamera : startCamera} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">
+                <button type="button" onClick={scanning ? stopCamera : startCamera} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action">
                   {scanning ? "Stop camera" : "Start camera"}
                 </button>
                 <label className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 text-center text-sm font-semibold">
@@ -256,11 +259,11 @@ function QrScanner({ close }) {
             ) : (
               <>
                 {isLink ? (
-                  <button type="button" onClick={() => window.open(result, "_blank", "noopener,noreferrer")} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Open result</button>
+                  <button type="button" onClick={() => window.open(result, "_blank", "noopener,noreferrer")} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action">Open result</button>
                 ) : (
-                  <button type="button" onClick={() => navigator.clipboard?.writeText(result)} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Copy result</button>
+                  <button type="button" onClick={() => navigator.clipboard?.writeText(result)} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action">Copy result</button>
                 )}
-                <button type="button" onClick={startCamera} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold">Scan again</button>
+                <button type="button" onClick={startCamera} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold bp-ui-action">Scan again</button>
               </>
             )}
           </div>

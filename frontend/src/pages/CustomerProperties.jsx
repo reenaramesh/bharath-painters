@@ -51,7 +51,7 @@ export default function CustomerProperties() {
       <PageHeader
         eyebrow="Your projects"
         title="My properties"
-        description="Places connected to your painting work, with saved measurements and contractor details."
+        
       />
       <section className="customer-property-pulse" aria-label="Property summary">
         <div><span>Saved properties</span><strong>{items.length}</strong><small>Connected to your projects</small></div>
@@ -60,10 +60,10 @@ export default function CustomerProperties() {
       </section>
       {notice && <p role="status" aria-live="polite" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
       {error && !loading && <ErrorState message={error} onRetry={load} />}
-      {!loading && !error && shareRequests.length > 0 && <SectionCard title="Property access requests" description="Review requests from people sharing a property with you." bodyClassName="p-0">
+      {!loading && !error && shareRequests.length > 0 && <SectionCard title="Property access requests"  bodyClassName="p-0">
         <ul className="divide-y divide-slate-200">{shareRequests.map((item) => <li key={item.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div><h2 className="font-bold text-slate-950">{item.property_name}</h2><p className="mt-1 text-sm text-slate-600">{[item.relationship && relationshipName(item.relationship), accessName(item.access_level), item.city].filter(Boolean).join(" · ")}</p></div>
-          <div className="flex gap-2"><button type="button" onClick={() => respondToShare(item.id, "ACCEPT")} className="min-h-11 rounded-xl bg-[#176b9b] px-4 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]">Accept</button><button type="button" onClick={() => respondToShare(item.id, "DECLINE")} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Decline</button></div>
+          <div><h2 className="font-bold text-slate-950 bp-ui-section-heading">{item.property_name}</h2><p className="mt-1 text-sm text-slate-600">{[item.relationship && relationshipName(item.relationship), accessName(item.access_level), item.city].filter(Boolean).join(" · ")}</p></div>
+          <div className="flex gap-2"><button type="button" onClick={() => respondToShare(item.id, "ACCEPT")} className="min-h-11 rounded-xl bg-[#176b9b] px-4 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331] bp-ui-action">Accept</button><button type="button" onClick={() => respondToShare(item.id, "DECLINE")} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b] bp-ui-action">Decline</button></div>
         </li>)}</ul>
       </SectionCard>}
       <SectionCard
@@ -90,7 +90,7 @@ export default function CustomerProperties() {
                     <span className="customer-property-icon" aria-hidden="true"><Building2 /></span>
                     <div className="min-w-0">
                       <p className="customer-property-type">{item.property_type || "Property"}</p>
-                      <h2>{item.name || "Unnamed property"}</h2>
+                      <h2 className="bp-ui-section-heading">{item.name || "Unnamed property"}</h2>
                     </div>
                     <span className="customer-property-type-badge">{item.measurement_type || "Area type not specified"}</span>
                   </div>
@@ -111,7 +111,7 @@ export default function CustomerProperties() {
         ) : (
           <EmptyState
             title="No properties shared yet"
-            description="Properties and measurements shared by your connected contractors will appear here."
+            
             className="customer-properties-empty"
           />
         )}

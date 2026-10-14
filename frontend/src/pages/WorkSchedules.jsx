@@ -1,3 +1,5 @@
+import useMobileView from "../hooks/useMobileView.js";
+import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -37,6 +39,7 @@ const tomorrowKey = () => {
 };
 
 export default function WorkSchedules() {
+  const mobile = useMobileView();
   const { user } = useAuth();
   const [params] = useSearchParams();
   const propertyId = params.get("property_id") || "";
@@ -135,6 +138,7 @@ export default function WorkSchedules() {
       );
     });
     return rows.sort((first, second) => {
+      if (!sort.key && mobile) return (Date.parse(second.updated_at) || 0) - (Date.parse(first.updated_at) || 0) || Number(second.id) - Number(first.id);
       if (!sort.key) {
         return datePreset === "UPCOMING"
           ? first.start_date.localeCompare(second.start_date)
@@ -155,7 +159,7 @@ export default function WorkSchedules() {
         : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
       return sort.direction === "asc" ? result : -result;
     });
-  }, [items, filter, search, datePreset, dateFrom, dateTo, sort]);
+  }, [items, filter, search, datePreset, dateFrom, dateTo, sort, mobile]);
   const completedSchedules = useMemo(
     () => items.filter((item) => item.status === "COMPLETED").slice().sort((a, b) => String(b.work_completed_at || b.end_date || "").localeCompare(String(a.work_completed_at || a.end_date || ""))),
     [items],
@@ -261,7 +265,7 @@ export default function WorkSchedules() {
       );
       setPainters(data);
       setAssigning(item);
-      setSelected(item.painters.map((p) => p.id));
+      setSelected(item.painters.filter((p) => ["ASSIGNED", "ACCEPTED", "IN_PROGRESS"].includes(p.status)).map((p) => p.id));
       setError("");
     } catch (err) {
       setError(
@@ -413,7 +417,7 @@ export default function WorkSchedules() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-work-schedules-page">
       <MobilePageBack />
-      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"} description={user.role === "CUSTOMER" ? "See the planned dates, payment status and progress for your projects." : "Coordinate work dates, assigned crew, payment status and progress."} actions={<div className="flex flex-col gap-2 sm:flex-row">
+      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"}  actions={<div className="flex flex-col gap-2 sm:flex-row">
           {user.role === "CONTRACTOR" && (
             <Link
               to="/work-reschedules"
@@ -439,7 +443,7 @@ export default function WorkSchedules() {
           <div className="customer-schedule-journey-heading">
             <div>
               <p className="customer-schedule-kicker">Your project journey</p>
-              <h2>From accepted quotation to finished work</h2>
+              <h2 className="bp-ui-section-heading">From accepted quotation to finished work</h2>
             </div>
             {customerUpcoming && (
               <div className="customer-schedule-next">
@@ -459,7 +463,7 @@ export default function WorkSchedules() {
           </ol>
         </section>
       )}
-      <SectionCard title={datePreset === "UPCOMING" ? "Upcoming work" : "Schedule records"} description="Dates, payment, team assignments and next actions." className="schedule-list-card" bodyClassName="p-0">
+      <SectionCard title={datePreset === "UPCOMING" ? "Upcoming work" : "Schedule records"}  className="schedule-list-card" bodyClassName="p-0">
         <div className="flex flex-col gap-3 border-b p-3 xl:flex-row xl:items-center">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -467,13 +471,13 @@ export default function WorkSchedules() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={user.role === "CUSTOMER" ? "Search quotation or property" : "Search quotation, customer, or property"}
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <select
             value={datePreset}
             onChange={(e) => chooseDatePreset(e.target.value)}
-            className="rounded-xl border px-4 py-2.5 text-sm"
+            className="rounded-xl border px-4 py-2.5 text-sm bp-ui-control"
           >
             <option value="UPCOMING">Upcoming schedules</option>
             <option value="ALL">All dates</option>
@@ -482,13 +486,13 @@ export default function WorkSchedules() {
             <option value="THIS_MONTH">This month</option>
             <option value="CUSTOM">Custom dates</option>
           </select>
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="schedule-status-scroll flex gap-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Schedule status filters">
             {filters.map((value) => (
               <button
                 key={value}
                 onClick={() => setFilter(value)}
                 aria-pressed={filter === value}
-                className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold ${filter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}
+                className={(`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold ${filter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`) + " bp-ui-action"}
               >
                 {label(value)}{" "}
                 <span className="ml-1 opacity-70">{counts[value]}</span>
@@ -502,13 +506,13 @@ export default function WorkSchedules() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border px-3 py-2 text-sm bp-ui-control"
             />
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border px-3 py-2 text-sm bp-ui-control"
             />
           </div>
         )}
@@ -545,10 +549,10 @@ export default function WorkSchedules() {
             </div>
           </div>
         ) : (
-          <EmptyState title="No schedules match this view" description="Try another date range or schedule status." />
+          <EmptyState title="No schedules match this view"  />
         )}
       </SectionCard>
-      {user.role === "CONTRACTOR" && completedSchedules.length > 0 && <SectionCard title="Completed schedules" description="Finished work is kept separate from active commitments." className="completed-schedules-card" bodyClassName="p-0">
+      {user.role === "CONTRACTOR" && completedSchedules.length > 0 && <SectionCard title="Completed schedules"  className="completed-schedules-card" bodyClassName="p-0">
         <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{completedSchedules.slice(0, 6).map((item) => <article key={item.id} className="completed-schedule-card rounded-xl border p-4">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-bold text-slate-900">{item.quotation_number}</p><p className="mt-1 truncate text-sm text-slate-700">{item.customer} · {item.property}</p></div><StatusBadge status={item.status} tone="success" /></div>
           <p className="mt-3 text-sm text-slate-600">{formatDate(item.start_date)} – {formatDate(item.end_date)}</p>
@@ -590,7 +594,7 @@ function SortHeader({ label: text, column, sort, onSort }) {
     <button
       type="button"
       onClick={() => onSort(column)}
-      className={`flex items-center gap-1 text-left transition hover:text-slate-700 ${active ? "text-slate-900" : ""}`}
+      className={(`flex items-center gap-1 text-left transition hover:text-slate-700 ${active ? "text-slate-900" : ""}`) + " bp-ui-action"}
       aria-label={`Sort by ${text}`}
     >
       <span>{text}</span>
@@ -685,7 +689,7 @@ function ProjectRow({
       <div className="p-4 lg:hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="truncate font-bold text-slate-950">
+            <h2 className="truncate font-bold text-slate-950 bp-ui-section-heading">
               {item.quotation_number}
             </h2>
             <p className="mt-1 truncate text-sm font-semibold text-slate-700">
@@ -721,7 +725,7 @@ function ProjectRow({
           <button
             onClick={onToggle}
             aria-expanded={expanded}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 bp-ui-action"
           >
             {expanded ? "Hide details" : "View details"}
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -733,7 +737,7 @@ function ProjectRow({
       </div>
       <div className="hidden gap-4 p-5 lg:grid lg:grid-cols-[minmax(220px,1.4fr)_180px_130px_155px_120px_230px_44px] lg:items-center">
         <div className="min-w-0">
-          <h2 className="truncate font-bold">{item.quotation_number}</h2>
+          <h2 className="truncate font-bold bp-ui-section-heading">{item.quotation_number}</h2>
           <p className="mt-1 truncate text-sm text-slate-500">
             {role === "CUSTOMER" ? `${item.property} · With ${item.contractor}` : `${item.customer} | ${item.property}`}
           </p>
@@ -754,7 +758,7 @@ function ProjectRow({
         <button
           disabled={role !== "CONTRACTOR" || item.status !== "CONFIRMED"}
           onClick={() => onAssign(item)}
-          className="text-left disabled:cursor-default"
+          className="text-left disabled:cursor-default bp-ui-action"
         >
           <p className="text-sm font-semibold">
             {item.painters.length || 0} assigned
@@ -764,7 +768,7 @@ function ProjectRow({
           )}
         </button>
         <div className="flex flex-wrap items-center gap-2">{nextAction}</div>
-        <button onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Hide" : "View"} details for ${item.quotation_number}`} className="rounded-lg border p-2">
+        <button onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Hide" : "View"} details for ${item.quotation_number}`} className="rounded-lg border p-2 bp-ui-action">
           {expanded ? (
             <ChevronUp className="h-4 w-4" />
           ) : (
@@ -812,7 +816,7 @@ function ProjectRow({
               <button
                 type="button"
                 onClick={() => onReceipt(item)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 bp-ui-action"
               >
                 <Download className="h-4 w-4" />
                 Download receipt
@@ -824,7 +828,7 @@ function ProjectRow({
             {role === "CONTRACTOR" && !paid && item.status === "CONFIRMED" && (
               <button
                 onClick={() => onCancel(item)}
-                className="mt-2 text-sm font-semibold text-red-600"
+                className="mt-2 text-sm font-semibold text-red-600 bp-ui-action"
               >
                 Cancel unpaid schedule
               </button>
@@ -833,7 +837,7 @@ function ProjectRow({
           <Detail title={role === "CUSTOMER" ? "Work progress" : "Paint Applicators and work"}>
             <p>
               {item.painters.length
-                ? item.painters.map((p) => p.name).join(", ")
+                ? <ul className="mt-1 space-y-1">{item.painters.map((p) => <li key={p.assignment_id || p.id} className="flex flex-wrap items-center gap-2"><span>{p.name}</span><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${p.status === "ACCEPTED" ? "bg-emerald-50 text-emerald-700" : p.status === "DECLINED" ? "bg-red-50 text-red-700" : p.status === "RELEASED" ? "bg-slate-100 text-slate-500" : p.status === "IN_PROGRESS" ? "bg-violet-50 text-violet-700" : p.status === "COMPLETED" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800"}`}>{(p.status || "ASSIGNED").replaceAll("_", " ")}</span></li>)}</ul>
                 : role === "CUSTOMER" ? "Work team not assigned yet" : "No Paint Applicators assigned"}
             </p>
             {item.work_started_at && (
@@ -882,7 +886,7 @@ function ScheduleForm({
           required
           value={form.quotation}
           onChange={(e) => setForm({ ...form, quotation: e.target.value })}
-          className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
+          className="mt-2 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control"
         >
           <option value="">Select quotation</option>
           {quotations.map((q) => (
@@ -913,7 +917,7 @@ function ScheduleForm({
       />
       <button
         disabled={saving}
-        className="self-end rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+        className="self-end rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white bp-ui-action"
       >
         {rescheduling ? "Send revised dates" : "Propose dates"}
       </button>
@@ -925,7 +929,7 @@ function ScheduleForm({
             rows="2"
             value={form.reason}
             onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
+            className="mt-2 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control"
           />
         </label>
       )}
@@ -938,12 +942,12 @@ function ScheduleModal({ children, onClose }) {
       <div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">Schedule work dates</h2>
+            <h2 className="text-xl font-bold bp-ui-section-heading">Schedule work dates</h2>
             
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 hover:bg-slate-100"
+            className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"
           >
             <X />
           </button>
@@ -977,7 +981,7 @@ function PainterModal({
       >
         <div className="flex justify-between">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold bp-ui-section-heading">
               Assign verified Paint Applicators
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -985,7 +989,7 @@ function PainterModal({
               Payment and wages are handled separately.
             </p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
             <X />
           </button>
         </div>
@@ -1015,7 +1019,7 @@ function PainterModal({
         </div>
         <button
           disabled={saving || selected.length === 0}
-          className="mt-5 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40"
+          className="mt-5 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40 bp-ui-action"
         >
           Assign Paint Applicators
         </button>
@@ -1028,7 +1032,7 @@ function Action({ children, onClick, disabled, primary }) {
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-40 ${primary ? "bg-slate-950 text-white" : "border bg-white"}`}
+      className={(`rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-40 ${primary ? "bg-slate-950 text-white" : "border bg-white"}`) + " bp-ui-action"}
     >
       {children}
     </button>
@@ -1052,13 +1056,13 @@ function PaymentActions({ item, role, onPayment }) {
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           onClick={() => onPayment(item, "REQUEST")}
-          className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
+          className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white bp-ui-action"
         >
           Request advance
         </button>
         <button
           onClick={() => onPayment(item, "RECORD")}
-          className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white"
+          className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white bp-ui-action"
         >
           Payment received directly
         </button>
@@ -1069,7 +1073,7 @@ function PaymentActions({ item, role, onPayment }) {
     return (
       <button
         onClick={() => onPayment(item, "SUBMIT")}
-        className="mt-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
+        className="mt-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white bp-ui-action"
       >
         Submit payment
       </button>
@@ -1078,7 +1082,7 @@ function PaymentActions({ item, role, onPayment }) {
     return (
       <button
         onClick={() => onPayment(item, "CONFIRM")}
-        className="mt-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
+        className="mt-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white bp-ui-action"
       >
         Confirm receipt
       </button>
@@ -1103,7 +1107,7 @@ function DateField({ label: fieldLabel, value, onChange, min }) {
         min={min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
+        className="mt-2 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control"
       />
     </label>
   );

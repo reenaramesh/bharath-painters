@@ -1,15 +1,20 @@
+import QuotationDocumentItems from "../components/QuotationDocumentItems.jsx";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
 import { openRecovery, writeRecovery, clearRecovery } from "../utils/quotationRecovery.js";
 import QuotationDiscountControls from "../components/QuotationDiscountControls.jsx";
 import QuotationPricingRows from "../components/QuotationPricingRows.jsx";
+import QuotationWorkItemSummary from "../components/QuotationWorkItemSummary.jsx";
+import { QuotationLineItemPopup } from "../components/QuotationLineItemPopup.jsx";
+import { quotationUnitOptions } from "../utils/quotationUnits.js";
+import { missingQuotationFields, missingLumpSumItemFields, isUnfinishedLumpSumItem, retainedItemValidationMessage, clearItemValidationMessage } from "../utils/quotationItemValidation.js";
 import { builderDraftPayload, draftForm, persistQuotation, restoredGroupedItems } from "../utils/unifiedQuotation.js";
-import { hasAssignment, restoreDraftAssignments } from "../utils/groupedQuotationDraft.js";
+import { hasAssignment, isGroupedDraft, restoreDraftAssignments } from "../utils/groupedQuotationDraft.js";
 import { quotationTotals } from "../utils/quotationPricing.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { goBackFromBuilder } from "../utils/navigation";
-import { ArrowLeft, ArrowRight, Check, Eye, IndianRupee, Pencil, Plus, Ruler, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Check, Eye, IndianRupee, Pencil, Plus, Ruler, Search, Trash2, UserRoundPlus, X } from "lucide-react";
 import api from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
@@ -19,8 +24,10 @@ import { Button, PageHeader, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { availableWallArea } from "../utils/specialWallArea";
 import GroupedQuotationWorkspace from "../components/GroupedQuotationWorkspace";
-import { assignmentQuotationItems, groupedQuotationRoom, quotationRoomAreaLabel } from "../utils/groupedQuotation";
+import { assignmentQuotationItems, deleteAssignment, groupedQuotationRoom, quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import SpecialWallSheet from "../components/SpecialWallSheet";
+import useAuth from "../context/useAuth";
+import { continueMeasurementPath } from "../utils/measurementRecords.js";
 
 const emptyItem = {
   room_index: "",
@@ -49,7 +56,7 @@ const emptyItem = {
 };
 const steps = [
   "Customer, property and measurements",
-  "Surface grouping, materials and specifications",
+  "Surface, materials and specifications",
   "Pricing and final review",
 ];
 const money = (value) =>
@@ -73,17 +80,6 @@ const quotationSurfaceGroup = (surface) => {
     : surface.surface_type;
   return { label, key };
 };
-function missingQuotationFields(item) {
-  const missing = [];
-  const saved = Number.isInteger(item.id) && item.id > 0;
-  if (!saved && !item.service_category && !String(item.custom_service_category || "").trim()) missing.push(SERVICE_MASTER_LABELS.category);
-  if (!saved && !item.field_id && !item.property_room_id && !String(item.room_name || "").trim()) missing.push("Room / Area");
-  if (!String(item.description || "").trim()) missing.push(SERVICE_MASTER_LABELS.description);
-  if (!saved && !item.unit && !String(item.custom_unit || "").trim()) missing.push("MOU");
-  if (Number(item.quantity || 0) <= 0) missing.push("Quantity");
-  if (item.rate === "" || item.rate === null || item.rate === undefined || !Number.isFinite(Number(item.rate)) || Number(item.rate)<0) missing.push("Rate");
-  return missing;
-}
 function incompleteLineMessage(items) {
   const index = items.findIndex((item) => missingQuotationFields(item).length);
   if (index < 0) return "";
@@ -91,6 +87,7 @@ function incompleteLineMessage(items) {
 }
 
 export default function QuotationBuilder({ initialQuotation = null }) {
+  const { user } = useAuth();
   const location = useLocation();
   const [recovery] = useState(() => {
     try {
@@ -105,11 +102,12 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   const recoveryCleared = useRef(false);
   const propertyFirstLoad = useRef(recovered?.form.property);
   const measurementFirstLoad = useRef(recovered?.selectedMeasurementId);
-  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
+  const measurementSource = useRef(null);
   const [savedQuotation, setSavedQuotation] = useState(initialQuotation);
   const savedDraft = useRef(initialQuotation);
   const editing = Boolean(initialQuotation);
   const sourceLocked = Boolean(savedQuotation);
+  const lumpEditable = !savedQuotation || (savedQuotation.status === "DRAFT" && savedQuotation.can_edit !== false);
   const [dataReady,setDataReady] = useState(false);
   const [sourceReady,setSourceReady] = useState(!initialQuotation || Boolean(recovered?.savedRooms?.length));
   const [notice,setNotice] = useState(location.state?.submissionError ? "Draft saved. Sending could not be confirmed. Retry Save & Send to submit this same Draft." : "");
@@ -146,10 +144,10 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     roomTypes: [],
   });
   const [form, setForm] = useState(() => recovered?.form ?? draftForm(initialQuotation || {}, {
-    customer: "",
-    property: "",
+    customer: searchParams.get("customer") || "",
+    property: searchParams.get("property") || "",
     valid_until: "",
-    discount_mode: "OVERALL",
+    discount_mode: "BOTH",
     discount_type: "FIXED",
     discount_value: 0,
     gst_mode: "GST_EXTRA",
@@ -244,18 +242,6 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   }, [initialQuotation, recovered]);
   useEffect(() => {
     if (initialQuotation) return;
-    const requestedCustomer = searchParams.get("customer");
-    const requestedProperty = searchParams.get("property");
-    if ((!requestedCustomer && !requestedProperty) || !customers.length || !properties.length || form.customer) return;
-    const property = properties.find((item) => String(item.id) === requestedProperty);
-    const customerId = requestedCustomer || property?.customer;
-    const selected = customers.find((item) => String(item.id) === String(customerId));
-    if (!selected) return;
-    setForm((current) => ({ ...current, customer: selected.id, property: property?.id || "" }));
-    setCustomerSearch(selected.name);
-  }, [customers, properties, form.customer, searchParams, initialQuotation]);
-  useEffect(() => {
-    if (initialQuotation) return;
     const restoring = Boolean(recovered) && propertyFirstLoad.current === form.property;
     if (!restoring) propertyFirstLoad.current = null;
     if (!restoring) {
@@ -300,9 +286,12 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   useEffect(() => {
     if (initialQuotation) return;
     const restoring = Boolean(recovered) && measurementFirstLoad.current === selectedMeasurementId;
+    const source = `${form.property}:${selectedMeasurementId}`;
+    const sourceChanged = measurementSource.current !== source;
+    measurementSource.current = source;
     if (!restoring) measurementFirstLoad.current = null;
-    if (!restoring) {
-      setItems([]);
+    if (!restoring && sourceChanged) {
+      if (useMeasurements) setItems([]);
       setSpecialWalls([]);
       setGroupAssignments({ groups: [], specials: [], services: [], rates: {} });
       setWorkEditorRecovery(null);
@@ -320,16 +309,19 @@ export default function QuotationBuilder({ initialQuotation = null }) {
       return;
     }
     const params = { measurement: selectedMeasurementId };
+    let active = true;
     Promise.all([
       api.get(`/quotations/properties/${form.property}/rooms/`, { params }),
       api.get(`/quotations/properties/${form.property}/measurements/`, { params }),
     ]).then(([roomResponse, measurementResponse]) => {
+      if (!active) return;
       const rooms = roomResponse.data.results || roomResponse.data;
       setSavedRooms(rooms);
       setMeasurements(measurementResponse.data.results || measurementResponse.data);
       if (!restoring) setSelectedRoomIds(rooms.map((room) => room.id));
-    }).catch(() => setError("The selected Area Calculation could not be loaded. Your recovered inputs are retained. Refresh to retry loading."));
-  }, [form.property, selectedMeasurementId, initialQuotation, recovered]);
+    }).catch(() => { if (active) setError("The selected Area Calculation could not be loaded. Your recovered inputs are retained. Refresh to retry loading."); });
+    return () => { active = false; };
+  }, [form.property, selectedMeasurementId, initialQuotation, recovered, useMeasurements]);
   useEffect(()=>{
     if(!initialQuotation)return;
     let active=true;const params=initialQuotation.measurement_record?{measurement:initialQuotation.measurement_record}:undefined;
@@ -695,24 +687,20 @@ export default function QuotationBuilder({ initialQuotation = null }) {
       ];
     });
   }, [measurementFields, exteriorMode, specialWalls.length, initialQuotation, useMeasurements]);
-  const groupedMode = useMeasurements && !exteriorMode && Boolean(selectedMeasurementId);
+  const groupedMode = useMeasurements && Boolean(selectedMeasurementId) && (!editing || isGroupedDraft(savedQuotation || initialQuotation));
   const assignmentMeasurement = useMemo(() => ({
     id: Number(selectedMeasurementId),
     version: measurementRecords.find((record) => String(record.id) === String(selectedMeasurementId))?.version ?? savedQuotation?.items.find(item=>item.specification_details?.measurement_version)?.specification_details.measurement_version ?? 1,
-    rooms: savedRooms,
-    surfaces: measurements.filter((surface) => !surface.work_area || surface.work_area === "INTERIOR"),
+    rooms: [...savedRooms, ...(measurements.some(surface => !surface.room && surface.work_area === "EXTERIOR") ? [{id:null, name:"Exterior"}] : [])],
+    surfaces: measurements,
   }), [selectedMeasurementId, measurementRecords, savedRooms, measurements,savedQuotation]);
-  const assignedItems = useMemo(() => groupedMode && dataReady && sourceReady && savedRooms.length ? savedQuotation ? restoredGroupedItems(savedQuotation,assignmentMeasurement,groupAssignments,masters) : assignmentQuotationItems(assignmentMeasurement, groupAssignments, masters).map(line=>({...line,rate:groupAssignments.rates[line.specification_details.assignment_id] ?? line.rate})) : [], [groupedMode, dataReady, sourceReady, savedRooms.length, assignmentMeasurement, groupAssignments, masters,savedQuotation]);
+  const assignedItems = useMemo(() => groupedMode && dataReady && sourceReady && assignmentMeasurement.rooms.length ? savedQuotation ? restoredGroupedItems(savedQuotation,assignmentMeasurement,groupAssignments,masters) : assignmentQuotationItems(assignmentMeasurement, groupAssignments, masters).map(line=>({...line,rate:groupAssignments.rates[line.specification_details.assignment_id] ?? line.rate})) : [], [groupedMode, dataReady, sourceReady, assignmentMeasurement, groupAssignments, masters,savedQuotation]);
   const submissionLock = useRef(false);
   const builderSnapshot=JSON.stringify({form,items,groupAssignments,selectedRoomIds,selectedFieldIds});
   const initialSnapshot=useRef(recovered?.initialSnapshot || builderSnapshot);
   const recoveryState = useMemo(() => ({form,items,groupAssignments,selectedRoomIds,selectedFieldIds,specialWalls,selectedMeasurementId,useMeasurements,step,customerSearch,workEditorRecovery,specialWallEditor,specialWallRecovery:specialWallEditor ? specialWallRecovery : null,initialSnapshot:initialSnapshot.current,savedRooms,measurements,measurementRecords,sourceLead}), [form,items,groupAssignments,selectedRoomIds,selectedFieldIds,specialWalls,selectedMeasurementId,useMeasurements,step,customerSearch,workEditorRecovery,specialWallEditor,specialWallRecovery,savedRooms,measurements,measurementRecords,sourceLead]);
   const latestRecovery = useRef(recoveryState);
   latestRecovery.current = recoveryState;
-  useEffect(() => {
-    if (recoveryCleared.current) return;
-    setRecoveryUnavailable(!writeRecovery(recovery.storage, recovery.key, recoveryState, initialQuotation?.updated_at));
-  }, [recoveryState, recovery.key, recovery.storage, initialQuotation?.updated_at]);
   useEffect(() => {
     const flush = () => {
       if (!recoveryCleared.current) writeRecovery(recovery.storage, recovery.key, latestRecovery.current, initialQuotation?.updated_at);
@@ -727,11 +715,11 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   }
   const markBuilderSaved = useDraftUnsavedChanges(editing ? (builderSnapshot!==initialSnapshot.current || Boolean(workEditorRecovery || specialWallEditor)) : Boolean(form.customer || items.length || groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length));
   const activeItems = useMemo(() => {
-    const lines=groupedMode ? [...assignedItems,...items.filter(item=>!item.field_id)] : items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id));
+    const lines=(groupedMode ? [...assignedItems,...items.filter(item=>!item.field_id)] : items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id))).filter(item=>useMeasurements || !isUnfinishedLumpSumItem(item, masters));
     if(!savedQuotation)return lines;
     const order=new Map(savedQuotation.items.map((item,index)=>[item.id,index]));
     return lines.sort((a,b)=>(order.get(a.id) ?? Number.MAX_SAFE_INTEGER)-(order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
-  },[groupedMode,assignedItems,items,selectedFieldIds,savedQuotation]);
+  },[groupedMode,assignedItems,items,selectedFieldIds,savedQuotation,useMeasurements,masters]);
   const selectedProductDetails = useMemo(
     () => uniqueProductDetails(activeItems, masters.paintTypes, masters.brands),
     [activeItems, masters.paintTypes, masters.brands],
@@ -799,66 +787,32 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     setSpecialWalls((current) => current.map((wall) => wall.field_id === fieldId ? { ...wall, ...values, ...(values.description ? { work_description: values.description } : {}) } : wall));
   };
   const addAdditionalService = () => {
+    if (!useMeasurements && !lumpEditable) return;
+    setError(clearItemValidationMessage);
+    const pending = !useMeasurements ? items.findIndex(item => isUnfinishedLumpSumItem(item, masters)) : -1;
+    if (pending >= 0) { setMobileItemIndex(pending); return; }
     setMobileItemIndex(items.length);
-    setItems((current) => [...current, { ...emptyItem, description: "", calculation_method: "MANUAL", is_additional_service: true, quantity: 1, coats: 1 }]);
+    setItems((current) => [...current, { ...emptyItem, description: "", calculation_method: "MANUAL", is_additional_service: true, quantity: 1, coats: 1, ...(!useMeasurements ? {lumpsum_item_pending:true} : {}) }]);
   };
-  const addOpeningMeasurement = (openingType) => {
-    if (groupedMode && assignmentMeasurement.surfaces.some((surface) => surface.surface_type === openingType)) {
-      setOpeningGroupRequest({ kind: "group", initialSurface: openingType });
-      return;
-    }
-    if (items.some((item) => item.opening_type === openingType)) return;
-    const label = openingType === "DOOR" ? "Door" : "Window";
-    const paintingCategory = masters.categories.find((entry) => entry.name.toLowerCase() === "painting") || masters.categories.find((entry) => entry.name.toLowerCase().includes("paint"));
-    const squareFeetUnit = masters.units.find((entry) => ["sq ft", "sqft", "square feet", "square foot"].includes(entry.name.toLowerCase()));
-    const matchingService = masters.services.find(
-      (entry) => entry.calculation_type === openingType,
-    );
-    const savedOpeningSurfaces = measurements.filter(
-      (surface) =>
-        surface.surface_type === openingType &&
-        selectedRooms.some((room) => room.id === surface.room),
-    );
-    const openingGroups = [...savedOpeningSurfaces.reduce((groups, surface) => {
-      const key = String(surface.room || "general");
-      const current = groups.get(key) || { room: surface.room || "", quantity: 0 };
-      current.quantity += Number(surface.net_area || 0);
-      groups.set(key, current);
-      return groups;
-    }, new Map()).values()];
-    setItems((current) => [
-      ...current,
-      ...(openingGroups.length ? openingGroups.map((group) => ({
-        ...emptyItem,
-        opening_type: openingType,
-        property_room_id: group.room,
-        service_category: paintingCategory?.id || matchingService?.category_master || "",
-        service_type: "",
-        unit: squareFeetUnit?.id || "",
-        description: `Total ${label.toLowerCase()} painting area`,
-        calculation_method: "MANUAL",
-        quantity: group.quantity.toFixed(2),
-        coats: 1,
-      })) : [{
-        ...emptyItem,
-        opening_type: openingType,
-        service_category: paintingCategory?.id || matchingService?.category_master || "",
-        service_type: "",
-        unit: squareFeetUnit?.id || "",
-        description: `${label} area`,
-        calculation_method: "MANUAL",
-        quantity: "",
-        coats: 1,
-      }]),
-    ]);
-  };
+  function removeWorkItem(item) {
+    if (!lumpEditable) return false;
+    if (!window.confirm(`Delete ${item.description || "this work item"} from the quotation? Save Draft to persist this change.`)) return false;
+    const assignmentId = item.specification_details?.assignment_id;
+    if (assignmentId) setGroupAssignments(current => deleteAssignment(current, assignmentId, item.specification_details.kind));
+    else if (item.field_id) setSelectedFieldIds(current => current.filter(id => id !== item.field_id));
+    else setItems(current => current.filter(line => line !== item));
+    return true;
+  }
   function canContinue() {
     if (!dataReady || !sourceReady) return "Wait for the saved quotation data to load before continuing.";
     if (step === 0 && !form.customer) return "Select a customer.";
     if (step === 0 && !form.property) return "Select a property.";
     if (step === 0 && useMeasurements && !editing && !selectedMeasurementId) return "Select a saved Area Calculation or choose Lump Sum Quotation.";
-    if (step === 0 && useMeasurements && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
-    if (step === 1 && groupedMode && !activeItems.length) return "Create paint areas or add a general service before continuing.";
+    if (step === 0 && useMeasurements && !groupedMode && exteriorMode && !measurements.some(item=>item.work_area==="EXTERIOR")) return "Add an exterior Area Calculation to this property or choose Lump Sum Quotation.";
+    if (step > 0 && !useMeasurements && retainedItemValidationMessage(items, masters)) return retainedItemValidationMessage(items, masters);
+    if (step === 1 && !useMeasurements && !activeItems.length) return "Add at least one item before continuing.";
+    if (step === 1 && !useMeasurements && activeItems.some(item=>missingQuotationFields(item).length)) return incompleteLineMessage(activeItems);
+    if (step === 1 && groupedMode && !activeItems.length) return "Add a painting item or general service before continuing.";
     if (step === 1 && activeItems.some((item) => !Number.isInteger(item.id) && !item.service_category && !item.custom_service_category)) return "Select a Service / Product Category for every selected measured area.";
     if (step === 1 && groupedMode && activeItems.some((item) => {
       if (item.is_additional_service || Number.isInteger(item.id)) return false;
@@ -911,6 +865,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     setStep((value) => Math.min(2, value + 1));
   }
   function openQuotationPreview() {
+    if (!useMeasurements && retainedItemValidationMessage(items, masters)) { setError(retainedItemValidationMessage(items, masters)); return; }
     if (!activeItems.length) {
       setError("Add at least one quotation line.");
       setStep(2);
@@ -931,6 +886,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   }
   async function submit(pdfPreviewOnly = false, send = false) {
     if (submissionLock.current) return;
+    if (!useMeasurements && retainedItemValidationMessage(items, masters)) { setError(retainedItemValidationMessage(items, masters)); return; }
     if(send && !window.confirm("Save this Draft and send it to the customer? Sent quotations cannot be edited directly."))return;
     if (submissionLock.current) return;
     if (!activeItems.length || activeItems.some((item) => missingQuotationFields(item).length)) {
@@ -1026,6 +982,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         } else if (!item.included_areas?.length && item.room_name) {
           item.included_areas = [item.room_name];
         }
+        delete item.lumpsum_item_pending;
         delete item.field_id;
         delete item.room_id;
         delete item.room_name;
@@ -1100,7 +1057,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         items: groupedItems,
       };
       const currentDraft=savedDraft.current;
-      const editPayload=currentDraft ? builderDraftPayload(currentDraft,form,activeItems,savedRooms) : null;
+      const editPayload=currentDraft ? builderDraftPayload(currentDraft,form,activeItems.map(({lumpsum_item_pending:_pending,...item})=>item),savedRooms) : null;
       if (pdfPreviewOnly) {
         const pdfPayload=editPayload ? {...payload,rooms:editPayload.rooms.map(({id:_id,...room})=>room),items:editPayload.items.map(({id:_id,room:_room,...line})=>line)} : payload;
         let response;
@@ -1222,7 +1179,59 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     },
     { wall: 0, ceiling: 0, custom: 0, total: 0, count: 0 },
   );
-  const displaySteps = steps;
+  const displaySteps = useMeasurements ? steps : ["Customer & Property", "Services & Products", "Review & Finalize"];
+  const step2Content = (
+    <div className="quotation-totals-workspace mt-8 border-t border-[#dce7ed] pt-6">
+      <h2 className="mb-5 text-lg font-extrabold text-[#193750] bp-ui-section-heading">Pricing summary and quotation details</h2>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
+          <QuotationDiscountControls pricing={preview} form={form} onChange={update} items={activeItems} showHelp={false} showLineControls={useMeasurements} onLineChange={(item,field,value)=>{
+            const id=item.specification_details?.assignment_id;
+            if (id) setGroupAssignments(current=>({...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field === "discount_type"?"type":"value"]:value}}}));
+            else updateItem(items.indexOf(item),field,value);
+          }} />
+          <label className="text-sm font-medium">
+            Valid until
+            <input
+              type="date"
+              value={form.valid_until}
+              onChange={(e) => update("valid_until", e.target.value)}
+              className={(input) + " bp-ui-control"}
+            />
+          </label>
+          <label className="text-sm sm:col-span-2">
+            Notes
+            <textarea
+              aria-label="Notes"
+              placeholder="Add notes for this quotation"
+              rows="3"
+              value={form.notes}
+              onChange={(e) => update("notes", e.target.value)}
+              className={(input) + " bp-ui-control"}
+            />
+          </label>
+          <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={(input) + " bp-ui-control"} placeholder="Name shown on quotation" /></label>
+          <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={(input) + " bp-ui-control"} placeholder="Site inspector name" /></label>
+          <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={(input) + " bp-ui-control"} placeholder="e.g. 15–18 days" /></label>
+          {[["Product details","product_details"],["Terms and conditions","terms_conditions"]].map(([label,key])=><label key={key} className="text-sm sm:col-span-2">{label}<textarea placeholder={`Enter ${label.toLowerCase()}`} aria-label={label} rows={3} value={form[key]} onChange={event=>update(key,event.target.value)} className={(input) + " bp-ui-control"}/></label>)}
+          <label className="text-sm sm:col-span-2"><input type="checkbox" checked={form.show_product_key_features} onChange={event=>update('show_product_key_features',event.target.checked)}/> Show product key features</label>
+        </div>
+        <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
+          <h2 className="font-bold bp-ui-section-heading">Estimated total</h2>
+          <div className="mt-5 space-y-3 text-sm">
+            <Row label="Subtotal" value={preview.subtotal} />
+            {form.discount_mode === "BOTH" && <><Row label="Line discounts" value={preview.lineDiscount} /><Row label="Overall discount" value={preview.overallDiscount} /></>}
+            <Row label="Discount" value={preview.discount} />
+            <Row label="GST" value={preview.gst} />
+            <div className="flex justify-between border-t border-white/20 pt-4 text-xl font-bold">
+              <span>Total</span>
+              <span>{money(preview.total)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="mx-auto max-w-7xl space-y-4 pb-4 sm:space-y-5 sm:pb-8 quotation-measurement-page bp-quotation-builder">
       <button
@@ -1232,13 +1241,19 @@ export default function QuotationBuilder({ initialQuotation = null }) {
             ? setStep(step - 1)
             : goBackFromBuilder(location, navigate, initialQuotation ? `/quotations/${initialQuotation.id}` : "/quotations")
         }
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b]"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-[#176b9b] bp-ui-action"
       >
         <ArrowLeft className="h-4 w-4" />
         {step ? "Previous step" : "Back to quotations"}
       </button>
+      {recovered && !editing && (
+        <button type="button" disabled={saving || previewingPdf} className="ml-3 min-h-11 rounded-lg border border-[#dce7ed] bg-white px-4 py-2 text-sm font-semibold text-[#9b1c1c] hover:bg-[#fef2f2] hover:border-[#9b1c1c] bp-ui-action" onClick={() => {
+          if (!window.confirm("Discard draft and reload? Your saved Draft will remain unchanged.")) return;
+          clearBrowserRecovery(); markBuilderSaved(); window.location.reload();
+        }}>Discard Draft</button>
+      )}
       {specialWallEditor?.parent && <SpecialWallSheet recovery={specialWallRecovery} onRecovery={setSpecialWallRecovery} parent={specialWallEditor.parent} wall={specialWallEditor.wall} walls={specialWalls} masters={masters} onClose={() => setSpecialWallEditor(null)} onSave={saveSpecialWall} onDelete={deleteSpecialWall} />}
-      <PageHeader eyebrow={editing ? "Draft quotation" : "New quotation"} title={editing ? "Edit Draft" : "Create quotation"} description={displaySteps[step]} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
+      <PageHeader eyebrow={editing ? "Draft quotation" : "New quotation"} title={editing ? "Edit Draft" : "Create quotation"} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
       <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4">
         {displaySteps.map((title, index) => (
           <div key={title}>
@@ -1253,41 +1268,33 @@ export default function QuotationBuilder({ initialQuotation = null }) {
           </div>
         ))}
       </div>
-      {!dataReady && <p role="status">Loading quotation data?</p>}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-sky-50 p-3 text-sm text-[#193750]">
-        <p role="status" className="min-w-0 flex-1">
-          {recoveryUnavailable ? "Browser recovery is unavailable. Save Draft to protect your changes." : recovered ? "Unsaved inputs restored. You can refresh or reopen this quotation in the same browser. Use Save Draft to save permanently." : "Unsaved inputs are retained when refreshing or reopening in this browser. Use Save Draft to save permanently."}
-        </p>
-        <button type="button" disabled={saving || previewingPdf} className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => {
-          if (!window.confirm("Discard unsaved inputs and reload? Your saved Draft will remain unchanged.")) return;
-          clearBrowserRecovery(); markBuilderSaved(); window.location.reload();
-        }}>Discard unsaved inputs</button>
-      </div>
+      {!dataReady && <p role="status">Loading quotation data...</p>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4">{notice}</p>}
       {error && <div role="alert" className="quotation-validation-message rounded-xl p-4 text-sm">{error}</div>}
       <fieldset disabled={saving || previewingPdf} className="min-w-0">
       <section className={`quotation-step-card min-w-0 rounded-2xl border border-[#dce7ed] bg-white p-4 shadow-sm sm:p-6 ${step === 1 && groupedMode ? "quotation-grouped-step" : ""}`}>
         {step === 0 && (
           <div className="quotation-customer-fields grid gap-4 sm:gap-5 md:grid-cols-2">
-            <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750]">Customer and property</h2></div>
-            <label className="text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><span>Customer *</span><button disabled={sourceLocked} type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b]"><Plus className="h-4 w-4" />New Customer</button></span>
+            <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750] bp-ui-section-heading">Customer and property</h2></div>
+            <div className="quotation-selection-field text-sm font-medium">
+              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-customer-search">Customer *</label><button disabled={sourceLocked} type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] bp-ui-action"><UserRoundPlus className="h-4 w-4" aria-hidden="true" />New Customer</button></span>
               <span className="quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
-                <input readOnly={sourceLocked} value={sourceLocked ? selectedCustomer?.name || customerSearch : customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search name, mobile, email or city" className="w-full bg-transparent font-normal outline-none" />
+                <input id="quotation-customer-search" aria-label="Customer" readOnly={sourceLocked} value={sourceLocked ? selectedCustomer?.name || customerSearch : customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search customers" className="w-full bg-transparent font-normal outline-none bp-ui-control" />
               </span>
-              {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">{item.name}</button>)}</span></span>}
-              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100"><b>{item.name}</b></button>)}</span>}
-              {form.customer && <span className="mt-2 block text-xs font-semibold text-emerald-700">{sourceLocked ? "Saved customer and property are preserved for this Draft." : "Customer selected. Choose the property to continue."}</span>}
+              {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 bp-ui-action">{item.name}</button>)}</span></span>}
+              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100 bp-ui-action"><b>{item.name}</b></button>)}</span>}
               {customerSearch && !form.customer && customerSearchResults.length === 0 && <span className="mt-2 block text-xs font-normal text-red-600">No matching customers found.</span>}
-            </label>
-            <label className="text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><span>Property *</span><button type="button" onClick={() => setShowPropertyForm(true)} disabled={sourceLocked || !form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add Property</button></span>
+            </div>
+            <div className="quotation-selection-field text-sm font-medium">
+              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-property">Property *</label><button type="button" onClick={() => setShowPropertyForm(true)} disabled={sourceLocked || !form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action"><Building2 className="h-4 w-4" aria-hidden="true" />Add Property</button></span>
               <select
+                id="quotation-property"
+                aria-label="Property"
                 disabled={sourceLocked}
                 value={form.property}
                 onChange={(e) => update("property", e.target.value)}
-                className={input}
+                className={(input) + " bp-ui-control"}
               >
                 <option value="">Select property</option>{sourceLocked && !availableProperties.some(entry=>String(entry.id)===String(form.property)) && <option value={form.property}>{selectedProperty?.name || form.property}</option>}
                 {availableProperties.map((item) => (
@@ -1296,38 +1303,29 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
             {useMeasurements && <div className="text-sm font-medium md:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="quotation-area-calculation">Area Calculation *</label>
-                <button type="button" disabled={sourceLocked || !form.property} onClick={() => navigate(`/properties/${form.property}/measurements?new=1`)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" />Add measurement</button>
+                <button type="button" disabled={sourceLocked || !form.property || measurementRecordsLoading} onClick={() => navigate(continueMeasurementPath(form.property, measurementRecords, user?.id, selectedMeasurementId))} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action"><Plus className="h-4 w-4" />{selectedMeasurementId ? "Add / edit measured areas" : "Add measurement"}</button>
               </div>
-              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => setSelectedMeasurementId(event.target.value)} disabled={sourceLocked || !form.property || measurementRecordsLoading} className={input}>
+              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => { if (event.target.value === selectedMeasurementId) return; if ((groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length || items.length) && !window.confirm("Changing the measurement version invalidates the current measured selections. Clear these draft items and load the selected version? Choose Cancel to keep them.")) return; setSelectedMeasurementId(event.target.value); }} disabled={sourceLocked || !form.property || measurementRecordsLoading} className={(input) + " bp-ui-control"}>
                 <option value="">{sourceLocked && !selectedMeasurementId ? "Saved scope - no measurement version recorded" : !form.property ? "Select a property first" : measurementRecordsLoading ? "Loading Area Calculations..." : "Select Area Calculation"}</option>
                 {sourceLocked && selectedMeasurementId && !measurementRecords.some(record=>String(record.id)===String(selectedMeasurementId)) && <option value={selectedMeasurementId}>Saved measurement {selectedMeasurementId}</option>}
                 {measurementRecords.map((record) => <option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}
               </select>
-              {sourceReady && selectedMeasurementId && <p className="mt-2 text-xs text-slate-500">Measurement version {assignmentMeasurement.version}</p>}
+              {sourceReady && selectedMeasurementId && <p className="mt-2 text-xs text-slate-500">Measurement version {assignmentMeasurement.version}. Interior and exterior share this measurement; choose either or add both as painting items in the next stage.</p>}
               {form.property && !measurementRecordsLoading && !measurementRecords.length && <p className="mt-2 text-xs text-amber-700">No saved Area Calculations with measurements for this property. Add one to continue.</p>}
             </div>}
-            <label className="text-sm font-medium">
-              Valid until
-              <input
-                type="date"
-                value={form.valid_until}
-                onChange={(e) => update("valid_until", e.target.value)}
-                className={input}
-              />
-            </label>
           </div>
         )}
         {step === 0 && (
           <div className="mt-6 border-t border-[#dce7ed] pt-6">
-            <h2 className="text-lg font-extrabold text-[#193750]">Quotation type</h2>
+            <h2 className="text-lg font-extrabold text-[#193750] bp-ui-section-heading">Quotation type</h2>
             
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <button disabled={sourceLocked} type="button" onClick={()=>setUseMeasurements(true)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
-              <button disabled={sourceLocked} type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>setUseMeasurements(true)} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
           </div>
         )}
@@ -1338,7 +1336,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="font-bold">Select Area Calculation fields &amp; coats</h2>
+                <h2 className="font-bold bp-ui-section-heading">Select Area Calculation fields &amp; coats</h2>
                 
               </div>
               <div className="flex gap-2">
@@ -1351,14 +1349,14 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                         .map((field) => field.field_id),
                     )
                   }
-                  className="rounded-lg border px-3 py-2 text-xs font-semibold"
+                  className="rounded-lg border px-3 py-2 text-xs font-semibold bp-ui-action"
                 >
                   {exteriorMode ? "Select all rooms" : "Select all"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedFieldIds([])}
-                  className="rounded-lg border px-3 py-2 text-xs font-semibold"
+                  className="rounded-lg border px-3 py-2 text-xs font-semibold bp-ui-action"
                 >
                   Clear all
                 </button>
@@ -1373,7 +1371,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-white px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-                  <p className="mt-0.5 font-extrabold tabular-nums text-slate-950">{Number(value).toFixed(0)} <span className="text-[10px] font-semibold text-slate-500">sq ft</span></p>
+                  <p className="mt-0.5 font-extrabold tabular-nums text-slate-950">{Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })} <span className="text-[10px] font-semibold text-slate-500">sq ft</span></p>
                 </div>
               ))}
               <div className="col-span-2 rounded-lg bg-[#176b9b] px-3 py-2 text-white sm:col-span-1">
@@ -1390,73 +1388,25 @@ export default function QuotationBuilder({ initialQuotation = null }) {
             </div>
           </div>
         )}
-        {step === 1 && groupedMode && items.some(item=>!item.field_id) && <section className="mt-4 space-y-3"><h2 className="font-bold">Other work items</h2>{items.filter(item=>!item.field_id).map(item=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}</section>}
-        {step === 1 && (!useMeasurements || (editing && !groupedMode)) && <div className="space-y-4"><h2 className="font-bold">Work materials and specifications</h2>{items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id)).map((item)=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}<button type="button" className="min-h-11 rounded-xl border px-4" onClick={addAdditionalService}>Add services</button></div>}
-        {step === 2 && (
+        {step === 1 && groupedMode && items.some(item=>!item.field_id) && <section className="mt-4 space-y-3"><h2 className="font-bold bp-ui-section-heading">Other work items</h2>{items.filter(item=>!item.field_id).map(item=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold bp-ui-action" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}</section>}
+        {step === 1 && (!useMeasurements || (editing && !groupedMode)) && <div className="space-y-4">{useMeasurements && <h2 className="font-bold bp-ui-section-heading">Work materials and specifications</h2>}{!useMeasurements ? <QuotationWorkItemSummary items={items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id))} masters={masters} onAdd={addAdditionalService} canEdit={lumpEditable} onEdit={item=>setMobileItemIndex(items.indexOf(item))} onDelete={removeWorkItem}/> : items.filter(item=>!item.field_id || selectedFieldIds.includes(item.field_id)).map((item)=><div key={item.id || items.indexOf(item)} className="flex items-center justify-between gap-3 rounded-xl border p-4"><span>{item.description || 'New work item'}</span><button type="button" className="min-h-11 text-sm font-bold bp-ui-action" onClick={()=>setMobileItemIndex(items.indexOf(item))}>Edit specifications</button></div>)}{useMeasurements && <button type="button" className="min-h-11 rounded-xl border px-4 bp-ui-action" onClick={addAdditionalService}>Add services</button>}</div>}
+{step === 2 && (
           <div className="space-y-5">
             <div className="flex flex-wrap justify-between gap-3">
-              <div>
-                <h2 className="font-bold">{groupedMode ? "Final quotation" : "Services & rates"}</h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="font-bold bp-ui-section-heading">{!useMeasurements ? "Review & Finalize" : groupedMode ? "Review & Finalize" : "Services & rates"}</h2>
+                {useMeasurements && <span className="text-sm text-slate-500">Measurement version {assignmentMeasurement.version}</span>}
               </div>
-              <div className="flex flex-wrap gap-2">
-                  <button type="button" disabled={items.some((item) => item.opening_type === "DOOR")} onClick={() => addOpeningMeasurement("DOOR")} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">
-                  <Plus className="h-4 w-4" /> Add door area
-                </button>
-                <button type="button" disabled={items.some((item) => item.opening_type === "WINDOW")} onClick={() => addOpeningMeasurement("WINDOW")} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">
-                  <Plus className="h-4 w-4" /> Add window area
-                </button>
-              </div>
+
             </div>
             {groupedMode && <GroupedQuotationWorkspace measurement={assignmentMeasurement} displayMeasurement={{ ...assignmentMeasurement, surfaces: measurements }} masters={masters} state={groupAssignments} onChange={setGroupAssignments} editorRecovery={workEditorRecovery} onEditorRecovery={setWorkEditorRecovery} phase="final" showPricing={false} requestedEditor={openingGroupRequest} onEditorRequestHandled={() => setOpeningGroupRequest(null)} />}
-            <QuotationPricingRows items={activeItems} form={form} units={masters.units} onChange={changePricingLine} onEdit={editPricingLine}/>
-            <div className="flex justify-end border-t border-slate-200 pt-4">
-              <button type="button" onClick={addAdditionalService} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 text-sm font-semibold text-white sm:w-auto"><Plus className="h-4 w-4" />Add services</button>
-            </div>
-
-          </div>
+            <dl className="lsq-details"><div><dt>Customer</dt><dd>{selectedCustomer?.name}</dd></div><div><dt>Property</dt><dd>{selectedProperty?.name}</dd></div></dl>
+            <QuotationPricingRows canEdit={lumpEditable} onDelete={removeWorkItem} popupOnly={!useMeasurements} items={activeItems} form={form} units={masters.units} masters={masters} onChange={changePricingLine} onEdit={editPricingLine}/>
+{step2Content}
+</div>
         )}
-        {step === 2 && (
-          <div className="quotation-totals-workspace mt-8 border-t border-[#dce7ed] pt-6"><h2 className="mb-5 text-lg font-extrabold text-[#193750]">Pricing summary and quotation details</h2><div className="grid gap-6 xl:grid-cols-2">
-             <div className="order-last grid gap-4 sm:grid-cols-2 xl:order-first">
-              <QuotationDiscountControls pricing={preview} form={form} onChange={update} items={activeItems} showLineControls={false} onLineChange={(item,field,value)=>{
-                const id=item.specification_details?.assignment_id;
-                if (id) setGroupAssignments(current=>({...current,discounts:{...current.discounts,[id]:{...current.discounts?.[id],[field === "discount_type"?"type":"value"]:value}}}));
-                else updateItem(items.indexOf(item),field,value);
-              }} />
-              <label className="text-sm sm:col-span-2">
-                Notes
-                <textarea
-                  aria-label="Notes"
-                  rows="3"
-                  value={form.notes}
-                  onChange={(e) => update("notes", e.target.value)}
-                  className={input}
-                />
-              </label>
-              <label className="text-sm">Prepared by<input value={form.prepared_by} onChange={(e) => update("prepared_by", e.target.value)} className={input} placeholder="Name shown on quotation" /></label>
-              <label className="text-sm">Inspected by<input value={form.inspected_by} onChange={(e) => update("inspected_by", e.target.value)} className={input} placeholder="Site inspector name" /></label>
-              <label className="text-sm">Work duration<input value={form.work_duration} onChange={(e) => update("work_duration", e.target.value)} className={input} placeholder="For example, 15-18 days" /></label>
-              {[["Payment terms","payment_terms"],["Product details","product_details"],["Work procedures","work_procedures"],["Terms and conditions","terms_conditions"]].map(([label,key])=><label key={key} className="text-sm sm:col-span-2">{label}<textarea aria-label={label} rows={3} value={form[key]} onChange={event=>update(key,event.target.value)} className={input}/></label>)}
-              <label className="text-sm sm:col-span-2"><input type="checkbox" checked={form.show_product_key_features} onChange={event=>update('show_product_key_features',event.target.checked)}/> Show product key features</label>
-             </div>
-            <div className="order-first h-fit rounded-xl bg-[#245b75] p-6 text-white xl:order-last">
-              <h2 className="font-bold">Estimated total</h2>
-              <div className="mt-5 space-y-3 text-sm">
-                <Row label="Subtotal" value={preview.subtotal} />
-                <Row label="Discount" value={preview.discount} />
-                <Row label="GST" value={preview.gst} />
-                <div className="flex justify-between border-t border-white/20 pt-4 text-xl font-bold">
-                  <span>Total</span>
-                  <span>{money(preview.total)}</span>
-                </div>
-              </div>
-              
-            </div>
-           </div><section className="qp-review" aria-label="Final read-only review"><h2>Final Review - Read only</h2><dl><dt>Customer</dt><dd>{selectedCustomer?.name}</dd><dt>Property</dt><dd>{selectedProperty?.name}</dd><dt>Measurement version</dt><dd>{useMeasurements ? selectedMeasurementId ? assignmentMeasurement.version : 'Not recorded' : 'Not applicable'}</dd></dl>{activeItems.map((item,index)=><div key={item.id || item.field_id || index} className="border-t py-3 text-sm"><strong>{item.description}</strong><p>{item.included_areas?.join(', ')} / {item.quantity} {item.unit_name || masters.units.find(unit=>String(unit.id)===String(item.unit))?.name || item.custom_unit} / Coats {item.coats}</p><p>{[masters.services.find(entry=>String(entry.id)===String(item.service_type))?.name || item.service_type_name || item.custom_service_type,masters.paintTypes.find(entry=>String(entry.id)===String(item.paint_type))?.name || item.paint_type_name || item.custom_product_type,masters.brands.find(entry=>String(entry.id)===String(item.paint_brand))?.name || item.paint_brand_name || item.custom_brand,item.color_name,`Primer coats ${item.specification_details?.primer_coats ?? 0}`].filter(Boolean).join(' / ')}</p><p>Gross {money(preview.lines[index].amount)} / Discount {money(preview.lines[index].discount)} / Net {money(preview.lines[index].net)}</p></div>)}<dl><dt>Subtotal</dt><dd>{money(preview.subtotal)}</dd><dt>Discount</dt><dd>{money(preview.discount)}</dd><dt>GST</dt><dd>{money(preview.gst)}</dd><dt>Total</dt><dd><strong>{money(preview.total)}</strong></dd></dl>{[["Notes",form.notes],["Payment terms",form.payment_terms],["Terms and conditions",form.terms_conditions]].filter(([,value])=>value).map(([label,value])=><div key={label} className="mt-3 text-sm"><strong>{label}</strong><p className="whitespace-pre-wrap">{value}</p></div>)}</section></div>
-         )}
-      </section>
-      </fieldset>
-       <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
+       </section>
+        <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
         {step < 2 ? (
           <Button type="button"
             onClick={next}
@@ -1481,8 +1431,10 @@ export default function QuotationBuilder({ initialQuotation = null }) {
           </Button>
         </>)}
       </div>
+      </fieldset>
        {mobileItemIndex !== null && items[mobileItemIndex] && (
               <MobileRateDialog
+                lumpsum={!useMeasurements}
                 item={items[mobileItemIndex]}
                 index={mobileItemIndex}
                 masters={masters}
@@ -1494,9 +1446,10 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                 updateProductType={updateProductType}
                 updateMasterChoice={updateMasterChoice}
                 saveRoom={createRoomFromService}
-                close={() => setMobileItemIndex(null)}
+                close={() => { setMobileItemIndex(null); if (!useMeasurements) setError(clearItemValidationMessage); }}
                 remove={() => {
                   const item = items[mobileItemIndex];
+                  if (!useMeasurements) { if (removeWorkItem(item)) setMobileItemIndex(null); return; }
                   if (item.field_id) setSelectedFieldIds((ids) => ids.filter((id) => id !== item.field_id));
                   else setItems((value) => value.filter((_, index) => index !== mobileItemIndex));
                   setMobileItemIndex(null);
@@ -1543,6 +1496,13 @@ function QuotationPreviewDialog({
   previewPdfAction,
   create,
 }) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const opener = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog.showModal();
+    return () => { dialog.close(); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+  }, []);
   const lineDetails = groupPreviewLines(items, savedRooms).map((item, index) => {
     const category =
       masters.categories.find(
@@ -1596,23 +1556,24 @@ function QuotationPreviewDialog({
     .filter(Boolean)
     .join(", ");
   return (
-    <div
+    <dialog ref={dialogRef} onCancel={event => { event.preventDefault(); close(); }}
       className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/70 p-2 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Quotation preview"
+      data-quotation-preview="true"
     >
-      <section className="mx-auto min-h-full max-w-6xl overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
+      <section className="bp-quotation-dialog mx-auto min-h-full max-w-6xl overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-[#245b75] px-4 py-3 text-white sm:px-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
               Preview only · Not yet saved
             </p>
-            <h2 className="mt-0.5 text-lg font-bold sm:text-xl">
+            <h2 className="mt-0.5 text-lg font-bold sm:text-xl bp-ui-section-heading">
               Quotation Preview
             </h2>
           </div>
-          <button type="button" onClick={close} className="rounded-xl border border-white/25 p-2.5">
+          <button type="button" aria-label="Close quotation preview" onClick={close} className="rounded-xl border border-white/25 p-2.5 bp-ui-icon-action">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -1635,57 +1596,21 @@ function QuotationPreviewDialog({
               <h3 className="font-bold">Services and rates</h3>
               <p className="text-xs text-blue-200">{lineDetails.length} selected line{lineDetails.length === 1 ? "" : "s"}</p>
             </div>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[980px] border-collapse text-xs">
-                <thead className="bg-slate-100 text-left uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-3">Sl.</th><th className="px-3 py-3">{SERVICE_MASTER_LABELS.category}</th><th className="px-3 py-3">Room / Area</th><th className="px-3 py-3">Product / Brand</th><th className="px-3 py-3">{SERVICE_MASTER_LABELS.description}</th><th className="px-3 py-3 text-right">Qty / MOU</th><th className="px-3 py-3 text-center">Coats</th><th className="px-3 py-3 text-right">Rate</th><th className="px-3 py-3 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {lineDetails.map((line) => (
-                    <tr key={line.key}>
-                      <td className="px-3 py-3">{line.number}</td>
-                      <td className="px-3 py-3 font-semibold">{line.category}</td>
-                      <td className="px-3 py-3 font-semibold text-blue-950">{line.roomName}</td>
-                      <td className="px-3 py-3">{line.productBrand}</td>
-                      <td className="px-3 py-3">{line.description}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{line.quantity.toFixed(0)} {line.unit}</td>
-                      <td className="px-3 py-3 text-center">{line.coats}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{money(line.rate)}</td>
-                      <td className="px-3 py-3 text-right font-bold tabular-nums">{money(line.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="space-y-2 p-3 md:hidden">
-              {lineDetails.map((line) => (
-                <article key={`mobile-${line.key}`} className="rounded-xl border border-slate-200 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><p className="text-[10px] font-bold uppercase text-blue-700">{line.category}</p><h4 className="truncate font-bold">{line.roomName}</h4><p className="truncate text-xs text-slate-500">{line.description}</p></div>
-                    <b className="shrink-0 text-emerald-700">{money(line.amount)}</b>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><span><small className="block text-slate-400">Qty</small>{line.quantity.toFixed(0)} {line.unit}</span><span><small className="block text-slate-400">Coats</small>{line.coats}</span><span className="text-right"><small className="block text-slate-400">Rate</small>{money(line.rate)}</span></div>
-                  <p className="mt-2 text-xs text-slate-500">{line.productBrand}</p>
-                </article>
-              ))}
-            </div>
+            <QuotationDocumentItems items={groupPreviewLines(items,savedRooms)} masters={masters} rooms={savedRooms} form={form} />
           </section>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
             <section className="space-y-3">
               {form.product_details && <PreviewText title="Product details" value={form.product_details} />}
               {form.show_product_key_features && productDetails && <PreviewText title="Selected product details" value={productDetails} />}
               {form.work_duration && <PreviewText title="Work duration" value={form.work_duration} />}
-              {form.payment_terms && <PreviewText title="Payment terms" value={form.payment_terms} />}
               {form.terms_conditions && <PreviewText title="Terms and conditions" value={form.terms_conditions} />}
-              {form.work_procedures && <PreviewText title="Work procedures and safety" value={form.work_procedures} />}
               {form.notes && <PreviewText title="Notes" value={form.notes} />}
             </section>
             <section className="h-fit rounded-xl bg-[#245b75] p-5 text-white">
               <h3 className="font-bold">Quotation total</h3>
               <div className="mt-4 space-y-2 text-sm">
                 <Row label="Subtotal" value={totals.subtotal} />
+                {form.discount_mode === "BOTH" && <><Row label="Line discounts" value={totals.lineDiscount} /><Row label="Overall discount" value={totals.overallDiscount} /></>}
                 <Row label="Discount" value={totals.discount} />
                 <Row label="GST" value={totals.gst} />
                 <div className="flex justify-between border-t border-white/20 pt-3 text-xl font-extrabold"><span>Total</span><span>{money(totals.total)}</span></div>
@@ -1694,12 +1619,12 @@ function QuotationPreviewDialog({
           </div>
         </div>
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
-          <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold">Back to edit</button>
-          <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
+          <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold bp-ui-action">Back to edit</button>
+          <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60 bp-ui-action"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60 bp-ui-action"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
         </footer>
       </section>
-    </div>
+    </dialog>
   );
 }
 function PreviewText({ title, value }) {
@@ -1723,7 +1648,7 @@ function uniqueProductDetails(items, products, brands) {
     return lines;
   }, []).join("\n");
 }
-function SearchableProductType({ value, customValue = "", options, onChange, controlClass, label = SERVICE_MASTER_LABELS.productType, placeholder = "Search Service / Product Type", emptyText = "No matching Service / Product Type", allowCustom = false }) {
+function SearchableProductType({ value, customValue = "", options, onChange, controlClass, label = SERVICE_MASTER_LABELS.productType, placeholder = "Search Service / Product Type", emptyText = "No matching Service / Product Type", allowCustom = false, required = false }) {
   const selected = options.find((entry) => String(entry.id) === String(value));
   const [query, setQuery] = useState(selected?.name || customValue || "");
   const [open, setOpen] = useState(false);
@@ -1735,10 +1660,11 @@ function SearchableProductType({ value, customValue = "", options, onChange, con
   const exactMatch = () => options.find((entry) => String(entry.name || "").trim().toLowerCase() === query.trim().toLowerCase());
   const choose = (entry) => { onChange(entry.id, ""); setQuery(entry.name); setOpen(false); };
   return (
-    <label className="block text-sm font-semibold">{label}
+    <label className="block text-sm font-semibold">{label}{required && <span aria-hidden="true"> *</span>}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
+          aria-required={required}
           value={query}
           onFocus={() => setOpen(true)}
           onBlur={() => { const match = exactMatch(); if (match) choose(match); else window.setTimeout(() => setOpen(false), 120); }}
@@ -1746,10 +1672,10 @@ function SearchableProductType({ value, customValue = "", options, onChange, con
           onKeyDown={(event) => { if (event.key === "Enter") { const match = exactMatch(); if (match) { event.preventDefault(); choose(match); } else if (allowCustom) { event.preventDefault(); setOpen(false); } else if (filtered.length) { event.preventDefault(); choose(filtered[0]); } } }}
           placeholder={placeholder}
           autoComplete="off"
-          className={`${controlClass} pl-10`}
+          className={(`${controlClass} pl-10`) + " bp-ui-control"}
         />
         {open && <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)} className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`}><span className="block text-sm font-bold">{entry.name}</span></button>)}
+          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)} className={(`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`) + " bp-ui-action"}><span className="block text-sm font-bold">{entry.name}</span></button>)}
           {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">{allowCustom ? "New entry. Choose whether to save it below." : emptyText}</p>}
         </div>}
         {!value && query.trim() && !open && !allowCustom && label === SERVICE_MASTER_LABELS.category && <p className="mt-1 text-xs text-red-700">Choose a service from the results.</p>}
@@ -1767,18 +1693,18 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
     <label className="block text-sm font-semibold">{label}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
+        <textarea rows={3}
           value={value}
           aria-invalid={invalid}
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(event) => { onChange(event.target.value, false); setOpen(true); }}
-          placeholder="Type or select Description"
+          placeholder="Enter work description or select a saved description"
           autoComplete="off"
-          className={`${controlClass} pl-10`}
+          className={(`${controlClass} pl-10 resize-y`) + " bp-ui-control"}
         />
         {open && <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.name, true); setOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-[#e8f3f8]">{entry.name}</button>)}
+          {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.name, true); setOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-[#e8f3f8] bp-ui-action">{entry.name}</button>)}
           {!filtered.length && <p className="px-3 py-4 text-center text-xs text-slate-500">No saved description. Continue typing to create a new one.</p>}
         </div>}
       </div>
@@ -1788,7 +1714,8 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
 function SaveMasterOption({ label, checked, onChange }) {
   return <label className="mt-2 flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-3 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(checked)} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4" />Save this {label} for future quotations</label>;
 }
-function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, updateMasterChoice, saveRoom, close, remove }) {
+function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selectedRooms, exteriorMode, updateItem, updateProductType, updateMasterChoice, saveRoom, close, remove, lumpsum = false }) {
+  const [itemError, setItemError] = useState("");
   const [addingRoom, setAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [roomSaving, setRoomSaving] = useState(false);
@@ -1799,7 +1726,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
     ? selectedRooms[Number(item.room_index)]
     : null);
   const roomName = item.room_name || selectedItemRoom?.name || (exteriorMode ? "Exterior" : "General");
-  const amount = (Number(item.quantity) || 0) * (Number(item.rate) || 0);
+  const amount = quotationTotals([item]).lines[0].amount;
   const categoryName = masters.categories.find((entry) => String(entry.id) === String(item.service_category))?.name || item.custom_service_category || "";
   const paintingApplicable = categoryName.toLowerCase().includes("paint");
   const descriptionOptions = masters.descriptions.filter((entry) => !entry.service_category || !item.service_category || String(entry.service_category) === String(item.service_category));
@@ -1813,28 +1740,36 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
   })?.key || "";
   const control = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#176b9b] focus:ring-4 focus:ring-[#e8f3f8]";
   const requiredControl = (missing) => `${control} ${missing ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-100" : ""}`;
+  const Frame = QuotationLineItemPopup;
+  const currentMissing = missingLumpSumItemFields(item, masters);
+  const fieldError = (name) => itemError && currentMissing.includes(name) ? <p className="quotation-inline-error" role="alert">{name === 'Rate' ? 'Enter a valid rate of zero or more.' : `Complete ${name.toLowerCase()}.`}</p> : null;
+  const saveItem = () => {
+    if (!lumpsum) { close(); return; }
+    if (currentMissing.length) { setItemError("invalid"); return; }
+    updateItem(index, "lumpsum_item_pending", false);
+    close();
+  };
+  const footer = <div className="grid w-full grid-cols-[auto_1fr] gap-3"><button type="button" aria-label="Delete editor item" onClick={remove} className="lsq-editor-delete inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600 bp-ui-action"><Trash2 className="h-5 w-5" /><span>Delete</span></button><Button type="button" onClick={saveItem}>{lumpsum ? "Save Item" : "Update line"}</Button></div>;
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <section role="dialog" aria-modal="true" aria-label="Edit quotation service and rate" className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-slate-50 shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white px-4 py-4">
-          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-[#176b9b]">Services & rates</p><h2 className="truncate text-lg font-bold">{roomName}</h2></div>
-          <button type="button" onClick={close} aria-label="Close editor" className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="space-y-4 p-4 pb-28">
+    <Frame popupProtection={lumpsum ? "handled" : null} index={index} description={roomName} titleText={item.lumpsum_item_pending ? "Add Item" : "Edit Item"} editable footer={footer} onClose={close}>
+        {itemError && currentMissing.length > 0 && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">Complete: {currentMissing.join(", ")}.</p>}
+        <div className="lsq-item-form space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><SearchableProductType label={SERVICE_MASTER_LABELS.category} placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />
+            <div><SearchableProductType required label={SERVICE_MASTER_LABELS.category} placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />{fieldError(SERVICE_MASTER_LABELS.category)}
               {String(item.custom_service_category || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.category} checked={item.save_service_category_to_master} onChange={(value) => updateItem(index, "save_service_category_to_master", value)} />}</div>
-            <label className="block text-sm font-semibold">Room / Area
+            <label className="block text-sm font-semibold">Room / Area *
               {item.field_id
                 ? <SearchableSelect value={calculatedRoomKey} options={[{ value: "", label: exteriorMode ? "Full Exterior" : "Full House" }, ...calculatedRoomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))]} onChange={(value) => { const room = calculatedRoomOptions.find((option) => option.key === value); updateItem(index, "room_index", room?.roomIndex ?? ""); updateItem(index, "room_id", room?.propertyRoomId || ""); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || (exteriorMode ? "Full Exterior" : "Full House")); updateItem(index, "scope", room ? "room" : "full"); }} placeholder="Search calculated room" className={control} />
-                : <SearchableSelect value={roomOptions.find((room) => item.property_room_id ? String(room.propertyRoomId) === String(item.property_room_id) : !room.propertyRoomId && room.name === item.room_name)?.key || ""} options={roomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))} onChange={(value) => { const room = roomOptions.find((option) => option.key === value); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || ""); }} placeholder="Search room / area" invalid={!item.property_room_id && !String(item.room_name || "").trim()} className={requiredControl(!item.property_room_id && !String(item.room_name || "").trim())} />}
+                : <SearchableSelect value={roomOptions.find((room) => item.property_room_id ? String(room.propertyRoomId) === String(item.property_room_id) : !room.propertyRoomId && room.name === item.room_name)?.key || ""} options={roomOptions.map((room) => ({ ...room, value: room.key, label: room.name }))} onChange={(value) => { const room = roomOptions.find((option) => option.key === value); updateItem(index, "property_room_id", room?.propertyRoomId || ""); updateItem(index, "room_name", room?.name || ""); }} placeholder="Select room or area" invalid={!item.property_room_id && !String(item.room_name || "").trim()} className={requiredControl(!item.property_room_id && !String(item.room_name || "").trim())} />}{fieldError("Room / Area")}
             </label>
           </div>
+          {lumpsum && <label className="block text-sm font-semibold">Surface Category<select aria-label="Lumpsum Surface Category" value={item.specification_details?.surface || ""} onChange={event => updateItem(index,"specification_details",{...item.specification_details,surface:event.target.value || null})} className={(control) + " bp-ui-control"}><option value="">General / Not surface-specific</option>{[["WALL","Walls"],["CEILING","Ceilings"],["OTHER:Texture Walls","Texture Walls"],...Object.entries(SURFACE_LABELS),["OTHER","Other"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
           {!item.field_id && <div className="rounded-xl border border-dashed border-[#9cc4d6] bg-[#e8f3f8] p-3">
-            {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b]"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} placeholder="Enter room name" className={control + " mt-0 flex-1"} /><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-[#176b9b] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{roomSaving ? "Saving..." : "Save room"}</button></div>}
+            {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b] bp-ui-action"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><label className="min-w-0 flex-1 text-sm font-semibold">New room name<input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} aria-label="New room name" placeholder="Enter room name" className={(control) + " bp-ui-control"} /></label><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-[#176b9b] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">{roomSaving ? "Saving..." : "Save room"}</button></div>}
             {roomError && <p className="mt-2 text-xs font-semibold text-red-600">{roomError}</p>}
           </div>}
           <SearchableProductType
+            required={paintingApplicable}
             label={item.field_id ? "Product" : SERVICE_MASTER_LABELS.productType}
             key={item.service_category || "all-products"}
             value={item.paint_type}
@@ -1845,38 +1780,31 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
             controlClass={control}
           />
           {String(item.custom_product_type || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.productType} checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} />}
-          <label className="block text-sm font-semibold">Service<select aria-label="Service" value={item.service_type || ''} onChange={event=>updateItem(index,'service_type',event.target.value)} className={control}><option value="">No additional service specification</option>{item.service_type && !masters.services.some(service=>String(service.id)===String(item.service_type)) && <option value={item.service_type}>{item.service_type_name || 'Saved service'}</option>}{masters.services.filter(service=>!service.category_master || String(service.category_master)===String(item.service_category)).map(service=><option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
-          <SearchableDescription label={item.field_id ? SERVICE_MASTER_LABELS.description : SERVICE_MASTER_LABELS.description} value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />
+          <SearchableDescription label={item.field_id ? SERVICE_MASTER_LABELS.description : SERVICE_MASTER_LABELS.description} value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />{fieldError(SERVICE_MASTER_LABELS.description)}
           {String(item.description || "").trim() && (descriptionSaved
             ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Description selected</p>
             : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Description for future quotations</label>)}
-          <SearchableProductType label="Brand" placeholder="Select or type a brand (optional)" value={item.paint_brand} customValue={item.custom_brand} options={masters.brands} allowCustom onChange={(value, customName) => updateMasterChoice(index, "paint_brand", "custom_brand", "save_brand_to_master", value, customName)} controlClass={control} />
+          <SearchableProductType label="Brand (optional)" placeholder="Select or enter brand" value={item.paint_brand} customValue={item.custom_brand} options={masters.brands} allowCustom onChange={(value, customName) => updateMasterChoice(index, "paint_brand", "custom_brand", "save_brand_to_master", value, customName)} controlClass={control} />
           {String(item.custom_brand || "").trim() && <SaveMasterOption label="Brand" checked={item.save_brand_to_master} onChange={(value) => updateItem(index, "save_brand_to_master", value)} />}
-          <label className="block text-sm font-semibold">Colour<select aria-label="Colour" value={item.color || ''} onChange={event=>updateItem(index,'color',event.target.value)} className={control}><option value="">No colour specified</option>{item.color && !masters.colors.some(colour=>String(colour.id)===String(item.color)) && <option value={item.color}>{item.color_name || 'Saved colour'}</option>}{masters.colors.map(colour=><option key={colour.id} value={colour.id}>{colour.name}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-semibold">Quantity
-              <input type="number" min="0.01" step="0.01" value={item.quantity} readOnly={Boolean(item.calculation_method && item.calculation_method!=="MANUAL") || Boolean(item.field_id)} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={requiredControl(Number(item.quantity || 0) <= 0)} />
+            <label className="block text-sm font-semibold">Quantity *
+              <input placeholder="Enter quantity" inputMode="decimal" type="number" min="0.01" step="0.01" value={item.quantity} readOnly={Boolean(item.calculation_method && item.calculation_method!=="MANUAL") || Boolean(item.field_id)} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={(requiredControl(Number(item.quantity || 0) <= 0)) + " bp-ui-control"} />{fieldError("Quantity")}
             </label>
-            <label className="block text-sm font-semibold">MOU
-              <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={requiredControl(!item.unit)}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>
+            <label className="block text-sm font-semibold">MOU *
+              {lumpsum ? <select aria-label="MOU" value={item.unit || (item.custom_unit ? `custom:${item.custom_unit}` : item.unit_name ? "saved-unit" : "")} aria-invalid={!item.unit && !item.custom_unit && !item.unit_name} onChange={event=>{const value=event.target.value;if(value==='saved-unit')return;updateItem(index,"unit",value.startsWith('custom:')?'':value);updateItem(index,"custom_unit",value.startsWith('custom:')?value.slice(7):'');}} className={(requiredControl(!item.unit && !item.custom_unit && !item.unit_name)) + " bp-ui-control"}><option value="">Select MOU</option>{!item.unit && !item.custom_unit && item.unit_name && <option value="saved-unit">{item.unit_name} (saved)</option>}{quotationUnitOptions(masters.units,item).map(unit=><option key={unit.value} value={unit.value}>{unit.name}</option>)}</select> : <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={(requiredControl(!item.unit)) + " bp-ui-control"}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>}
             </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {!item.field_id && paintingApplicable ? <label className="block text-sm font-semibold">No. of coats
-              <select value={item.coats || 1} onChange={(event) => updateItem(index, "coats", event.target.value)} className={control}>{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
+            {!item.field_id && paintingApplicable ? <label className="block text-sm font-semibold">{lumpsum ? "No. of coats (optional)" : "No. of coats"}
+              <select value={item.coats || 1} onChange={(event) => updateItem(index, "coats", event.target.value)} className={(control) + " bp-ui-control"}>{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
             </label> : <label className="block text-sm font-semibold">No. of coats<div className={control + " bg-slate-100 text-slate-700"}>{item.field_id && paintingApplicable ? `${item.coats || 1} coat${Number(item.coats || 1) === 1 ? "" : "s"}` : "—"}</div></label>}
-            <label className="block text-sm font-semibold">{item.field_id ? "Rate (₹)" : "Rate"}
-              <input type="number" min="0" step="0.01" value={item.rate} aria-invalid={item.rate === "" || item.rate === null || item.rate === undefined} onChange={(event) => updateItem(index, "rate", event.target.value)} className={requiredControl(item.rate === "" || item.rate === null || item.rate === undefined)} />
+            <label className="block text-sm font-semibold">{item.field_id || lumpsum ? "Rate (₹)" : "Rate"}
+              <input placeholder="Enter rate in ₹" inputMode="decimal" type="number" min="0" step="0.01" value={item.rate} aria-invalid={item.rate === "" || item.rate === null || item.rate === undefined} onChange={(event) => updateItem(index, "rate", event.target.value)} className={(requiredControl(item.rate === "" || item.rate === null || item.rate === undefined)) + " bp-ui-control"} />{fieldError("Rate")}
             </label>
           </div>
           <div className="rounded-2xl bg-[#245b75] p-4 text-center text-white"><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
         </div>
-        <footer className="sticky bottom-0 z-20 grid grid-cols-[auto_1fr] gap-3 border-t bg-white p-4">
-          <button type="button" onClick={remove} className="inline-flex items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600"><Trash2 className="h-5 w-5" /></button>
-          <button type="button" onClick={close} className="rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white">Update line</button>
-        </footer>
-      </section>
-    </div>
+    </Frame>
   );
 }
 function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, serviceCategories, paintTypes, brands, updateFieldItem, updateFieldMaterial }) {
@@ -1917,8 +1845,8 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
                     <td className="px-4 py-3"><input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} onClick={(event) => event.stopPropagation()} aria-label={`Select ${field.room_name} ${field.description}`} /></td>
                     <td className="px-3 py-3 font-semibold text-slate-900">{field.room_name}</td>
                     <td className="px-3 py-3 font-semibold text-slate-600">{field.description}</td>
-                    <td className="px-3 py-3"><select value={item.service_category || ""} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "service_category", event.target.value); updateFieldItem(field.field_id, "paint_type", ""); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></td>
-                    <td className="px-3 py-3"><select value={item.coats || 1} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "coats", event.target.value); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat} coat{coat === 1 ? "" : "s"}</option>)}</select></td>
+                    <td className="px-3 py-3"><select aria-label={`Service category for ${field.room_name} ${field.description}`} value={item.service_category || ""} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "service_category", event.target.value); updateFieldItem(field.field_id, "paint_type", ""); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 bp-ui-control"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></td>
+                    <td className="px-3 py-3"><select aria-label={`Coats for ${field.room_name} ${field.description}`} value={item.coats || 1} onClick={(event) => event.stopPropagation()} onChange={(event) => { updateFieldItem(field.field_id, "coats", event.target.value); ensureSelected(); }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 bp-ui-control">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat} coat{coat === 1 ? "" : "s"}</option>)}</select></td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">{field.quantity} sq ft<details className="mt-2 text-left" onClick={(event) => event.stopPropagation()}><summary className="cursor-pointer text-xs font-semibold text-[#176b9b]">Material details</summary><MaterialSelections item={item} categories={serviceCategories} products={paintTypes} brands={brands} update={(values) => updateFieldMaterial(field.field_id, values)} /></details></td>
                   </tr>;
                 })}
@@ -1933,7 +1861,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
           const item = items.find((entry) => entry.field_id === field.field_id) || field;
           const serviceName = serviceCategories.find((entry) => String(entry.id) === String(item.service_category))?.name || "Service not selected";
           return (
-            <button type="button" key={"mobile-field-" + field.field_id} onClick={() => setMobileFieldId(field.field_id)} className={"grid w-full grid-cols-[auto_minmax(0,1fr)_72px_82px] items-center gap-2 rounded-xl border p-3 text-left " + (checked ? "border-[#9cc4d6] bg-[#e8f3f8]" : "border-slate-200 bg-white")}>
+            <button type="button" key={"mobile-field-" + field.field_id} onClick={() => setMobileFieldId(field.field_id)} className={("grid w-full grid-cols-[auto_minmax(0,1fr)_72px_82px] items-center gap-2 rounded-xl border p-3 text-left " + (checked ? "border-[#9cc4d6] bg-[#e8f3f8]" : "border-slate-200 bg-white")) + " bp-ui-action"}>
               <span className={"grid h-6 w-6 shrink-0 place-items-center rounded-md border " + (checked ? "border-[#176b9b] bg-[#176b9b] text-white" : "border-slate-300")}>{checked && <Check className="h-4 w-4" />}</span>
                       <span className="min-w-0 flex-1"><b className="block whitespace-normal text-left text-sm">{field.room_name}</b><small className="block whitespace-normal text-left text-slate-600">{field.description} · {serviceName}</small></span>
               <span className="text-right"><b className="block text-sm">{field.quantity}</b><small className="text-slate-500">sq ft</small></span>
@@ -1943,20 +1871,16 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
         })}
       </div>
       {mobileField && mobileItem && (
-        <div className="fixed inset-0 z-[80] flex items-end bg-slate-950/60 md:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileFieldId(null); }}>
-          <section role="dialog" aria-modal="true" aria-label="Edit selected area field" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] bg-white p-4 pb-6 shadow-2xl">
-            <header className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#176b9b]">Selected area field</p><h2 className="text-lg font-bold">{mobileField.room_name}</h2><p className="text-sm text-slate-500">{mobileField.description} · {mobileField.quantity} sq ft</p></div><button type="button" onClick={() => setMobileFieldId(null)} className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button></header>
+        <QuotationLineItemPopup popupProtection={null} titleText="Edit selected area field" description={`${mobileField.room_name} - ${mobileField.description}`} onClose={() => setMobileFieldId(null)} footer={<Button type="button" onClick={() => setMobileFieldId(null)}>Update selection</Button>}>
             <label className="flex items-center gap-3 rounded-xl border p-4 font-semibold"><input type="checkbox" checked={selectedFieldIds.includes(mobileField.field_id)} onChange={() => toggle(mobileField.field_id)} />Include this field in quotation</label>
             <label className="mt-4 block text-sm font-semibold">Service / Product Category
-              <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
+              <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 bp-ui-control"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
             </label>
             <label className="mt-4 block text-sm font-semibold">No. of coats
-              <select value={mobileItem.coats || 1} onChange={(event) => { updateFieldItem(mobileField.field_id, "coats", event.target.value); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
+              <select value={mobileItem.coats || 1} onChange={(event) => { updateFieldItem(mobileField.field_id, "coats", event.target.value); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 bp-ui-control">{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
             </label>
             <MaterialSelections item={mobileItem} categories={serviceCategories} products={paintTypes} brands={brands} update={(values) => updateFieldMaterial(mobileField.field_id, values)} />
-            <button type="button" onClick={() => setMobileFieldId(null)} className="mt-5 w-full rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white">Update selection</button>
-          </section>
-        </div>
+        </QuotationLineItemPopup>
       )}
     </div>
   );
@@ -1980,15 +1904,15 @@ function AreaFieldGroup({ title, fields, selectedFieldIds, toggle, items, master
           return <div key={field.field_id} className={`quotation-surface-row ${checked ? "is-selected" : ""}`}>
             <div className="quotation-surface-name">
               <label className="quotation-surface-check"><input type="checkbox" checked={checked} onChange={() => toggle(field.field_id)} aria-label={`Select ${name}`} className="h-4 w-4 accent-[#176b9b]" /></label>
-              <button type="button" className="quotation-surface-title" onClick={() => field.parent_field_id ? onEditSpecial?.(specialWalls.find((wall) => wall.field_id === field.field_id)) : toggle(field.field_id)}>{name}</button>
-              {field.parent_field_id && <button type="button" className="quotation-surface-edit" aria-label={`Edit ${name}`} onClick={() => onEditSpecial?.(specialWalls.find((wall) => wall.field_id === field.field_id))}><Pencil size={16} /></button>}
+              <button type="button" className="quotation-surface-title bp-ui-action" onClick={() => field.parent_field_id ? onEditSpecial?.(specialWalls.find((wall) => wall.field_id === field.field_id)) : toggle(field.field_id)}>{name}</button>
+              {field.parent_field_id && <button type="button" className="quotation-surface-edit bp-ui-icon-action" aria-label={`Edit ${name}`} onClick={() => onEditSpecial?.(specialWalls.find((wall) => wall.field_id === field.field_id))}><Pencil size={16} /></button>}
             </div>
             <span className="quotation-surface-area">{Number(field.quantity).toLocaleString("en-IN", { maximumFractionDigits: 2 })} <small>sqft</small></span>
             <MaterialSelections inline item={item} categories={masters.categories} products={masters.paintTypes} brands={masters.brands} update={(values) => updateFieldMaterial(field.field_id, values)} />
           </div>;
         })}
       </div> : <p className="p-4 text-sm text-amber-700">No saved Area Calculation for this room.</p>}
-      {onAddSpecial && fields.some((field) => field.surface_type === "WALL") && <div className="flex flex-wrap gap-2 border-t p-3"><button type="button" className="min-h-11 rounded-xl border px-4 font-bold text-[#176b9b]" onClick={(event) => event.currentTarget.closest("section").querySelector("select")?.focus()}>Assign Products</button><button type="button" onClick={onAddSpecial} className="min-h-11 rounded-xl bg-[#e8f3f8] px-4 font-bold text-[#176b9b]">+ Add Special Wall</button></div>}
+      {onAddSpecial && fields.some((field) => field.surface_type === "WALL") && <div className="flex flex-wrap gap-2 border-t p-3"><button type="button" className="min-h-11 rounded-xl border px-4 font-bold text-[#176b9b] bp-ui-action" onClick={(event) => event.currentTarget.closest("section").querySelector("select")?.focus()}>Assign Products</button><button type="button" onClick={onAddSpecial} className="min-h-11 rounded-xl bg-[#e8f3f8] px-4 font-bold text-[#176b9b] bp-ui-action">+ Add Special Wall</button></div>}
     </section>
   );
 }
@@ -2021,13 +1945,13 @@ function MaterialSelections({ item, categories = [], products, brands, update, i
   const control = "mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base";
   const label = "min-w-0 text-xs font-bold text-slate-700";
   return <div className={inline ? "quotation-surface-materials" : "mt-3 grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-3 lg:grid-cols-4"}>
-    <label className={label}><span className="quotation-material-label">{SERVICE_MASTER_LABELS.category}</span><select value={item.service_category || ""} onChange={(event) => update({ service_category: event.target.value, custom_service_category: "", paint_type: "" })} className={control}>{!item.service_category && <option value="">Select service</option>}{categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-    <label className={label}><span className="quotation-material-label">Brand</span><select value={item.paint_brand || ""} onChange={(event) => update({ paint_brand: event.target.value })} className={control}><option value="">Select brand</option>{brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label className={label}><span className="quotation-material-label">{SERVICE_MASTER_LABELS.category}</span><select value={item.service_category || ""} onChange={(event) => update({ service_category: event.target.value, custom_service_category: "", paint_type: "" })} className={(control) + " bp-ui-control"}>{!item.service_category && <option value="">Select service</option>}{categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label className={label}><span className="quotation-material-label">Brand</span><select value={item.paint_brand || ""} onChange={(event) => update({ paint_brand: event.target.value })} className={(control) + " bp-ui-control"}><option value="">Select brand</option>{brands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
     <label className={label}><span className="quotation-material-label">Product</span><select value={item.paint_type || ""} onChange={(event) => {
       const product = products.find((entry) => String(entry.id) === event.target.value);
       update({ paint_type: event.target.value, ...(product?.service_category ? { service_category: product.service_category, custom_service_category: "" } : {}) });
-    }} className={control}><option value="">Select product</option>{products.filter((entry) => !item.service_category || !entry.service_category || String(entry.service_category) === String(item.service_category)).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-    <label className={label}><span className="quotation-material-label">Paint Coats</span><select value={item.coats || 1} onChange={(event) => update({ coats: Number(event.target.value) })} className={control}>{[1,2,3,4,5,6].map((coats) => <option key={coats} value={coats}>{coats}</option>)}</select></label>
+    }} className={(control) + " bp-ui-control"}><option value="">Select product</option>{products.filter((entry) => !item.service_category || !entry.service_category || String(entry.service_category) === String(item.service_category)).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+    <label className={label}><span className="quotation-material-label">Paint Coats</span><select value={item.coats || 1} onChange={(event) => update({ coats: Number(event.target.value) })} className={(control) + " bp-ui-control"}>{[1,2,3,4,5,6].map((coats) => <option key={coats} value={coats}>{coats}</option>)}</select></label>
   </div>;
 }
 function Row({ label, value }) {

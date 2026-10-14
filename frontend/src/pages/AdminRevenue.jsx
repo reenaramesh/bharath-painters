@@ -68,15 +68,15 @@ export default function AdminRevenue() {
   );
   return (
     <div className="min-w-0 space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
         <div>
           <p className="text-sm font-semibold text-amber-600">Admin billing</p>
-          <h1 className="mt-1 text-3xl font-bold">Subscription revenue</h1>
+          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Subscription revenue</h1>
           
         </div>
         <button
           onClick={load}
-          className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold"
+          className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold bp-ui-action"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
@@ -112,7 +112,7 @@ export default function AdminRevenue() {
           <select
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
-            className="rounded-xl border px-4 py-3"
+            className="rounded-xl border px-4 py-3 bp-ui-control"
           >
             {(data?.available_years || [year]).map((value) => (
               <option key={value}>{value}</option>
@@ -121,7 +121,7 @@ export default function AdminRevenue() {
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
-            className="rounded-xl border px-4 py-3"
+            className="rounded-xl border px-4 py-3 bp-ui-control"
           >
             {months.map((name, index) => (
               <option key={name} value={index}>
@@ -135,14 +135,14 @@ export default function AdminRevenue() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search member, Bharath ID, package, receipt or reference"
-              className="w-full rounded-xl border py-3 pl-11 pr-4"
+              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-ui-control"
             />
           </label>
         </div>
       </section>
       <div className="grid min-w-0 gap-6 xl:grid-cols-3">
         <section className="min-w-0 rounded-2xl border bg-white p-5 xl:col-span-2">
-          <h2 className="font-bold">
+          <h2 className="font-bold bp-ui-section-heading">
             Month-wise subscription revenue · {year}
           </h2>
           <div className="mt-5 space-y-3">
@@ -170,7 +170,7 @@ export default function AdminRevenue() {
           </div>
         </section>
         <section className="rounded-2xl border bg-white p-5">
-          <h2 className="font-bold">Package payments by mode</h2>
+          <h2 className="font-bold bp-ui-section-heading">Package payments by mode</h2>
           <div className="mt-4 divide-y">
             {data?.payment_modes?.length ? (
               data.payment_modes.map((item) => (
@@ -193,7 +193,7 @@ export default function AdminRevenue() {
       <section className="overflow-hidden rounded-2xl border bg-white">
         <header className="flex items-center justify-between border-b p-5">
           <div>
-            <h2 className="font-bold">Package payment details</h2>
+            <h2 className="font-bold bp-ui-section-heading">Package payment details</h2>
             
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold">
@@ -201,7 +201,7 @@ export default function AdminRevenue() {
           </span>
         </header>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm bp-ui-table">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="p-4">Received</th>

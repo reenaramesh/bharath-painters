@@ -2,18 +2,18 @@ import { FormField, SectionCard } from './ui';
 import { quotationTotals } from '../utils/quotationPricing.js';
 
 const money = value => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
-export default function QuotationDiscountControls({ form, onChange, items, onLineChange, pricing: suppliedPricing, documentLabel = 'quotation', showLineControls = true }) {
-  const lineMode = form.discount_mode === 'LINE';
+export default function QuotationDiscountControls({ form, onChange, items, onLineChange, pricing: suppliedPricing, documentLabel = 'quotation', showLineControls = true, showHelp: _showHelp = true }) {
+  const lineMode = ['LINE','BOTH'].includes(form.discount_mode);
   const pricing = suppliedPricing || quotationTotals(items,form);
-  return <SectionCard title="Discounts and GST" description="Apply discounts before GST. Choose discounts for each line or one overall discount." className="quotation-financial-controls sm:col-span-2">
+  return <SectionCard title="Discounts and GST"  className="quotation-financial-controls sm:col-span-2">
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-      <FormField label="Discount mode" as="select" name="discount_mode" value={form.discount_mode || 'OVERALL'} onChange={event=>onChange('discount_mode',event.target.value)}><option value="OVERALL">Overall {documentLabel}</option><option value="LINE">Each line separately</option></FormField>
-      {!lineMode && <>
+      <FormField label="Discount mode" as="select" name="discount_mode" value={form.discount_mode || 'OVERALL'} onChange={event=>onChange('discount_mode',event.target.value)}><option value="BOTH">Line + Overall</option><option value="OVERALL">Overall {documentLabel} only</option><option value="LINE">Each line separately</option></FormField>
+      {form.discount_mode !== 'LINE' && <>
         <FormField label="Overall discount type" as="select" name="discount_type" value={form.discount_type} onChange={event=>onChange('discount_type',event.target.value)}><option value="FIXED">Fixed amount</option><option value="PERCENTAGE">Percentage</option></FormField>
-        <FormField label="Overall discount" type="number" name="discount_value" min="0" max={form.discount_type === 'PERCENTAGE'?100:undefined} step="0.01" value={form.discount_value} onChange={event=>onChange('discount_value',event.target.value)} />
+        <FormField label="Overall discount" placeholder={form.discount_type === "PERCENTAGE" ? "Enter percentage" : "Enter amount in \u20b9"} inputMode="decimal" type="number" name="discount_value" min="0" max={form.discount_type === 'PERCENTAGE'?100:undefined} step="0.01" value={form.discount_value} onChange={event=>onChange('discount_value',event.target.value)} />
       </>}
       <FormField label="GST mode" as="select" name="gst_mode" value={form.gst_mode} onChange={event=>onChange('gst_mode',event.target.value)}><option value="GST_EXTRA">GST extra</option><option value="GST_INCLUDED">GST included</option><option value="NO_GST">No GST</option></FormField>
-      <FormField label="GST percentage" type="number" name="gst_percentage" min="0" step="0.01" value={form.gst_percentage} onChange={event=>onChange('gst_percentage',event.target.value)} />
+      <FormField label="GST percentage" placeholder="Enter GST percentage" inputMode="decimal" type="number" name="gst_percentage" min="0" step="0.01" value={form.gst_percentage} onChange={event=>onChange('gst_percentage',event.target.value)} />
     </div>
     {lineMode && showLineControls && <div className="mt-4 space-y-3">{items.map((item,index)=><fieldset key={item.id || item.field_id || index} className="min-w-0 rounded-xl border border-slate-200 p-3">
       <legend className="max-w-full px-1 text-sm font-semibold">{index+1}. {item.specification_details?.name || item.description || 'Quotation line'}</legend>
@@ -23,6 +23,7 @@ export default function QuotationDiscountControls({ form, onChange, items, onLin
       </div>
       <p className="mt-2 text-sm text-slate-600">Gross {money(pricing.lines[index].amount)} · Discount {money(pricing.lines[index].discount)} · Net {money(pricing.lines[index].net)}</p>
     </fieldset>)}</div>}
+    {form.discount_mode === 'BOTH' && <p className="mt-3 text-sm text-slate-600">Line discounts {money(pricing.lineDiscount || 0)} · Overall discount {money(pricing.overallDiscount || 0)}</p>}
     <p role="status" className="mt-4 text-sm font-semibold">Subtotal {money(pricing.subtotal)} · Discount {money(pricing.discount)} · GST {money(pricing.gst)} · Total {money(pricing.total)}</p>
   </SectionCard>;
 }

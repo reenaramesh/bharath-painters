@@ -1,3 +1,6 @@
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
+import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CalendarClock, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,6 +19,7 @@ const tomorrowKey = () => {
 };
 
 export default function WorkReschedules() {
+  const mobile = useMobileView();
   const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
@@ -48,12 +52,12 @@ export default function WorkReschedules() {
 
   const visible = useMemo(
     () =>
-      items.filter((item) =>
+      (mobile ? recentFirst(items,["updated_at", "created_at"]) : items).filter((item) =>
         [item.quotation_number, item.customer, item.property].some((value) =>
           value?.toLowerCase().includes(search.toLowerCase()),
         ),
       ),
-    [items, search],
+    [items, search, mobile],
   );
 
   function edit(item) {
@@ -113,7 +117,7 @@ export default function WorkReschedules() {
           <ArrowLeft className="h-4 w-4" />
           Back to Work Schedules
         </Link>
-        <PageHeader eyebrow="Schedule changes" title="Reschedule work" description="Review pending approvals and schedules whose planned dates have passed." />
+        <PageHeader eyebrow="Schedule changes" title="Reschedule work"  />
       </div>
 
       {error && (
@@ -130,7 +134,7 @@ export default function WorkReschedules() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search quotation, customer, or property"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
         </div>
@@ -143,7 +147,7 @@ export default function WorkReschedules() {
               <Button variant={item.needs_reschedule ? "danger" : "secondary"} onClick={() => edit(item)} className="mt-3 w-full justify-center"><CalendarClock className="h-4 w-4" aria-hidden="true" />{item.needs_reschedule ? "Reschedule now" : "Change dates"}</Button>
             </article>)}</div>
             <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[850px] text-left text-sm">
+            <table className="w-full min-w-[850px] text-left text-sm bp-ui-table">
               <thead className="border-b bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Quotation</th>
@@ -190,11 +194,11 @@ export default function WorkReschedules() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => edit(item)}
-                        className={`flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 font-semibold ${
+                        className={(`flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 font-semibold ${
                           item.needs_reschedule
                             ? "bg-red-600 text-white"
                             : "border"
-                        }`}
+                        }`) + " bp-ui-action"}
                       >
                         <CalendarClock className="h-4 w-4" />
                         {item.needs_reschedule
@@ -209,7 +213,7 @@ export default function WorkReschedules() {
             </div>
             </>
           ) : (
-            <EmptyState title="No schedules need changes" description="Pending approvals and date adjustments will appear here." />
+            <EmptyState title="No schedules need changes"  />
           )}
         </div>
       </SectionCard>
@@ -222,14 +226,14 @@ export default function WorkReschedules() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-bold">
+                <h2 className="text-xl font-bold bp-ui-section-heading">
                   Reschedule {editing.quotation_number}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {editing.customer} | {editing.property}
                 </p>
               </div>
-              <button type="button" onClick={() => setEditing(null)}>
+              <button className="bp-ui-icon-action" type="button" onClick={() => setEditing(null)}>
                 <X />
               </button>
             </div>
@@ -266,12 +270,12 @@ export default function WorkReschedules() {
                   setForm({ ...form, reason: event.target.value })
                 }
                 placeholder="Rain, material delay, customer request..."
-                className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
+                className="mt-2 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control"
               />
             </label>
             <button
               disabled={saving}
-              className="mt-5 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white"
+              className="mt-5 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white bp-ui-action"
             >
               Send revised dates for customer approval
             </button>
@@ -292,7 +296,7 @@ function DateField({ label, value, onChange, min }) {
         min={min}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-xl border px-3 py-3 font-normal"
+        className="mt-2 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control"
       />
     </label>
   );

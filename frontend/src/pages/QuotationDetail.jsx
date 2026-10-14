@@ -1,4 +1,6 @@
-import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
+import QuotationDocumentItems, { QuotationDocumentItemDetails } from "../components/QuotationDocumentItems.jsx";
+import { quotationItemHeaders } from "../utils/quotationItemPresentation.js";
+import { QuotationLineItemPopup } from "../components/QuotationLineItemPopup.jsx";
 import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
 import { QuotationRevisionHistory, QuotationRevisionDetails, QuotationRevisionPriceChanges } from "../components/QuotationRevisionDetails.jsx";
 import { useEffect, useRef, useState } from "react";
@@ -15,14 +17,13 @@ import {
   Share2,
   Trash2,
   User,
-  X,
 } from "lucide-react";
 import api from "../api/client";
 import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
 import { profileImageStyle } from "../utils/profileImagePosition";
-import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import { Button, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { consumeQuotationSubmission } from "../utils/quotationSubmission.js";
 
@@ -30,14 +31,19 @@ const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     Number(value || 0),
   );
-const quotationColumnDefaults = [4, 14, 11, 15, 19, 9, 6, 10, 12];
-const quotationColumnMinimums = [3, 8, 7, 8, 10, 6, 5, 7, 8];
-const quotationColumnLabels = ["Number", SERVICE_MASTER_LABELS.category, "Room or area", "Product or brand", SERVICE_MASTER_LABELS.description, "Quantity", "Coats", "Rate", "Amount"];
+const quotationColumnDefaults = [14,15,15,13,6,8,8,12,9];
+const quotationColumnMinimums = [8,8,8,8,3,4,4,6,5];
+const quotationColumnLabels = quotationItemHeaders;
 const quotationColumnStorageKey = "bp-quotation-item-column-widths";
 
 function savedQuotationColumnWidths() {
   try {
-    const widths = JSON.parse(window.localStorage.getItem(quotationColumnStorageKey));
+    let widths = JSON.parse(window.localStorage.getItem(quotationColumnStorageKey));
+    if (Array.isArray(widths) && widths.length === 10 && widths.every(Number.isFinite) && widths[2] > 0 && widths[2] < 100) {
+      const remaining = widths.filter((_,index) => index !== 2);
+      const total = remaining.reduce((sum,width) => sum+width,0);
+      widths = remaining.map(width => width * 100 / total);
+    }
     if (Array.isArray(widths) && widths.length === quotationColumnDefaults.length &&
         widths.every((width, index) => Number.isFinite(width) && width >= quotationColumnMinimums[index]) &&
         Math.abs(widths.reduce((sum, width) => sum + width, 0) - 100) < 0.01) return widths;
@@ -279,7 +285,7 @@ export default function QuotationDetail() {
             <button
               onClick={submitToCustomer}
               disabled={submitting || pendingCustomerConnection}
-              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
+              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
             >
               <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {submitting ? (
@@ -300,7 +306,7 @@ export default function QuotationDetail() {
           ) : (
             <button
               onClick={() => setShowShare(true)}
-              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
+              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
             >
               <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Share
@@ -309,7 +315,7 @@ export default function QuotationDetail() {
           <button
             onClick={downloadPdf}
             disabled={downloading}
-            className="flex items-center gap-1 rounded-lg bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
+            className="flex items-center gap-1 rounded-lg bg-slate-950 px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
           >
             <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {downloading ? (
@@ -334,7 +340,7 @@ export default function QuotationDetail() {
             <button
               onClick={() => setInvoiceSetup(quotation.items.map(() => ""))}
               disabled={converting}
-              className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-900 disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
+              className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-900 disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
             >
               <FileText className="h-4 w-4" />
               {converting ? "Creating..." : "Create final invoice"}
@@ -352,7 +358,7 @@ export default function QuotationDetail() {
           {quotation.status === "DRAFT" && quotation.can_delete && <button
             onClick={remove}
             disabled={deleting}
-            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
+            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 disabled:opacity-60 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm bp-ui-action"
           >
             <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {deleting ? "Deleting..." : "Delete"}
@@ -389,10 +395,33 @@ export default function QuotationDetail() {
         )}
       <RevisionSummary changes={quotation.revision_changes} />
       <QuotationRevisionHistory versions={quotation.revision_history} currentId={quotation.id} />
-      <QuotationLineDiscountSummary items={quotation.items} />
+      <QuotationLineDiscountSummary items={quotation.items} quotation={quotation} />
       <section className="quotation-sheet rounded-2xl border bg-white">
-        <div className="quotation-company-header flex flex-col gap-5 border-b p-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
+        <div className="quotation-number-header quotation-identity-header border-b p-6">
+          <div className="quotation-identity-text">
+            <p className="quotation-identity-label">Quotation <span>(Version {quotation.version_number || quotation.version || 1} | {new Date(`${quotation.quotation_date}T12:00:00`).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})})</span></p>
+            <h2 className="bp-ui-section-heading">{quotation.quotation_number}</h2>
+            {quotation.valid_until && <p className="text-xs text-slate-500">Valid until {quotation.valid_until}</p>}
+          </div>
+          <StatusBadge status={quotation.status} tone={quotationTone(quotation.status)} />
+        </div>
+        <div className="quotation-company-header quotation-party-header border-b p-6">
+        <div className="quotation-entity-cards quotation-party-details">
+          <Info
+            icon={User}
+            label="Customer details"
+            value={quotation.customer_details?.name ?? customer?.name}
+            sub={quotation.customer_details?.mobile ?? customer?.mobile}
+          />
+          <Info
+            icon={Building2}
+            label="Property details"
+            value={quotation.property_details?.name ?? (property?.name || property?.property_type)}
+            sub={quotation.property_details?.city ?? property?.city}
+          />
+        </div>
+          <div className="quotation-contractor-details">
+          <div className="quotation-contractor-brand flex items-center gap-4">
             {contractor?.company_logo ? (
               <img
                 src={contractor.company_logo}
@@ -411,7 +440,7 @@ export default function QuotationDetail() {
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold">
+                <h2 className="text-xl font-bold bp-ui-section-heading">
                   {contractor?.company_name || "Contractor"}
                 </h2>
                 {contractor?.is_verified && (
@@ -423,7 +452,7 @@ export default function QuotationDetail() {
               </p>
             </div>
           </div>
-          <div className="text-sm text-slate-500 md:text-right">
+          <div className="quotation-contractor-contact text-sm text-slate-500">
             <p>{contractor?.mobile}</p>
             <p>{contractor?.email}</p>
             {contractor?.gst_number && <p>GSTIN: {contractor.gst_number}</p>}
@@ -433,124 +462,24 @@ export default function QuotationDetail() {
                 {contractor.office_address}
               </p>
             )}
-            {contractor?.service_areas && (
-              <p>Service areas: {contractor.service_areas}</p>
-            )}
           </div>
-        </div>
-        <div className="quotation-number-header flex flex-col gap-3 border-b p-4 sm:flex-row sm:justify-between sm:p-5">
-          <PageHeader eyebrow="Quotation" title={quotation.quotation_number} description={`Version ${quotation.version_number || 1} · Created ${quotation.quotation_date}${quotation.valid_until ? ` · Valid until ${quotation.valid_until}` : ""}`} actions={<StatusBadge status={quotation.status} tone={quotationTone(quotation.status)} />} />
-        </div>
-        <div className="quotation-entity-cards grid gap-5 p-6 md:grid-cols-2">
-          <Info
-            icon={User}
-            label="Customer"
-            value={quotation.customer_details?.name ?? customer?.name}
-            sub={quotation.customer_details?.mobile ?? customer?.mobile}
-          />
-          <Info
-            icon={Building2}
-            label="Property"
-            value={quotation.property_details?.name ?? (property?.name || property?.property_type)}
-            sub={quotation.property_details?.city ?? property?.city}
-          />
+          </div>
         </div>
       </section>
       <section className="quotation-items rounded-2xl border bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b p-6">
-          <div><h2 className="font-bold">Quotation items</h2><p className="hidden text-xs text-slate-500 md:block">Drag the column edges to adjust widths.</p></div>
-          <button type="button" className="hidden text-xs font-semibold text-indigo-700 hover:underline md:inline" onClick={() => {
+          <div><h2 className="font-bold bp-ui-section-heading">Quotation items</h2></div>
+          <button type="button" className="hidden text-xs font-semibold text-indigo-700 hover:underline md:inline bp-ui-action" onClick={() => {
             setColumnWidths(quotationColumnDefaults);
           }}>Reset column widths</button>
         </div>
-        <div className="grid gap-3 p-3 md:hidden">
-          {quotation.items.map((item, index) => {
-            const room = quotation.rooms.find(
-              (entry) => Number(entry.id) === Number(item.room),
-            );
-            return (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => setMobileItem({ item, room, index })}
-                className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition active:scale-[0.99]"
-              >
-                <div className="flex items-start justify-between gap-3 bg-slate-950 px-4 py-3 text-white">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                      Item {index + 1} · {item.service_category_name || "Service"}
-                    </p>
-                    <h3 className="mt-1 whitespace-normal font-bold">
-                      {quotationRoomAreaLabel(item) || room?.name || "General"}
-                    </h3>
-                    <p className="mt-0.5 truncate text-xs text-slate-300">
-                      {item.paint_type_name || "Product not specified"}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-base font-extrabold text-emerald-300">
-                    {money(item.amount)}
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-px bg-slate-200">
-                  <QuoteItemValue label="Quantity" value={`${item.quantity} ${item.unit_name || ""}`} />
-                  <QuoteItemValue label="Rate" value={money(item.rate)} />
-                  <QuoteItemValue label="Amount" value={money(item.amount)} strong />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="hidden md:block" data-mobile-table="keep">
-          <table ref={quotationTableRef} className="w-full table-fixed text-left text-xs">
-            <colgroup>{columnWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                {["#", SERVICE_MASTER_LABELS.category, "Room / Area", "Product / Brand", SERVICE_MASTER_LABELS.description, "Qty", "Coats", "Rate", "Amount"].map((label, index) => (
-                  <th key={label} scope="col" className={`quotation-resizable-heading px-3 py-4 ${index === 5 || index >= 7 ? "text-right" : index === 6 ? "text-center" : ""}`}>
-                    {label}
-                    {index < quotationColumnDefaults.length - 1 && <span
-                      role="separator"
-                      tabIndex={0}
-                      aria-label={`Resize ${quotationColumnLabels[index]} column`}
-                      aria-orientation="vertical"
-                      className="quotation-column-resizer"
-                      onPointerDown={(event) => startColumnResize(event, index)}
-                      onKeyDown={(event) => {
-                        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                          event.preventDefault();
-                          resizeColumns(index, event.key === "ArrowRight" ? 1 : -1);
-                        }
-                      }}
-                    />}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {quotation.items.map((item, index) => {
-                const room = quotation.rooms.find(
-                  (entry) => Number(entry.id) === Number(item.room),
-                );
-                return <tr key={item.id} className="hover:bg-slate-50/70">
-                  <td className="px-3 py-4 text-slate-400">{index + 1}</td>
-                  <td className="px-3 py-4 font-semibold">{[item.service_category_name, item.service_type_name].filter(Boolean).join(" / ") || "-"}</td>
-                  <td className="px-3 py-4 font-semibold text-slate-700">{quotationRoomAreaLabel(item) || room?.name || "General"}</td>
-                  <td className="px-3 py-4"><p className="font-medium">{item.paint_type_name || "-"}</p><p className="mt-1 text-[11px] text-slate-500">{item.brand_name || "No brand"}</p></td>
-                  <td className="break-words px-3 py-4 font-medium">{item.description}</td>
-                  <td className="px-3 py-4 text-right"><p className="font-bold tabular-nums">{item.quantity}</p><p className="text-[11px] text-slate-500">{item.unit_name || "-"}</p></td>
-                  <td className="px-3 py-4 text-center">{item.is_additional_service ? "-" : item.coats || 1}</td>
-                  <td className="px-3 py-4 text-right tabular-nums">{money(item.rate)}</td>
-                  <td className="px-3 py-4 text-right font-bold tabular-nums text-slate-950">{money(item.amount)}</td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-        </div>
+        <QuotationDocumentItems items={quotation.items} rooms={quotation.rooms} form={quotation} tableRef={quotationTableRef} columnWidths={columnWidths} onView={(item,index)=>setMobileItem({item,index,room:quotation.rooms.find(entry=>Number(entry.id)===Number(item.room))})} renderResizer={index=>index < quotationColumnDefaults.length-1 && <span role="separator" tabIndex={0} aria-label={`Resize ${quotationColumnLabels[index]} column`} aria-orientation="vertical" className="quotation-column-resizer" onPointerDown={event=>startColumnResize(event,index)} onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();resizeColumns(index,event.key==='ArrowRight'?1:-1);}}} />} />
         {mobileItem && (
           <QuotationItemMobileDialog
             item={mobileItem.item}
             room={mobileItem.room}
             index={mobileItem.index}
+            quotation={quotation}
             close={() => setMobileItem(null)}
           />
         )}
@@ -576,13 +505,13 @@ export default function QuotationDetail() {
       <section className="quotation-pdf-options rounded-2xl border bg-white p-5 sm:p-6" aria-labelledby="quotation-pdf-options-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 id="quotation-pdf-options-title" className="font-bold">Include in downloaded PDF</h2>
-            
+            <h2 id="quotation-pdf-options-title" className="font-bold bp-ui-section-heading">Include in downloaded PDF</h2>
+
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{selectedPdfSections.length} of {pdfSectionOptions.length} selected</span>
-            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, true])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Select all</button>
-            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, false])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">Clear all</button>
+            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, true])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold bp-ui-action">Select all</button>
+            <button type="button" onClick={() => setPdfSectionSelection(Object.fromEntries(pdfSectionOptions.map(({ key }) => [key, false])))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold bp-ui-action">Clear all</button>
           </div>
         </div>
         <div className="mt-4 space-y-4">
@@ -609,13 +538,13 @@ export default function QuotationDetail() {
       {(quotation.notes || quotation.terms_conditions) && (
         <section className="quotation-supporting-info grid gap-6 rounded-2xl border bg-white p-6 md:grid-cols-2">
           <div>
-            <h2 className="font-bold">Notes</h2>
+            <h2 className="font-bold bp-ui-section-heading">Notes</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
               {quotation.notes || "No notes"}
             </p>
           </div>
           <div>
-            <h2 className="font-bold">Terms and conditions</h2>
+            <h2 className="font-bold bp-ui-section-heading">Terms and conditions</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
               {quotation.terms_conditions || "No terms added"}
             </p>
@@ -629,7 +558,7 @@ export default function QuotationDetail() {
         quotation.prepared_by ||
         quotation.inspected_by) && (
         <section className="quotation-supporting-info rounded-2xl border bg-white p-6">
-          <h2 className="font-bold">Work and payment details</h2>
+          <h2 className="font-bold bp-ui-section-heading">Work and payment details</h2>
           <div className="mt-4 grid gap-5 md:grid-cols-2">
             <DetailField label="Prepared by" value={quotation.prepared_by} />
             <DetailField label="Inspected by" value={quotation.inspected_by} />
@@ -676,24 +605,17 @@ export default function QuotationDetail() {
 
 function InvoiceSetupDialog({ quotation, hsnCodes, setHsnCodes, converting, onClose, onCreate }) {
   const update = (index, value) => setHsnCodes((current) => current.map((code, position) => position === index ? value : code));
-  return <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/60 sm:items-center sm:justify-center sm:p-6">
-    <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
-      <header className="flex items-start justify-between border-b p-5">
-        <div><p className="text-xs font-bold uppercase tracking-wide text-amber-600">Final invoice</p><h2 className="text-xl font-extrabold">Confirm HSN/SAC codes</h2></div>
-        <button type="button" onClick={onClose} className="rounded-xl border p-2"><X className="h-5 w-5" /></button>
-      </header>
-      <div className="flex-1 space-y-3 overflow-y-auto p-5">
+  return <QuotationLineItemPopup titleText="Confirm HSN/SAC codes" description="Final invoice" onClose={onClose} footer={<div className="grid w-full grid-cols-2 gap-3"><Button variant="secondary" type="button" onClick={onClose}>Cancel</Button><Button type="button" onClick={onCreate} disabled={converting}>{converting ? "Creating..." : "Create & Preview"}</Button></div>}>
+      <div className="space-y-3">
         {quotation.items.map((item, index) => {
           const room = quotation.rooms.find((entry) => Number(entry.id) === Number(item.room));
           return <label key={item.id || index} className="block rounded-2xl border p-4">
             <span className="flex items-start justify-between gap-3"><span><small className="block font-bold uppercase tracking-wide text-amber-600">Item {index + 1}</small><b className="mt-1 block">{item.service_category_name || item.service_type_name || "Service"}</b><small className="whitespace-normal text-slate-600">{quotationRoomAreaLabel(item) || room?.name || "General"} / {item.description}</small></span><b className="shrink-0">{money(item.amount)}</b></span>
-            <span className="mt-3 block text-sm font-semibold">HSN/SAC code (optional)<input value={hsnCodes[index] || ""} onChange={(event) => update(index, event.target.value)} placeholder="Enter HSN or SAC code" className="mt-1.5 w-full rounded-xl border px-3 py-3 font-normal" /></span>
+            <span className="mt-3 block text-sm font-semibold">HSN/SAC code (optional)<input value={hsnCodes[index] || ""} onChange={(event) => update(index, event.target.value)} placeholder="Enter HSN or SAC code" className="mt-1.5 w-full rounded-xl border px-3 py-3 font-normal bp-ui-control" /></span>
           </label>;
         })}
       </div>
-      <footer className="grid grid-cols-2 gap-3 border-t p-4"><button type="button" onClick={onClose} className="rounded-xl border py-3 font-bold">Cancel</button><button type="button" onClick={onCreate} disabled={converting} className="rounded-xl bg-slate-950 py-3 font-bold text-white disabled:opacity-50">{converting ? "Creating..." : "Create & Preview"}</button></footer>
-    </div>
-  </div>;
+  </QuotationLineItemPopup>;
 }
 
 function QuotationShare({ quotation, customer, customerLogin, onClose }) {
@@ -736,15 +658,15 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
     }
   }
   return (
-    <dialog ref={dialogRef} aria-labelledby="quotation-share-title" onCancel={event => { event.preventDefault(); onClose(); }} className="fixed m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-xl backdrop:bg-slate-950/50">
+    <dialog ref={dialogRef} aria-labelledby="quotation-share-title" onCancel={event => { event.preventDefault(); onClose(); }} className="bp-quotation-dialog fixed m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-xl backdrop:bg-slate-950/50">
       <div>
-        <h2 id="quotation-share-title" className="text-xl font-bold">Final quotation submitted</h2>
-        <p className="mt-2 text-sm text-slate-600">The customer signs in to view and respond. Only permitted property contacts can open this link.</p>
-        
+        <h2 id="quotation-share-title" className="text-xl font-bold bp-ui-section-heading">Final quotation submitted</h2>
+
+
         <div className="mt-4 break-all rounded-xl bg-slate-50 p-4 text-xs">
           {url}
         </div>
-        {customerLogin && <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-bold">Customer ID & login created</p><p className="mt-2">Customer ID: <b>{customerLogin.customer_id}</b></p><p>Mobile: <b>{customerLogin.mobile}</b></p><p>Temporary password: <b>{customerLogin.temporary_password}</b></p><button type="button" onClick={() => copy(`Customer ID: ${customerLogin.customer_id}\nMobile: ${customerLogin.mobile}\nTemporary password: ${customerLogin.temporary_password}`, "Login details copied.")} className="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold">Copy login details</button><p className="mt-2 text-xs text-indigo-700">Share the temporary password with the customer through a secure channel.</p></div>}
+        {customerLogin && <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-bold">Customer ID & login created</p><p className="mt-2">Customer ID: <b>{customerLogin.customer_id}</b></p><p>Mobile: <b>{customerLogin.mobile}</b></p><p>Temporary password: <b>{customerLogin.temporary_password}</b></p><button type="button" onClick={() => copy(`Customer ID: ${customerLogin.customer_id}\nMobile: ${customerLogin.mobile}\nTemporary password: ${customerLogin.temporary_password}`, "Login details copied.")} className="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold bp-ui-action">Copy login details</button><p className="mt-2 text-xs text-indigo-700">Share the temporary password with the customer through a secure channel.</p></div>}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <a
             target="_blank"
@@ -762,13 +684,13 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
           </a>
           <button
             onClick={() => copy(url, "Portal link copied.")}
-            className="rounded-xl border px-4 py-3 text-sm font-semibold"
+            className="rounded-xl border px-4 py-3 text-sm font-semibold bp-ui-action"
           >
             Copy link
           </button>
           <button
             onClick={share}
-            className="rounded-xl border px-4 py-3 text-sm font-semibold"
+            className="rounded-xl border px-4 py-3 text-sm font-semibold bp-ui-action"
           >
             Other apps
           </button>
@@ -777,7 +699,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
         {shareError && <p role="alert" className="mt-3 text-sm text-red-700">{shareError}</p>}
         <button
           onClick={onClose}
-          className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
+          className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white bp-ui-action"
         >
           Done
         </button>
@@ -805,19 +727,6 @@ function Total({ label, value }) {
     </div>
   );
 }
-function QuoteItemValue({ label, value, strong = false }) {
-  return (
-    <div className="min-w-0 bg-white px-3 py-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className={`mt-1 truncate text-sm tabular-nums ${strong ? "font-extrabold text-emerald-700" : "font-bold text-slate-900"}`}>
-        {value || "—"}
-      </p>
-    </div>
-  );
-}
-
 function quotationTone(status) {
   if (["ACCEPTED", "COMPLETED"].includes(status)) return "success";
   if (["REJECTED", "CANCELLED"].includes(status)) return "danger";
@@ -825,51 +734,10 @@ function quotationTone(status) {
   if (["SENT", "VIEWED", "SCHEDULED", "IN_PROGRESS"].includes(status)) return "info";
   return "neutral";
 }
-function QuotationItemMobileDialog({ item, room, index, close }) {
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-end bg-slate-950/60 md:hidden"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}
-    >
-      <section role="dialog" aria-modal="true" aria-label="Quotation line details" className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-slate-50 shadow-2xl">
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-white px-4 py-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Item {index + 1} · Quotation line</p>
-            <h2 className="whitespace-normal text-lg font-bold">{quotationRoomAreaLabel(item) || room?.name || "General"}</h2>
-          </div>
-          <button type="button" onClick={close} aria-label="Close details" className="rounded-xl border p-2.5"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="space-y-4 p-4 pb-24">
-          <div className="grid grid-cols-2 gap-3">
-            <PopupValue label={SERVICE_MASTER_LABELS.category} value={item.service_category_name} />
-            <PopupValue label="Room / Area" value={quotationRoomAreaLabel(item) || room?.name || "General"} />
-            <PopupValue label={SERVICE_MASTER_LABELS.productType} value={item.paint_type_name} />
-            <PopupValue label="Brand" value={item.brand_name} />
-            <PopupValue label="MOU" value={item.unit_name} />
-            <PopupValue label="Quantity" value={item.quantity} />
-            {!item.is_additional_service && <PopupValue label="Coats" value={item.coats || 1} />}
-            <PopupValue label="Rate" value={money(item.rate)} />
-          </div>
-          <PopupValue label={SERVICE_MASTER_LABELS.description} value={item.description} wide />
-          <div className="flex items-center justify-between rounded-2xl bg-slate-950 p-4 text-white">
-            <span className="text-sm text-slate-300">Line amount</span>
-            <b className="text-xl text-emerald-300">{money(item.amount)}</b>
-          </div>
-        </div>
-        <footer className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-4">
-          <button type="button" onClick={close} className="w-full rounded-xl bg-slate-950 px-5 py-3 font-bold text-white">Close</button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-function PopupValue({ label, value, wide = false }) {
-  return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-3 ${wide ? "col-span-2" : ""}`}>
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-semibold leading-5 text-slate-800">{value || "—"}</p>
-    </div>
-  );
+function QuotationItemMobileDialog({ item, room, index, quotation, close }) {
+  return <QuotationLineItemPopup index={index} titleText={`Quotation item ${index+1}`} description={quotationRoomAreaLabel(item) || room?.name || "General"} onClose={close} footer={<Button type="button" onClick={close}>Close</Button>}>
+    <QuotationDocumentItemDetails item={item} rooms={room ? [room] : []} form={quotation} />
+  </QuotationLineItemPopup>;
 }
 function DetailField({ label, value }) {
   if (!value) return null;
@@ -902,7 +770,7 @@ function RevisionSummary({ changes }) {
       <header className="flex flex-wrap items-center justify-between gap-4 border-b bg-slate-50 px-5 py-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">Revision comparison</p>
-          <h2 className="mt-1 font-bold text-slate-950">
+          <h2 className="mt-1 font-bold text-slate-950 bp-ui-section-heading">
             {changes.previous_number} <span className="mx-2 text-slate-300">→</span> Current version
           </h2>
         </div>

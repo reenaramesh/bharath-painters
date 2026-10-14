@@ -18,7 +18,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
     <article className="rounded-2xl border bg-white p-5">
       {!compact && <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold">{other.label}</h2>
+          <h2 className="truncate text-lg font-bold bp-ui-section-heading">{other.label}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {incomingPending ? "Wants to connect with you" : "Connected"} since{" "}
             {prettyDate(row.accepted_at || row.requested_at)}
@@ -64,14 +64,14 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
             <button
               disabled={busy}
               onClick={() => onAct(row, "accept")}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
             >
               <Handshake className="h-4 w-4" /> Accept
             </button>
             <button
               disabled={busy}
               onClick={() => setOpenAction(openAction === "reject" ? null : "reject")}
-              className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700"
+              className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 bp-ui-action"
             >
               Reject
             </button>
@@ -101,14 +101,14 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
             <button
               disabled={busy}
               onClick={() => onAct(row, "disconnect")}
-              className="rounded-xl border px-4 py-2.5 text-sm font-semibold"
+              className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
             >
               Disconnect
             </button>
             <button
               disabled={busy}
               onClick={() => setOpenAction(openAction === "block" ? null : "block")}
-              className="text-sm font-semibold text-red-600"
+              className="text-sm font-semibold text-red-600 bp-ui-action"
             >
               Block
             </button>
@@ -120,7 +120,7 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
           <button
             disabled={busy}
             onClick={() => onRequestAgain(row)}
-            className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold"
+            className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
           >
             <Send className="h-4 w-4" /> Request again
           </button>
@@ -138,13 +138,11 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="We are not taking work in that area."
-              className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+              className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bp-ui-control"
             />
           )}
           {openAction === "block" && (
-            <p className="mt-1 text-sm text-slate-600">
-              They will not be able to send or receive work from you again.
-            </p>
+            null
           )}
           <div className="mt-2 flex gap-2">
             <button
@@ -152,13 +150,13 @@ export default function ContractorConnectionCard({ row, busy, onAct, onRequestAg
               onClick={() =>
                 onAct(row, openAction, openAction === "reject" ? { reason } : {})
               }
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
             >
               Confirm
             </button>
             <button
               onClick={() => setOpenAction(null)}
-              className="rounded-lg border px-4 py-2 text-sm font-semibold"
+              className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
             >
               Cancel
             </button>

@@ -45,7 +45,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
     <section className="rounded-2xl border bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
+          <h2 className="flex items-center gap-2 text-lg font-bold bp-ui-section-heading">
             <ReceiptIndianRupee className="h-5 w-5" /> Bill to {isMain ? "your contractor" : "you"}
           </h2>
           
@@ -56,13 +56,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
       {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {!invoice && (
-        <p className="mt-4 rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">
-          {isMain
-            ? workOrder.status === "COMPLETED"
-              ? "Work is approved complete. You can raise the invoice now."
-              : "An invoice can be raised once the work is approved as complete."
-            : "No invoice raised yet. You will see it here as soon as the main contractor sends it."}
-        </p>
+        null
       )}
 
       {canInvoice && (
@@ -89,7 +83,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           ].map(([key, label]) => (
             <label key={key} className="block">
               <span className="mb-1 block text-sm font-semibold">{label}</span>
-              <input
+              <input className="bp-ui-control"
                 required
                 type="number"
                 min="0"
@@ -101,7 +95,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           ))}
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">Issue date</span>
-            <input
+            <input className="bp-ui-control"
               type="date"
               value={form.issue_date}
               onChange={(event) => setForm({ ...form, issue_date: event.target.value })}
@@ -109,7 +103,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">Due date</span>
-            <input
+            <input className="bp-ui-control"
               type="date"
               value={form.due_date}
               onChange={(event) => setForm({ ...form, due_date: event.target.value })}
@@ -117,7 +111,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">Notes</span>
-            <input
+            <input className="bp-ui-control"
               value={form.notes}
               onChange={(event) => setForm({ ...form, notes: event.target.value })}
             />
@@ -125,7 +119,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           <div className="sm:col-span-3">
             <button
               disabled={busy}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
             >
               Raise invoice
             </button>
@@ -155,7 +149,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
           </dl>
 
           {(invoice.payments || []).length > 0 && (
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm bp-ui-table">
               <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="py-2 pr-3">Date</th>
@@ -195,7 +189,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
                 );
               }}
             >
-              <input
+              <input className="bp-ui-control"
                 required
                 type="number"
                 min="0"
@@ -205,7 +199,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
                 value={payment.amount}
                 onChange={(event) => setPayment({ ...payment, amount: event.target.value })}
               />
-              <select
+              <select className="bp-ui-control"
                 value={payment.payment_mode}
                 onChange={(event) => setPayment({ ...payment, payment_mode: event.target.value })}
               >
@@ -215,21 +209,21 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
                   </option>
                 ))}
               </select>
-              <input
+              <input className="bp-ui-control"
                 placeholder="Reference"
                 value={payment.payment_reference}
                 onChange={(event) =>
                   setPayment({ ...payment, payment_reference: event.target.value })
                 }
               />
-              <input
+              <input className="bp-ui-control"
                 placeholder="Note"
                 value={payment.notes}
                 onChange={(event) => setPayment({ ...payment, notes: event.target.value })}
               />
               <button
                 disabled={busy}
-                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
               >
                 Record payment
               </button>

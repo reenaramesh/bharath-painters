@@ -8,6 +8,7 @@ import GlobalTableSorting from "../components/GlobalTableSorting";
 import MobileTableDialogs from "../components/MobileTableDialogs";
 import CustomerConnectionPrompt from "../components/CustomerConnectionPrompt";
 import MobileBottomNav from "../components/MobileBottomNav";
+import FloatingQuickActions from "../components/FloatingQuickActions";
 import useEmploymentStatus from "../hooks/useEmploymentStatus";
 import "../pages/contractor-dashboard.css";
 import "../pages/customer-portal.css";
@@ -18,7 +19,7 @@ export default function DashboardLayout() {
   const pathname = useLocation().pathname;
   const messagesPage = pathname === "/messages";
   const contractorWorkspace = user?.role === "CONTRACTOR";
-  const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN"].includes(user?.role);
+  const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN", "SUPPORT"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigationOpenerRef = useRef(null);
   const navigationBackgroundRef = useRef(null);
@@ -53,7 +54,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
@@ -80,6 +81,7 @@ export default function DashboardLayout() {
           <Outlet context={{ employmentStatus }} />
         </main>
         <MobileBottomNav employmentStatus={employmentStatus} />
+        <FloatingQuickActions key={pathname} employmentStatus={employmentStatus} />
       </div>
     </div>
   );

@@ -88,7 +88,7 @@ export default function MobileBottomNav({ employmentStatus = "loading" }) {
       const Icon = item.icon;
       const accessibleLabel = `${t(item.label)}${item.badge > 0 ? `, ${item.badge}` : ""}`;
       const content = <><span className="relative"><Icon className="h-5 w-5" aria-hidden="true" />{item.badge > 0 && <span className="bp-mobile-nav-badge absolute -right-2 -top-2" aria-label={`${item.badge}`}>{item.badge > 9 ? "9+" : item.badge}</span>}</span><span className="max-w-full truncate text-xs font-bold leading-tight">{t(item.label)}</span></>;
-      if (item.action) return <button key={item.label} type="button" aria-label={accessibleLabel} onClick={item.action} className="bp-mobile-nav-item">{content}</button>;
+      if (item.action) return <button key={item.label} type="button" aria-label={accessibleLabel} onClick={item.action} className="bp-mobile-nav-item bp-ui-action">{content}</button>;
       return <NavLink key={item.label} to={item.to} aria-label={accessibleLabel} onClick={() => navigate(item.to)} className={({ isActive }) => `bp-mobile-nav-item ${isActive ? "is-active" : ""}`}>{content}</NavLink>;
     })}
   </nav>;

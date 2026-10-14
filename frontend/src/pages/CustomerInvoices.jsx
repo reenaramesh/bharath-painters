@@ -29,6 +29,7 @@ export default function CustomerInvoices() {
   const [downloading, setDownloading] = useState(null);
   const [receiptBusy, setReceiptBusy] = useState(null);
   async function downloadFinanceReceipt(receipt) {
+    if (!receipt.download_url) return;
     setReceiptBusy(receipt.id);
     try {
       const response = await api.get(receipt.download_url, {
@@ -67,18 +68,24 @@ export default function CustomerInvoices() {
       api.get("/quotations/customer-portal/invoices/", { params: propertyId ? { property_id: propertyId } : {} }),
       api.get("/billing/customer-finance/", { params: propertyId ? { property_id: propertyId } : {} }),
     ]);
-    if (invoiceResult.status === "rejected") {
-      setError("Invoices could not be loaded.");
+    if (invoiceResult.status === "rejected" && financeResult.status === "rejected") {
+      setError("Invoices and payment history could not be loaded.");
       setLoadFailed(true);
       setLoading(false);
       return;
     }
     setLoadFailed(false);
-    const loadedInvoices = invoiceResult.value.data;
+    const loadedInvoices = invoiceResult.status === "fulfilled" ? invoiceResult.value.data : [];
     setInvoices(loadedInvoices);
     if (financeResult.status === "fulfilled") {
       setFinance(financeResult.value.data);
-      setError("");
+      setError(invoiceResult.status === "rejected" ? "Invoice details are not available for this property." : "");
+      setLoading(false);
+      return;
+    }
+    if (invoiceResult.status === "rejected") {
+      setFinance(null);
+      setError("Payment history is not available for this property.");
       setLoading(false);
       return;
     }
@@ -123,47 +130,47 @@ export default function CustomerInvoices() {
     }
   }
   const totals = {
-    billed: Number(finance?.total_billed || 0),
-    paid: Number(finance?.total_paid || 0),
-    due: Number(finance?.balance_due || 0),
-    credit: Number(finance?.advance_credit || 0),
+    billed: finance?.total_billed == null ? null : Number(finance.total_billed),
+    paid: finance?.total_paid == null ? null : Number(finance.total_paid),
+    due: finance?.balance_due == null ? null : Number(finance.balance_due),
+    credit: finance?.advance_credit == null ? null : Number(finance.advance_credit),
   };
   return (
     <div className="space-y-6 finance-page customer-finance-page">
       <BackButton fallback="/customer-dashboard" label="Back to dashboard" />
-      <PageHeader eyebrow="Customer billing" title="Payments & invoices" description="View every receipt, advance credit, final invoice and outstanding balance." />
+      <PageHeader eyebrow="Customer billing" title="Payments & invoices"  />
       {loading ? <LoadingState label="Loading invoices and payment history..." className="finance-loading" /> : loadFailed ? <ErrorState message={error} onRetry={load} className="finance-inline-error" /> : <>
       <section className="finance-summary-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Invoice and payment summary">
         <StatCard
           label="Total billed"
-          value={`₹${money(totals.billed)}`}
+          value={totals.billed == null ? "Unavailable" : `₹${money(totals.billed)}`}
           hint={`${invoices.filter((invoice) => invoice.status !== "CANCELLED").length} active invoice(s)`}
           tone="brand"
         />
         <StatCard
           label="Total paid"
-          value={`₹${money(totals.paid)}`}
-          hint="Receipts and invoice payments"
+          value={totals.paid == null ? "Unavailable" : `₹${money(totals.paid)}`}
+
           tone="success"
         />
         <StatCard
           label="Balance due"
-          value={`₹${money(totals.due)}`}
-          hint={totals.due > 0 ? "Please arrange payment" : "All settled"}
+          value={totals.due == null ? "Unavailable" : `₹${money(totals.due)}`}
+
           tone="warning"
         />
         <StatCard
           label="Advance credit"
-          value={`₹${money(totals.credit)}`}
+          value={totals.credit == null ? "Unavailable" : `₹${money(totals.credit)}`}
           hint={`${finance?.receipts_count || 0} payment receipt(s)`}
           tone="info"
         />
       </section>
-      {totals.due > 0 && (
+      {totals.due != null && totals.due > 0 && (
         <section className="customer-finance-due-banner" aria-label="Outstanding balance">
           <div>
             <p className="customer-finance-due-kicker">Action needed</p>
-            <h2>There is a balance waiting for payment</h2>
+            <h2 className="bp-ui-section-heading">There is a balance waiting for payment</h2>
             <p>Review the invoice below for the project, due date and payment history.</p>
           </div>
           <strong>₹{money(totals.due)}</strong>
@@ -196,7 +203,7 @@ export default function CustomerInvoices() {
                   onClick={() =>
                     setSelected(selected?.id === invoice.id ? null : invoice)
                   }
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-0 flex-1 text-left bp-ui-action"
                 >
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="truncate font-bold">
@@ -270,7 +277,7 @@ export default function CustomerInvoices() {
                     type="button"
                     onClick={() => download(invoice)}
                     disabled={downloading === invoice.id}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:px-4"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:px-4 bp-ui-action"
                   >
                     <Download className="h-4 w-4" />
                     {downloading === invoice.id
@@ -282,7 +289,7 @@ export default function CustomerInvoices() {
                       type="button"
                       onClick={() => downloadReceipt(invoice)}
                       disabled={receiptBusy === invoice.id}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 disabled:opacity-50 sm:px-4"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 disabled:opacity-50 sm:px-4 bp-ui-action"
                     >
                       <ReceiptText className="h-4 w-4" />
                       {receiptBusy === invoice.id ? "Loading..." : "Receipt"}
@@ -295,7 +302,7 @@ export default function CustomerInvoices() {
               )}
             </div>
           ))}
-              {!invoices.length && <EmptyState title="No invoices available yet" description="Final invoices will appear here when your contractor issues them." />}
+              {!invoices.length && <EmptyState title="No invoices available yet"  />}
         </div>
       </SectionCard>
       </>}
@@ -313,7 +320,7 @@ function CustomerReceipts({ rows, busy, download, loading }) {
   const filteredTotal = filteredRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   return (
     <section className="customer-receipts-card overflow-hidden rounded-2xl border bg-white">
-      <button type="button" aria-expanded={open} aria-controls="customer-receipts-panel" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between gap-4 p-5 text-left">
+      <button type="button" aria-expanded={open} aria-controls="customer-receipts-panel" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between gap-4 p-5 text-left bp-ui-action">
         <span>
           <span className="block font-bold">My payment receipts</span>
           <span className="mt-1 block text-sm text-slate-500">{rows.length} receipt{rows.length === 1 ? "" : "s"} · ₹{money(rows.reduce((sum, row) => sum + Number(row.amount || 0), 0))} received</span>
@@ -323,16 +330,16 @@ function CustomerReceipts({ rows, busy, download, loading }) {
       {open && <div id="customer-receipts-panel">
       {loading ? <LoadingState label="Loading payment receipts..." className="finance-loading" /> : <>
       <div className="grid gap-3 border-y bg-slate-50 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">From date<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900" /></label>
-        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">To date<input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900" /></label>
-        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold">Clear dates</button>
+        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">From date<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900 bp-ui-control" /></label>
+        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">To date<input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900 bp-ui-control" /></label>
+        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold bp-ui-action">Clear dates</button>
         <p className="text-sm text-slate-500 sm:col-span-3">Showing <b className="text-slate-900">{filteredRows.length}</b> receipt{filteredRows.length === 1 ? "" : "s"} · Total <b className="text-emerald-700">₹{money(filteredTotal)}</b></p>
       </div>
       <div className="grid gap-3 p-3 md:hidden">
-        {filteredRows.map((row) => <article key={row.id} className="finance-receipt-card overflow-hidden rounded-2xl border bg-white shadow-sm"><div className="flex items-start justify-between gap-3 bg-slate-950 p-4 text-white"><div><p className="text-sm font-bold text-slate-300">{row.receipt_number || "Receipt"}</p><h3 className="mt-1 font-bold">{row.contractor || "Contractor"}</h3><p className="mt-1 text-sm text-slate-300">{row.project || row.document}</p></div><b className="finance-amount shrink-0 text-base text-emerald-300">₹{money(row.amount)}</b></div><div className="grid grid-cols-2 gap-px bg-slate-200 text-sm"><div className="bg-white p-3"><span className="text-slate-500">Date</span><b className="mt-1 block">{formatFinanceDate(row.date)}</b></div><div className="bg-white p-3"><span className="text-slate-500">Payment method</span><div className="mt-1"><StatusBadge status={row.mode || "OTHER"} label={String(row.mode || "OTHER").replaceAll("_", " ")} tone="neutral" /></div></div></div><div className="flex items-center justify-between gap-3 p-3"><p className="min-w-0 truncate text-sm text-slate-600">{row.document} · {row.reference || "No reference"}</p><button type="button" disabled={busy === row.id} onClick={() => download(row)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"><Download className="h-4 w-4" />{busy === row.id ? "Loading..." : "PDF"}</button></div></article>)}
+        {filteredRows.map((row) => <article key={row.id} className="finance-receipt-card overflow-hidden rounded-2xl border bg-white shadow-sm"><div className="flex items-start justify-between gap-3 bg-slate-950 p-4 text-white"><div><p className="text-sm font-bold text-slate-300">{row.receipt_number || "Receipt"}</p><h3 className="mt-1 font-bold">{row.contractor || "Contractor"}</h3><p className="mt-1 text-sm text-slate-300">{row.project || row.document}</p></div><b className="finance-amount shrink-0 text-base text-emerald-300">₹{money(row.amount)}</b></div><div className="grid grid-cols-2 gap-px bg-slate-200 text-sm"><div className="bg-white p-3"><span className="text-slate-500">Date</span><b className="mt-1 block">{formatFinanceDate(row.date)}</b></div><div className="bg-white p-3"><span className="text-slate-500">Payment method</span><div className="mt-1"><StatusBadge status={row.mode || "OTHER"} label={String(row.mode || "OTHER").replaceAll("_", " ")} tone="neutral" /></div></div></div><div className="flex items-center justify-between gap-3 p-3"><p className="min-w-0 truncate text-sm text-slate-600">{row.document || "Payment receipt"} · {row.reference || "No reference"}</p><button type="button" disabled={busy === row.id || !row.download_url} onClick={() => download(row)} title={!row.download_url ? row.download_unavailable_reason : undefined} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 bp-ui-action"><Download className="h-4 w-4" />{busy === row.id ? "Loading..." : row.download_url ? "PDF" : "Unavailable"}</button></div></article>)}
       </div>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[850px] text-left text-sm">
+        <table className="w-full min-w-[850px] text-left text-sm bp-ui-table">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="p-4">Date</th>
@@ -375,7 +382,7 @@ function CustomerReceipts({ rows, busy, download, loading }) {
                     type="button"
                     disabled={busy === row.id}
                     onClick={() => download(row)}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 bp-ui-action"
                   >
                     <Download className="h-4 w-4" />
                     {busy === row.id ? "Loading..." : "PDF"}
@@ -387,7 +394,7 @@ function CustomerReceipts({ rows, busy, download, loading }) {
         </table>
       </div>
       {!filteredRows.length && (
-        <EmptyState title={rows.length ? "No receipts match these dates" : "No payment receipts yet"} description={rows.length ? "Adjust or clear the date filters to view other receipts." : "Receipts will appear here when payments are recorded."} />
+        <EmptyState title={rows.length ? "No receipts match these dates" : "No payment receipts yet"}  />
       )}
        </>}
        </div>}
@@ -429,7 +436,7 @@ function InvoiceDetail({ invoice }) {
             </p>
           )}
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-xs">
+            <table className="w-full min-w-[520px] text-left text-xs bp-ui-table">
               <thead>
                 <tr className="border-b text-slate-500">
                   <th className="py-2">Date</th>
@@ -455,7 +462,7 @@ function InvoiceDetail({ invoice }) {
         </div>
       )}
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[680px] table-fixed text-left text-xs">
+        <table className="w-full min-w-[680px] table-fixed text-left text-xs bp-ui-table">
           <thead>
             <tr className="border-b text-slate-500">
               <th className="py-2">Service</th>
@@ -484,7 +491,7 @@ function InvoiceDetail({ invoice }) {
         <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
           Expenditure summary
         </p>
-        <table className="mt-2 w-full max-w-sm text-left text-xs">
+        <table className="mt-2 w-full max-w-sm text-left text-xs bp-ui-table">
           <tbody>
             <tr className="border-b">
               <td className="py-2 text-slate-500">Items subtotal</td>

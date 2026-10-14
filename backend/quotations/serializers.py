@@ -373,13 +373,16 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
     total_sqft = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     room_count = serializers.IntegerField(source="rooms.count", read_only=True)
     surface_count = serializers.IntegerField(source="surfaces.count", read_only=True)
+    interior_sqft = serializers.SerializerMethodField()
+    exterior_sqft = serializers.SerializerMethodField()
+    can_combine = serializers.SerializerMethodField()
 
     class Meta:
         model = PropertyMeasurement
         fields = (
             "id", "property", "reference_no", "measured_on", "contractor",
             "contractor_name", "contractor_id", "status", "status_display", "submitted_at",
-            "total_sqft", "room_count", "surface_count", "notes",
+            "total_sqft", "interior_sqft", "exterior_sqft", "can_combine", "room_count", "surface_count", "notes",
             "version", "created_by", "connection", "created_at", "updated_at",
         )
         read_only_fields = (
@@ -393,6 +396,22 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
             return "Not assigned"
         profile = getattr(obj.contractor, "contractor_profile", None)
         return getattr(profile, "company_name", "") or obj.contractor.get_full_name() or obj.contractor.mobile
+
+    def area_total(self, obj, work_area):
+        total = sum((surface.net_area for surface in obj.surfaces.all() if surface.work_area == work_area), Decimal("0"))
+        return format(total.quantize(Decimal("0.01")), ".2f")
+
+    def get_interior_sqft(self, obj):
+        return self.area_total(obj, "INTERIOR")
+
+    def get_exterior_sqft(self, obj):
+        return self.area_total(obj, "EXTERIOR")
+
+    def get_can_combine(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.pk == obj.contractor_id
+                    and obj.status in {"DRAFT", "IN_PROGRESS"} and not obj.submitted_at
+                    and not obj.quotations.exists() and not obj.project_scopes.exists())
 
 
 class ServiceCategorySerializer(serializers.ModelSerializer):

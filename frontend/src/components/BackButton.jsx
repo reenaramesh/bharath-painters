@@ -22,7 +22,7 @@ export default function BackButton({
   }
 
   return (
-    <button type="button" onClick={goBack} className={className}>
+    <button type="button" onClick={goBack} className={(className) + " bp-ui-action"}>
       <ArrowLeft className="h-4 w-4" />
       {label}
     </button>

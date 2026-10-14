@@ -2,13 +2,15 @@ import { AlertCircle, Inbox, LoaderCircle } from "lucide-react";
 import { useId } from "react";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ScriptKnownText } from '../i18n/ScriptText';
+import { Button } from './ui/Button.jsx';
 
-export function PageHeader({ eyebrow, title, actions }) {
+export function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <header className="bp-page-header">
+    <header className="bp-page-header bp-ui-page-header">
       <div className="min-w-0">
         {eyebrow && <p className="bp-eyebrow">{eyebrow}</p>}
-        <h1>{title}</h1>
+        <h1 className="bp-ui-page-title">{title}</h1>
+        {description && <p className="bp-page-description">{description}</p>}
       </div>
       {actions && <div className="bp-page-actions">{actions}</div>}
     </header>
@@ -61,35 +63,7 @@ export function StatusBadge({ status, label, tone, className = "" }) {
     </span>
   );
 }
-export function Button({
-  children,
-  variant = "primary",
-  type = "button",
-  loading = false,
-  disabled = false,
-  className = "",
-  ...props
-}) {
-  const variants = {
-    primary: "bp-button-primary",
-    secondary: "bp-button-secondary",
-    quiet: "bp-button-quiet",
-    danger: "bp-button-danger",
-  };
-  const variantClass = variants[variant] || variants.primary;
-  return (
-    <button
-      {...props}
-      type={type}
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={`bp-button ${variantClass} ${className}`.trim()}
-    >
-      {loading && <LoaderCircle className="bp-button-spinner" aria-hidden="true" />}
-      {children}
-    </button>
-  );
-}
+export { Button };
 
 export function CompactCard({ as: Component = "article", className = "", ...props }) {
   return <Component {...props} className={`bp-card ${className}`.trim()} />;
@@ -123,7 +97,7 @@ export function FormField({
     className: `bp-control ${error ? "bp-control-invalid" : ""} ${controlClassName}`.trim(),
   };
   const control = Control === "input"
-    ? <input {...props} />
+    ? <input className="bp-ui-control" {...props} />
     : <Control {...props}>{children}</Control>;
 
   return (
@@ -133,18 +107,20 @@ export function FormField({
         {required && <span className="bp-required" aria-hidden="true">*</span>}
       </label>
       {control}
+
       {error && <p id={errorId} className="bp-field-error" role="alert">{error}</p>}
     </div>
   );
 }
 
-export function StatCard({ icon: Icon, label, value, tone = "brand", className = "" }) {
+export function StatCard({ icon: Icon, label, value, hint, tone = "brand", className = "" }) {
   return (
     <article className={`bp-stat-card ${className}`.trim()}>
       <span className={`bp-stat-icon bp-stat-${tone}`} aria-hidden={Icon ? "true" : undefined}>{Icon && <Icon />}</span>
       <div>
         <p>{label}</p>
         <strong>{value ?? 0}</strong>
+        {hint && <small className="bp-stat-hint">{hint}</small>}
       </div>
     </article>
   );
@@ -159,12 +135,14 @@ export function LoadingState({ label, className = "" }) {
 }
 export function EmptyState({
   title,
+  description,
   className = "",
 }) {
   return (
     <div className={`bp-state ${className}`.trim()} role="status">
       <Inbox aria-hidden="true" />
       <strong>{title || "Nothing here yet"}</strong>
+      {description && <p>{description}</p>}
     </div>
   );
 }
@@ -194,6 +172,7 @@ export function Avatar({ name = "User", src, size = "md" }) {
 }
 export function SectionCard({
   title,
+  description,
   action,
   children,
   className = "",
@@ -203,7 +182,8 @@ export function SectionCard({
     <section className={`bp-section-card ${className}`}>
       <header>
         <div>
-          <h2>{title}</h2>
+          <h2 className="bp-ui-section-heading">{title}</h2>
+          {description && <p>{description}</p>}
         </div>
         {action}
       </header>

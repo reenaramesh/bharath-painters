@@ -63,19 +63,19 @@ export default function JoinProperty() {
         <span className="sr-only">Loading invitation details…</span>
       </div> : error && !invite ? <section className="rounded-2xl border border-[#d8e1e5] bg-white p-6 sm:p-9" aria-labelledby="join-title">
         <p className="text-sm font-bold uppercase tracking-wider text-[#176b9b]">Invitation unavailable</p>
-        <h1 id="join-title" className="mt-3 text-2xl font-extrabold">This property link can’t be opened</h1>
+        <h1 id="join-title" className="mt-3 text-2xl font-extrabold bp-ui-page-title">This property link can’t be opened</h1>
         <p role="alert" className="mt-3 text-sm leading-6 text-[#536774]">{error}</p>
         <Link to="/login" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#102331] px-5 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Go to sign in <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
       </section> : invite && <section className="overflow-hidden rounded-2xl border border-[#d8e1e5] bg-white" aria-labelledby="join-title">
         <div className="border-b border-[#d8e1e5] px-6 py-7 sm:px-9 sm:py-9">
           <p className="text-sm font-bold uppercase tracking-wider text-[#176b9b]">You’re invited to this place</p>
-          <h1 id="join-title" className="mt-3 max-w-xl text-3xl font-extrabold leading-tight sm:text-4xl">Join the property team</h1>
+          <h1 id="join-title" className="mt-3 max-w-xl text-3xl font-extrabold leading-tight sm:text-4xl bp-ui-page-title">Join the property team</h1>
           <p className="mt-3 max-w-xl text-base leading-7 text-[#536774]">Accept access to see property information and updates shared with your role.</p>
         </div>
 
         <div className="grid gap-6 px-6 py-6 sm:grid-cols-[1fr_auto] sm:items-center sm:px-9">
           <div>
-            <h2 className="text-xl font-bold">{invite.property_name}</h2>
+            <h2 className="text-xl font-bold bp-ui-section-heading">{invite.property_name}</h2>
             <p className="mt-2 flex items-center gap-2 text-sm text-[#536774]">
               <MapPin aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span>{invite.property_type}{invite.city ? ` · ${invite.city}` : ""}</span>
@@ -94,11 +94,11 @@ export default function JoinProperty() {
             <Link to="/login" state={{ from: { pathname: `/join/property/${token}` } }} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#b9cbd3] bg-white px-5 text-sm font-bold text-[#102331] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">I already have an account</Link>
           </div> : user.role !== "CUSTOMER" ? <div className="mt-6">
             <p className="text-sm text-[#536774]">This invitation is for a customer account. Switch accounts to continue.</p>
-            <button type="button" onClick={switchAccount} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-[#102331] px-5 text-sm font-bold text-white hover:bg-[#1c3b4e] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Switch account</button>
+            <button type="button" onClick={switchAccount} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-[#102331] px-5 text-sm font-bold text-white hover:bg-[#1c3b4e] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b] bp-ui-action">Switch account</button>
           </div> : <div className="mt-6">
             <p className="text-sm text-[#536774]">Signed in as <strong className="text-[#102331]">{user.mobile || "customer account"}</strong>.</p>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <button type="button" disabled={busy} aria-busy={busy} onClick={accept} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 text-sm font-bold text-white hover:bg-[#12577f] active:translate-y-px disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]">{busy ? "Accepting invitation…" : "Accept property invitation"}</button>
+              <button type="button" disabled={busy} aria-busy={busy} onClick={accept} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 text-sm font-bold text-white hover:bg-[#12577f] active:translate-y-px disabled:cursor-wait disabled:opacity-65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331] bp-ui-action">{busy ? "Accepting invitation…" : "Accept property invitation"}</button>
               <Link to="/customer-dashboard" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#b9cbd3] bg-white px-5 text-sm font-bold text-[#102331] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Not now</Link>
             </div>
           </div>}

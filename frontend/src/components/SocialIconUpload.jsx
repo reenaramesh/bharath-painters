@@ -21,5 +21,5 @@ export default function SocialIconUpload({ value, label, onChange, onError }) {
     } catch { onError('This image could not be opened. Choose another icon.'); }
     finally { URL.revokeObjectURL(url); setBusy(false); }
   }
-  return <div className="msp-custom-icon"><span>Upload icon</span><button type="button" disabled={busy} aria-label={`Upload icon for ${label}`} title={`Upload icon for ${label}`} onClick={() => ref.current?.click()}>{value ? <img src={value} alt=""/> : <Upload size={18}/>}</button><input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" aria-label={`Choose ${label} icon`} onChange={select}/></div>;
+  return <div className="msp-custom-icon"><span>Upload icon</span><button className="bp-ui-action" type="button" disabled={busy} aria-label={`Upload icon for ${label}`} title={`Upload icon for ${label}`} onClick={() => ref.current?.click()}>{value ? <img src={value} alt=""/> : <Upload size={18}/>}</button><input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" aria-label={`Choose ${label} icon`} onChange={select}/></div>;
 }

@@ -1,3 +1,6 @@
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
+import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Search } from "lucide-react";
 import api from "../api/client";
@@ -14,6 +17,7 @@ const sections = [
 ];
 
 export default function JobActivity() {
+  const mobile = useMobileView();
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [section, setSection] = useState("ALL");
@@ -146,7 +150,7 @@ export default function JobActivity() {
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return rows.filter(
+    return (mobile ? recentFirst(rows, ["created_at", "applied_at", "date", "updated_at"]) : rows).filter(
       (row) =>
         (section === "ALL" || row.section === section) &&
         (!term ||
@@ -162,11 +166,11 @@ export default function JobActivity() {
               .includes(term),
           )),
     );
-  }, [rows, search, section]);
+  }, [rows, search, section, mobile]);
 
   return (
     <div className={`space-y-6 jobs-schedules-page bp-job-activity-page ${user?.role === "PAINTER" ? "painter-portal-page painter-job-activity-page" : ""}`}>
-      <PageHeader eyebrow="People and workforce" title="Job Activity" description={user?.role === "CONTRACTOR" ? "Review job posts, assignments, cancellation requests and work history." : "Review accepted jobs, request cancellation when required and see your history."} />
+      <PageHeader eyebrow="People and workforce" title="Job Activity"  />
       {user?.role === "PAINTER" && <section className="painter-activity-focus" aria-label="Painter job activity summary"><div><span>Accepted work</span><strong>{rows.filter((row) => row.status === "ACCEPTED").length}</strong><small>Jobs you have accepted</small></div><div className="is-action"><span>Waiting on action</span><strong>{rows.filter((row) => ["CANCELLATION_REQUESTED", "TRANSFER_REQUESTED"].includes(row.status)).length}</strong><small>Requests to review</small></div><div><span>History records</span><strong>{rows.filter((row) => row.section === "HISTORY").length}</strong><small>Past work activity</small></div></section>}
       {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
       <SectionCard title="Activity records" description={`${visible.length} matching activity ${visible.length === 1 ? "record" : "records"}`} className="job-activity-card" bodyClassName="p-0">
@@ -177,7 +181,7 @@ export default function JobActivity() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search work, person or location"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <DateField label="From" value={dateFrom} change={setDateFrom} />
@@ -194,7 +198,7 @@ export default function JobActivity() {
               key={value}
               onClick={() => setSection(value)}
               aria-pressed={section === value}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold ${section === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}
+              className={(`rounded-lg px-4 py-2 text-sm font-semibold ${section === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`) + " bp-ui-action"}
             >
               {label}{" "}
               <span className="ml-1 opacity-70">
@@ -284,13 +288,13 @@ export default function JobActivity() {
               </div>
             </article>
           ))}
-          {!visible.length && <EmptyState title="No job activity found" description="Adjust the search or date filters to review other work." />}
+          {!visible.length && <EmptyState title="No job activity found"  />}
         </div>
         <div
           className="hidden overflow-x-auto md:block"
           data-mobile-table="keep"
         >
-          <table className="w-full min-w-[1120px] text-left text-sm">
+          <table className="w-full min-w-[1120px] text-left text-sm bp-ui-table">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Activity</th>
@@ -366,7 +370,7 @@ export default function JobActivity() {
               ))}
             </tbody>
           </table>
-          {!visible.length && <EmptyState title="No job activity found" description="Adjust the search or date filters to review other work." />}
+          {!visible.length && <EmptyState title="No job activity found"  />}
         </div>
       </SectionCard>
     </div>
@@ -391,14 +395,14 @@ function ActivityActions({
         <button
           disabled={busy}
           onClick={() => respondTransfer(row, "REJECT")}
-          className="rounded-lg border px-3 py-2 text-xs font-bold"
+          className="rounded-lg border px-3 py-2 text-xs font-bold bp-ui-action"
         >
           Decline transfer
         </button>
         <button
           disabled={busy}
           onClick={() => respondTransfer(row, "ACCEPT")}
-          className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white"
+          className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white bp-ui-action"
         >
           Accept transfer
         </button>
@@ -416,7 +420,7 @@ function ActivityActions({
             <select
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-              className="min-w-0 flex-1 rounded-lg border bg-white px-2 py-2 text-xs"
+              className="min-w-0 flex-1 rounded-lg border bg-white px-2 py-2 text-xs bp-ui-control"
             >
               <option value="">Transfer to another job</option>
               {row.transfer_options.map((job) => (
@@ -428,7 +432,7 @@ function ActivityActions({
             <button
               disabled={busy || !target}
               onClick={() => requestTransfer(row)}
-              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40 bp-ui-action"
             >
               Request
             </button>
@@ -437,7 +441,7 @@ function ActivityActions({
         <button
           disabled={busy}
           onClick={() => cancel(row, "REQUEST")}
-          className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold text-amber-700 disabled:opacity-50"
+          className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold text-amber-700 disabled:opacity-50 bp-ui-action"
         >
           Request cancellation
         </button>
@@ -454,7 +458,7 @@ function ActivityActions({
       <button
         disabled={busy}
         onClick={() => cancel(row, "CANCEL")}
-        className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-50"
+        className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-50 bp-ui-action"
       >
         Cancel assignment
       </button>
@@ -465,14 +469,14 @@ function ActivityActions({
         <button
           disabled={busy}
           onClick={() => cancel(row, "REJECT")}
-          className="rounded-lg border px-3 py-2 text-xs font-bold"
+          className="rounded-lg border px-3 py-2 text-xs font-bold bp-ui-action"
         >
           Keep
         </button>
         <button
           disabled={busy}
           onClick={() => cancel(row, "APPROVE")}
-          className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white"
+          className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white bp-ui-action"
         >
           Approve
         </button>
@@ -483,7 +487,7 @@ function ActivityActions({
       <button
         disabled={busy}
         onClick={() => rate(row)}
-        className="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-50"
+        className="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-50 bp-ui-action"
       >
         Rate (optional)
       </button>
@@ -504,7 +508,7 @@ function DateField({ label, value, change, min }) {
         min={min || undefined}
         value={value}
         onChange={(event) => change(event.target.value)}
-        className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none"
+        className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none bp-ui-control"
       />
     </label>
   );

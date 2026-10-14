@@ -165,20 +165,20 @@ export default function ProjectScopesPanel({ quotationId }) {
     <section className="quotation-scopes rounded-2xl border bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold">Project scopes</h2>
+          <h2 className="text-lg font-bold bp-ui-section-heading">Project scopes</h2>
           
         </div>
         {editing ? (
           <button
             onClick={() => setEditing(null)}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold"
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold bp-ui-action"
           >
             Close
           </button>
         ) : (
           <button
             onClick={startAdd}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white bp-ui-action"
           >
             <Plus className="h-4 w-4" /> Add scope
           </button>
@@ -191,7 +191,7 @@ export default function ProjectScopesPanel({ quotationId }) {
             <h3 className="font-bold">
               {editing === "new" ? "New scope" : `Edit ${form.title || "scope"}`}
             </h3>
-            <button type="button" onClick={() => setEditing(null)} aria-label="Close">
+            <button className="bp-ui-icon-action" type="button" onClick={() => setEditing(null)} aria-label="Close">
               <X className="h-4 w-4 text-slate-400" />
             </button>
           </div>
@@ -200,7 +200,7 @@ export default function ProjectScopesPanel({ quotationId }) {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <ScopeField label="Scope name" required>
-              <input
+              <input className="bp-ui-control"
                 required
                 maxLength={200}
                 value={form.title}
@@ -209,7 +209,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               />
             </ScopeField>
             <ScopeField label={SERVICE_MASTER_LABELS.category}>
-              <select
+              <select className="bp-ui-control"
                 value={form.category}
                 onChange={(event) =>
                   setForm({ ...form, category: event.target.value, work_description: "" })
@@ -226,7 +226,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               </select>
             </ScopeField>
             <ScopeField label={SERVICE_MASTER_LABELS.description} hint="Must belong to the service above">
-              <select
+              <select className="bp-ui-control"
                 value={form.work_description}
                 onChange={(event) => setForm({ ...form, work_description: event.target.value })}
                 disabled={!form.category}
@@ -240,7 +240,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               </select>
             </ScopeField>
             <ScopeField label="Unit">
-              <select
+              <select className="bp-ui-control"
                 value={form.unit}
                 onChange={(event) => setForm({ ...form, unit: event.target.value })}
               >
@@ -253,7 +253,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               </select>
             </ScopeField>
             <ScopeField label="Quantity">
-              <input
+              <input className="bp-ui-control"
                 type="number"
                 min="0"
                 step="0.01"
@@ -262,7 +262,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               />
             </ScopeField>
             <ScopeField label="Rate">
-              <input
+              <input className="bp-ui-control"
                 type="number"
                 min="0"
                 step="0.01"
@@ -271,7 +271,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               />
             </ScopeField>
             <ScopeField label="Status">
-              <select
+              <select className="bp-ui-control"
                 value={form.status}
                 onChange={(event) => setForm({ ...form, status: event.target.value })}
               >
@@ -283,7 +283,7 @@ export default function ProjectScopesPanel({ quotationId }) {
               </select>
             </ScopeField>
             <ScopeField label="Handling" hint="Outsourced scopes can be sent to a connected contractor">
-              <select
+              <select className="bp-ui-control"
                 value={form.handling}
                 onChange={(event) => setForm({ ...form, handling: event.target.value })}
               >
@@ -292,14 +292,14 @@ export default function ProjectScopesPanel({ quotationId }) {
               </select>
             </ScopeField>
             <ScopeField label="Target start">
-              <input
+              <input className="bp-ui-control"
                 type="date"
                 value={form.target_start_date}
                 onChange={(event) => setForm({ ...form, target_start_date: event.target.value })}
               />
             </ScopeField>
             <ScopeField label="Target end">
-              <input
+              <input className="bp-ui-control"
                 type="date"
                 value={form.target_end_date}
                 onChange={(event) => setForm({ ...form, target_end_date: event.target.value })}
@@ -307,7 +307,7 @@ export default function ProjectScopesPanel({ quotationId }) {
             </ScopeField>
             <div className="sm:col-span-2">
               <ScopeField label="Notes">
-                <textarea
+                <textarea className="bp-ui-control"
                   rows={2}
                   maxLength={1000}
                   value={form.notes}
@@ -327,7 +327,7 @@ export default function ProjectScopesPanel({ quotationId }) {
             </p>
             <button
               disabled={saving}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
             >
               {saving ? "Saving…" : "Save scope"}
             </button>
@@ -349,7 +349,7 @@ export default function ProjectScopesPanel({ quotationId }) {
             <div className="mt-4">
               <EmptyState
                 title="No scopes yet"
-                description="Add a scope for each service on this project so you can track and outsource them separately."
+                
               />
             </div>
           ) : (
@@ -425,13 +425,13 @@ export default function ProjectScopesPanel({ quotationId }) {
                     <span className="flex-1" />
                     <button
                       onClick={() => startEdit(scope)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold"
+                      className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action"
                     >
                       <Pencil className="h-3.5 w-3.5" /> Edit
                     </button>
                     <button
                       onClick={() => remove(scope)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 bp-ui-action"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Remove
                     </button>

@@ -100,7 +100,7 @@ export default function WhatsAppAppChooser() {
               <MessageCircle className="h-6 w-6" />
             </span>
             <div>
-              <h2 id="whatsapp-app-title" className="text-lg font-extrabold text-slate-950">
+              <h2 id="whatsapp-app-title" className="text-lg font-extrabold text-slate-950 bp-ui-section-heading">
                 Open WhatsApp
               </h2>
               
@@ -109,7 +109,7 @@ export default function WhatsAppAppChooser() {
           <button
             type="button"
             onClick={() => setRequest(null)}
-            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"
+            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 bp-ui-icon-action"
             aria-label="Close WhatsApp chooser"
           >
             <X className="h-5 w-5" />
@@ -175,7 +175,7 @@ export default function WhatsAppAppChooser() {
           <button
             type="button"
             onClick={copyContact}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 bp-ui-action"
           >
             {copied ? (
               <Check className="h-4 w-4 text-emerald-600" />
@@ -206,11 +206,11 @@ function AppButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
+      className={(`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
         primary
           ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
           : "border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-      }`}
+      }`) + " bp-ui-action"}
     >
       <span
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${

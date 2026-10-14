@@ -77,7 +77,7 @@ export default function IndiaLocationPicker({ value, onChange, required = false,
         <div>
           <p className="font-bold text-slate-950">{title}{required ? " *" : ""}</p>
         </div>
-        <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+        <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">
           {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}
           {locating ? "Finding location..." : "Use my current location"}
         </button>
@@ -85,12 +85,12 @@ export default function IndiaLocationPicker({ value, onChange, required = false,
       <div className="relative mt-4">
         <label className="flex items-center gap-2 rounded-xl border bg-white px-3 py-3">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin text-blue-600" /> : <Search className="h-4 w-4 text-slate-400" />}
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type city, area or PIN code" className="w-full bg-transparent text-sm outline-none" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type city, area or PIN code" className="w-full bg-transparent text-sm outline-none bp-ui-control" />
         </label>
         {suggestions.length > 0 && (
           <div className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border bg-white p-1 shadow-2xl">
             {suggestions.map((item) => (
-              <button type="button" key={`${item.pincode}-${item.area}`} onClick={() => select(item)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-blue-50">
+              <button type="button" key={`${item.pincode}-${item.area}`} onClick={() => select(item)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-blue-50 bp-ui-action">
                 <b className="block text-sm">{item.area} · {item.pincode}</b>
                 <small className="text-slate-500">{item.district}, {item.state}</small>
               </button>
@@ -105,7 +105,7 @@ export default function IndiaLocationPicker({ value, onChange, required = false,
         </div>
       )}
       <label className="mt-3 block text-sm font-semibold">Search radius
-        <select value={value?.radius_km || 10} onChange={(event) => onChange({ ...value, radius_km: Number(event.target.value) })} className="mt-2 w-full rounded-xl border bg-white px-3 py-3 font-normal">
+        <select value={value?.radius_km || 10} onChange={(event) => onChange({ ...value, radius_km: Number(event.target.value) })} className="mt-2 w-full rounded-xl border bg-white px-3 py-3 font-normal bp-ui-control">
           {[5, 10, 15, 25, 50, 100].map((radius) => <option key={radius} value={radius}>{radius} km radius</option>)}
         </select>
       </label>

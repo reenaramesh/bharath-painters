@@ -16,14 +16,15 @@ from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.utils import timezone
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 import secrets
 
 from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent, ProviderProfile
 from .legal import POLICY_VERSION, document_hashes, registration_legal_payload
 from .utils import activate_business_identity, bharath_profile_url, generate_bharath_qr
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
+from django.utils.cache import patch_vary_headers
 from .profile_card_pdf import render_contractor_card_pdf
 from .mobile import normalize_mobile, matching_mobile_users
 from .maps_lookup import MapLookupError, lookup_google_map_link
@@ -1797,16 +1798,29 @@ class VerifyBharathIDPageView(APIView):
             )
 
         if user.role == BharathUser.Roles.CONTRACTOR and getattr(user, "contractor_profile", None):
+            # Browser/QR visitors use the same React profile as every app role.
+            # Existing data readers explicitly request JSON and still receive the
+            # inert, escaped HTML presentation payload used by older clients.
+            frontend_root = settings.FRONTEND_URL.rstrip("/")
+            if settings.DEBUG and request.get_host().split(":", 1)[0] in {"localhost", "127.0.0.1"}:
+                frontend_root = getattr(settings, "BHARATH_DEV_FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            destination = urlsplit(frontend_root)
+            if "text/html" in request.headers.get("Accept", "") and destination.scheme in {"http", "https"} and destination.netloc:
+                response = HttpResponseRedirect(f"{frontend_root}/contractor-profile/{quote(user.bharath_id, safe='')}")
+                patch_vary_headers(response, ["Accept"])
+                return response
             if not user.bharath_qr:
                 generate_bharath_qr(user, request.build_absolute_uri("/").rstrip("/"))
                 user.save(update_fields=("bharath_qr",))
             card = _contractor_digital_card(user, request)
-            return render(request, "accounts/digital_card.html", {
+            response = render(request, "accounts/digital_card.html", {
                 "card": card,
                 "qr_image": _profile_image_url(request, user.bharath_qr),
                 "profile_url": bharath_profile_url(user, request.build_absolute_uri("/").rstrip("/")),
                 "pdf_url": request.build_absolute_uri(f"/api/accounts/profile-card/{user.bharath_id}/pdf/"),
             })
+            patch_vary_headers(response, ["Accept"])
+            return response
 
         if user.role == BharathUser.Roles.PAINTER and getattr(user, "painter_profile", None):
             if not user.bharath_qr:

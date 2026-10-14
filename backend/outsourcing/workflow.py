@@ -133,6 +133,16 @@ def transition(user, work_order, target_status, note=""):
     if reason:
         raise ValidationError({"status": reason})
 
+    active_assignments = work_order.assignments.exclude(status__in=("DECLINED", "RELEASED"))
+    if target_status == SubcontractWorkOrder.Status.IN_PROGRESS and active_assignments.exclude(
+        status__in=("ACCEPTED", "IN_PROGRESS", "COMPLETED")
+    ).exists():
+        raise ValidationError({"status": "Every active employee must accept their assignment before work starts."})
+    if target_status == SubcontractWorkOrder.Status.SUBMITTED_FOR_REVIEW and active_assignments.exclude(
+        status="COMPLETED"
+    ).exists():
+        raise ValidationError({"status": "Every active employee assignment must be completed before sending work for review."})
+
     previous = work_order.status
     now = timezone.now()
     work_order.status = target_status
@@ -142,6 +152,10 @@ def transition(user, work_order, target_status, note=""):
     work_order.save(
         update_fields=(["status", field, "updated_at"] if field else ["status", "updated_at"])
     )
+    if target_status == SubcontractWorkOrder.Status.CANCELLED:
+        work_order.assignments.exclude(status__in=("COMPLETED", "DECLINED", "RELEASED")).update(
+            status="RELEASED", released_at=now,
+        )
     if work_order.material_mode:
         price=work_order.quotes.filter(is_current=True,created_by=work_order.main_contractor).first()
         if price is None:

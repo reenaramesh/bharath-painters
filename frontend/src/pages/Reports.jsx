@@ -72,20 +72,20 @@ export default function Reports() {
   const summary = data?.summary || {};
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
         <div>
           <p className="text-sm font-semibold text-amber-600">
             {user.role === "ADMIN"
               ? "Platform operations"
               : "Business performance"}
           </p>
-          <h1 className="mt-1 text-3xl font-bold">Reports</h1>
+          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Reports</h1>
           
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => { load(); loadUsers(); }}
-            className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold"
+            className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold bp-ui-action"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -93,7 +93,7 @@ export default function Reports() {
           <button
             disabled={busy}
             onClick={exportCsv}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white bp-ui-action"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -151,11 +151,11 @@ export default function Reports() {
             <summary className="min-h-11 cursor-pointer font-semibold">View detailed report tables</summary>
           <div className="mt-4 grid gap-5 xl:grid-cols-2">
             <section className="overflow-hidden rounded-2xl border bg-white">
-              <h2 className="border-b p-5 font-bold">
+              <h2 className="border-b p-5 font-bold bp-ui-section-heading">
                 Monthly invoice performance
               </h2>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-left text-sm">
+                <table className="w-full min-w-[520px] text-left text-sm bp-ui-table">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                       <th className="p-4">Month</th>
@@ -192,7 +192,7 @@ export default function Reports() {
               </div>
             </section>
             <section className="rounded-2xl border bg-white">
-              <h2 className="border-b p-5 font-bold">Quotation pipeline</h2>
+              <h2 className="border-b p-5 font-bold bp-ui-section-heading">Quotation pipeline</h2>
               <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3">
                 {data.quotation_statuses.map((row) => (
                   <div key={row.status} className="rounded-xl bg-slate-50 p-4">
@@ -212,11 +212,11 @@ export default function Reports() {
           </div>
           </details>
           <section className="overflow-hidden rounded-2xl border bg-white">
-            <h2 className="border-b p-5 font-bold">
+            <h2 className="border-b p-5 font-bold bp-ui-section-heading">
               Upcoming and active projects
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm bp-ui-table">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="p-4">Quotation</th>

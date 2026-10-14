@@ -4,7 +4,7 @@ export const hasMeasurement = (surface) => Number(surface.gross_area || 0) > 0
   || Number(surface.net_area || 0) > 0 || Number(surface.deduction_area || 0) > 0 || Number(surface.addition_area || 0) > 0;
 
 export function quotationMeasurementTables(measurement) {
-  const rows = measurement.rooms.map((room) => ({ ...room,
+  const rows = measurement.rooms.filter(room => room.id != null).map((room) => ({ ...room,
     surfaces: measurement.surfaces.filter((surface) => String(surface.room) === String(room.id)),
   }));
   const unassigned = new Map();
@@ -15,10 +15,7 @@ export function quotationMeasurementTables(measurement) {
     unassigned.get(key).surfaces.push(surface);
   }
   rows.push(...unassigned.values());
-  return [
-    {title:'Walls & Ceilings',types:['WALL','CEILING']},
-    {title:'Doors, Windows & Other Surfaces',types:['DOOR','WINDOW','OTHER']},
-  ].map((table) => ({...table,
+  return [{title:'Property measurements',types:TYPES.concat('OTHER')}].map((table) => ({...table,
     types:table.types.filter((type) => rows.some((row) => row.surfaces.some((surface) => measurementBucket(surface) === type && hasMeasurement(surface)))),
     rows:rows.filter((row) => row.surfaces.some((surface) => table.types.includes(measurementBucket(surface)) && hasMeasurement(surface))),
   })).filter((table) => table.rows.length && table.types.length);

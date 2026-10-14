@@ -73,7 +73,7 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
 
   if (inline) return <section className="space-y-4 sm:col-span-2" aria-labelledby="customer-registration-agreement">
     <header className="border-t pt-6">
-      <h2 id="customer-registration-agreement" className="text-xl font-bold">Terms of Use & Privacy Notice</h2>
+      <h2 id="customer-registration-agreement" className="text-xl font-bold bp-ui-section-heading">Terms of Use & Privacy Notice</h2>
       
       {document && <p className="mt-2 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p>}
     </header>
@@ -107,7 +107,7 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
           {document && <p className="mt-1 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p>}
           {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
         </div>
-        <button type="button" disabled={loading || !document} onClick={() => setOpen(true)} className="shrink-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold disabled:opacity-50">
+        <button type="button" disabled={loading || !document} onClick={() => setOpen(true)} className="shrink-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold disabled:opacity-50 bp-ui-action">
           {loading ? "Loading..." : accepted ? "Review" : "Read document"}
         </button>
       </div>
@@ -116,8 +116,8 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
     {open && document && <div className="fixed inset-0 z-[100] flex items-end bg-slate-950/70 sm:items-center sm:justify-center sm:p-5">
       <div className="flex h-[96vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl">
         <header className="flex items-start justify-between gap-4 border-b p-4 sm:p-5">
-          <div><p className="text-xs font-bold uppercase tracking-wider text-amber-600">Registration agreement</p><h2 className="mt-1 text-xl font-extrabold sm:text-2xl">Terms of Use & Privacy Notice</h2><p className="mt-1 text-xs text-slate-500">{document.operator_name} / {document.operator_address}</p><p className="mt-1 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p></div>
-          <button type="button" onClick={() => setOpen(false)} className="rounded-xl border p-2" aria-label="Close"><X className="h-5 w-5" /></button>
+          <div><p className="text-xs font-bold uppercase tracking-wider text-amber-600">Registration agreement</p><h2 className="mt-1 text-xl font-extrabold sm:text-2xl bp-ui-section-heading">Terms of Use & Privacy Notice</h2><p className="mt-1 text-xs text-slate-500">{document.operator_name} / {document.operator_address}</p><p className="mt-1 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p></div>
+          <button type="button" onClick={() => setOpen(false)} className="rounded-xl border p-2 bp-ui-icon-action" aria-label="Close"><X className="h-5 w-5" /></button>
         </header>
 
         <div onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-5 sm:px-7">
@@ -137,7 +137,7 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
             <input type="checkbox" disabled={!reachedEnd} checked={checked} onChange={(event) => setChecked(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
             <span>I have read and accept the Terms of Use and acknowledge the Privacy and Data Protection Notice, including the role-specific responsibilities shown above.</span>
           </label>
-          <button type="button" onClick={confirm} disabled={!reachedEnd || !checked} className="mt-3 w-full rounded-xl bg-slate-950 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Accept and continue</button>
+          <button type="button" onClick={confirm} disabled={!reachedEnd || !checked} className="mt-3 w-full rounded-xl bg-slate-950 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action">Accept and continue</button>
         </footer>
       </div>
     </div>}

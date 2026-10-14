@@ -71,9 +71,11 @@ class WorkOrderAssignmentSerializer(serializers.ModelSerializer):
             "assigned_at",
             "responded_at",
             "released_at",
+            "work_started_at",
+            "work_completed_at",
             "note",
         ]
-        read_only_fields = ["id", "employee_name", "assigned_at", "responded_at", "released_at"]
+        read_only_fields = ["id", "employee_name", "assigned_at", "responded_at", "released_at", "work_started_at", "work_completed_at"]
 
     def get_employee_name(self, obj):
         return user_label(obj.employee)

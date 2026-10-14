@@ -44,6 +44,11 @@ def source_snapshot(quotation, items):
     settings = {key: getattr(quotation, key) for key in ("discount_mode", "discount_type", "discount_value", "gst_mode", "gst_percentage")}
     totals = calculate_pricing(items, settings)
     reductions = [discount_amount(item.amount, item.discount_type, item.discount_value) for item in items] if quotation.discount_mode == "LINE" else allocate(totals["discount"], amounts)
+    if quotation.discount_mode == "BOTH":
+        reductions = [discount_amount(item.amount, item.discount_type, item.discount_value) for item in items]
+        remaining = [amount-reduction for amount, reduction in zip(amounts, reductions)]
+        overall = allocate(totals["discount"]-sum(reductions, Decimal(0)), remaining)
+        reductions = [line+additional for line, additional in zip(reductions, overall)]
     eligible = [amount - reduction for amount, reduction in zip(amounts, reductions)]
     if quotation.gst_mode == "GST_INCLUDED":
         tax = allocate(totals["gst_amount"], eligible)

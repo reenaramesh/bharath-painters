@@ -1,3 +1,4 @@
+import "./quotation-ui.css";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
@@ -26,7 +27,7 @@ const statusStyles = {
 };
 
 const money = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     Number(value || 0),
   );
 
@@ -124,14 +125,14 @@ export default function CustomerQuotationHistory() {
     );
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="bp-quotation-history space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
         <div>
           <BackButton fallback={`/customers/${id}`} label="Back to customer" />
           <p className="mt-5 text-sm font-semibold text-amber-600">
             Customer quotation history
           </p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">
+          <h1 className="mt-1 text-3xl font-bold text-slate-900 bp-ui-page-title">
             {customer.name}
           </h1>
           
@@ -157,19 +158,19 @@ export default function CustomerQuotationHistory() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
-          <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5">
+          <label className="quotation-filter-field flex-1"><span>Search quotations</span><span className="quotation-search-control">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search quotation number, property or type"
-              className="w-full bg-transparent text-sm outline-none"
+              placeholder="Search quotations"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
-          </label>
-          <select
+          </span></label>
+          <label className="quotation-filter-field"><span>Status</span><select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm bp-ui-control"
           >
             <option value="ALL">All statuses</option>
             {Object.keys(statusStyles).map((item) => (
@@ -177,7 +178,7 @@ export default function CustomerQuotationHistory() {
                 {item.replaceAll("_", " ")}
               </option>
             ))}
-          </select>
+          </select></label>
         </div>
 
         {quotations.length ? (
@@ -302,7 +303,7 @@ export default function CustomerQuotationHistory() {
         ) : (
           <div className="p-12 text-center">
             <FileText className="mx-auto h-10 w-10 text-slate-300" />
-            <h2 className="mt-3 font-semibold">No quotations found</h2>
+            <h2 className="mt-3 font-semibold bp-ui-section-heading">No quotations found</h2>
             
           </div>
         )}
@@ -325,7 +326,7 @@ function Header({ label, sortKey, sort, onSort }) {
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className="inline-flex items-center gap-2"
+        className="inline-flex items-center gap-2 bp-ui-action"
       >
         {label}
         <ArrowUpDown

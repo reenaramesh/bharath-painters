@@ -389,12 +389,12 @@ export default function AdminDashboard() {
       <PageHeader
         eyebrow="Administration"
         title={focusedSection ? focusedSection.label : "Operations dashboard"}
-        description="Monitor people, live work, communication and quotation activity from one workspace."
+        
         actions={
           <>
             <button
               onClick={exportAll}
-              className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+              className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold bp-ui-action"
             >
               <Download className="h-4 w-4" />
               Export all people
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
                 type="button"
                 disabled={saving}
                 onClick={releaseDeletedCustomerNumbers}
-                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50 bp-ui-action"
               >
                 <RefreshCw className="h-4 w-4" />
                 Release deleted numbers
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
                 type="button"
                 disabled={saving}
                 onClick={openInactiveAccountNumbers}
-                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50 bp-ui-action"
               >
                 <RefreshCw className="h-4 w-4" />
                 Release old deleted numbers
@@ -424,7 +424,7 @@ export default function AdminDashboard() {
             {editable && (
               <button
                 onClick={() => setEditing({})}
-                className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
+                className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action"
               >
                 <Plus className="h-4 w-4" />
                 Add{" "}
@@ -435,7 +435,7 @@ export default function AdminDashboard() {
             )}
             <button
               onClick={load}
-              className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
+              className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold bp-ui-action"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh data
@@ -464,7 +464,7 @@ export default function AdminDashboard() {
       )}
       {!focusedSection && <div className="admin-utility-grid">
         <AdminMenuVisibility />
-        <section className="admin-support-panel rounded-xl border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Recent support conversations</h2></div><Link to="/support-tickets" className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]">All support queries</Link></div><div className="mt-3 divide-y">{supportQueries.length ? supportQueries.map((ticket) => <Link key={ticket.id} to={`/support-tickets?ticket=${ticket.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-slate-50"><span className="min-w-0"><strong className="text-sm">{ticket.subject}</strong><span className="ml-2 text-xs text-slate-500">{ticket.ticket_number} · {ticket.requester_name}</span><span className="mt-1 block text-xs text-slate-500">{ticket.description}</span></span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{ticket.status?.replaceAll("_", " ")}</span></Link>) : <p className="py-3 text-sm text-slate-500">No support queries found.</p>}</div></section>
+        <section className="admin-support-panel rounded-xl border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold bp-ui-section-heading">Recent support conversations</h2></div><Link to="/support-tickets" className="rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]">All support queries</Link></div><div className="mt-3 divide-y">{supportQueries.length ? supportQueries.map((ticket) => <Link key={ticket.id} to={`/support-tickets?ticket=${ticket.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-slate-50"><span className="min-w-0"><strong className="text-sm">{ticket.subject}</strong><span className="ml-2 text-xs text-slate-500">{ticket.ticket_number} · {ticket.requester_name}</span><span className="mt-1 block text-xs text-slate-500">{ticket.description}</span></span><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{ticket.status?.replaceAll("_", " ")}</span></Link>) : <p className="py-3 text-sm text-slate-500">No support queries found.</p>}</div></section>
       </div>}
       {section === "messages" ? <AdminConversations messages={data.messages} /> : <section className="admin-register overflow-hidden rounded-xl border bg-white">
         <div className="admin-register-toolbar flex flex-col gap-2 border-b p-3 lg:flex-row">
@@ -474,14 +474,14 @@ export default function AdminDashboard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${sections.find((item) => item.key === section).label.toLowerCase()}...`}
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           {section !== "customers" && (
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="rounded-lg border px-3 py-2 text-sm"
+              className="rounded-lg border px-3 py-2 text-sm bp-ui-control"
             >
               <option value="ALL">All statuses / roles</option>
               {filterOptions.map((value) => (
@@ -491,7 +491,7 @@ export default function AdminDashboard() {
           )}
           <button
             onClick={exportCurrentCsv}
-            className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"
+            className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action"
           >
             <Download className="h-4 w-4" />
             Export current CSV
@@ -499,17 +499,15 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center justify-between border-b bg-slate-50 px-4 py-2">
           <p className="text-sm font-semibold">{rows.length} records</p>
-          <p className="text-xs text-slate-400">
-            Click a column heading to sort
-          </p>
+          
         </div>
         {editable && selectedIds.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 border-b bg-[var(--app-soft)] px-4 py-2">
             <span className="text-sm font-semibold text-[var(--app-primary)]">{selectedIds.length} selected</span>
-            <button type="button" disabled={saving} onClick={deleteSelected} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+            <button type="button" disabled={saving} onClick={deleteSelected} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 bp-ui-action">
               <Trash2 className="h-4 w-4" /> {saving ? "Deleting..." : "Delete selected"}
             </button>
-            <button type="button" disabled={saving} onClick={() => setSelectedIds([])} className="text-xs font-semibold text-slate-600 hover:underline">Clear selection</button>
+            <button type="button" disabled={saving} onClick={() => setSelectedIds([])} className="text-xs font-semibold text-slate-600 hover:underline bp-ui-action">Clear selection</button>
           </div>
         )}
         <DataTable
@@ -536,7 +534,7 @@ export default function AdminDashboard() {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-lg border bg-white px-2 py-2 text-xs"
+              className="rounded-lg border bg-white px-2 py-2 text-xs bp-ui-control"
             >
               {[25, 50, 75, 100].map((size) => (
                 <option key={size} value={size}>
@@ -547,7 +545,7 @@ export default function AdminDashboard() {
             <button
               disabled={page === 1}
               onClick={() => setPage((value) => value - 1)}
-              className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
+              className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40 bp-ui-action"
             >
               Previous
             </button>
@@ -557,7 +555,7 @@ export default function AdminDashboard() {
             <button
               disabled={page === totalPages}
               onClick={() => setPage((value) => value + 1)}
-              className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
+              className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40 bp-ui-action"
             >
               Next
             </button>
@@ -585,10 +583,10 @@ export default function AdminDashboard() {
           <div role="dialog" aria-modal="true" aria-labelledby="retired-account-title" className="w-full max-w-xl rounded-xl bg-white p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="retired-account-title" className="text-lg font-bold">Release old deleted numbers</h2>
+                <h2 id="retired-account-title" className="text-lg font-bold bp-ui-section-heading">Release old deleted numbers</h2>
                 
               </div>
-              <button type="button" aria-label="Close" onClick={() => setRetiredAccounts(null)} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+              <button type="button" aria-label="Close" onClick={() => setRetiredAccounts(null)} className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"><X className="h-5 w-5" /></button>
             </div>
             <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
               {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -601,8 +599,8 @@ export default function AdminDashboard() {
               ))}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setRetiredAccounts(null)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-              <button type="button" disabled={saving || !retiredSelection.length} onClick={releaseInactiveAccountNumbers} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Release {retiredSelection.length} numbers</button>
+              <button type="button" onClick={() => setRetiredAccounts(null)} className="rounded-lg border px-4 py-2 text-sm bp-ui-action">Cancel</button>
+              <button type="button" disabled={saving || !retiredSelection.length} onClick={releaseInactiveAccountNumbers} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action">Release {retiredSelection.length} numbers</button>
             </div>
           </div>
         </div>
@@ -632,7 +630,7 @@ function ActiveTodayCounts({ contractors, applicators, openSection }) {
         <button
           key={key}
           onClick={() => openSection(key)}
-          className="flex items-center gap-2 rounded-xl border bg-white p-3 text-left transition hover:border-emerald-300 hover:shadow-sm sm:gap-4 sm:rounded-2xl sm:p-5"
+          className="flex items-center gap-2 rounded-xl border bg-white p-3 text-left transition hover:border-emerald-300 hover:shadow-sm sm:gap-4 sm:rounded-2xl sm:p-5 bp-ui-action"
         >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700 sm:h-12 sm:w-12 sm:rounded-xl">
             <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -657,16 +655,16 @@ function WorkingTable({ title, icon: Icon, rows, type, open }) {
             <Icon className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="font-bold">{title}</h2>
+            <h2 className="font-bold bp-ui-section-heading">{title}</h2>
             <p className="text-xs text-slate-500">{rows.length} active today</p>
           </div>
         </div>
-        <button onClick={open} className="text-sm font-semibold">
+        <button onClick={open} className="text-sm font-semibold bp-ui-action">
           View all
         </button>
       </header>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[620px] text-left text-sm">
+        <table className="w-full min-w-[620px] text-left text-sm bp-ui-table">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-3">Sl.</th>
@@ -738,7 +736,7 @@ function DataTable({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="admin-directory-table w-full text-left text-xs sm:text-sm">
+      <table className="admin-directory-table w-full text-left text-xs sm:text-sm bp-ui-table">
         <thead className="bg-slate-50">
           <tr>
             <th className="border-b px-2 py-2 sm:px-3">Sl.</th>
@@ -749,7 +747,7 @@ function DataTable({
               <th key={key} className="border-b px-2 py-2 sm:px-3">
                 <button
                   onClick={() => choose(key)}
-                  className="flex items-center gap-1 text-left font-bold"
+                  className="flex items-center gap-1 text-left font-bold bp-ui-action"
                 >
                   {label}
                   <ArrowDownUp
@@ -780,13 +778,13 @@ function DataTable({
                     {section !== "customers" && <button
                       disabled={saving}
                       onClick={() => onSuspend(row)}
-                      className="mr-1 inline-flex items-center justify-center rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50"
+                      className="mr-1 inline-flex items-center justify-center rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 bp-ui-icon-action"
                       title="Suspend account access with justification"
                       aria-label={`Suspend access for ${row.name || row.company}`}
                     ><EyeOff className="h-4 w-4" /></button>}
                     <button
                       onClick={() => onEdit(row)}
-                      className="mr-1 rounded-lg border p-2 hover:bg-slate-50"
+                      className="mr-1 rounded-lg border p-2 hover:bg-slate-50 bp-ui-icon-action"
                       title="Edit"
                       aria-label={`Edit ${row.name || row.company}`}
                     >
@@ -795,7 +793,7 @@ function DataTable({
                     <button
                       disabled={saving}
                       onClick={() => onDelete(row)}
-                      className="inline-flex items-center justify-center rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center justify-center rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 bp-ui-icon-action"
                       title="Delete account access"
                       aria-label={`Delete access for ${row.name || row.company}`}
                     >
@@ -920,7 +918,7 @@ function RecordModal({
       >
         <div className="flex justify-between">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold bp-ui-section-heading">
               {record.id ? "Edit" : "Create"}{" "}
               {section === "applicators"
                 ? "Paint Applicator"
@@ -928,19 +926,19 @@ function RecordModal({
             </h2>
             
           </div>
-          <button type="button" onClick={onClose}>
+          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
             <X />
           </button>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label="Name">
-            <input required {...change("name")} className={input} />
+            <input required {...change("name")} className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Mobile">
-            <input required {...change("mobile")} className={input} />
+            <input required {...change("mobile")} className={(input) + " bp-ui-control"} />
           </Field>
           <Field label="Email">
-            <input type="email" required={section === "contractors" && !record.id} {...change("email")} className={input} />
+            <input type="email" required={section === "contractors" && !record.id} {...change("email")} className={(input) + " bp-ui-control"} />
           </Field>
           {section !== "customers" && (
             <div className="text-sm font-semibold">
@@ -955,7 +953,7 @@ function RecordModal({
                   {...change("password")}
                   className={`${input} pr-12`}
                 />
-                <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-2 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
+                <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-2 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 bp-ui-action">
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </span>
@@ -964,7 +962,7 @@ function RecordModal({
           {section === "contractors" && record.id && (
             <>
               <Field label="Company">
-                <input required {...change("company")} className={input} />
+                <input required {...change("company")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Verification">
                 <Verification
@@ -976,20 +974,20 @@ function RecordModal({
                 />
               </Field>
               <Field label="Service areas" wide>
-                <input {...change("service_areas")} className={input} />
+                <input {...change("service_areas")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Office address" wide>
-                <textarea rows="2" {...change("address")} className={input} />
+                <textarea rows="2" {...change("address")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="GST number">
-                <input {...change("gst_number")} className={input} />
+                <input {...change("gst_number")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Applicator count">
                 <input
                   type="number"
                   min="0"
                   {...change("number_of_painters")}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
             </>
@@ -1006,7 +1004,7 @@ function RecordModal({
                 />
               </Field>
               <Field label="Availability">
-                <select {...change("availability")} className={input}>
+                <select {...change("availability")} className={(input) + " bp-ui-control"}>
                   <option>AVAILABLE</option>
                   <option>BUSY</option>
                   <option>OFFLINE</option>
@@ -1017,18 +1015,18 @@ function RecordModal({
                   type="number"
                   min="0"
                   {...change("experience_years")}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Preferred locations">
-                <input {...change("locations")} className={input} />
+                <input {...change("locations")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Daily wage">
                 <input
                   type="number"
                   min="0"
                   {...change("daily_wage")}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Weekly wage">
@@ -1036,18 +1034,18 @@ function RecordModal({
                   type="number"
                   min="0"
                   {...change("weekly_wage")}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
               <Field label="Skills" wide>
-                <textarea rows="3" {...change("skills")} className={input} />
+                <textarea rows="3" {...change("skills")} className={(input) + " bp-ui-control"} />
               </Field>
             </>
           )}
           {section === "customers" && (
             <>
               <Field label="Contractor">
-                <select required {...change("contractor_id")} className={input}>
+                <select required {...change("contractor_id")} className={(input) + " bp-ui-control"}>
                   {contractors.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.company} · {item.mobile}
@@ -1056,16 +1054,16 @@ function RecordModal({
                 </select>
               </Field>
               <Field label="City">
-                <input {...change("city")} className={input} />
+                <input {...change("city")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Address" wide>
-                <textarea rows="2" {...change("address")} className={input} />
+                <textarea rows="2" {...change("address")} className={(input) + " bp-ui-control"} />
               </Field>
               <Field label="Requirement" wide>
                 <textarea
                   rows="3"
                   {...change("requirement")}
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </Field>
             </>
@@ -1073,7 +1071,7 @@ function RecordModal({
         </div>
         <button
           disabled={saving}
-          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50 bp-ui-action"
         >
           {saving ? "Saving..." : "Save record"}
         </button>
@@ -1086,7 +1084,7 @@ function Verification({ value, onChange, className }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={className}
+      className={(className) + " bp-ui-control"}
     >
       <option>VERIFIED</option>
       <option>PENDING</option>
@@ -1111,12 +1109,10 @@ function CredentialModal({ credentials, onClose }) {
       <div className="w-full max-w-md rounded-2xl bg-white p-6">
         <div className="flex justify-between">
           <div>
-            <h2 className="text-xl font-bold">Account created</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Copy the password now; it will not be shown again.
-            </p>
+            <h2 className="text-xl font-bold bp-ui-section-heading">Account created</h2>
+            
           </div>
-          <button onClick={onClose}>
+          <button className="bp-ui-icon-action" onClick={onClose}>
             <X />
           </button>
         </div>
@@ -1125,7 +1121,7 @@ function CredentialModal({ credentials, onClose }) {
         </pre>
         <button
           onClick={() => navigator.clipboard.writeText(text)}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white bp-ui-action"
         >
           <Copy className="h-4 w-4" />
           Copy credentials

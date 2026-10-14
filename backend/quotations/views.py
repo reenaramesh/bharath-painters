@@ -3740,14 +3740,32 @@ class LeadListCreateView(APIView):
     def post(self, request):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
-        customer = Customer.objects.filter(pk=request.data.get("customer"), contractor=request.user).first()
+        connected_customers = Customer.objects.filter(
+            contractor_connections__contractor=request.user,
+            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+        )
+        legacy_customers = Customer.objects.filter(
+            contractor=request.user, contractor_connections__isnull=True,
+        )
+        customer_qs = (connected_customers | legacy_customers).exclude(status=Customer.Status.CANCELLED)
+        customer = customer_qs.filter(pk=request.data.get("customer")).distinct().first()
         if not customer:
             return Response({"customer": "Select one of your existing customers."}, status=status.HTTP_400_BAD_REQUEST)
         title = str(request.data.get("title") or "").strip()
         if not title:
             return Response({"title": "Enter the requested service."}, status=status.HTTP_400_BAD_REQUEST)
         service = ServiceType.objects.filter(pk=request.data.get("service_type")).first()
-        property_obj = Property.objects.filter(pk=request.data.get("property"), customer=customer).first()
+        property_id = request.data.get("property")
+        property_obj = None
+        if property_id:
+            property_obj = Property.objects.filter(
+                pk=property_id, customer=customer, contractor=request.user,
+            ).filter(
+                models.Q(connection__contractor=request.user, connection__status=ContractorCustomerConnection.Status.CONNECTED)
+                | models.Q(connection__isnull=True, customer__contractor=request.user, customer__contractor_connections__isnull=True)
+            ).first()
+            if not property_obj:
+                return Response({"property": "Select a property you can access."}, status=status.HTTP_400_BAD_REQUEST)
         assigned_user = BharathUser.objects.filter(pk=request.data.get("assigned_user")).first()
         source = str(request.data.get("source") or Lead.Source.OTHER).upper()
         if source not in {choice[0] for choice in Lead.Source.choices}:
@@ -3866,11 +3884,8 @@ class ClientSearchView(APIView):
             models.Q(
                 contractor_connections__contractor=request.user,
                 contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-            ) | models.Q(
-                contractor=request.user,
-                contractor_connections__isnull=True,
-            )
-        ).filter(filters).distinct()[:8]
+            ) | models.Q(contractor=request.user, contractor_connections__isnull=True),
+        ).exclude(status=Customer.Status.CANCELLED).filter(filters).distinct()[:8]
         return Response([{
             "id": item.id, "bharath_id": item.bharath_id, "name": item.name, "mobile": item.mobile,
             "alternate_mobile": item.alternate_mobile, "email": item.email, "client_type": item.client_type,
@@ -4071,6 +4086,11 @@ def ticket_data(ticket):
     )
     profile = contractor.contractor_profile if contractor and hasattr(contractor, "contractor_profile") else None
     requester_name = customer.name if customer else (requester.get_full_name() or requester.mobile if requester else "Unknown user")
+    authenticated_requester = bool(
+        requester and ticket.actions.filter(
+            actor_id=requester.id, action="TICKET_CREATED_AUTHENTICATED",
+        ).exists()
+    )
     return {
         "id": ticket.id, "ticket_number": f"BP-TKT-{ticket.id:06d}",
         "chat_conversation_id": ticket.chat_conversation_id,
@@ -4078,6 +4098,7 @@ def ticket_data(ticket):
         "customer_mobile": customer.mobile if customer else (requester.mobile if requester else ""),
         "customer_email": customer.email if customer else (requester.email if requester else ""),
         "requester_name": requester_name, "requester_role": requester.role if requester else "CUSTOMER",
+        "requester_identity_source": "AUTHENTICATED_ACCOUNT" if authenticated_requester else "UNVERIFIED_CLAIM",
         "contractor_name": profile.company_name if profile else (contractor.get_full_name() or contractor.mobile if contractor else ""),
         "category": ticket.category, "priority": ticket.priority,
         "subject": ticket.subject, "description": ticket.description,
@@ -4166,6 +4187,12 @@ class SupportTicketListCreateView(APIView):
             category=request.data.get("category") if request.data.get("category") in categories else SupportTicket.Category.OTHER,
             priority=request.data.get("priority") if request.data.get("priority") in priorities else SupportTicket.Priority.MEDIUM,
             requester_seen_at=timezone.now(),
+        )
+        SupportActionLog.objects.create(
+            actor=request.user, ticket=ticket, action="TICKET_CREATED_AUTHENTICATED",
+            target_type="SupportTicket", target_id=ticket.pk,
+            reason="Ticket submitted through an authenticated session.",
+            after={"requester_id": request.user.pk},
         )
         for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
             create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"{request.user.get_full_name() or request.user.mobile}: {subject}", "/support-tickets", request.user)
@@ -5102,61 +5129,82 @@ class MeasurementAccessPrepareQuotationView(APIView):
 
     @transaction.atomic
     def post(self, request, pk):
-        access = MeasurementAccessRequest.objects.select_related("customer", "source_property", "source_property__customer", "target_property").filter(
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Approved Area Calculation access was not found."}, status=status.HTTP_404_NOT_FOUND)
+        access = MeasurementAccessRequest.objects.select_for_update().select_related("customer", "source_property", "source_property__customer", "target_property").filter(
             pk=pk, requesting_contractor=request.user, status=MeasurementAccessRequest.Status.APPROVED,
         ).first()
         if not access:
             return Response({"detail": "Approved Area Calculation access was not found."}, status=status.HTTP_404_NOT_FOUND)
+        connection = ContractorCustomerConnection.objects.select_for_update().filter(
+            customer=access.customer, contractor=request.user,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).first()
+        if not connection or access.source_property.customer_id != access.customer_id:
+            return Response({"detail": "Customer access is not available."}, status=status.HTTP_403_FORBIDDEN)
         if access.target_property_id:
+            if (access.target_property.contractor_id != request.user.id
+                    or access.target_property.connection_id != connection.id
+                    or access.target_property.customer_id != access.customer_id):
+                return Response({"detail": "Customer access is not available."}, status=status.HTTP_403_FORBIDDEN)
             return Response({"customer": access.target_property.customer_id, "property": access.target_property_id})
         source_customer = access.source_property.customer
-        customer = Customer.objects.filter(contractor=request.user, mobile=source_customer.mobile).first()
-        if not customer:
-            customer = Customer.objects.create(
-                contractor=request.user, portal_user=source_customer.portal_user, name=source_customer.name,
-                mobile=source_customer.mobile, email=source_customer.email, whatsapp=source_customer.whatsapp,
-                address=source_customer.address, city=source_customer.city, pincode=source_customer.pincode,
-                source=Customer.Source.OTHER, notes="Customer shared a property Area Calculation.",
-            )
+        customer = source_customer
         source = access.source_property
+        source_record = source.measurement_records.filter(submitted_at__isnull=False).order_by("-measured_on", "-id").first()
+        if not source_record:
+            raise ValidationError({"measurement": "No submitted Area Calculation is available."})
         target = Property.objects.create(
-            customer=customer, property_type=source.property_type, measurement_type=source.measurement_type,
+            customer=customer, contractor=request.user, connection=connection,
+            property_type=source.property_type, measurement_type=source.measurement_type,
             measurement_unit=source.measurement_unit, name=source.name, address=source.address,
             city=source.city, pincode=source.pincode, approximate_area=source.approximate_area,
         )
         ensure_legacy_primary_contact(target)
-        source_record = source.measurement_records.filter(submitted_at__isnull=False).order_by("-measured_on", "-id").first()
-        if not source_record:
-            raise ValidationError({"measurement": "No submitted Area Calculation is available."})
         target_record = PropertyMeasurement.objects.create(
             property=target,
             contractor=request.user,
-            measured_on=source_record.measured_on if source_record else timezone.localdate(),
+            connection=connection,
+            created_by=request.user,
+            measured_on=source_record.measured_on,
             status=PropertyMeasurement.Status.COMPLETED,
             notes="Customer-approved shared Area Calculation.",
         )
         room_map = {}
         for room in source.rooms.filter(measurement_record=source_record):
             room_map[room.id] = PropertyRoom.objects.create(
-                property=target, measurement_record=target_record, room_type=room.room_type, name=room.name, length=room.length,
+                property=target, measurement_record=target_record, room_type=room.room_type, name=room.name,
+                section=room.section, description=room.description, painting_area=room.painting_area, length=room.length,
                 width=room.width, height=room.height, window_count=room.window_count,
                 window_width=room.window_width, window_height=room.window_height,
                 door_count=room.door_count, door_width=room.door_width, door_height=room.door_height,
             )
+        surface_map = {}
+        linked_openings = []
         for surface in source.measurement_surfaces.filter(measurement_record=source_record).prefetch_related("openings"):
             cloned = MeasurementSurface.objects.create(
                 property=target, measurement_record=target_record, room=room_map.get(surface.room_id), work_area=surface.work_area,
-                surface_type=surface.surface_type, name=surface.name, length=surface.length,
-                breadth=surface.breadth, manual_area=surface.manual_area, paintable_sides=surface.paintable_sides,
+                surface_type=surface.surface_type, area_group_name=surface.area_group_name,
+                name=surface.name, length=surface.length,
+                breadth=surface.breadth, manual_area=surface.manual_area, quantity=surface.quantity, paintable_sides=surface.paintable_sides,
                 finish=surface.finish, rate=surface.rate, notes=surface.notes,
             )
+            surface_map[surface.id] = cloned
             for opening in surface.openings.all():
-                MeasurementOpening.objects.create(
+                copied_opening = MeasurementOpening.objects.create(
                     surface=cloned, opening_type=opening.opening_type, name=opening.name,
                     quantity=opening.quantity, width=opening.width, height=opening.height,
                     deduction_mode=opening.deduction_mode, deduction_percentage=opening.deduction_percentage,
                     effect=opening.effect, separate_finish=opening.separate_finish, separate_rate=opening.separate_rate,
+                    deduct_from_surface_type=opening.deduct_from_surface_type,
+                    deduct_from_group_name=opening.deduct_from_group_name,
                 )
+                if opening.linked_surface_id:
+                    linked_openings.append((copied_opening, opening.linked_surface_id))
+        for copied_opening, source_surface_id in linked_openings:
+            copied_opening.linked_surface = surface_map.get(source_surface_id)
+            copied_opening.save(update_fields=("linked_surface",))
+        PropertyMeasurement.objects.filter(pk=target_record.pk).update(submitted_at=timezone.now())
         access.target_property = target
         access.save(update_fields=("target_property", "updated_at"))
         return Response({"customer": customer.id, "property": target.id}, status=status.HTTP_201_CREATED)
@@ -5299,6 +5347,7 @@ class CustomerQuotationView(APIView):
             "items": [{
                 "id": item.id, "serial": index,
                 "room": quotation_room_area_label(item) or "General",
+                "specification_details": {key: value for key, value in (item.specification_details or {}).items() if key in {"painting_process", "surface", "surfaces", "base_description"}},
                 "included_areas": item.included_areas or [],
                 "room_type": (
                     item.room.room_type_name_snapshot
@@ -6265,6 +6314,43 @@ class PropertyMeasurementListCreateView(generics.ListCreateAPIView):
         if not connection:
             raise ValidationError({"customer": "Connect with this customer before updating the property."})
         serializer.save(contractor=self.request.user, connection=connection)
+
+
+class PropertyMeasurementCombineView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, property_id):
+        if request.user.role != BharathUser.Roles.CONTRACTOR:
+            return Response({"detail": "Only the contractor can combine measurements."}, status=403)
+        property_obj = Property.objects.filter(contractor_property_scope(request.user), pk=property_id).first()
+        if not property_obj:
+            return Response({"detail": "Property not found."}, status=404)
+        ids = request.data.get("measurements") if isinstance(request.data, dict) else None
+        if (not isinstance(ids, list) or not 2 <= len(ids) <= 50
+                or any(type(value) is not int or not 0 < value < 2**63 for value in ids)
+                or len(set(ids)) != len(ids)):
+            raise ValidationError({"measurements": "Select between 2 and 50 different saved measurements."})
+        records = list(PropertyMeasurement.objects.select_for_update().filter(
+            pk__in=ids, property=property_obj, contractor=request.user,
+        ).order_by("id"))
+        if len(records) != len(ids):
+            raise ValidationError({"measurements": "Select measurements belonging to this property and your account."})
+        if any(record.status not in {"DRAFT", "IN_PROGRESS"} or record.submitted_at
+               or record.quotations.exists() or record.project_scopes.exists() for record in records):
+            raise ValidationError({"measurements": "Only unsubmitted measurements unused in quotations or project scopes can be combined."})
+        target, sources = records[0], records[1:]
+        source_ids = [record.pk for record in sources]
+        PropertyRoom.objects.filter(measurement_record_id__in=source_ids).update(measurement_record=target)
+        MeasurementSurface.objects.filter(measurement_record_id__in=source_ids).update(measurement_record=target)
+        target.notes = "\n\n".join(filter(None, [target.notes] + [
+            f"Combined from {record.reference_no} ({record.measured_on})" + (f"\n{record.notes}" if record.notes else "")
+            for record in sources
+        ]))
+        target.status = PropertyMeasurement.Status.IN_PROGRESS
+        target.save(update_fields=("notes", "status", "updated_at"))
+        PropertyMeasurement.objects.filter(pk__in=source_ids).delete()
+        return Response(PropertyMeasurementSerializer(target, context={"request": request}).data)
 
 
 class PropertyMeasurementSubmitView(APIView):

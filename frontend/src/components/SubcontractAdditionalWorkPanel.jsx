@@ -31,7 +31,7 @@ export default function SubcontractAdditionalWorkPanel({ workOrder, isMain, onCh
 
   return (
     <section className="rounded-2xl border bg-white p-6">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold bp-ui-section-heading">
         <PlusCircle className="h-5 w-5" /> Extra work found
       </h2>
       
@@ -57,7 +57,7 @@ export default function SubcontractAdditionalWorkPanel({ workOrder, isMain, onCh
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
             placeholder="Describe the extra work"
-            className="min-w-[240px] flex-1"
+            className="min-w-[240px] flex-1 bp-ui-control"
           />
           <input
             type="number"
@@ -66,11 +66,11 @@ export default function SubcontractAdditionalWorkPanel({ workOrder, isMain, onCh
             value={form.estimated_amount}
             onChange={(event) => setForm({ ...form, estimated_amount: event.target.value })}
             placeholder="Estimate (optional)"
-            className="w-44"
+            className="w-44 bp-ui-control"
           />
           <button
             disabled={busy}
-            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
           >
             Ask for approval
           </button>
@@ -135,7 +135,7 @@ function DecisionForm({ busy, estimate, onDecide }) {
   return (
     <div className="mt-3 rounded-xl bg-slate-50 p-3">
       <div className="grid gap-2 sm:grid-cols-3">
-        <input
+        <input className="bp-ui-control"
           type="number"
           min="0"
           step="0.01"
@@ -147,21 +147,21 @@ function DecisionForm({ busy, estimate, onDecide }) {
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="Note (required to decline)"
-          className="sm:col-span-2"
+          className="sm:col-span-2 bp-ui-control"
         />
       </div>
       <div className="mt-2 flex gap-2">
         <button
           disabled={busy || approved === ""}
           onClick={() => onDecide("APPROVED", { approved_amount: approved, note })}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
         >
           Approve
         </button>
         <button
           disabled={busy || !note.trim()}
           onClick={() => onDecide("DECLINED", { note })}
-          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-50"
+          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 disabled:opacity-50 bp-ui-action"
         >
           Decline
         </button>

@@ -5,7 +5,7 @@ export default function ComingSoon() {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-10">
       <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Next module</p>
-      <h1 className="mt-2 text-3xl font-bold text-slate-900 capitalize">{title.replace("-", " ")}</h1>
+      <h1 className="mt-2 text-3xl font-bold text-slate-900 capitalize bp-ui-page-title">{title.replace("-", " ")}</h1>
       
     </div>
   );

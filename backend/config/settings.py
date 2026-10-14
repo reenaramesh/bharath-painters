@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'quotations',
     'billing',
     'outsourcing',
+    'call_inbox',
 
     'rest_framework',
 

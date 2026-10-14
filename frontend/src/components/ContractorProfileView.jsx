@@ -174,7 +174,7 @@ export default function ContractorProfileView({
     return (
       <div className="contractor-profile-shell">
         <div className="cp-empty">
-          <h2>Contractor profile unavailable</h2>
+          <h2 className="bp-ui-section-heading">Contractor profile unavailable</h2>
           <p>We couldn't load this contractor profile.</p>
         </div>
       </div>
@@ -185,19 +185,19 @@ export default function ContractorProfileView({
     <div className="contractor-profile-shell">
       {downloadNotice && <p role="status" className="cp-download-status">{downloadNotice}</p>}
       <article ref={profileRef} className="contractor-profile">
-        <header className="cp-topbar">
-          <button className="cp-icon-button" onClick={onBack} aria-label="Back">
+        <header className="cp-topbar bp-ui-page-header">
+          <button className="cp-icon-button bp-ui-action" onClick={onBack} aria-label="Back">
             <Icon type="back" />
           </button>
 
-          <h1>Contractor Profile</h1>
+          <h1 className="bp-ui-page-title">Contractor Profile</h1>
 
           <div className="cp-topbar-actions">
-          <button type="button" className="cp-icon-button" data-png-exclude onClick={() => downloadPng()} disabled={downloading} aria-label="Download profile as PNG" title={downloading ? 'Preparing PNG' : 'Download profile as PNG'}><Download className="cp-icon"/></button>
-          <button type="button" className="cp-icon-button" data-png-exclude onClick={sharePng} disabled={downloading} aria-label="Share profile as PNG" title="Share PNG"><Images className="cp-icon"/></button>
+          <button type="button" className="cp-icon-button bp-ui-icon-action" data-png-exclude onClick={() => downloadPng()} disabled={downloading} aria-label="Download profile as PNG" title={downloading ? 'Preparing PNG' : 'Download profile as PNG'}><Download className="cp-icon"/></button>
+          <button type="button" className="cp-icon-button bp-ui-icon-action" data-png-exclude onClick={sharePng} disabled={downloading} aria-label="Share profile as PNG" title="Share PNG"><Images className="cp-icon"/></button>
 
           {onShare && <button
-            className="cp-icon-button"
+            className="cp-icon-button bp-ui-action"
             onClick={onShare}
             aria-label="Share contractor profile"
             title="Share profile link"
@@ -242,12 +242,12 @@ export default function ContractorProfileView({
                 Verified
               </span>
             )}
-            {isOwnProfile && <button className="cp-btn cp-btn-primary cp-edit-btn cp-edit-top" onClick={onEditProfile}>Edit Profile</button>}
+            {isOwnProfile && <button className="cp-btn cp-btn-primary cp-edit-btn cp-edit-top bp-ui-action" onClick={onEditProfile}>Edit Profile</button>}
           </div>
 
           <div className="cp-identity-content">
             <div className="cp-name-group">
-              <h2>{profile.name}</h2>
+              <h2 className="bp-ui-section-heading">{profile.name}</h2>
             </div>
             {profile.contractorType && <p className="cp-category">{profile.contractorType}</p>}
 
@@ -280,15 +280,15 @@ export default function ContractorProfileView({
               <span className="cp-rating-stars" aria-hidden="true">{'\u2605'.repeat(Math.min(5, Math.max(0, Math.floor(Number(profile.rating))))) + '\u2606'.repeat(5 - Math.min(5, Math.max(0, Math.floor(Number(profile.rating)))))}</span>
               <strong>{profile.rating}/5</strong>
             </span>}
-            <button type="button" className="cp-icon-button cp-gallery-placeholder" aria-label="Gallery (coming soon)" aria-disabled="true" title="Gallery (coming soon)"><Images className="cp-icon" /></button>
+            <button type="button" className="cp-icon-button cp-gallery-placeholder bp-ui-icon-action" aria-label="Gallery (coming soon)" aria-disabled="true" title="Gallery (coming soon)"><Images className="cp-icon" /></button>
           </div>
 
           <ProfileSocialLinks links={profile.socialLinks || []} own={isOwnProfile} onEdit={onEditSocial}/>
           <div className="cp-actions cp-actions-icons">
-            <button type="button" aria-label="Call" className="cp-btn cp-btn-primary" onClick={onCall} disabled={!onCall} title={onCall ? 'Call' : 'Public phone unavailable'}><Icon type="phone"/></button>
-            <button type="button" aria-label="Message" className="cp-btn cp-btn-secondary" onClick={onMessage} disabled={!onMessage} title={onMessage ? 'Message' : 'Message is available to connected customers'}><Icon type="message"/></button>
-            <button type="button" aria-label={requestActionLabel} className="cp-btn cp-btn-primary" onClick={onRequestQuote} disabled={!onRequestQuote} title={onRequestQuote ? requestActionLabel : 'Appointments are available to connected customers'}>{['Book Appointment', 'Appointments'].includes(requestActionLabel) ? <CalendarDays className="cp-icon"/> : <Icon type="quote"/>}</button>
-            {onSaveContact && <button type="button" aria-label="Save contact" title="Save contact" className="cp-btn cp-btn-secondary" onClick={onSaveContact}><ContactRound className="cp-icon"/></button>}
+            <button type="button" aria-label="Call" className="cp-btn cp-btn-primary bp-ui-action" onClick={onCall} disabled={!onCall} title={onCall ? 'Call' : 'Public phone unavailable'}><Icon type="phone"/></button>
+            <button type="button" aria-label="Message" className="cp-btn cp-btn-secondary bp-ui-action" onClick={onMessage} disabled={!onMessage} title={onMessage ? 'Message' : 'Message is available to connected customers'}><Icon type="message"/></button>
+            <button type="button" aria-label={requestActionLabel} className="cp-btn cp-btn-primary bp-ui-action" onClick={onRequestQuote} disabled={!onRequestQuote} title={onRequestQuote ? requestActionLabel : 'Appointments are available to connected customers'}>{['Book Appointment', 'Appointments'].includes(requestActionLabel) ? <CalendarDays className="cp-icon"/> : <Icon type="quote"/>}</button>
+            {onSaveContact && <button type="button" aria-label="Save contact" title="Save contact" className="cp-btn cp-btn-secondary bp-ui-icon-action" onClick={onSaveContact}><ContactRound className="cp-icon"/></button>}
           </div>
 
         </section>
@@ -297,7 +297,7 @@ export default function ContractorProfileView({
           {DEFAULT_TABS.map((item) => (
             <button
               key={item}
-              className={`cp-tab ${tab === item ? "active" : ""}`}
+              className={(`cp-tab ${tab === item ? "active" : ""}`) + " bp-ui-action"}
               onClick={() => setTab(item)}
             >
               {item}
@@ -317,7 +317,7 @@ export default function ContractorProfileView({
 
                   {profile.about.length > 150 && (
                     <button
-                      className="cp-text-link"
+                      className="cp-text-link bp-ui-action"
                       onClick={() => setAboutExpanded((value) => !value)}
                     >
                       {aboutExpanded ? "Show less" : "Read more"}
@@ -418,7 +418,7 @@ export default function ContractorProfileView({
 
                       {!isOwnProfile && onRequestQuote && (
                         <button
-                          className="cp-service-quote"
+                          className="cp-service-quote bp-ui-action"
                           onClick={() => onRequestQuote?.(service)}
                         >
                           {requestActionLabel === 'Book Appointment' && <CalendarDays className="cp-icon" />}
@@ -475,14 +475,14 @@ function ProfileServices({ services, onViewAll }) {
     <section className="cp-section">
       <div className="cp-section-heading">
         <h3>Services Offered</h3>
-        <button className="cp-text-link" onClick={onViewAll}>
+        <button className="cp-text-link bp-ui-action" onClick={onViewAll}>
           View All
         </button>
       </div>
 
       <div className="cp-service-grid">
         {services.slice(0, 6).map((service) => (
-          <button type="button" className="cp-service-card" key={service.id || service.name} onClick={onViewAll} aria-label={`View ${service.name} service details`}>
+          <button type="button" className="cp-service-card bp-ui-action" key={service.id || service.name} onClick={onViewAll} aria-label={`View ${service.name} service details`}>
             <span className="cp-service-icon"><ServiceIcon service={service} /></span>
             <span>{service.name}</span>
           </button>
@@ -499,7 +499,7 @@ function ProfileProjects({ projects, onViewAll }) {
     <section className="cp-section">
       <div className="cp-section-heading">
         <h3>Recent Projects</h3>
-        <button className="cp-text-link" onClick={onViewAll}>
+        <button className="cp-text-link bp-ui-action" onClick={onViewAll}>
           View All
         </button>
       </div>
@@ -530,7 +530,7 @@ function ProjectsPopup({ projects, onClose }) {
   const ref = useRef(null);
   useEffect(() => { const dialog = ref.current; dialog.showModal(); return () => { if (dialog.open) dialog.close(); }; }, []);
   return <dialog ref={ref} className="cp-project-dialog" onCancel={onClose} aria-labelledby="cp-project-popup-title">
-    <header><h2 id="cp-project-popup-title">Completed projects</h2><button type="button" className="cp-icon-button" onClick={onClose} aria-label="Close projects"><X size={20}/></button></header>
+    <header><h2 className="bp-ui-section-heading" id="cp-project-popup-title">Completed projects</h2><button type="button" className="cp-icon-button bp-ui-icon-action" onClick={onClose} aria-label="Close projects"><X size={20}/></button></header>
     <div><ProjectList projects={projects}/></div>
   </dialog>;
 }

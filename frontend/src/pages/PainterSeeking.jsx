@@ -212,19 +212,15 @@ export default function PainterSeeking() {
   }
   return (
     <div className={`painter-portal-page painter-work-network-page space-y-6 ${isPainter ? "is-painter" : ""}`}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
         <div>
           <p className="text-sm font-semibold text-amber-600">Work Network</p>
-          <h1 className="mt-1 text-3xl font-bold">
+          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">
             {isPainter
               ? "My job-seeking posts"
               : "Paint Applicators seeking work"}
           </h1>
-          <p className="mt-2 text-slate-500">
-            {isPainter
-              ? "Select your work, skills, PIN-code locations and available dates."
-              : "Browse availability, compare skills and PIN codes, then send a booking request."}
-          </p>
+          
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -237,7 +233,7 @@ export default function PainterSeeking() {
           {isPainter && (
             <button
               onClick={() => open()}
-              className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white bp-ui-action"
             >
               <Plus className="h-4 w-4" />
               Post availability
@@ -262,7 +258,7 @@ export default function PainterSeeking() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search work, skill or applicator"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
@@ -271,7 +267,7 @@ export default function PainterSeeking() {
               value={pinFilter}
               onChange={(event) => setPinFilter(event.target.value)}
               placeholder="PIN code or area"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <label className="rounded-xl bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
@@ -280,7 +276,7 @@ export default function PainterSeeking() {
               type="date"
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
-              className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none"
+              className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none bp-ui-control"
             />
           </label>
           <label className="rounded-xl bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
@@ -290,18 +286,18 @@ export default function PainterSeeking() {
               min={dateFrom || undefined}
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
-              className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none"
+              className="mt-1 block w-full bg-transparent text-sm font-normal text-slate-900 outline-none bp-ui-control"
             />
           </label>
           {!isPainter && (
             <div className="flex flex-wrap gap-2 md:col-span-4">
-              <button type="button" onClick={useNearbyApplicators} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+              <button type="button" onClick={useNearbyApplicators} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">
                 <Crosshair className="h-4 w-4" />{locating ? "Finding..." : "Applicators near my mobile location"}
               </button>
-              <select value={searchGeo.radius_km} onChange={(event) => setSearchGeo((old) => ({ ...old, radius_km: Number(event.target.value) }))} className="rounded-xl border bg-white px-3 text-sm font-semibold">
+              <select value={searchGeo.radius_km} onChange={(event) => setSearchGeo((old) => ({ ...old, radius_km: Number(event.target.value) }))} className="rounded-xl border bg-white px-3 text-sm font-semibold bp-ui-control">
                 {[5, 10, 15, 25, 50, 100].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}
               </select>
-              {searchGeo.latitude != null && <button type="button" onClick={() => setSearchGeo((old) => ({ ...old, latitude: null, longitude: null }))} className="rounded-xl border px-3 text-sm font-semibold">Show all locations</button>}
+              {searchGeo.latitude != null && <button type="button" onClick={() => setSearchGeo((old) => ({ ...old, latitude: null, longitude: null }))} className="rounded-xl border px-3 text-sm font-semibold bp-ui-action">Show all locations</button>}
             </div>
           )}
         </div>
@@ -318,7 +314,7 @@ export default function PainterSeeking() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-extrabold">{item.painter_name}</h2>
+                    <h2 className="text-lg font-extrabold bp-ui-section-heading">{item.painter_name}</h2>
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
                     >
@@ -359,25 +355,25 @@ export default function PainterSeeking() {
                     <>
                       <button
                         onClick={() => open(item)}
-                        className="rounded-xl border p-3"
+                        className="rounded-xl border p-3 bp-ui-icon-action"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => toggle(item)}
-                        className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                        className="rounded-xl border px-4 py-2 text-sm font-semibold bp-ui-action"
                       >
                         {item.status === "ACTIVE" ? "Close" : "Reopen"}
                       </button>
                       <button
                         onClick={() => remove(item)}
-                        className="rounded-xl border border-red-200 p-3 text-red-600"
+                        className="rounded-xl border border-red-200 p-3 text-red-600 bp-ui-icon-action"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </>
                   ) : (
-                    <button type="button" onClick={() => setDetail(item)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">
+                    <button type="button" onClick={() => setDetail(item)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action">
                       <Eye className="h-4 w-4" /> View profile
                     </button>
                   )}
@@ -395,7 +391,7 @@ export default function PainterSeeking() {
             {isPainter ? (
               <button
                 onClick={() => open()}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white bp-ui-action"
               >
                 <Plus className="h-4 w-4" />
                 Post availability
@@ -462,11 +458,11 @@ function ApplicatorDetailModal({ post, onClose, onBook }) {
             <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-950 text-xl font-extrabold text-white">{post.painter_name?.charAt(0) || "A"}</div>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Available Paint Applicator</p>
-              <h2 className="truncate text-2xl font-extrabold">{post.painter_name}</h2>
+              <h2 className="truncate text-2xl font-extrabold bp-ui-section-heading">{post.painter_name}</h2>
               <p className="text-sm text-slate-500">{post.bharath_id || "Verification pending"}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border p-2" aria-label="Close applicator details"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="rounded-full border p-2 bp-ui-icon-action" aria-label="Close applicator details"><X className="h-5 w-5" /></button>
         </header>
         <div className="p-5 sm:p-6">
           <div className="grid grid-cols-2 gap-3">
@@ -491,7 +487,7 @@ function ApplicatorDetailModal({ post, onClose, onBook }) {
           {post.description && <p className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm leading-6 text-slate-700">{post.description}</p>}
           <div className="mt-6 grid grid-cols-2 gap-3">
             <a href={`tel:${post.mobile}`} className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-bold"><Phone className="h-4 w-4" /> Call</a>
-            <button type="button" onClick={onBook} className="rounded-xl bg-slate-950 px-4 py-3 font-bold text-white">Book Applicator</button>
+            <button type="button" onClick={onBook} className="rounded-xl bg-slate-950 px-4 py-3 font-bold text-white bp-ui-action">Book Applicator</button>
           </div>
         </div>
       </section>
@@ -536,14 +532,14 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
       >
         <div className="flex justify-between">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold bp-ui-section-heading">
               {editing === "NEW"
                 ? "Post job-seeking availability"
                 : "Edit availability"}
             </h2>
             
           </div>
-          <button type="button" onClick={onClose}>
+          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
             <X />
           </button>
         </div>
@@ -581,12 +577,12 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                   }
                 }}
                 placeholder="Example: 560017"
-                className="w-full rounded-xl border px-3 py-3"
+                className="w-full rounded-xl border px-3 py-3 bp-ui-control"
               />
               <button
                 type="button"
                 onClick={addPin}
-                className="rounded-xl bg-slate-950 px-5 font-semibold text-white"
+                className="rounded-xl bg-slate-950 px-5 font-semibold text-white bp-ui-action"
               >
                 Add
               </button>
@@ -597,7 +593,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                   type="button"
                   key={pin}
                   onClick={() => removePin(pin)}
-                  className="rounded-full bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800"
+                  className="rounded-full bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 bp-ui-action"
                 >
                   {pin} ×
                 </button>
@@ -614,7 +610,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 onChange={(event) =>
                   setForm({ ...form, available_from: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </Field>
             <Field label="Available until">
@@ -624,7 +620,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 onChange={(event) =>
                   setForm({ ...form, available_until: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </Field>
             <Field label="Wage type">
@@ -633,7 +629,7 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 onChange={(event) =>
                   setForm({ ...form, wage_type: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               >
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
@@ -648,14 +644,14 @@ function PostModal({ form, setForm, saving, editing, onClose, onSubmit }) {
                 onChange={(event) =>
                   setForm({ ...form, expected_wage: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </Field>
           </div>
         </div>
         <button
           disabled={saving || !form.title || !form.skills || (!form.pincode && form.latitude == null)}
-          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40"
+          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40 bp-ui-action"
         >
           {saving ? "Saving..." : "Save availability post"}
         </button>
@@ -674,7 +670,7 @@ function ChoiceGroup({ label, options, selected, onToggle }) {
             type="button"
             key={option}
             onClick={() => onToggle(option)}
-            className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${selected.has(option) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white"}`}
+            className={(`rounded-xl border px-3 py-3 text-left text-sm font-semibold ${selected.has(option) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "bg-white"}`) + " bp-ui-action"}
           >
             {selected.has(option) ? "✓ " : ""}
             {option}
@@ -725,12 +721,10 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
       >
         <div className="flex justify-between">
           <div>
-            <h2 className="text-xl font-bold">Book {post.painter_name}</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              The applicator must accept this request.
-            </p>
+            <h2 className="text-xl font-bold bp-ui-section-heading">Book {post.painter_name}</h2>
+            
           </div>
-          <button type="button" onClick={onClose}>
+          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
             <X />
           </button>
         </div>
@@ -755,7 +749,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, work_type: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             >
               {works.map((work) => (
                 <option key={work}>{work}</option>
@@ -769,7 +763,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, pincode: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             >
               {pins.map((pin) => (
                 <option key={pin}>{pin}</option>
@@ -786,7 +780,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, start_date: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="End date">
@@ -799,7 +793,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, end_date: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
           <Field label="Wage type">
@@ -808,7 +802,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, wage_type: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             >
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
@@ -823,7 +817,7 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
               onChange={(event) =>
                 setForm({ ...form, agreed_wage: event.target.value })
               }
-              className={input}
+              className={(input) + " bp-ui-control"}
             />
           </Field>
         </div>
@@ -841,12 +835,12 @@ function BookingModal({ post, saving, error, onClose, onSubmit }) {
             onChange={(event) =>
               setForm({ ...form, notes: event.target.value })
             }
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <button
           disabled={saving}
-          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50"
+          className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-50 bp-ui-action"
         >
           {saving ? "Sending..." : "Send booking request"}
         </button>

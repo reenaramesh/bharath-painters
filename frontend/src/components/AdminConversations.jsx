@@ -10,7 +10,7 @@ export default function AdminConversations({ messages }) {
   return <section className="admin-register admin-conversations rounded-xl border bg-white p-3">
     <label className="flex min-h-11 items-center gap-2 rounded-lg border px-3">
       <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <input aria-label="Search conversations" placeholder="Search conversations..." value={search} onChange={event=>setSearch(event.target.value)} className="w-full min-w-0 border-0 bg-transparent text-sm outline-none" />
+      <input aria-label="Search conversations" placeholder="Search conversations..." value={search} onChange={event=>setSearch(event.target.value)} className="w-full min-w-0 border-0 bg-transparent text-sm outline-none bp-ui-control" />
     </label>
     <p className="my-3 text-xs text-slate-500">{contractors.length} contractors · Select a contractor to view conversations.</p>
     <div className="space-y-2">
@@ -32,14 +32,14 @@ function ContractorConversations({ contractor }) {
     </summary>
     <div className="admin-conversation-workspace mt-3">
       <nav aria-label={`Conversations for ${contractor.name}`} className="admin-conversation-participants">
-        {contractor.threads.map(thread=><button key={thread.id} type="button" aria-pressed={selected.id===thread.id} onClick={()=>setSelectedId(thread.id)} className={`rounded-lg border p-3 text-left ${selected.id===thread.id ? 'bg-[var(--app-soft)] border-[var(--app-primary)]' : 'bg-white'}`}>
+        {contractor.threads.map(thread=><button key={thread.id} type="button" aria-pressed={selected.id===thread.id} onClick={()=>setSelectedId(thread.id)} className={(`rounded-lg border p-3 text-left ${selected.id===thread.id ? 'bg-[var(--app-soft)] border-[var(--app-primary)]' : 'bg-white'}`) + " bp-ui-action"}>
           <strong className="block break-words text-xs">{thread.name}</strong>
           <span className="block text-[11px] text-slate-500">{thread.bharathId}</span>
           <span className="mt-1 block break-words text-xs">{thread.latest?.text || 'Message'}</span>
         </button>)}
       </nav>
       <section aria-label={`Message history with ${selected.name}`} className="admin-conversation-history rounded-lg bg-slate-50 p-3">
-        <h2 className="mb-3 text-sm font-bold">{selected.name}</h2>
+        <h2 className="mb-3 text-sm font-bold bp-ui-section-heading">{selected.name}</h2>
         <ol className="space-y-3">
           {selected.messages.map(message=><li key={message.id} className={`flex ${message.sender_role==='CONTRACTOR' ? 'justify-end' : 'justify-start'}`}>
             <article className={`admin-message-bubble rounded-lg border p-3 ${message.sender_role==='CONTRACTOR' ? 'bg-[var(--app-soft)]' : 'bg-white'}`}>

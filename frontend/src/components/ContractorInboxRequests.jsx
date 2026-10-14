@@ -45,9 +45,9 @@ export default function ContractorInboxRequests() {
   if (!rows.length && !error && !notice && !requestedId) return null;
   const ordered = [...rows].sort((a, b) => Number(b.id === requestedId) - Number(a.id === requestedId));
   return <section className="mb-3 shrink-0 overflow-hidden rounded-2xl border border-blue-200 bg-blue-50" aria-label="Incoming contractor connection requests">
-    <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls="contractor-inbox-requests" className="flex min-h-11 w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-slate-900"><Handshake className="h-5 w-5" />Contractor connection requests ({rows.length})<span className="ml-auto text-xs font-semibold">{expanded ? "Hide" : "View"}</span></button>
+    <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls="contractor-inbox-requests" className="flex min-h-11 w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-slate-900 bp-ui-action"><Handshake className="h-5 w-5" />Contractor connection requests ({rows.length})<span className="ml-auto text-xs font-semibold">{expanded ? "Hide" : "View"}</span></button>
     {expanded && <div id="contractor-inbox-requests" className="max-h-[40dvh] space-y-3 overflow-y-auto px-3 pb-3">
-      {error && <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}<button type="button" onClick={load} className="ml-2 underline">Retry</button></div>}
+      {error && <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}<button type="button" onClick={load} className="ml-2 underline bp-ui-action">Retry</button></div>}
       {notice && <p role="status" className="rounded-xl bg-white p-3 text-sm text-slate-700">{notice} <Link to="/contractor-network" className="font-semibold underline">Open network</Link></p>}
       {ordered.map((row) => <ContractorConnectionCard key={row.id} row={row} busy={busy} onAct={act} />)}
       {!rows.length && !error && <p className="px-1 text-sm text-slate-600">No pending incoming requests. <Link to="/contractor-network" className="font-semibold underline">View your network</Link></p>}

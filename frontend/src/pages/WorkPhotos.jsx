@@ -78,9 +78,9 @@ export default function WorkPhotos() {
     [data.results, search, stage],
   );
   const filterControls = <div className="work-photos-filters-grid grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">
-    <label className="flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3"><Search className="h-4 w-4 shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={customerView ? "Search project or room" : "Search project, customer or area"} className="w-full min-w-0 bg-transparent text-sm outline-none" /></label>
-    <select value={schedule} onChange={(event) => setSchedule(event.target.value)} className="rounded-xl border px-4 py-3 text-sm"><option value="">All projects</option>{data.schedules.map((item) => <option key={item.id} value={item.id}>{item.quotation_number} - {item.property}</option>)}</select>
-    <select value={stage} onChange={(event) => setStage(event.target.value)} className="rounded-xl border px-4 py-3 text-sm">{stages.map((item) => <option key={item} value={item}>{item === "ALL" ? "All stages" : title(item)}</option>)}</select>
+    <label className="flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3"><Search className="h-4 w-4 shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={customerView ? "Search project or room" : "Search project, customer or area"} className="w-full min-w-0 bg-transparent text-sm outline-none bp-ui-control" /></label>
+    <select value={schedule} onChange={(event) => setSchedule(event.target.value)} className="rounded-xl border px-4 py-3 text-sm bp-ui-control"><option value="">All projects</option>{data.schedules.map((item) => <option key={item.id} value={item.id}>{item.quotation_number} - {item.property}</option>)}</select>
+    <select value={stage} onChange={(event) => setStage(event.target.value)} className="rounded-xl border px-4 py-3 text-sm bp-ui-control">{stages.map((item) => <option key={item} value={item}>{item === "ALL" ? "All stages" : title(item)}</option>)}</select>
   </div>;
   async function upload(event) {
     event.preventDefault();
@@ -126,11 +126,11 @@ export default function WorkPhotos() {
   return (
     <div className={`space-y-6 ${user?.role === "CUSTOMER" ? "customer-work-photos-page" : user?.role === "PAINTER" ? "painter-portal-page painter-work-photos-page" : ""}`}>
       {customerView ? (
-        <PageHeader eyebrow="Your project updates" title="Project photos" description="See photos shared for your projects as work progresses." />
+        <PageHeader eyebrow="Your project updates" title="Project photos"  />
       ) : (
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="text-sm font-semibold text-amber-600">Project evidence</p><h1 className="mt-1 text-3xl font-bold">Work photos</h1></div>
-          {canUpload && <button onClick={() => setShowForm(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white"><Plus className="h-4 w-4" />Upload photos</button>}
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
+          <div><p className="text-sm font-semibold text-amber-600">Project evidence</p><h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Work photos</h1></div>
+          {canUpload && <button onClick={() => setShowForm(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white bp-ui-action"><Plus className="h-4 w-4" />Upload photos</button>}
         </header>
       )}
       {user?.role === "PAINTER" && <section className="painter-photo-focus" aria-label="Painter photo summary"><div><span>Photos shared</span><strong>{data.results.length}</strong><small>Project evidence uploaded</small></div><div><span>In progress</span><strong>{data.results.filter((item) => item.stage === "PROGRESS").length}</strong><small>Current work updates</small></div><div className="is-complete"><span>After work</span><strong>{data.results.filter((item) => item.stage === "AFTER").length}</strong><small>Completion records</small></div></section>}
@@ -152,7 +152,7 @@ export default function WorkPhotos() {
         </section>
       )}
       {customerView ? (
-        <SectionCard title="Project photos" description="Filter by project or work stage." className="work-photos-filters" bodyClassName="p-0">{filterControls}</SectionCard>
+        <SectionCard title="Project photos"  className="work-photos-filters" bodyClassName="p-0">{filterControls}</SectionCard>
       ) : (
         <section className="overflow-hidden rounded-2xl border bg-white">{filterControls}</section>
       )}
@@ -181,7 +181,7 @@ export default function WorkPhotos() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {customerView ? <StatusBadge status={item.stage} label={customerStage(item.stage)} tone={item.stage === "AFTER" ? "success" : item.stage === "BEFORE" ? "neutral" : "info"} /> : <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700">{title(item.stage)}</span>}
-                    <h2 className="mt-3 font-bold">{item.quotation_number}</h2>
+                    <h2 className="mt-3 font-bold bp-ui-section-heading">{item.quotation_number}</h2>
                     <p className="text-sm text-slate-500">
                       {customerView ? item.property : `${item.customer} · ${item.property}`}
                     </p>
@@ -189,7 +189,7 @@ export default function WorkPhotos() {
                   {item.can_delete && (
                     <button
                       onClick={() => remove(item)}
-                      className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 bp-ui-icon-action"
                       title="Delete photo"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -222,7 +222,7 @@ export default function WorkPhotos() {
             </article>
           ))}
         </section>
-      ) : customerView ? <EmptyState title={data.results.length ? "No photos match these filters" : "No project photos yet"} description={data.results.length ? "Try another project or work stage." : "Photos shared for your projects will appear here as work progresses."} /> : <div className="rounded-2xl border bg-white p-14 text-center text-slate-400"><Image className="mx-auto h-10 w-10" /><p className="mt-3">No work photos match this view.</p></div>}
+      ) : customerView ? <EmptyState title={data.results.length ? "No photos match these filters" : "No project photos yet"}  /> : <div className="rounded-2xl border bg-white p-14 text-center text-slate-400"><Image className="mx-auto h-10 w-10" /><p className="mt-3">No work photos match this view.</p></div>}
       {showForm && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
           <form
@@ -231,16 +231,16 @@ export default function WorkPhotos() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-bold">Upload work photos</h2>
+                <h2 className="text-xl font-bold bp-ui-section-heading">Upload work photos</h2>
                 
               </div>
-              <button type="button" onClick={() => setShowForm(false)}>
+              <button className="bp-ui-icon-action" type="button" onClick={() => setShowForm(false)}>
                 <X />
               </button>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Project">
-                <select
+                <select className="bp-ui-control"
                   required
                   value={form.schedule}
                   onChange={(event) =>
@@ -257,7 +257,7 @@ export default function WorkPhotos() {
                 </select>
               </Field>
               <Field label="Stage">
-                <select
+                <select className="bp-ui-control"
                   value={form.stage}
                   onChange={(event) =>
                     setForm({ ...form, stage: event.target.value })
@@ -269,7 +269,7 @@ export default function WorkPhotos() {
                 </select>
               </Field>
               <Field label="Room / area">
-                <input
+                <input className="bp-ui-control"
                   value={form.area}
                   onChange={(event) =>
                     setForm({ ...form, area: event.target.value })
@@ -278,7 +278,7 @@ export default function WorkPhotos() {
                 />
               </Field>
               <Field label="Caption">
-                <input
+                <input className="bp-ui-control"
                   value={form.caption}
                   onChange={(event) =>
                     setForm({ ...form, caption: event.target.value })
@@ -311,7 +311,7 @@ export default function WorkPhotos() {
             </div>
             <button
               disabled={busy}
-              className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40"
+              className="mt-6 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white disabled:opacity-40 bp-ui-action"
             >
               {busy
                 ? "Uploading..."

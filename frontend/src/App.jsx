@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import "./styles/mobile-responsive.css";
+import "./styles/application-ui.css";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -12,6 +13,7 @@ import WhatsAppAppChooser from "./components/WhatsAppAppChooser";
 import LanguageSelector from "./components/LanguageSelector";
 
 const page = (name) => lazy(() => import(`./pages/${name}.jsx`));
+const PublicContractorProfile = page("PublicContractorProfile");
 const Login = page("Login");
 const Register = page("Register");
 const CustomerRegister = page("CustomerRegister");
@@ -21,6 +23,7 @@ const ForgotPassword = page("ForgotPassword");
 const RecoveryEmailSettings = page("RecoveryEmailSettings");
 const Dashboard = page("Dashboard");
 const Customers = page("Customers");
+const CallInbox = page("CallInbox");
 const CustomerDetail = page("CustomerDetail");
 const CustomerQuotationHistory = page("CustomerQuotationHistory");
 const Properties = page("Properties");
@@ -125,7 +128,7 @@ function App() {
 // captured failure without an extra render pass.
 function AppRoutes() {
   const location = useLocation();
-  const publicLanguagePage = ["/login", "/register", "/customer-register", "/forgot-password"].includes(location.pathname);
+  const publicLanguagePage = ["/login", "/register", "/customer-register", "/forgot-password"].includes(location.pathname) || location.pathname.startsWith("/contractor-profile/");
 
   return (
     <RouteErrorBoundary key={location.pathname}>
@@ -147,6 +150,7 @@ function AppRoutes() {
           {BharathAppsPreview && (
             <Route path="/preview/bharath-apps" element={<BharathAppsPreview />} />
           )}
+          <Route path="/contractor-profile/:bharathId" element={<PublicContractorProfile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
@@ -181,6 +185,7 @@ function AppRoutes() {
             <Route path="/contractors" element={<Contractors />} />
             <Route path="/painters" element={<Painters />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/call-inbox" element={<CallInbox />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route
               path="/customers/:id/quotations"

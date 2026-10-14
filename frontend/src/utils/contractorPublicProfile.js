@@ -3,7 +3,7 @@ import api from '../api/client';
 // Read the same public presentation data used by the shared verification page.
 // DOMParser keeps the document inert: none of its scripts or markup is mounted.
 export async function loadContractorPublicProfile(bharathId) {
-  const { data: html } = await api.get(`/accounts/verify-page/${encodeURIComponent(bharathId)}/`, { responseType: 'text' });
+  const { data: html } = await api.get(`/accounts/verify-page/${encodeURIComponent(bharathId)}/`, { responseType: 'text', headers: { Accept: 'application/json' } });
   const document = new DOMParser().parseFromString(html, 'text/html');
   const read = (id) => {
     const node = document.getElementById(id);

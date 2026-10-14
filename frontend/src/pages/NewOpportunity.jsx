@@ -184,9 +184,9 @@ export default function NewOpportunity() {
   return (
     <div className="space-y-6">
       <BackButton fallback="/opportunities" label="Back to opportunities" />
-      <header>
+      <header className="bp-ui-page-header">
         <p className="text-sm font-semibold text-amber-600">Sales</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">
+        <h1 className="mt-1 text-3xl font-bold text-slate-900 bp-ui-page-title">
           New Opportunity
         </h1>
         
@@ -200,7 +200,7 @@ export default function NewOpportunity() {
 
       {/* STEP 1 — CLIENT */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="font-bold text-slate-900">
+        <h2 className="font-bold text-slate-900 bp-ui-section-heading">
           1. Client{" "}
           <span className="text-sm font-normal text-slate-400">
             (search by mobile number)
@@ -216,11 +216,11 @@ export default function NewOpportunity() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Mobile number, name or email"
-                className="min-w-[240px] flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+                className="min-w-[240px] flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 bp-ui-control"
               />
               <button
                 disabled={searching}
-                className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
               >
                 {searching ? "Searching..." : "Search"}
               </button>
@@ -233,7 +233,7 @@ export default function NewOpportunity() {
                       <button
                         key={item.id}
                         onClick={() => selectClient(item)}
-                        className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4 text-left hover:border-slate-900"
+                        className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4 text-left hover:border-slate-900 bp-ui-action"
                       >
                         <div>
                           <p className="font-bold text-slate-900">
@@ -266,7 +266,7 @@ export default function NewOpportunity() {
                     }));
                     setShowCreate(true);
                   }}
-                  className="mt-3 flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-slate-900"
+                  className="mt-3 flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-slate-900 bp-ui-action"
                 >
                   <Plus className="h-4 w-4" />
                   Create New Client
@@ -295,7 +295,7 @@ export default function NewOpportunity() {
                 setClient(null);
                 setQuery("");
               }}
-              className="text-sm font-semibold text-slate-500 underline hover:text-slate-900"
+              className="text-sm font-semibold text-slate-500 underline hover:text-slate-900 bp-ui-action"
             >
               Change client
             </button>
@@ -310,7 +310,7 @@ export default function NewOpportunity() {
             onSubmit={createClient}
             className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6"
           >
-            <h2 className="text-xl font-bold">Quick create client</h2>
+            <h2 className="text-xl font-bold bp-ui-section-heading">Quick create client</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold">
                 Name *
@@ -320,7 +320,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setClientForm({ ...clientForm, name: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -332,7 +332,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setClientForm({ ...clientForm, mobile: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -345,7 +345,7 @@ export default function NewOpportunity() {
                       alternate_mobile: event.target.value,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -356,7 +356,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setClientForm({ ...clientForm, email: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -369,7 +369,7 @@ export default function NewOpportunity() {
                       client_type: event.target.value,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="">Select type</option>
                   {CLIENT_TYPE_OPTIONS.map(([value, label]) => (
@@ -390,7 +390,7 @@ export default function NewOpportunity() {
                       address: event.target.value,
                     })
                   }
-                  className={`mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900`}
+                  className={(`mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900`) + " bp-ui-control"}
                 />
               </label>
             </div>
@@ -398,13 +398,13 @@ export default function NewOpportunity() {
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="rounded-xl border px-4 py-2.5 text-sm font-semibold"
+                className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
               >
                 Cancel
               </button>
               <button
                 disabled={savingClient}
-                className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
               >
                 {savingClient ? "Saving..." : "Save client"}
               </button>
@@ -417,7 +417,7 @@ export default function NewOpportunity() {
       {client && (
         <form onSubmit={createOpportunity} className="space-y-4">
           <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="font-bold text-slate-900">2. Opportunity details</h2>
+            <h2 className="font-bold text-slate-900 bp-ui-section-heading">2. Opportunity details</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold sm:col-span-2">
                 Requirement title *
@@ -428,7 +428,7 @@ export default function NewOpportunity() {
                     setForm({ ...form, title: event.target.value })
                   }
                   placeholder="e.g. 2BHK interior painting"
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -438,7 +438,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, service_type: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="">Select service</option>
                   {serviceTypes.map((item) => (
@@ -455,7 +455,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, property: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   <option value="">No property selected</option>
                   {properties.map((item) => (
@@ -473,7 +473,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, source: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   {SOURCE_OPTIONS.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -489,7 +489,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, priority: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 >
                   {PRIORITY_OPTIONS.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -507,7 +507,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, estimated_value: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold">
@@ -521,7 +521,7 @@ export default function NewOpportunity() {
                       expected_start_date: event.target.value,
                     })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
@@ -546,7 +546,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, next_follow_up: event.target.value })
                   }
-                  className={input}
+                  className={(input) + " bp-ui-control"}
                 />
               </label>
               <label className="text-sm font-semibold sm:col-span-2">
@@ -557,7 +557,7 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, description: event.target.value })
                   }
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900"
+                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 bp-ui-control"
                 />
               </label>
               <label className="text-sm font-semibold sm:col-span-2">
@@ -568,14 +568,14 @@ export default function NewOpportunity() {
                   onChange={(event) =>
                     setForm({ ...form, notes: event.target.value })
                   }
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900"
+                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 bp-ui-control"
                 />
               </label>
             </div>
             <div className="mt-5 flex justify-end border-t pt-4">
               <button
                 disabled={saving}
-                className="flex items-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
               >
                 <Check className="h-4 w-4" />
                 {saving ? "Creating..." : "Create Opportunity"}

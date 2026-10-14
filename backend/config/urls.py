@@ -26,6 +26,7 @@ urlpatterns = [
     ),
     path("api/billing/", include("billing.urls")),
     path("api/outsourcing/", include("outsourcing.urls")),
+    path("api/call-inbox/", include("call_inbox.urls")),
 ]
 
 

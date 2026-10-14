@@ -31,3 +31,12 @@
 }
 @keyframes special-wall-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .special-wall-sheet { animation: none; } }
+.bp-special-wall-dialog { margin:0; width:100%; height:100dvh; max-width:none; max-height:none; border:0; }
+.bp-special-wall-dialog .special-wall-sheet { color:var(--bp-ink); border-radius:var(--bp-radius-panel); }
+.bp-special-wall-dialog .special-wall-body :is(input,select,textarea) { border-color:var(--bp-line); border-radius:var(--bp-radius-control); }
+.bp-special-wall-dialog .special-wall-body :is(input,textarea)::placeholder { color:var(--bp-muted); opacity:1; }
+.bp-special-wall-dialog .special-wall-footer { flex-wrap:wrap; }
+.bp-special-wall-dialog .special-wall-footer button { min-width:0; white-space:normal; }
+@media(max-width:639px) {
+  .bp-special-wall-dialog .special-wall-sheet { height:100dvh; max-height:100dvh; border-radius:0; }
+}

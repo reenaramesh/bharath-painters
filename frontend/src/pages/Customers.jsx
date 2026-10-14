@@ -1,3 +1,5 @@
+import "./mobile-workspace.css";
+import { customerConnectionDirectory } from "../utils/workspaceLists.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -153,28 +155,10 @@ export default function Customers() {
     return grouped;
   }, [properties]);
 
-  const directoryRows = useMemo(() => {
-    const savedCustomerIds = new Set(savedContacts.map((item) => String(item.id)));
-    const savedRows = savedContacts.map((item) =>
-      item.connection_status === "PENDING"
-        ? { ...item, status: "PENDING", is_pending_connection: true }
-        : item,
-    );
-    const pendingRows = connections
-      .filter((item) => item.status === "PENDING" && !savedCustomerIds.has(String(item.customer?.id || "")))
-      .map((item) => ({
-        id: item.customer?.id || `pending-${item.id}`,
-        connection_id: item.id,
-        name: item.customer?.name || item.customer?.masked_customer_id || "Bharath Apps customer",
-        mobile: item.customer?.mobile || item.customer?.masked_mobile || "",
-        bharath_id: item.customer?.masked_customer_id || "",
-        status: "PENDING",
-        connection_status: "PENDING",
-        requested_at: item.requested_at,
-        is_pending_connection: true,
-      }));
-    return [...customers, ...savedRows, ...pendingRows];
-  }, [customers, savedContacts, connections]);
+  const { directoryRows, connectionRows } = useMemo(
+    () => customerConnectionDirectory(customers, savedContacts, connections),
+    [customers, savedContacts, connections],
+  );
 
   const filtered = useMemo(() => {
     const result = directoryRows.filter((customer) => {
@@ -370,7 +354,7 @@ export default function Customers() {
   return (
     <div className="space-y-6 crm-page crm-customers-page">
       <MobilePageBack />
-      <PageHeader eyebrow="Customer relationships" title="Customers" description="Find customer records, contact details and property activity." actions={
+      <PageHeader eyebrow="Customer relationships" title="Customers"  actions={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -378,7 +362,7 @@ export default function Customers() {
             disabled={importing}
             aria-label="Add from phone contacts"
             title="Add from phone contacts"
-            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60"
+            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60 bp-ui-icon-action"
           >
             <ContactRound className="h-5 w-5" />
           </button>
@@ -390,7 +374,7 @@ export default function Customers() {
             }}
             aria-label="Bulk upload customers"
             title="Bulk upload customers"
-            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700"
+            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 bp-ui-icon-action"
           >
             <Upload className="h-5 w-5" />
           </button>
@@ -411,19 +395,19 @@ export default function Customers() {
           className="flex items-center justify-between rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           <span>{error}</span>
-          <button onClick={loadCustomers} className="font-semibold">
+          <button onClick={loadCustomers} className="font-semibold bp-ui-action">
             Retry
           </button>
         </div>
       )}
 
       <nav aria-label="Customer connection status" className="crm-customer-status-tabs flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} aria-current={connectionView === value ? "page" : undefined} className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? customers.length + savedContacts.length + connections.filter((item) => item.status === "PENDING" && !item.customer?.id).length : connections.filter((item) => item.status === value).length})</button>)}
+        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} aria-current={connectionView === value ? "page" : undefined} className={(`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`) + " bp-ui-action"}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? directoryRows.length : connectionRows.filter((item) => item.status === value).length})</button>)}
       </nav>
 
       {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
-        {connections.filter((item) => item.status === connectionView).map((item) => <article key={item.id} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {new Date(item.requested_at).toLocaleDateString("en-IN")}</p>{["PENDING", "RECONNECT_PENDING"].includes(item.status) && item.customer?.id && <button type="button" onClick={() => shareConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold">Share Link</button>}{item.status === "REJECTED" && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
-        {!connections.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
+        {connectionRows.filter((item) => item.status === connectionView).map((item) => <article key={item.id || `customer-${item.customer?.id}`} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold bp-ui-section-heading">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {item.requested_at ? new Date(item.requested_at).toLocaleDateString("en-IN") : "Date unavailable"}</p>{["PENDING", "RECONNECT_PENDING"].includes(item.status) && item.id && item.customer?.id && <button type="button" onClick={() => shareConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold bp-ui-action">Share Link</button>}{item.status === "REJECTED" && item.id && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50 bp-ui-action">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
+        {!connectionRows.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
       <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white`}>
@@ -438,7 +422,7 @@ export default function Customers() {
               }}
               placeholder="Search customers"
               aria-label="Search by customer ID, name, mobile, city or email"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
           <CustomerStatusFilter value={status} options={[{ value: "ALL", label: "All statuses" }, ...CUSTOMER_STATUSES.map((item) => ({ value: item, label: label(item) }))]} onChange={(value) => { setStatus(value); setPage(1); }} />
@@ -449,7 +433,7 @@ export default function Customers() {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="hidden md:block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none"
+            className="hidden md:block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none bp-ui-control"
           >
             <option value="ALL">All statuses</option>
             {CUSTOMER_STATUSES.map((item) => (
@@ -474,7 +458,7 @@ export default function Customers() {
         ) : filtered.length === 0 ? (
           <div className="p-14 text-center">
             <Users className="mx-auto h-10 w-10 text-slate-300" />
-            <h2 className="mt-4 font-semibold text-slate-900">
+            <h2 className="mt-4 font-semibold text-slate-900 bp-ui-section-heading">
               No customers found
             </h2>
             
@@ -497,12 +481,12 @@ export default function Customers() {
                     <button
                       type="button"
                       onClick={() => navigate(`/customers/${customer.id}`)}
-                      className="block w-full p-4 text-left"
+                      className="block w-full p-4 text-left bp-ui-action"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="truncate text-base font-bold text-slate-950">
+                            <h2 className="truncate text-base font-bold text-slate-950 bp-ui-section-heading">
                               {customer.name}
                             </h2>
                             <StatusBadge status={customer.status} label={label(customer.status)} tone={customerStatusTone(customer.status)} className="crm-compact-badge" />
@@ -532,7 +516,7 @@ export default function Customers() {
                       <a
                         href={customer.mobile ? `tel:${customer.mobile}` : undefined}
                         aria-label={`Call ${customer.name}`}
-                        className={`grid h-11 place-items-center rounded-xl border ${customer.mobile ? "border-slate-200 text-slate-700" : "pointer-events-none border-slate-100 text-slate-300"}`}
+                        className={(`grid h-11 place-items-center rounded-xl border ${customer.mobile ? "border-slate-200 text-slate-700" : "pointer-events-none border-slate-100 text-slate-300"}`) + " bp-ui-icon-action"}
                       >
                         <Phone className="h-4 w-4" />
                       </a>
@@ -541,7 +525,7 @@ export default function Customers() {
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`WhatsApp ${customer.name}`}
-                        className={`grid h-11 place-items-center rounded-xl border ${whatsappNumber ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "pointer-events-none border-slate-100 text-slate-300"}`}
+                        className={(`grid h-11 place-items-center rounded-xl border ${whatsappNumber ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "pointer-events-none border-slate-100 text-slate-300"}`) + " bp-ui-icon-action"}
                       >
                         <MessageCircle className="h-4 w-4" />
                       </a>
@@ -557,7 +541,7 @@ export default function Customers() {
                           type="button"
                           disabled={activatingCustomerId === customer.id}
                           onClick={(event) => activateCustomer(customer, event)}
-                          className="col-span-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-800 disabled:opacity-50"
+                          className="col-span-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-800 disabled:opacity-50 bp-ui-action"
                         >
                           <KeyRound className="h-4 w-4" />
                           {activatingCustomerId === customer.id ? "Preparing link..." : "Share activation link"}
@@ -569,7 +553,7 @@ export default function Customers() {
               })}
             </div>
             <div className="hidden overflow-x-auto md:block" data-mobile-table="keep">
-              <table className="w-full min-w-[960px] table-fixed border-separate border-spacing-0">
+              <table className="w-full min-w-[960px] table-fixed border-separate border-spacing-0 bp-ui-table">
                 <colgroup>
                   <col className="w-[23%]" />
                   <col className="w-[28%]" />
@@ -671,7 +655,7 @@ export default function Customers() {
                               onClick={(event) => event.stopPropagation()}
                               title={`Call ${customer.name}`}
                               aria-label={`Call ${customer.name}`}
-                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
+                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 bp-ui-icon-action"
                             >
                               <Phone className="h-4 w-4" />
                             </a>
@@ -690,7 +674,7 @@ export default function Customers() {
                               rel="noreferrer"
                               title={`WhatsApp ${customer.name}`}
                               aria-label={`WhatsApp ${customer.name}`}
-                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
+                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 bp-ui-icon-action"
                             >
                               <MessageCircle className="h-4 w-4" />
                             </a>
@@ -702,7 +686,7 @@ export default function Customers() {
                           className={`${cellPadding} border-b border-slate-200/80 text-center`}
                         >
                           <div className="flex flex-col items-center gap-1.5">
-                            {(!customer.bharath_id || customer.activation_pending) && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Preparing..." : "Share activation link"}</button>}
+                            {(!customer.bharath_id || customer.activation_pending) && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50 bp-ui-action"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Preparing..." : "Share activation link"}</button>}
                             <Link
                               to={`/quotations/new?customer=${customer.id}`}
                               onClick={(event) => event.stopPropagation()}
@@ -728,7 +712,7 @@ export default function Customers() {
                     setPageSize(Number(event.target.value));
                     setPage(1);
                   }}
-                  className="rounded-lg border px-2 py-1.5"
+                  className="rounded-lg border px-2 py-1.5 bp-ui-control"
                 >
                   {[25, 50, 75, 100].map((size) => (
                     <option key={size} value={size}>
@@ -747,7 +731,7 @@ export default function Customers() {
                   type="button"
                   disabled={currentPage === 1}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40"
+                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40 bp-ui-action"
                 >
                   Previous
                 </button>
@@ -757,7 +741,7 @@ export default function Customers() {
                   onClick={() =>
                     setPage((value) => Math.min(totalPages, value + 1))
                   }
-                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40"
+                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40 bp-ui-action"
                 >
                   Next
                 </button>
@@ -772,12 +756,12 @@ export default function Customers() {
           <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-bold">Bulk import customers</h2>
+                <h2 className="text-xl font-bold bp-ui-section-heading">Bulk import customers</h2>
                 
               </div>
               <button
                 onClick={() => setShowImport(false)}
-                className="rounded-lg p-2 hover:bg-slate-100"
+                className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -801,7 +785,7 @@ export default function Customers() {
             <button
               type="button"
               onClick={downloadTemplate}
-              className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-700"
+              className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-700 bp-ui-action"
             >
               <Download className="h-4 w-4" />
               Download CSV template
@@ -829,7 +813,7 @@ export default function Customers() {
               <button
                 onClick={connectContacts}
                 disabled={importing}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-60 bp-ui-action"
               >
                 <ContactRound className="h-4 w-4" />
                 Add from phone contacts
@@ -891,7 +875,7 @@ function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-2 ${centered ? "justify-center" : "text-left"}`}
+        className={(`inline-flex items-center gap-2 ${centered ? "justify-center" : "text-left"}`) + " bp-ui-action"}
         aria-label={`Sort by ${headerLabel}`}
       >
         {headerLabel}
@@ -910,7 +894,7 @@ function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
 
 function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, activateCustomer, activatingCustomerId }) {
   if (loading) return <div className="crm-directory-state"><LoadingState label="Loading customers..." /></div>;
-  if (!customers.length) return <EmptyState title="No customers found" description="Add your first customer or change the current filters." className="crm-directory-state" />;
+  if (!customers.length) return <EmptyState title="No customers found"  className="crm-directory-state" />;
 
   const sorted = [...customers].sort((first, second) =>
     String(first.name || "").localeCompare(String(second.name || ""), undefined, { sensitivity: "base" }),
@@ -927,11 +911,11 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
 
   return <div className="relative">
     {letters.length > 1 && <div className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:absolute md:right-2 md:top-2 md:z-20 md:h-[calc(100%-1rem)] md:flex-col md:border-0 md:bg-transparent md:px-0 md:py-0" aria-label="Jump to customer initial">
-      {letters.map((letter) => <button key={letter} type="button" onClick={() => document.getElementById(`customer-letter-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="grid h-7 min-w-7 place-items-center rounded-full text-xs font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-700">{letter}</button>)}
+      {letters.map((letter) => <button key={letter} type="button" onClick={() => document.getElementById(`customer-letter-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="grid h-7 min-w-7 place-items-center crm-customer-letter-link rounded-full text-xs font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 bp-ui-action">{letter}</button>)}
     </div>}
     <div className={`overflow-y-auto scroll-smooth ${letters.length > 1 ? "md:pr-12" : ""}`}>
       {letters.map((letter) => <section key={letter} id={`customer-letter-${letter}`} className="scroll-mt-0">
-        <div className="sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-700 backdrop-blur">{letter}</div>
+        <div className="crm-customer-letter-heading sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-700 backdrop-blur">{letter}</div>
         <div className="divide-y divide-slate-100">
           {groups[letter].map((customer) => {
             const customerProperties = propertiesByCustomer[String(customer.id)] || [];
@@ -949,9 +933,9 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
               <p className="hidden min-w-0 break-words text-sm font-semibold tabular-nums text-slate-700 md:block">{customer.mobile || "—"}</p>
               <div className="flex items-center justify-end gap-2" role="group" aria-label={`Actions for ${customer.name}`}>
                 <CustomerAccountStatus customer={customer} compact />
-                {customerAccountStatus(customer)?.canResend && <button type="button" disabled={activatingCustomerId !== null} onClick={(event) => activateCustomer(customer, event)} title="Resend activation link" aria-label={`Resend activation link to ${customer.name}`} className="crm-customer-activation-action inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-orange-700 disabled:opacity-50"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-orange-500 ring-2 ring-orange-100 ring-offset-1" />{activatingCustomerId === customer.id ? "Wait?" : "Resend"}</button>}
-                <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`}><Phone className="h-4 w-4" /></a>
-                <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`}><MessageCircle className="h-4 w-4" /></a>
+                {customerAccountStatus(customer)?.canResend && <button type="button" disabled={activatingCustomerId !== null} onClick={(event) => activateCustomer(customer, event)} title="Resend activation link" aria-label={`Resend activation link to ${customer.name}`} className="crm-customer-activation-action inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-orange-700 disabled:opacity-50 bp-ui-action"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-orange-500 ring-2 ring-orange-100 ring-offset-1" />{activatingCustomerId === customer.id ? "Wait?" : "Resend"}</button>}
+                <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><Phone className="h-4 w-4" /></a>
+                <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><MessageCircle className="h-4 w-4" /></a>
               </div>
               <div className="col-span-2 min-w-0 md:hidden"><p className="truncate text-xs font-semibold text-slate-700">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 text-[11px] text-slate-400">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"} · Tap contact to view</p></div>
             </div>;

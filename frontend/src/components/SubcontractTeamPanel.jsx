@@ -60,7 +60,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
 
   return (
     <section className="rounded-2xl border bg-white p-6">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold bp-ui-section-heading">
         <Users className="h-5 w-5" /> Your team
       </h2>
       
@@ -72,7 +72,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
           <select
             value={employee}
             onChange={(event) => setEmployee(event.target.value)}
-            className="min-w-[220px] flex-1"
+            className="min-w-[220px] flex-1 bp-ui-control"
           >
             <option value="">Add an employee</option>
             {employees
@@ -94,7 +94,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
                 setEmployee("");
               })
             }
-            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
           >
             Assign
           </button>
@@ -113,7 +113,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={row.status} />
-              {canEditTeam && (
+              {canEditTeam && !["IN_PROGRESS", "COMPLETED"].includes(row.status) && (
                 <button
                   disabled={busy}
                   onClick={() =>
@@ -123,7 +123,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
                       }),
                     )
                   }
-                  className="text-sm font-semibold text-red-600"
+                  className="text-sm font-semibold text-red-600 bp-ui-action"
                 >
                   Remove
                 </button>
@@ -176,7 +176,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
               required
               value={wage.employee}
               onChange={(event) => setWage({ ...wage, employee: event.target.value })}
-              className="sm:col-span-2"
+              className="sm:col-span-2 bp-ui-control"
             >
               <option value="">Employee</option>
               {team.map((row) => (
@@ -185,7 +185,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
                 </option>
               ))}
             </select>
-            <select
+            <select className="bp-ui-control"
               value={wage.wage_type}
               onChange={(event) => setWage({ ...wage, wage_type: event.target.value })}
             >
@@ -195,7 +195,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
                 </option>
               ))}
             </select>
-            <input
+            <input className="bp-ui-control"
               required
               type="number"
               min="0"
@@ -204,7 +204,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
               value={wage.amount}
               onChange={(event) => setWage({ ...wage, amount: event.target.value })}
             />
-            <input
+            <input className="bp-ui-control"
               type="number"
               min="0"
               step="0.5"
@@ -212,7 +212,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
               value={wage.days_worked}
               onChange={(event) => setWage({ ...wage, days_worked: event.target.value })}
             />
-            <input
+            <input className="bp-ui-control"
               type="date"
               value={wage.accrued_on}
               onChange={(event) => setWage({ ...wage, accrued_on: event.target.value })}
@@ -221,11 +221,11 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
               placeholder="Note"
               value={wage.note}
               onChange={(event) => setWage({ ...wage, note: event.target.value })}
-              className="sm:col-span-5"
+              className="sm:col-span-5 bp-ui-control"
             />
             <button
               disabled={busy || !wage.employee}
-              className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+              className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
             >
               Record wage
             </button>
@@ -233,7 +233,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
         )}
 
         {wages.length > 0 && (
-          <table className="mt-4 w-full text-left text-sm">
+          <table className="mt-4 w-full text-left text-sm bp-ui-table">
             <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="py-2 pr-3">Employee</th>

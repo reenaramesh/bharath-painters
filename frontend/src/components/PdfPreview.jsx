@@ -30,6 +30,24 @@ export default function PdfPreviewHost() {
   const generation = useRef(0);
   const [notice, setNotice] = useState("");
   const frameRef = useRef(null);
+  const quotationDialogRef = useRef(null);
+  const isQuotationPreview = /quotation|^QT[-_]/i.test(preview?.filename || '');
+  useEffect(() => {
+    if (!preview || !isQuotationPreview) return;
+    const dialog = quotationDialogRef.current;
+    const opener = document.activeElement;
+    dialog.showModal();
+    const controls = () => [...dialog.querySelectorAll('button:enabled,select:enabled,a[href]')].filter(control => control.getClientRects().length);
+    controls()[0]?.focus();
+    const containFocus = event => {
+      if (event.key !== 'Tab') return;
+      const items = controls();
+      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
+    };
+    dialog.addEventListener('keydown', containFocus);
+    return () => { dialog.close(); dialog.removeEventListener('keydown', containFocus); if (opener?.isConnected) opener.focus({ preventScroll:true }); };
+  }, [preview, isQuotationPreview]);
   const close = useCallback(() => {
     generation.current += 1;
     setChangingLanguage(false);
@@ -143,9 +161,10 @@ export default function PdfPreviewHost() {
   }
 
   if (!preview) return null;
+  const PreviewFrame = isQuotationPreview ? "dialog" : "div";
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5" data-popup-protection="readonly">
+    <PreviewFrame onCancel={isQuotationPreview ? event => { event.preventDefault(); close(); } : undefined} ref={quotationDialogRef} role={isQuotationPreview ? "dialog" : undefined} aria-modal={isQuotationPreview ? true : undefined} aria-label={isQuotationPreview ? "Quotation PDF preview" : undefined} className={`${isQuotationPreview ? "bp-quotation-pdf " : ""}fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5`} data-popup-protection="readonly">
       <section className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="bp-pdf-preview-toolbar flex items-center gap-1 border-b border-slate-200 px-3 py-3 sm:gap-3 sm:px-5">
           <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white sm:grid">
@@ -153,7 +172,7 @@ export default function PdfPreviewHost() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">PDF preview</p>
-            <h2 title={preview.filename} className="truncate font-bold text-slate-950">{preview.filename}</h2>
+            <h2 title={preview.filename} className="truncate font-bold text-slate-950 bp-ui-section-heading">{preview.filename}</h2>
           </div>
           <button
             type="button"
@@ -161,7 +180,7 @@ export default function PdfPreviewHost() {
             disabled={changingLanguage}
             title="Print PDF"
             aria-label="Print PDF"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 p-0 text-sm font-bold text-slate-700 sm:w-auto sm:px-3"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 p-0 text-sm font-bold text-slate-700 sm:w-auto sm:px-3 bp-ui-action"
           >
             <Printer className="h-4 w-4" />
             <span className="hidden sm:inline">Print</span>
@@ -171,7 +190,7 @@ export default function PdfPreviewHost() {
             onClick={share}
             title="Share PDF"
             aria-label="Share PDF"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-0 text-sm font-bold text-emerald-700 sm:w-auto sm:px-3"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-0 text-sm font-bold text-emerald-700 sm:w-auto sm:px-3 bp-ui-action"
           >
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">Share</span>
@@ -182,7 +201,7 @@ export default function PdfPreviewHost() {
             disabled={changingLanguage}
             title="Download PDF"
             aria-label="Download PDF"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 p-0 text-sm font-bold text-white sm:w-auto sm:px-4"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 p-0 text-sm font-bold text-white sm:w-auto sm:px-4 bp-ui-action"
           >
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Download PDF</span>
@@ -191,14 +210,14 @@ export default function PdfPreviewHost() {
             type="button"
             onClick={close}
             aria-label="Close PDF preview"
-            className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 bp-ui-icon-action"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
         {preview.request && <div className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
           <label htmlFor="preview-pdf-language" className="text-sm font-semibold">{t("pdfLanguage")}</label>
-          <select id="preview-pdf-language" value={preview.language} disabled={changingLanguage} onChange={(event) => changePdfLanguage(event.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-sm">
+          <select id="preview-pdf-language" value={preview.language} disabled={changingLanguage} onChange={(event) => changePdfLanguage(event.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-sm bp-ui-control">
             {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
           </select>
           
@@ -217,7 +236,7 @@ export default function PdfPreviewHost() {
         />
         <MobilePdfPreview blob={preview.blob} />
       </section>
-    </div>
+    </PreviewFrame>
   );
 }
 

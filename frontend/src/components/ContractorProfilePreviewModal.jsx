@@ -18,7 +18,7 @@ export default function ContractorProfilePreviewModal({ onClose }) {
     return () => { active = false; };
   }, [attempt]);
   return <dialog ref={ref} className="cp-project-dialog cp-profile-preview-dialog" onCancel={onClose} aria-label="Profile preview">
-    <header><h2>Profile preview</h2><button type="button" className="cp-icon-button" onClick={onClose} aria-label="Close profile preview"><X size={20}/></button></header>
-    {error ? <p role="alert" className="p-4">{error} <button type="button" className="min-h-11 px-3 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button></p> : data ? <ContractorProfileAdapter data={data} own onBack={onClose} onEditProfile={onClose}/> : <p role="status" className="p-4">Loading profile…</p>}
+    <header><h2 className="bp-ui-section-heading">Profile preview</h2><button type="button" className="cp-icon-button bp-ui-icon-action" onClick={onClose} aria-label="Close profile preview"><X size={20}/></button></header>
+    {error ? <p role="alert" className="p-4">{error} <button type="button" className="min-h-11 px-3 underline bp-ui-action" onClick={() => setAttempt(value => value + 1)}>Retry</button></p> : data ? <ContractorProfileAdapter data={data} own onBack={onClose} onEditProfile={onClose}/> : <p role="status" className="p-4">Loading profile…</p>}
   </dialog>;
 }

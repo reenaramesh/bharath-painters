@@ -327,6 +327,8 @@ class WorkOrderAssignment(models.Model):
         ACCEPTED = "ACCEPTED", "Accepted"
         DECLINED = "DECLINED", "Declined"
         RELEASED = "RELEASED", "Released"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        COMPLETED = "COMPLETED", "Completed"
 
     work_order = models.ForeignKey(
         SubcontractWorkOrder,
@@ -350,6 +352,8 @@ class WorkOrderAssignment(models.Model):
     assigned_at = models.DateTimeField(default=timezone.now)
     responded_at = models.DateTimeField(null=True, blank=True)
     released_at = models.DateTimeField(null=True, blank=True)
+    work_started_at = models.DateTimeField(null=True, blank=True)
+    work_completed_at = models.DateTimeField(null=True, blank=True)
     note = models.CharField(max_length=180, blank=True)
 
     class Meta:

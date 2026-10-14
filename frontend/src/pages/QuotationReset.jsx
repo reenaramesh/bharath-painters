@@ -5,7 +5,7 @@ export default function QuotationReset() {
     <section className="rounded-2xl border bg-white p-8 text-center sm:p-14">
       <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-950 text-white"><FileText /></span>
       <p className="mt-6 text-sm font-bold uppercase tracking-wider text-amber-600">Quotation workspace</p>
-      <h1 className="mt-2 text-3xl font-bold">Ready to build from scratch</h1>
+      <h1 className="mt-2 text-3xl font-bold bp-ui-page-title">Ready to build from scratch</h1>
       
     </section>
   </div>;

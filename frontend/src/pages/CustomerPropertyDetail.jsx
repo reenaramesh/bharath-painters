@@ -208,7 +208,7 @@ export default function CustomerPropertyDetail() {
           [property.flat_number, property.block_name, property.address, property.city, property.pincode].filter(Boolean).join(", "),
         ].filter(Boolean).join(" · ") || "Property details shared for your project."}
       />
-      {property.can_share_access && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShareOpen(true)} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#176b9b] px-5 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331]">Share Access</button>{property.can_manage_access && <Link to={`/customer-properties/${id}/access`} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-[#b9cbd3] bg-white px-4 text-sm font-bold text-[#145878] hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Manage property access</Link>}</div>}
+      {property.can_share_access && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShareOpen(true)} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#176b9b] px-5 text-sm font-bold text-white hover:bg-[#12577f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#102331] bp-ui-action">Share Access</button>{property.can_manage_access && <Link to={`/customer-properties/${id}/access`} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-[#b9cbd3] bg-white px-4 text-sm font-bold text-[#145878] hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b9b]">Manage property access</Link>}</div>}
       <SharePropertyDialog open={shareOpen} onClose={() => setShareOpen(false)} propertyId={id} propertyName={property.name || property.property_type} onShared={() => window.dispatchEvent(new Event("portal-counts-changed"))} />
       <section className="customer-property-context-strip" aria-label="Property project context">
         <div><span>Contractor</span><strong>{property.contractor_name || "Not listed"}</strong><small>Sharing this project with you</small></div>
@@ -227,14 +227,14 @@ export default function CustomerPropertyDetail() {
 
       {property.can_view_measurements ? <>
       <section className="customer-property-overview" aria-label="Measurement overview">
-        <StatCard icon={Ruler} label="Measured area" value={`${Math.round(allRoomTotals.finalArea)} sq ft`} hint="Total recorded area" tone="brand" />
-        <StatCard icon={Building2} label="Rooms and areas" value={roomTotals.length} hint="With saved measurements" tone="info" />
-        <StatCard icon={FileText} label="Measured surfaces" value={data.surfaces.length} hint="Walls, ceilings and openings" tone="success" />
+        <StatCard icon={Ruler} label="Measured area" value={`${Math.round(allRoomTotals.finalArea)} sq ft`}  tone="brand" />
+        <StatCard icon={Building2} label="Rooms and areas" value={roomTotals.length}  tone="info" />
+        <StatCard icon={FileText} label="Measured surfaces" value={data.surfaces.length}  tone="success" />
       </section>
 
       <SectionCard
         title="Saved measurements"
-        description="Choose a shared Area Calculation to see room totals and dimensions."
+        
         className="customer-measurement-records"
         bodyClassName="p-0"
       >
@@ -276,23 +276,23 @@ export default function CustomerPropertyDetail() {
                   </div>
                 </div>
                 <div className="customer-measurement-actions mt-3">
-                  <button type="button" onClick={() => viewMeasurement(record.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold">
+                  <button type="button" onClick={() => viewMeasurement(record.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold bp-ui-action">
                     View details
                   </button>
-                  <button type="button" onClick={() => downloadPdf(record)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white">
+                  <button type="button" onClick={() => downloadPdf(record)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white bp-ui-action">
                     <Eye className="h-4 w-4" />View PDF
                   </button>
                 </div>
               </article>
             );
           })}
-          {!data.measurement_records.length && <EmptyState title="No Area Calculations published yet" description="The contractor needs to submit a saved Area Calculation before it appears here." className="customer-detail-empty" />}
+          {!data.measurement_records.length && <EmptyState title="No Area Calculations published yet"  className="customer-detail-empty" />}
         </div>
         <div
           className="hidden overflow-x-auto md:block"
           data-mobile-table="keep"
         >
-          <table className="customer-measurement-table w-full min-w-[820px] text-left text-sm">
+          <table className="customer-measurement-table w-full min-w-[820px] text-left text-sm bp-ui-table">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
               <tr>
                 {[
@@ -347,7 +347,7 @@ export default function CustomerPropertyDetail() {
                       <button
                         type="button"
                         onClick={() => downloadPdf(record)}
-                        className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-semibold"
+                        className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-semibold bp-ui-action"
                       >
                         <Eye className="h-4 w-4" /> View
                       </button>
@@ -367,7 +367,7 @@ export default function CustomerPropertyDetail() {
         </div>
       </SectionCard>
       </> : <section className="rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="measurements-access-title">
-        <h2 id="measurements-access-title" className="font-bold text-slate-950">Area Calculation details aren’t included in your access</h2>
+        <h2 id="measurements-access-title" className="font-bold text-slate-950 bp-ui-section-heading">Area Calculation details aren’t included in your access</h2>
         
       </section>}
 
@@ -447,7 +447,7 @@ export default function CustomerPropertyDetail() {
                 key={sheet.room.id}
                 type="button"
                 onClick={() => viewRoom(sheet.room.id)}
-                className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm"
+                className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm bp-ui-action"
               >
                 <div className="min-w-0">
                   <h3 className="truncate font-bold text-slate-950">
@@ -475,7 +475,7 @@ export default function CustomerPropertyDetail() {
           className="hidden overflow-x-auto md:block"
           data-mobile-table="keep"
         >
-          <table className="w-full min-w-[1080px] border-collapse text-xs">
+          <table className="w-full min-w-[1080px] border-collapse text-xs bp-ui-table">
             <thead>
               <tr className="bg-slate-950 text-left text-white">
                 {[
@@ -514,7 +514,7 @@ export default function CustomerPropertyDetail() {
                     <button
                       type="button"
                       onClick={() => viewRoom(sheet.room.id)}
-                      className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 font-semibold"
+                      className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 font-semibold bp-ui-action"
                     >
                       <Eye className="h-3.5 w-3.5" /> View
                     </button>
@@ -631,14 +631,14 @@ function MeasurementDetailsModal({ sheet, close }) {
             type="button"
             onClick={close}
             aria-label="Close Area Calculation Details"
-            className="rounded-xl border bg-white p-2.5 hover:bg-slate-50"
+            className="rounded-xl border bg-white p-2.5 hover:bg-slate-50 bp-ui-icon-action"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <article className="overflow-hidden rounded-lg border border-slate-300 bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-xs">
+            <table className="w-full min-w-[720px] border-collapse text-xs bp-ui-table">
               <thead>
                 <tr className="bg-emerald-50 text-left text-emerald-900">
                   {[
@@ -675,7 +675,7 @@ function MeasurementDetailsModal({ sheet, close }) {
             </table>
           </div>
           <div className="overflow-x-auto border-t border-slate-300">
-            <table className="w-full min-w-[760px] border-collapse text-xs">
+            <table className="w-full min-w-[760px] border-collapse text-xs bp-ui-table">
               <thead>
                 <tr className="bg-slate-200 text-left font-semibold text-slate-700">
                   {[

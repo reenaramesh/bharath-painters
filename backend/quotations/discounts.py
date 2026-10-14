@@ -10,4 +10,4 @@ def discount_amount(amount, kind, value):
 
 
 def line_discount(item):
-    return discount_amount(item.amount, item.discount_type, item.discount_value) if item.quotation.discount_mode == "LINE" else Decimal("0.00")
+    return discount_amount(item.amount, item.discount_type, item.discount_value) if item.quotation.discount_mode in ("LINE", "BOTH") else Decimal("0.00")

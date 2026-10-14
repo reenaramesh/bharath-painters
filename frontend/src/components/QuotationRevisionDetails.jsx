@@ -15,8 +15,8 @@ const discount = (type, amount) => type === "PERCENTAGE" ? `${amount}%` : `₹${
 export function QuotationRevisionHistory({ versions = [], currentId, customer = false }) {
   if (versions.length < 2) return null;
   return <section aria-label="Quotation version history" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-    <h2 className="font-bold text-slate-950">Version history</h2>
-    <p className="mt-1 text-sm text-slate-500">Open a version to review its saved scope and prices.</p>
+    <h2 className="font-bold text-slate-950 bp-ui-section-heading">Version history</h2>
+    
     <ol className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
       {versions.map(version => <li key={version.id} className="min-w-0 rounded-xl border border-slate-200 p-3">
         <div className="flex flex-wrap items-start justify-between gap-2">

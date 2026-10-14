@@ -7,7 +7,7 @@ const monthLabel=value=>new Date(value).toLocaleDateString('en-IN',{month:'short
 const colors=['var(--ra-blue)','var(--ra-green)','var(--ra-amber)','var(--ra-purple)','var(--ra-rose)','var(--ra-teal)'];
 
 function Panel({title,description,children,className=''}) {
-  return <section className={`ra-panel ${className}`}><header><h2>{title}</h2><p>{description}</p></header>{children}</section>;
+  return <section className={`ra-panel ${className}`}><header><h2 className="bp-ui-section-heading">{title}</h2><p>{description}</p></header>{children}</section>;
 }
 function Bars({rows}) {
   const max=Math.max(1,...rows.map(row=>Number(row.value)||0));
@@ -24,7 +24,7 @@ function PieChart({rows,name}) {
     <div className="ra-pie" role="img" aria-label={`${name}: ${rows.map(row=>`${row.label} ${row.value}`).join(', ')}`} style={{background:`conic-gradient(${stops.join(',')})`}}>
       <div className="ra-pie-center" aria-hidden="true"><strong>{total.toLocaleString('en-IN')}</strong><span>Total</span></div>
     </div>
-    <div><ul className="ra-pie-legend">{rows.map((row,index)=><li key={row.label}><button type="button" aria-pressed={selected?.label===row.label} onClick={()=>setSelectedLabel(row.label)}>
+    <div><ul className="ra-pie-legend">{rows.map((row,index)=><li key={row.label}><button className="bp-ui-action" type="button" aria-pressed={selected?.label===row.label} onClick={()=>setSelectedLabel(row.label)}>
       <span className="ra-dot" style={{background:colors[index%colors.length]}} aria-hidden="true" /><span>{row.label}</span><strong>{row.value}</strong><small>{(Number(row.value)/total*100).toFixed(1)}%</small>
     </button></li>)}</ul><p className="ra-pie-detail" aria-live="polite"><strong>{selected?.label}</strong> · {selected?.value} of {total} · {(Number(selected?.value)/total*100).toFixed(1)}%</p></div>
   </div>;
@@ -36,8 +36,8 @@ function MonthlyChart({rows}) {
   const max=Math.max(1,...months.flatMap(row=>[row.billed,row.paid]));
   const selected=months.find(row=>row.month===selectedMonth)||months.at(-1);
   return <Panel title="Monthly invoice performance" description="Compare billed amounts with payments recorded against those invoices." className="ra-monthly-side">
-    <div className="ra-chart-toolbar"><div className="ra-inline-legend"><span><i className="ra-dot" style={{background:colors[0]}} />Billed</span><span><i className="ra-dot" style={{background:colors[1]}} />Received</span></div><label>Period <select value={limit} onChange={event=>setLimit(event.target.value)}><option value="6">Latest 6 months</option><option value="12">Latest 12 months</option></select></label></div>
-    {months.length ? <><p className="ra-axis-note">Scale: {money(max)} · Select a month for exact amounts</p><div className="ra-months">{months.map(row=><button key={row.month} type="button" className="ra-month" aria-pressed={selected.month===row.month} aria-label={`${monthLabel(row.month)}: billed ${money(row.billed)}, received ${money(row.paid)}`} onClick={()=>setSelectedMonth(row.month)}><span>{monthLabel(row.month)}</span><span className="ra-month-bars" aria-hidden="true"><span style={{width:`${Math.max(0,row.billed)/max*100}%`,background:colors[0]}} /><span style={{width:`${Math.max(0,row.paid)/max*100}%`,background:colors[1]}} /></span></button>)}</div><div className="ra-month-detail" aria-live="polite"><strong>{monthLabel(selected.month)}</strong><span>Billed <b>{money(selected.billed)}</b></span><span>Received <b>{money(selected.paid)}</b></span><span>Balance <b>{money(selected.due)}</b></span></div></> : <p className="ra-empty">Monthly charts will appear when invoices are recorded.</p>}
+    <div className="ra-chart-toolbar"><div className="ra-inline-legend"><span><i className="ra-dot" style={{background:colors[0]}} />Billed</span><span><i className="ra-dot" style={{background:colors[1]}} />Received</span></div><label>Period <select className="bp-ui-control" value={limit} onChange={event=>setLimit(event.target.value)}><option value="6">Latest 6 months</option><option value="12">Latest 12 months</option></select></label></div>
+    {months.length ? <><p className="ra-axis-note">Scale: {money(max)} · Select a month for exact amounts</p><div className="ra-months">{months.map(row=><button key={row.month} type="button" className="ra-month bp-ui-action" aria-pressed={selected.month===row.month} aria-label={`${monthLabel(row.month)}: billed ${money(row.billed)}, received ${money(row.paid)}`} onClick={()=>setSelectedMonth(row.month)}><span>{monthLabel(row.month)}</span><span className="ra-month-bars" aria-hidden="true"><span style={{width:`${Math.max(0,row.billed)/max*100}%`,background:colors[0]}} /><span style={{width:`${Math.max(0,row.paid)/max*100}%`,background:colors[1]}} /></span></button>)}</div><div className="ra-month-detail" aria-live="polite"><strong>{monthLabel(selected.month)}</strong><span>Billed <b>{money(selected.billed)}</b></span><span>Received <b>{money(selected.paid)}</b></span><span>Balance <b>{money(selected.due)}</b></span></div></> : <p className="ra-empty">Monthly charts will appear when invoices are recorded.</p>}
   </Panel>;
 }
 export default function ReportAnalytics({report,users,admin,userError,onRetry}) {
@@ -49,7 +49,7 @@ export default function ReportAnalytics({report,users,admin,userError,onRetry}) 
       <Panel title="Account verification" description="Verification status across contractors and employees."><Bars rows={series.verification} /></Panel>
       <Panel title="Customer pipeline" description="Customer records grouped by their current status."><Bars rows={series.customers} /></Panel>
       <Panel title="Employee availability" description="The current availability of your workforce."><Bars rows={series.availability} /></Panel>
-    </> : <Panel title="User analytics" description={userError || 'Loading user reports…'}>{userError && <button className="ra-retry" type="button" onClick={onRetry}>Retry user analytics</button>}</Panel>)}
+    </> : <Panel title="User analytics" description={userError || 'Loading user reports…'}>{userError && <button className="ra-retry bp-ui-action" type="button" onClick={onRetry}>Retry user analytics</button>}</Panel>)}
     <div className="ra-performance-layout">
     <div className="ra-performance-main">
     <Panel title="Quotation pipeline" description="Select a stage to see its share of quotations."><PieChart name="Quotation distribution" rows={(report.quotation_statuses||[]).map(row=>({label:reportLabel(row.status),value:row.count}))} /></Panel>

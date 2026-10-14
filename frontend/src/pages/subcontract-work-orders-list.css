@@ -17,3 +17,34 @@
 .wo-order-amount{justify-self:end;text-align:right;}
 @media(max-width:1100px){.wo-order-columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;}.wo-order-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}.wo-order-title,.wo-order-party{grid-column:1/-1;}.wo-order-row small{display:block;}.wo-order-amount{justify-self:start;text-align:left;}}
 @media(max-width:600px){.wo-order-row{padding:16px;}.subcontract-orders-page>header h1{font-size:26px;overflow-wrap:anywhere;}}
+
+.wo-table-container { min-width: 0; border: 1px solid var(--bp-line,#dbe4eb); border-radius: 14px; background: #fff; overflow: auto; }
+.wo-order-table { width: 100%; table-layout: fixed; text-align: left; font-size: 13px; border-collapse: collapse; }
+.wo-order-table th { background: #f8fafc; color: #64748b; text-align: left; }
+.wo-order-table :is(th,td) { padding: 12px; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid #e2e8f0; }
+.wo-order-table th button { display: flex; align-items: center; gap: 4px; text-align: left; min-height: 44px; font-size: 11px; width: 100%; }
+.wo-order-table th button svg { flex: none; }
+.wo-order-table th button[aria-pressed=true] { color: #176b9b; }
+.wo-order-table small { display: block; color: #64748b; font-size: 11px; }
+.wo-table-title a { display: block; min-height: 44px; }
+.wo-table-title strong { display: block; color: #193750; }
+.wo-table-amount { font-weight: 600; }
+.wo-order-table tbody tr:last-child td { border-bottom: 0; }
+.wo-order-table tbody tr:hover { background: #f8fafc; }
+.wo-order-table :is(a,button):focus-visible { outline: 2px solid #176b9b; outline-offset: 2px; border-radius: 4px; }
+@media(max-width:767px) {
+  .wo-order-table { font-size: 11px; }
+  .wo-order-table :is(th,td) { padding: 7px 5px; }
+  .wo-order-table :is(th,td):first-child { width: 35%; }
+  .wo-order-table :is(th,td):nth-child(2) { width: 23%; }
+  .wo-order-table :is(th,td):nth-child(3) { width: 22%; }
+  .wo-order-table :is(th,td):nth-child(4) { width: 20%; }
+  .wo-order-table small { font-size: 10px; margin-top: 3px; }
+  .wo-order-table time { display: block; font-size: 10px; }
+  .wo-order-table th button { font-size: 10px; line-height: 1.3; }
+  .wo-order-table .bp-badge { max-width: 100%; white-space: normal; padding: 4px 5px; font-size: 9px; text-align: center; }
+  .wo-mobile-value strong { font-size: 14px; }
+  .subcontract-orders-page > header { gap: 10px; }
+  .subcontract-orders-page > header > div:last-child { gap: 6px; }
+  .subcontract-orders-page > header > div:last-child :is(a,button) { font-size: 11px; padding: 8px 10px; min-height: 44px; }
+}

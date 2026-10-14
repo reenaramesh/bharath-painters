@@ -26,9 +26,9 @@ export default function ServiceLocationLookup({ onAdd }) {
     return () => { active = false; clearTimeout(timer); };
   }, [query, attempt]);
   return <div className="msp-location-lookup">
-    <label><span>Find service location by PIN or name</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }} placeholder="Enter a six-digit PIN or area name" /></label>
+    <label><span>Find service location by PIN or name</span><input className="bp-ui-control" type="search" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }} placeholder="Enter a six-digit PIN or area name" /></label>
     {loading && <p role="status">Finding locations…</p>}
-    {error && <p role="status">{error} <button type="button" className="msp-secondary" onClick={() => setAttempt(value => value + 1)}>Retry</button></p>}
-    {choices.length > 0 && <div className="msp-location-results" aria-label="Matching service locations">{choices.map(row => <button type="button" key={`${row.area}:${row.district}:${row.pincode}`} onClick={() => onAdd(row)}><MapPin size={16}/><span><strong>{row.area}</strong><small>{row.district}, {row.state} · PIN {row.pincode}</small></span><Plus size={16}/></button>)}</div>}
+    {error && <p role="status">{error} <button type="button" className="msp-secondary bp-ui-action" onClick={() => setAttempt(value => value + 1)}>Retry</button></p>}
+    {choices.length > 0 && <div className="msp-location-results" aria-label="Matching service locations">{choices.map(row => <button className="bp-ui-action" type="button" key={`${row.area}:${row.district}:${row.pincode}`} onClick={() => onAdd(row)}><MapPin size={16}/><span><strong>{row.area}</strong><small>{row.district}, {row.state} · PIN {row.pincode}</small></span><Plus size={16}/></button>)}</div>}
   </div>;
 }

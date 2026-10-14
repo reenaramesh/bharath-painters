@@ -285,11 +285,7 @@ export default function ProviderProfile({ embedded = false }) {
       <PageHeader
         eyebrow={isEmployee ? "Employee profile" : "Contractor profile"}
         title={isEmployee ? "Primary trade and additional skills" : "Core service and additional services"}
-        description={
-          isEmployee
-            ? "Your primary trade sets how you appear in every job. Extra skills never rename it."
-            : "One core service drives your workspace branding. Additional services are explicit and never change it."
-        }
+        
       />
       )}
 
@@ -314,11 +310,11 @@ export default function ProviderProfile({ embedded = false }) {
               so none of these fields are duplicated for them. */}
           <SectionCard
             title={isEmployee ? "Professional introduction" : "Business identity"}
-            description={isEmployee ? "Describe your work. Personal details and work-seeking locations are in Personal details." : "These details travel with every quote you send."}
+            
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Headline" hint="One line other contractors see first">
-                <input
+                <input className="bp-ui-control"
                   maxLength={180}
                   value={form.headline}
                   onChange={(event) => setForm({ ...form, headline: event.target.value })}
@@ -326,7 +322,7 @@ export default function ProviderProfile({ embedded = false }) {
                 />
               </Field>
               {!isEmployee && <Field label="Tagline">
-                <input
+                <input className="bp-ui-control"
                   maxLength={180}
                   value={form.tagline}
                   onChange={(event) => setForm({ ...form, tagline: event.target.value })}
@@ -334,7 +330,7 @@ export default function ProviderProfile({ embedded = false }) {
                 />
               </Field>}
               <Field label="Professional base location" hint="Your usual work base, distinct from office address or current work-seeking location">
-                <input
+                <input className="bp-ui-control"
                   maxLength={180}
                   value={form.base_location}
                   onChange={(event) => setForm({ ...form, base_location: event.target.value })}
@@ -342,7 +338,7 @@ export default function ProviderProfile({ embedded = false }) {
                 />
               </Field>
               {!isEmployee && <Field label="Declared workforce count" hint="Your declared team size; registered employee memberships are counted separately">
-                <input
+                <input className="bp-ui-control"
                   type="number"
                   min="0"
                   value={form.team_size}
@@ -350,7 +346,7 @@ export default function ProviderProfile({ embedded = false }) {
                 />
               </Field>}
               <Field label="About" hint="What you take on, and what you do not">
-                <textarea
+                <textarea className="bp-ui-control"
                   rows={3}
                   maxLength={1200}
                   value={form.about}
@@ -362,7 +358,7 @@ export default function ProviderProfile({ embedded = false }) {
                 label="Workspace name override"
                 hint="Leave blank to use the core service name"
               >
-                <input
+                <input className="bp-ui-control"
                   maxLength={150}
                   value={form.workspace_name_override}
                   onChange={(event) =>
@@ -376,7 +372,7 @@ export default function ProviderProfile({ embedded = false }) {
 
           <SectionCard
             title={isEmployee ? "Primary trade — exactly one" : "Core service — exactly one"}
-            description="Changing this changes your workspace heading."
+            
           >
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {selectable.map((item) => {
@@ -387,11 +383,11 @@ export default function ProviderProfile({ embedded = false }) {
                     key={item.id}
                     type="button"
                     onClick={() => pickCore(item.id)}
-                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
+                    className={(`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
                       isCore
                         ? "border-slate-900 bg-slate-50"
                         : "border-slate-200 hover:border-slate-300"
-                    }`}
+                    }`) + " bp-ui-action"}
                   >
                     <span
                       className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
@@ -425,7 +421,7 @@ export default function ProviderProfile({ embedded = false }) {
 
           <SectionCard
             title={isEmployee ? "Additional trades & skills" : "Additional services"}
-            description="Add extra trades without touching your core identity."
+            
           >
             <div className="grid gap-2 sm:grid-cols-2">
               {selectable
@@ -454,7 +450,7 @@ export default function ProviderProfile({ embedded = false }) {
 
           <SectionCard
             title="Sub-services you actually offer"
-            description="Pick the specific work, not just the category."
+            
           >
             <div className="space-y-4">
               {[...offeredIds].map((categoryId) => {
@@ -504,7 +500,7 @@ export default function ProviderProfile({ embedded = false }) {
           </SectionCard>
 
           {!isEmployee && (
-            <SectionCard title="Subcontract and network" description="How other contractors reach you.">
+            <SectionCard title="Subcontract and network" >
               <div className="space-y-3">
                 <Toggle
                   checked={form.accepts_subcontract_work}
@@ -526,13 +522,13 @@ export default function ProviderProfile({ embedded = false }) {
             <button
               type="button"
               onClick={load}
-              className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold"
+              className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold bp-ui-action"
             >
               Discard changes
             </button>
             <button
               disabled={saving}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
             >
               {saving ? "Saving…" : "Save profile"}
             </button>
@@ -614,20 +610,15 @@ export default function ProviderProfile({ embedded = false }) {
               type="button"
               disabled={saving || !canPublish || (published && !publishedBrandingIsStale)}
               onClick={publish}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
             >
               <Rocket className="h-4 w-4" />
               {published ? (publishedBrandingIsStale ? "Republish updated identity" : "Already published") : "Publish profile"}
             </button>
             {!canPublish && !published && (
-              <p className="mt-2 text-xs text-slate-500">
-                 Publishing needs a saved {isEmployee ? "primary trade" : "core service"}. Other professional details improve your profile completeness.
-              </p>
+              null
             )}
-            <p className="mt-2 text-xs text-slate-500">
-              Save your changes before publishing, otherwise the published version keeps your last
-              saved values.
-            </p>
+            
           </SectionCard>
 
           {profile && (profile.rating_count > 0 || profile.completed_work_orders > 0) && (

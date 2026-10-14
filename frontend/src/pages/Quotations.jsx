@@ -6,7 +6,7 @@ import MobilePageBack from "../components/MobilePageBack";
 import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 
-const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
+const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const last7Days = () => { const today = new Date(); const start = new Date(today); start.setDate(today.getDate() - 6); return { from: dateKey(start), to: dateKey(today) }; };
 
@@ -65,11 +65,11 @@ export default function Quotations() {
 
   return <div className="space-y-6 quotation-measurement-page bp-quotation-list">
     <MobilePageBack />
-    <PageHeader eyebrow="Estimates and pricing" title="Quotations" description="Review customer estimates, current status and total value." actions={<Link to="/quotations/new" className="bp-button bp-button-primary inline-flex items-center justify-center gap-2"><Calculator className="h-4 w-4" aria-hidden="true" />Create quotation</Link>} />
-    {error && <ErrorState message={error} />}
-    <section aria-label="Filter quotations by status" className="quotation-status-summary grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">{summaryCards.map((card) => <button key={card.value} type="button" onClick={() => chooseSummary(card.value)} aria-pressed={status === card.value} className={`flex min-h-24 flex-col justify-between rounded-2xl border p-4 text-left transition ${status === card.value ? "border-slate-950 bg-slate-950 text-white shadow-lg" : "bg-white hover:border-slate-400 hover:shadow-sm"}`}><span className={`text-sm font-bold ${status === card.value ? "text-slate-200" : "text-slate-600"}`}>{card.label}</span><strong className="text-2xl tabular-nums">{card.count}</strong></button>)}</section>
+    <PageHeader eyebrow="Estimates and pricing" title="Quotations"  actions={<Link to="/quotations/new" className="bp-button bp-button-primary inline-flex items-center justify-center gap-2"><Calculator className="h-4 w-4" aria-hidden="true" />Create quotation</Link>} />
+    {error && <ErrorState message={error} onRetry={() => window.location.reload()} />}
+    <section aria-label="Filter quotations by status" className="quotation-status-summary grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">{summaryCards.map((card) => <button key={card.value} type="button" onClick={() => chooseSummary(card.value)} aria-pressed={status === card.value} className={(`flex min-h-24 flex-col justify-between rounded-2xl border p-4 text-left transition ${status === card.value ? "border-slate-950 bg-slate-950 text-white shadow-lg" : "bg-white hover:border-slate-400 hover:shadow-sm"}`) + " bp-ui-action"}><span className={`text-sm font-bold ${status === card.value ? "text-slate-200" : "text-slate-600"}`}>{card.label}</span><strong className="text-2xl tabular-nums">{card.count}</strong></button>)}</section>
     <SectionCard title="Quotation records" description={`${visible.length} matching ${visible.length === 1 ? "quotation" : "quotations"}`} className="quotation-results-card" bodyClassName="p-0">
-      <div className="flex flex-col gap-3 border-b p-4"><div className="flex flex-col gap-2 md:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quotation, customer or address" className="w-full bg-transparent text-sm outline-none" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm"><option value="ALL">All active statuses</option>{["DRAFT", "SENT", "VIEWED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "REJECTED", "EXPIRED", "CANCELLED"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select><select value={datePreset} onChange={(event) => chooseDatePreset(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm"><option value="ALL">All dates</option><option value="TODAY">Today</option><option value="LAST_7">Last 7 days</option><option value="THIS_MONTH">This month</option><option value="CUSTOM">Custom dates</option></select></div>{datePreset === "CUSTOM" && <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><label className="text-xs font-semibold text-slate-500">From <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900" /></label><label className="text-xs font-semibold text-slate-500">To <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900" /></label></div>}</div>
+      <div className="flex flex-col gap-3 border-b p-4"><div className="flex flex-col gap-2 md:flex-row"><label className="quotation-filter-field flex-1"><span>Search quotations</span><span className="quotation-search-control"><Search className="h-4 w-4" aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quotations" className="w-full bg-transparent text-sm outline-none bp-ui-control" /></span></label><label className="quotation-filter-field"><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm bp-ui-control"><option value="ALL">All active statuses</option>{["DRAFT", "SENT", "VIEWED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "REJECTED", "EXPIRED", "CANCELLED"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select></label><label className="quotation-filter-field"><span>Date range</span><select value={datePreset} onChange={(event) => chooseDatePreset(event.target.value)} className="rounded-xl border px-4 py-2.5 text-sm bp-ui-control"><option value="ALL">All dates</option><option value="TODAY">Today</option><option value="LAST_7">Last 7 days</option><option value="THIS_MONTH">This month</option><option value="CUSTOM">Custom dates</option></select></label></div>{datePreset === "CUSTOM" && <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><label className="text-xs font-semibold text-slate-500">From <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900 bp-ui-control" /></label><label className="text-xs font-semibold text-slate-500">To <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="ml-2 rounded-lg border px-3 py-2 text-sm font-normal text-slate-900 bp-ui-control" /></label></div>}</div>
       {loading ? (
         <LoadingState label="Loading quotations..." />
       ) : visible.length ? (
@@ -86,14 +86,14 @@ export default function Quotations() {
                   type="button"
                   key={quotation.id}
                   onClick={() => navigate(`/quotations/${quotation.id}`)}
-                  className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]"
+                  className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.99] bp-ui-action"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-xs font-bold uppercase tracking-wide text-slate-400">
                         {quotation.quotation_number}
                       </p>
-                      <h2 className="mt-1 truncate text-base font-bold text-slate-950">
+                      <h2 className="mt-1 truncate text-base font-bold text-slate-950 bp-ui-section-heading">
                         {customer?.name || "Customer"}
                       </h2>
                     </div>
@@ -132,13 +132,13 @@ export default function Quotations() {
             </table>
           </div>
         </>
-      ) : <EmptyState title="No quotations found" description="Try changing the search, status or date filters." />}
+      ) : error ? null : <div className="pb-6 text-center"><EmptyState title={quotations.length ? "No matching quotations" : "No quotations yet"} />{quotations.length ? <button type="button" className="bp-button bp-button-secondary bp-ui-action" onClick={() => { setSearch(''); setStatus('ALL'); chooseDatePreset('ALL'); }}>Clear filters</button> : <Link className="bp-button bp-button-primary" to="/quotations/new">Create quotation</Link>}</div>}
       </SectionCard>
   </div>;
 }
 
 function SortHead({ title, name, sort, change, right }) {
-  return <th className={`px-4 py-3 ${right ? "text-right" : "text-left"}`}><button type="button" onClick={() => change(name)} className={`inline-flex items-center gap-1.5 ${right ? "w-full justify-end" : ""}`}>{title}<ArrowUpDown className={`h-3.5 w-3.5 ${sort.key === name ? "text-slate-950" : "text-slate-400"}`} /></button></th>;
+  return <th className={`px-4 py-3 ${right ? "text-right" : "text-left"}`}><button type="button" onClick={() => change(name)} className={(`inline-flex items-center gap-1.5 ${right ? "w-full justify-end" : ""}`) + " bp-ui-action"}>{title}<ArrowUpDown className={`h-3.5 w-3.5 ${sort.key === name ? "text-slate-950" : "text-slate-400"}`} /></button></th>;
 }
 
 function quotationTone(value) {

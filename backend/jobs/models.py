@@ -154,6 +154,9 @@ class WorkSchedule(models.Model):
 class WorkSchedulePainter(models.Model):
     class Status(models.TextChoices):
         ASSIGNED = "ASSIGNED", "Assigned"
+        ACCEPTED = "ACCEPTED", "Accepted"
+        DECLINED = "DECLINED", "Declined"
+        RELEASED = "RELEASED", "Released"
         IN_PROGRESS = "IN_PROGRESS", "Work in progress"
         COMPLETED = "COMPLETED", "Completed"
 

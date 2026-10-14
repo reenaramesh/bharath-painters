@@ -44,7 +44,7 @@ export default function Settings() {
         <PageHeader
           eyebrow="Settings"
           title="Your trade and personal details"
-          description="One place for everything about how you work and who you are."
+          
         />
         <TabBar tabs={tabs} active={active} onSelect={select} />
         <Link to="/profile" className="inline-block font-semibold text-sky-700">View & share QR/public profile</Link>
@@ -87,11 +87,11 @@ function TabBar({ tabs, active, onSelect }) {
               document.getElementById(`settings-tab-${tabs[next].id}`)?.focus();
             }}
             onClick={() => onSelect(id)}
-            className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+            className={(`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
               selected
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-            }`}
+            }`) + " bp-ui-action"}
           >
             <Icon className="h-4 w-4" />
             {label}

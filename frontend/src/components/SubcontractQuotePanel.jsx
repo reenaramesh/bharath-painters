@@ -35,19 +35,15 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
     <section className="rounded-2xl border bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
+          <h2 className="flex items-center gap-2 text-lg font-bold bp-ui-section-heading">
             <FileSignature className="h-5 w-5" /> Price
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {isMain
-              ? "What the other contractor charges for this work. Your customer invoice is a separate ledger."
-              : "Send your price for this work. The main contractor accepts or rejects it."}
-          </p>
+          
         </div>
         {!isMain && QUOTABLE.includes(workOrder.status) && (
           <button
             onClick={() => setEditing((open) => !open)}
-            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
+            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white bp-ui-action"
           >
             {editing ? "Close" : current?.status === "DRAFT" ? "Edit price" : "New price"}
           </button>
@@ -75,11 +71,7 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
       )}
 
       {!editing && !current && (
-        <p className="mt-4 rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">
-          {isMain
-            ? "The other contractor has not sent a price yet."
-            : "No price sent yet. Build one to ask for this work."}
-        </p>
+        null
       )}
 
       {!editing && current && (
@@ -99,7 +91,7 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm bp-ui-table">
               <thead className="border-b text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="py-2 pr-4">Description</th>
@@ -158,7 +150,7 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
                     }),
                   )
                 }
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
               >
                 <Send className="h-4 w-4" /> Send price
               </button>
@@ -175,7 +167,7 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
                       ),
                     )
                   }
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
                 >
                   <ThumbsUp className="h-4 w-4" /> Accept price
                 </button>
@@ -202,7 +194,7 @@ function RejectQuote({ workOrder, quote, busy, onRun }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700"
+        className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 bp-ui-action"
       >
         <ThumbsDown className="h-4 w-4" /> Reject
       </button>
@@ -216,7 +208,7 @@ function RejectQuote({ workOrder, quote, busy, onRun }) {
         rows={2}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bp-ui-control"
         placeholder="Rate looks high for the second coat."
       />
       <div className="mt-2 flex gap-2">
@@ -233,13 +225,13 @@ function RejectQuote({ workOrder, quote, busy, onRun }) {
               setNote("");
             })
           }
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
         >
           Confirm rejection
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg border px-4 py-2 text-sm font-semibold"
+          className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
         >
           Keep it
         </button>
@@ -321,7 +313,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
                 value={line.description_snapshot}
                 onChange={(event) => update(index, { description_snapshot: event.target.value })}
                 placeholder="Work description"
-                className="sm:col-span-6"
+                className="sm:col-span-6 bp-ui-control"
               />
               <input
                 required
@@ -331,13 +323,13 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
                 value={line.quantity}
                 onChange={(event) => update(index, { quantity: event.target.value })}
                 placeholder="Qty"
-                className="sm:col-span-2"
+                className="sm:col-span-2 bp-ui-control"
               />
               <input
                 value={line.unit_name_snapshot}
                 onChange={(event) => update(index, { unit_name_snapshot: event.target.value })}
                 placeholder="Unit"
-                className="sm:col-span-2"
+                className="sm:col-span-2 bp-ui-control"
               />
               <input
                 required
@@ -347,7 +339,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
                 value={line.unit_rate}
                 onChange={(event) => update(index, { unit_rate: event.target.value })}
                 placeholder="Rate"
-                className="sm:col-span-2"
+                className="sm:col-span-2 bp-ui-control"
               />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -355,7 +347,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
                 value={line.specification}
                 onChange={(event) => update(index, { specification: event.target.value })}
                 placeholder="Specification or note"
-                className="flex-1"
+                className="flex-1 bp-ui-control"
               />
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -372,7 +364,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
                 <button
                   type="button"
                   onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
-                  className="text-sm font-semibold text-red-600"
+                  className="text-sm font-semibold text-red-600 bp-ui-action"
                 >
                   Remove
                 </button>
@@ -397,7 +389,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
             },
           ])
         }
-        className="rounded-lg border px-4 py-2 text-sm font-semibold"
+        className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action"
       >
         Add line
       </button>
@@ -405,7 +397,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm font-semibold">Tax amount</span>
-          <input
+          <input className="bp-ui-control"
             type="number"
             min="0"
             step="0.01"
@@ -415,12 +407,12 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-semibold">Notes</span>
-          <input value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <input className="bp-ui-control" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
       </div>
       <label className="block">
         <span className="mb-1 block text-sm font-semibold">Terms</span>
-        <textarea
+        <textarea className="bp-ui-control"
           rows={2}
           value={terms}
           onChange={(event) => setTerms(event.target.value)}
@@ -432,13 +424,13 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border px-4 py-2.5 text-sm font-semibold"
+          className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
         >
           Cancel
         </button>
         <button
           disabled={busy}
-          className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+          className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
         >
           {busy ? "Saving…" : "Save price"}
         </button>

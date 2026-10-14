@@ -58,7 +58,7 @@ function PlatformBadge({ short, color, className = "h-9 w-9" }) {
 }
 
 function SectionTitle({ children }) {
-  return <h2 className="font-bold">{children}</h2>;
+  return <h2 className="font-bold bp-ui-section-heading">{children}</h2>;
 }
 
 const blank = {
@@ -285,12 +285,10 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
       {!fieldsOnly && <div className={embedded ? "" : "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"}>
         <div className="min-w-0">
         <p className="text-sm font-semibold text-amber-600">{themeOnly ? "Appearance settings" : "Account settings"}</p>
-        <h2 className={embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold"}>
+        <h2 className={(embedded ? "mt-1 text-xl font-bold" : "mt-1 text-3xl font-bold") + " bp-ui-section-heading"}>
           {themeOnly ? "Theme settings" : "Contractor and company details"}
         </h2>
-        <p className="mt-2 text-slate-500">
-          {themeOnly ? "Choose colors and fonts for the app and downloaded documents." : "These details appear on your quotations and downloadable estimates."}
-        </p>
+        
         </div>
         <Link to={themeOnly ? "/settings?tab=company" : "/profile"} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border bg-white px-4 py-3 text-center text-sm font-semibold sm:w-auto">{themeOnly ? "Company details" : <><QrCode className="h-5 w-5 shrink-0" />View & share QR profile</>}</Link>
       </div>}
@@ -301,7 +299,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
       )}
       {success && <div role="status" aria-live="polite" className="fixed inset-x-4 top-20 z-[100] rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl sm:left-auto sm:px-5 sm:py-4">✓ {success}</div>}
       {!themeOnly && <section className="contractor-profile-completion rounded-2xl border bg-white p-5" aria-label="Company profile completion">
-        <div className="flex items-center justify-between gap-3"><div><h2 id="company-profile-completion-title" className="font-bold">Company profile</h2></div><strong className="text-2xl tabular-nums text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
+        <div className="flex items-center justify-between gap-3"><div><h2 id="company-profile-completion-title" className="font-bold bp-ui-section-heading">Company profile</h2></div><strong className="text-2xl tabular-nums text-[var(--app-primary)]">{form.profile_completion?.percent ?? 0}%</strong></div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-labelledby="company-profile-completion-title" aria-valuemin="0" aria-valuemax="100" aria-valuenow={form.profile_completion?.percent ?? 0}><div className="h-full rounded-full bg-[var(--app-primary)]" style={{ width: `${form.profile_completion?.percent ?? 0}%` }} /></div>
         {form.profile_completion?.missing?.length > 0 && <p className="mt-2 text-xs text-slate-500">Still to add: {form.profile_completion.missing.map((field) => field.replaceAll("_", " ")).join(", ")}.</p>}
       </section>}
@@ -311,7 +309,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
       >
         {!themeOnly && <>
         <div className="sm:col-span-2">
-          <h2 className="font-bold">Company identity</h2>
+          <h2 className="font-bold bp-ui-section-heading">Company identity</h2>
         </div>
         <label className="text-sm font-medium">
           Company name
@@ -319,7 +317,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="company_name"
             value={form.company_name}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium">
@@ -328,25 +326,25 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="owner_name"
             value={form.owner_name}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <div className="sm:col-span-2">
           <ProfileImageControl className="contractor-profile-image" label="Company logo" file={form.company_logo} existingUrl={form.company_logo_url} position={form.company_logo_position} shape={form.company_logo_shape === "ROUND" ? "circle" : "rectangle"} fit={form.company_logo_shape === "ROUND" ? "cover" : "contain"} onFileChange={(company_logo) => setForm((current) => ({ ...current, company_logo }))} onPositionChange={(company_logo_position) => setForm((current) => ({ ...current, company_logo_position }))} />
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {[["RECTANGLE", "Rectangle", "Best for wide company logos"], ["ROUND", "Round", "Best for badges and icons"]].map(([value, label, hint]) => <button key={value} type="button" aria-pressed={form.company_logo_shape === value} onClick={() => setForm((current) => ({ ...current, company_logo_shape: value }))} className={`rounded-xl border p-3 text-left transition ${form.company_logo_shape === value ? "border-blue-600 bg-blue-50 text-blue-900" : "border-slate-200 bg-white text-slate-700"}`}><b className="block text-sm">{label}</b><small className="mt-1 block text-xs opacity-70">{hint}</small></button>)}
+            {[["RECTANGLE", "Rectangle", "Best for wide company logos"], ["ROUND", "Round", "Best for badges and icons"]].map(([value, label, hint]) => <button key={value} type="button" aria-pressed={form.company_logo_shape === value} onClick={() => setForm((current) => ({ ...current, company_logo_shape: value }))} className={(`rounded-xl border p-3 text-left transition ${form.company_logo_shape === value ? "border-blue-600 bg-blue-50 text-blue-900" : "border-slate-200 bg-white text-slate-700"}`) + " bp-ui-action"}><b className="block text-sm">{label}</b><small className="mt-1 block text-xs opacity-70">{hint}</small></button>)}
           </div>
         </div>
         </>}
         {themeOnly && <>
         <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <h2 className="text-lg font-bold">App theme</h2>
+          <h2 className="text-lg font-bold bp-ui-section-heading">App theme</h2>
            {!fieldsOnly && null}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#176b9b] ring-2 ring-[#e8f3f8]" : "border-slate-200"}`}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
+            {appColorPresets.map((preset) => <button key={preset.label} type="button" onClick={() => setForm((current) => ({ ...current, app_primary_color: preset.primary, app_accent_color: preset.accent }))} aria-pressed={form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent} className={(`rounded-xl border p-3 text-left text-xs font-bold ${form.app_primary_color?.toUpperCase() === preset.primary && form.app_accent_color?.toUpperCase() === preset.accent ? "border-[#176b9b] ring-2 ring-[#e8f3f8]" : "border-slate-200"}`) + " bp-ui-action"}><span className="mb-2 flex h-5 overflow-hidden rounded-md"><span className="flex-1" style={{ background: preset.primary }} /><span className="flex-1" style={{ background: preset.accent }} /></span>{preset.label}</button>)}
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {[["app_primary_color", "Primary color"], ["app_accent_color", "Accent color"]].map(([field, label]) => <label key={field} className="text-sm font-medium">{label}<span className="mt-1.5 flex items-center gap-2"><input type="color" value={/^#[0-9a-fA-F]{6}$/.test(form[field]) ? form[field] : "#176B9B"} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="h-11 w-12 cursor-pointer rounded border border-slate-300 bg-white p-1" aria-label={`${label} picker`} /><input type="text" name={field} value={form[field]} onChange={update} pattern="#[0-9a-fA-F]{6}" title="Enter a six-digit hex color" className={`${input} mt-0 font-mono uppercase`} /></span></label>)}
+            {[["app_primary_color", "Primary color"], ["app_accent_color", "Accent color"]].map(([field, label]) => <label key={field} className="text-sm font-medium">{label}<span className="mt-1.5 flex items-center gap-2"><input type="color" value={/^#[0-9a-fA-F]{6}$/.test(form[field]) ? form[field] : "#176B9B"} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="h-11 w-12 cursor-pointer rounded border border-slate-300 bg-white p-1" aria-label={`${label} picker`} /><input type="text" name={field} value={form[field]} onChange={update} pattern="#[0-9a-fA-F]{6}" title="Enter a six-digit hex color" className={(`${input} mt-0 font-mono uppercase`) + " bp-ui-control"} /></span></label>)}
           </div>
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"><span className="grid h-10 w-10 place-items-center rounded-lg text-sm font-bold text-white" style={{ background: form.app_primary_color }}>BP</span><span className="text-sm font-semibold" style={{ color: form.app_primary_color }}>Buttons and selected navigation</span><span className="ml-auto h-5 w-10 rounded-full" style={{ background: form.app_accent_color }} /></div>
         </div>
@@ -360,7 +358,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                 type="button"
                 aria-pressed={form.pdf_color_template === template.value}
                 onClick={() => setForm((current) => ({ ...current, pdf_color_template: template.value }))}
-                className={`rounded-xl border p-3 text-left text-sm font-semibold ${form.pdf_color_template === template.value ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`}
+                className={(`rounded-xl border p-3 text-left text-sm font-semibold ${form.pdf_color_template === template.value ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`) + " bp-ui-action"}
               >
                 <span className="mb-2 flex h-5 overflow-hidden rounded-md" aria-hidden="true">
                   {template.colors.map((color) => <span key={color} className="flex-1" style={{ backgroundColor: color }} />)}
@@ -372,7 +370,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
               type="button"
               aria-pressed={form.pdf_color_template === "CUSTOM"}
               onClick={() => setForm((current) => ({ ...current, pdf_color_template: "CUSTOM" }))}
-              className={`rounded-xl border p-3 text-left text-sm font-semibold ${form.pdf_color_template === "CUSTOM" ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`}
+              className={(`rounded-xl border p-3 text-left text-sm font-semibold ${form.pdf_color_template === "CUSTOM" ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`) + " bp-ui-action"}
             >
               <span className="mb-2 flex h-5 overflow-hidden rounded-md" aria-hidden="true">
                 {[form.pdf_custom_primary_color, form.pdf_custom_accent_color].map((color, index) => (
@@ -405,7 +403,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                       onChange={update}
                       pattern="#[0-9a-fA-F]{6}"
                       title="Enter a six-digit hex color, such as #395F6E"
-                      className={`${input} mt-0 font-mono uppercase`}
+                      className={(`${input} mt-0 font-mono uppercase`) + " bp-ui-control"}
                     />
                   </span>
                 </label>
@@ -429,7 +427,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                 onChange={update}
                 pattern="#[0-9a-fA-F]{6}"
                 title="Enter a six-digit hex color, such as #172033"
-                className={`${input} mt-0 font-mono uppercase`}
+                className={(`${input} mt-0 font-mono uppercase`) + " bp-ui-control"}
               />
             </span>
           </label>
@@ -442,7 +440,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                   type="button"
                   aria-pressed={form.pdf_font_template === font.value}
                   onClick={() => setForm((current) => ({ ...current, pdf_font_template: font.value }))}
-                  className={`rounded-xl border p-3 text-left ${form.pdf_font_template === font.value ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`}
+                  className={(`rounded-xl border p-3 text-left ${form.pdf_font_template === font.value ? "border-indigo-600 ring-2 ring-indigo-100" : "border-slate-200"}`) + " bp-ui-action"}
                 >
                   <span className="block text-lg font-bold" style={{ fontFamily: font.family }}>Aa 123</span>
                   <span className="mt-1 block text-xs font-semibold">{font.label}</span>
@@ -454,7 +452,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">PDF style preview</p>
               <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-semibold">
-                {[["QUOTATION", "Quotation"], ["INVOICE", "Invoice"], ["AREA_REPORT", "Area report"]].map(([document, label]) => <button key={document} type="button" onClick={() => setPreviewDocument(document)} className={`rounded-md px-3 py-1.5 ${previewDocument === document ? "bg-slate-900 text-white" : "text-slate-600"}`}>{label}</button>)}
+                {[["QUOTATION", "Quotation"], ["INVOICE", "Invoice"], ["AREA_REPORT", "Area report"]].map(([document, label]) => <button key={document} type="button" onClick={() => setPreviewDocument(document)} className={(`rounded-md px-3 py-1.5 ${previewDocument === document ? "bg-slate-900 text-white" : "text-slate-600"}`) + " bp-ui-action"}>{label}</button>)}
               </div>
             </div>
             <div className="mx-auto max-w-xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" style={{ fontFamily: previewFont }}>
@@ -525,7 +523,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="office_address"
             value={form.office_address}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium sm:col-span-2">
@@ -535,17 +533,17 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             value={form.service_areas}
             onChange={update}
             placeholder="Bangalore, Whitefield, Electronic City"
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
-          <span className="mt-1 block text-xs font-normal text-slate-500">Separate locations with commas. Each location appears on your shared profile.</span>
+          
         </label>
         <label className="text-sm font-medium sm:col-span-2">Other skills & service notes (free text)
-          <textarea name="work_skills" value={form.work_skills} onChange={update} rows="2" placeholder="Other skills or service notes outside the structured service catalogue" className={input} />
+          <textarea name="work_skills" value={form.work_skills} onChange={update} rows="2" placeholder="Other skills or service notes outside the structured service catalogue" className={(input) + " bp-ui-control"} />
           <span className="mt-1 block text-xs font-normal text-slate-500">Separate skills with commas.</span>
         </label>
         <div className="sm:col-span-2"><ProfileImageControl className="contractor-profile-image" label="Owner photo for digital profile" file={form.profile_photo} existingUrl={form.profile_photo_url} position={form.profile_photo_position} shape="rounded" onFileChange={(profile_photo) => setForm((current) => ({ ...current, profile_photo }))} onPositionChange={(profile_photo_position) => setForm((current) => ({ ...current, profile_photo_position }))} /></div>
         <div className="border-t pt-5 sm:col-span-2">
-          <h2 className="font-bold">Contact and tax details</h2>
+          <h2 className="font-bold bp-ui-section-heading">Contact and tax details</h2>
         </div>
         <label className="text-sm font-medium">
           Mobile *
@@ -554,7 +552,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="mobile"
             value={form.mobile}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium">
@@ -565,7 +563,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="email"
             value={form.email}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium">
@@ -575,7 +573,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             maxLength="15"
             value={form.gst_number}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium">
@@ -585,7 +583,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             maxLength="10"
             value={form.pan_number}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium">
@@ -596,43 +594,43 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             name="years_in_business"
             value={form.years_in_business}
             onChange={update}
-            className={input}
+            className={(input) + " bp-ui-control"}
           />
         </label>
         <label className="text-sm font-medium sm:col-span-2">
           Default area calculation unit
-          <select name="default_measurement_unit" value={form.default_measurement_unit} onChange={update} className={input}>
+          <select name="default_measurement_unit" value={form.default_measurement_unit} onChange={update} className={(input) + " bp-ui-control"}>
             <option value="FEET">Feet (ft)</option>
             <option value="METRES">Metres (m)</option>
           </select>
-          <span className="mt-1 block font-normal text-slate-500">New properties use this unit. Quotations remain in square feet.</span>
+          
         </label>
         <div className="border-t pt-5 sm:col-span-2">
           <SectionTitle>Payment details</SectionTitle>
         </div>
         <label className="text-sm font-medium">
           Account name
-          <input name="bank_account_name" value={form.bank_account_name} onChange={update} className={input} />
+          <input name="bank_account_name" value={form.bank_account_name} onChange={update} className={(input) + " bp-ui-control"} />
         </label>
         <label className="text-sm font-medium">
           Account number
-          <input name="bank_account_number" value={form.bank_account_number} onChange={update} className={input} />
+          <input name="bank_account_number" value={form.bank_account_number} onChange={update} className={(input) + " bp-ui-control"} />
         </label>
         <label className="text-sm font-medium">
           Bank name
-          <input name="bank_name" value={form.bank_name} onChange={update} className={input} />
+          <input name="bank_name" value={form.bank_name} onChange={update} className={(input) + " bp-ui-control"} />
         </label>
         <label className="text-sm font-medium">
           Branch
-          <input name="bank_branch" value={form.bank_branch} onChange={update} className={input} />
+          <input name="bank_branch" value={form.bank_branch} onChange={update} className={(input) + " bp-ui-control"} />
         </label>
         <label className="text-sm font-medium">
           IFSC code
-          <input name="bank_ifsc" maxLength="20" value={form.bank_ifsc} onChange={update} placeholder="HDFC0001234" className={`${input} font-mono uppercase`} />
+          <input name="bank_ifsc" maxLength="20" value={form.bank_ifsc} onChange={update} placeholder="HDFC0001234" className={(`${input} font-mono uppercase`) + " bp-ui-control"} />
         </label>
         <label className="text-sm font-medium">
           UPI ID
-          <input name="upi_id" value={form.upi_id} onChange={update} placeholder="yourname@okhdfcbank" className={input} />
+          <input name="upi_id" value={form.upi_id} onChange={update} placeholder="yourname@okhdfcbank" className={(input) + " bp-ui-control"} />
         </label>
 
         <div className="border-t pt-5 sm:col-span-2">
@@ -650,7 +648,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                   key={platform.field}
                   type="button"
                   onClick={() => openSocialModal(platform)}
-                  className={`flex items-center gap-2 rounded-xl border p-2 pr-3 text-sm font-medium transition ${value ? "border-slate-900 bg-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}
+                  className={(`flex items-center gap-2 rounded-xl border p-2 pr-3 text-sm font-medium transition ${value ? "border-slate-900 bg-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`) + " bp-ui-action"}
                 >
                   <PlatformBadge short={platform.short} color={platform.color} className="h-7 w-7 text-[11px]" />
                   <span className="max-w-28 truncate">{platform.label}</span>
@@ -661,7 +659,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             <button
               type="button"
               onClick={() => openSocialModal({ label: "", field: null, extraIndex: undefined })}
-              className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 p-2 pr-3 text-sm font-medium text-slate-600 hover:border-slate-400"
+              className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 p-2 pr-3 text-sm font-medium text-slate-600 hover:border-slate-400 bp-ui-action"
             >
               <Plus className="h-4 w-4" />
               Add link
@@ -676,8 +674,8 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                     <b className="block truncate text-sm">{entry.label}</b>
                     <small className="block truncate text-xs text-slate-500">{entry.url}</small>
                   </span>
-                  <button type="button" onClick={() => openSocialModal({ extraIndex: index })} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold">Edit</button>
-                  <button type="button" onClick={() => removeExtraSocial(index)} aria-label={`Remove ${entry.label}`} className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600">
+                  <button type="button" onClick={() => openSocialModal({ extraIndex: index })} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold bp-ui-action">Edit</button>
+                  <button type="button" onClick={() => removeExtraSocial(index)} aria-label={`Remove ${entry.label}`} className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 bp-ui-icon-action">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </li>
@@ -707,7 +705,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                     <div className="flex items-center gap-2 rounded-lg bg-slate-50 p-2">
                       <FileText className="h-4 w-4 shrink-0 text-slate-500" />
                       <span className="min-w-0 flex-1 truncate text-xs">{pending.name}</span>
-                      <button type="button" aria-label={`Clear ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null }))} className="shrink-0 text-slate-500 hover:text-red-600">
+                      <button type="button" aria-label={`Clear ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null }))} className="shrink-0 text-slate-500 hover:text-red-600 bp-ui-icon-action">
                         <X className="h-4 w-4" />
                       </button>
                     </div>
@@ -715,7 +713,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                     <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2">
                       <FileText className="h-4 w-4 shrink-0 text-emerald-600" />
                       <span className="min-w-0 flex-1 truncate text-xs text-emerald-900">{form[`${slot.field}_url`].split("/").pop()}</span>
-                      <button type="button" aria-label={`Remove ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null, [`${slot.field}_url`]: "", [`clear_${slot.field}`]: true }))} className="shrink-0 text-emerald-700 hover:text-red-600">
+                      <button type="button" aria-label={`Remove ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null, [`${slot.field}_url`]: "", [`clear_${slot.field}`]: true }))} className="shrink-0 text-emerald-700 hover:text-red-600 bp-ui-icon-action">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -750,7 +748,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
               onChange={update}
               className={`${input} pr-12`}
             />
-            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide new password" : "Show new password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
+            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide new password" : "Show new password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 bp-ui-action">
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </span>
@@ -759,7 +757,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
         {!fieldsOnly && <div className="flex border-t pt-5 sm:col-span-2 sm:justify-end">
           <button
             disabled={saving}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:w-auto"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:opacity-60 sm:w-auto bp-ui-action"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : themeOnly ? "Save theme settings" : "Save contractor details"}
@@ -788,7 +786,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             <h3 className="min-w-0 flex-1 truncate text-base font-bold">
               {socialModal.field ? socialModal.label : socialModal.extraIndex === undefined ? "Add link" : "Edit link"}
             </h3>
-            <button type="button" onClick={() => setSocialModal(null)} aria-label="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+            <button type="button" onClick={() => setSocialModal(null)} aria-label="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 bp-ui-icon-action">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -804,7 +802,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                 }
               }}
               placeholder={socialModal.placeholder || "https://…"}
-              className="mt-4 w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+              className="mt-4 w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900 bp-ui-control"
             />
           ) : (
             <div className="mt-4 grid gap-3">
@@ -814,7 +812,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                 onChange={(event) => setExtraDraft((value) => ({ ...value, label: event.target.value }))}
                 placeholder="Label, such as LinkedIn"
                 maxLength="60"
-                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900 bp-ui-control"
               />
               <input
                 value={extraDraft.url}
@@ -826,7 +824,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                   }
                 }}
                 placeholder="https://…"
-                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900"
+                className="w-full min-w-0 rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900 bp-ui-control"
               />
             </div>
           )}
@@ -834,14 +832,14 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             <button
               type="button"
               onClick={() => setSocialModal(null)}
-              className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
+              className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={commitSocialModal}
-              className="min-h-11 flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"
+              className="min-h-11 flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white bp-ui-action"
             >
               Save link
             </button>

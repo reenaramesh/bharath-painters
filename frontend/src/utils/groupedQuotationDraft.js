@@ -16,15 +16,16 @@ export function restoreDraftAssignments(items) {
     const details = item.specification_details;
     const id = details.assignment_id || `saved-${item.id}`;
     const entry = {
-      id, name: details.name || item.description, surface: details.surface, unit: item.unit,
+      id, work_area:details.work_area, painting_item:Boolean(details.painting_item), measurement_record:details.measurement_record, name: details.name || item.description, surface: details.surface, unit: item.unit,
       custom_unit:item.custom_unit || "",
       ...(details.surfaces ? { surfaces:[...details.surfaces] } : {}),
       spec: {
         service_category: item.service_category || "", paint_type: item.paint_type || "",
         service_type:item.service_type || "",
-        paint_brand: item.paint_brand || "", description: item.description || "",
+        paint_brand: item.paint_brand || "", description: details.base_description ?? item.description ?? "",
         custom_service_category:item.custom_service_category || "", custom_product_type:item.custom_product_type || "", custom_brand:item.custom_brand || "",
-        coats: Number(item.coats || 1), primer_coats: Number(details.primer_coats || 0),
+        ...(details.process_materials ? {process_materials: structuredClone(details.process_materials)} : {}),
+        painting_process:details.painting_process || "", coats: Number(item.coats || 1), primer_coats: Number(details.primer_coats || 0),
       },
     };
     if (details.kind === "group") state.groups.push({ ...entry, room_ids: [...(details.room_ids || [])] });

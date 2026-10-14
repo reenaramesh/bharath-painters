@@ -21,7 +21,7 @@ export default function LanguageSelector({ compact = false }) {
   }
   return <div className={compact ? "relative shrink-0" : "space-y-1"}>
     <label htmlFor={id} className={compact ? "sr-only" : "block text-sm font-semibold"}>{t("language")}</label>
-    <select id={id} value={language} disabled={saving} onChange={(event) => change(event.target.value)} className={`min-h-11 rounded-lg border border-slate-300 bg-white text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b] ${compact ? "w-20 px-1 text-xs sm:w-28 sm:px-2 sm:text-sm" : "px-3 text-sm"}`}>
+    <select id={id} value={language} disabled={saving} onChange={(event) => change(event.target.value)} className={(`min-h-11 rounded-lg border border-slate-300 bg-white text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#176b9b] ${compact ? "w-20 px-1 text-xs sm:w-28 sm:px-2 sm:text-sm" : "px-3 text-sm"}`) + " bp-ui-control"}>
       {languages.map(([code, nativeName]) => <option key={code} value={code}>{nativeName}</option>)}
     </select>
     

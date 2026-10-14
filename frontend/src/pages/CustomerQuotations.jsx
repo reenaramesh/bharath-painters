@@ -1,3 +1,4 @@
+import "./quotation-ui.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, Building2, Search } from "lucide-react";
@@ -45,7 +46,7 @@ export default function CustomerQuotations() {
       <PageHeader
         eyebrow="Plans and estimates"
         title="My quotations"
-        description="Review who sent each estimate, the property, total and planned work dates."
+        
       />
       <section className="customer-quotation-pulse" aria-label="Quotation summary">
         <div className={`customer-quotation-pulse-card ${responseCount ? "is-action" : ""}`}>
@@ -71,18 +72,18 @@ export default function CustomerQuotations() {
         className="customer-quotation-filters"
         bodyClassName="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]"
       >
-        <label className="customer-quotation-search">
+        <label className="quotation-filter-field"><span>Search quotations</span><span className="customer-quotation-search">
           <Search aria-hidden="true" />
-          <span className="sr-only">Search quotation, contractor or property</span>
-          <input
+          
+          <input className="bp-ui-control"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search quotation, contractor or property"
+            placeholder="Search quotations"
           />
-        </label>
-        <label className="customer-quotation-status-filter">
-          <span className="sr-only">Filter by quotation status</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+        </span></label>
+        <label className="customer-quotation-status-filter quotation-filter-field">
+          <span className="mb-2 block text-sm font-semibold">Status</span>
+          <select className="bp-ui-control" value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="ALL">All statuses</option>
             {quotationStatuses.map((value) => (
               <option key={value} value={value}>{readableStatus(value)}</option>
@@ -93,7 +94,7 @@ export default function CustomerQuotations() {
 
       <SectionCard
         title="Your quotations"
-        description="Open a quotation to review the work and respond."
+        
         className="customer-quotation-list"
         bodyClassName="p-0"
       >
@@ -154,7 +155,7 @@ export default function CustomerQuotations() {
         ) : (
           <EmptyState
             title={items.length ? "No quotations match these filters" : "No quotations yet"}
-            description={items.length ? "Try another search or status." : "Estimates shared by your connected contractors will appear here."}
+            
             className="customer-portal-state"
           />
         )}
@@ -187,7 +188,7 @@ function readableStatus(value) {
 }
 
 function formatMoney(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function asDate(value) {
   if (!value) return null;

@@ -19,7 +19,7 @@ const money = value => Number(value) / 100;
 export const rateAtPercentage = (rate, percentage) => money(divide(nonnegative(cents(rate))*nonnegative(cents(percentage)),10000n)).toFixed(2);
 
 export function quotationTotals(items, form = {}) {
-  const lineMode = form.discount_mode === 'LINE';
+  const lineMode = ['LINE','BOTH'].includes(form.discount_mode);
   const calculated = items.map(item => {
     const gross = nonnegative(item.amount !== undefined && (item.quantity === undefined || item.rate === undefined) ? cents(item.amount) : item.calculation_method === 'LUMPSUM'
       ? cents(item.rate) : divide(nonnegative(cents(item.quantity)) * nonnegative(cents(item.rate)),100n));
@@ -27,12 +27,14 @@ export function quotationTotals(items, form = {}) {
     return { gross, reduction, net: gross - reduction, quantity:item.calculation_method === 'LUMPSUM' ? 1 : money(nonnegative(cents(item.quantity))) };
   });
   const subtotal = calculated.reduce((sum,line)=>sum+line.gross,0n);
-  const reduction = lineMode ? calculated.reduce((sum,line)=>sum+line.reduction,0n) : discount(subtotal,form.discount_type,form.discount_value);
+  const lineReduction = calculated.reduce((sum,line)=>sum+line.reduction,0n);
+  const overallReduction = form.discount_mode === 'LINE' ? 0n : discount(subtotal-lineReduction,form.discount_type,form.discount_value);
+  const reduction = lineReduction + overallReduction;
   const taxable = subtotal - reduction;
   const percentage = nonnegative(cents(form.gst_percentage));
   const gst = form.gst_mode === 'GST_EXTRA' ? divide(taxable*percentage,10000n)
     : form.gst_mode === 'GST_INCLUDED' && percentage > 0n ? divide(taxable*percentage,10000n+percentage) : 0n;
-  return { subtotal:money(subtotal),discount:money(reduction),taxable:money(taxable),gst:money(gst),
+  return { subtotal:money(subtotal),lineDiscount:money(lineReduction),overallDiscount:money(overallReduction),discount:money(reduction),taxable:money(taxable),gst:money(gst),
     total:money(taxable+(form.gst_mode === 'GST_EXTRA'?gst:0n)),
     lines:calculated.map(line=>({amount:money(line.gross),discount:money(line.reduction),net:money(line.net),quantity:line.quantity})) };
 }

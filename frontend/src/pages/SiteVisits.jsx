@@ -1,3 +1,6 @@
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
+import "./mobile-workspace.css";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, MapPin, Phone, Plus, RefreshCw } from "lucide-react";
 import api from "../api/client";
@@ -23,6 +26,7 @@ function todayISO() {
 }
 
 export default function SiteVisits() {
+  const mobile = useMobileView();
   const [visits, setVisits] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -88,26 +92,26 @@ export default function SiteVisits() {
   }, [visits]);
 
   const [tab, setTab] = useState("today");
-  const visible = groups[tab] || [];
+  const visible = mobile ? recentFirst(groups[tab] || []) : groups[tab] || [];
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-3 bp-ui-page-header">
         <div>
           <p className="text-sm font-semibold text-amber-600">Sales</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">Site Visits</h1>
+          <h1 className="mt-1 text-3xl font-bold text-slate-900 bp-ui-page-title">Site Visits</h1>
           
         </div>
         <div className="flex gap-2">
           <button
             onClick={load}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-slate-900"
+            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-slate-900 bp-ui-action"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
           <button
             onClick={() => setShowSchedule(true)}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
+            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white bp-ui-action"
           >
             <Plus className="h-4 w-4" /> Schedule Visit
           </button>
@@ -123,7 +127,7 @@ export default function SiteVisits() {
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
-          className={input}
+          className={(input) + " bp-ui-control"}
         >
           <option value="">All statuses</option>
           {STATUS_OPTIONS.map((value) => (
@@ -136,7 +140,7 @@ export default function SiteVisits() {
           type="date"
           value={dateFilter}
           onChange={(event) => setDateFilter(event.target.value)}
-          className={input}
+          className={(input) + " bp-ui-control"}
         />
         {(statusFilter || dateFilter) && (
           <button
@@ -144,7 +148,7 @@ export default function SiteVisits() {
               setStatusFilter("");
               setDateFilter("");
             }}
-            className="text-sm font-semibold text-slate-500 underline"
+            className="text-sm font-semibold text-slate-500 underline bp-ui-action"
           >
             Clear
           </button>
@@ -162,10 +166,10 @@ export default function SiteVisits() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${tab === key
+            className={(`rounded-full px-4 py-2 text-sm font-semibold ${tab === key
                 ? "bg-slate-950 text-white"
                 : "bg-white text-slate-600 ring-1 ring-slate-200"
-              }`}
+              }`) + " bp-ui-action"}
           >
             {label}
           </button>
@@ -187,7 +191,7 @@ export default function SiteVisits() {
           </p>
           <button
             onClick={() => setShowSchedule(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white bp-ui-action"
           >
             <Plus className="h-4 w-4" /> Schedule your first visit
           </button>
@@ -250,7 +254,7 @@ export default function SiteVisits() {
                     disabled={busyId === visit.id}
                     value={visit.status}
                     onChange={(event) => updateStatus(visit, event.target.value)}
-                    className={`${input} disabled:opacity-50`}
+                    className={(`${input} disabled:opacity-50`) + " bp-ui-control"}
                   >
                     {(visit.followup_id ? ["SCHEDULED", "COMPLETED"] : STATUS_OPTIONS).map((value) => (
                       <option key={value} value={value}>
@@ -342,7 +346,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
         onSubmit={submit}
         className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6"
       >
-        <h2 className="text-xl font-bold">Schedule site visit</h2>
+        <h2 className="text-xl font-bold bp-ui-section-heading">Schedule site visit</h2>
         
         {error && (
           <div className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -354,7 +358,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
               required
               value={form.opportunity}
               onChange={(event) => setForm({ ...form, opportunity: event.target.value })}
-              className={`mt-2 w-full ${input}`}
+              className={(`mt-2 w-full ${input}`) + " bp-ui-control"}
             >
               <option value="">Select an open opportunity</option>
               {opportunities.map((item) => (
@@ -378,7 +382,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
                 type="date"
                 value={form.scheduled_date}
                 onChange={(event) => setForm({ ...form, scheduled_date: event.target.value })}
-                className={`mt-2 w-full ${input}`}
+                className={(`mt-2 w-full ${input}`) + " bp-ui-control"}
               />
             </label>
             <label className="block text-sm font-semibold">
@@ -387,7 +391,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
                 type="time"
                 value={form.scheduled_time}
                 onChange={(event) => setForm({ ...form, scheduled_time: event.target.value })}
-                className={`mt-2 w-full ${input}`}
+                className={(`mt-2 w-full ${input}`) + " bp-ui-control"}
               />
             </label>
             <label className="block text-sm font-semibold">
@@ -395,7 +399,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
               <input
                 value={form.contact_person}
                 onChange={(event) => setForm({ ...form, contact_person: event.target.value })}
-                className={`mt-2 w-full ${input}`}
+                className={(`mt-2 w-full ${input}`) + " bp-ui-control"}
               />
             </label>
             <label className="block text-sm font-semibold">
@@ -404,7 +408,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
                 inputMode="numeric"
                 value={form.contact_mobile}
                 onChange={(event) => setForm({ ...form, contact_mobile: event.target.value })}
-                className={`mt-2 w-full ${input}`}
+                className={(`mt-2 w-full ${input}`) + " bp-ui-control"}
               />
             </label>
           </div>
@@ -414,17 +418,17 @@ function ScheduleVisitModal({ onClose, onCreated }) {
               rows="2"
               value={form.notes}
               onChange={(event) => setForm({ ...form, notes: event.target.value })}
-              className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900"
+              className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 bp-ui-control"
             />
           </label>
         </div>
         <div className="mt-5 flex justify-end gap-2 border-t pt-4">
-          <button type="button" onClick={onClose} className="rounded-xl border px-4 py-2.5 text-sm font-semibold">
+          <button type="button" onClick={onClose} className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action">
             Cancel
           </button>
           <button
             disabled={saving}
-            className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
           >
             {saving ? "Scheduling..." : "Schedule visit"}
           </button>

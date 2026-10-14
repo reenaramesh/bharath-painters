@@ -172,7 +172,7 @@ export default function ContractorRevenue() {
   if (user?.role !== "CONTRACTOR") return <Navigate to="/dashboard" replace />;
   return (
     <div className="min-w-0 space-y-6 finance-page contractor-revenue-page">
-      <PageHeader eyebrow="Project finance" title="Revenue & receipts" description="Track customer payments, advance credits, final invoices and outstanding balances." actions={<div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Project finance" title="Revenue & receipts"  actions={<div className="flex flex-wrap gap-2">
           <Button onClick={() => setShowReceiptForm(true)}>
             <Plus className="h-4 w-4" />
             Record payment
@@ -190,7 +190,7 @@ export default function ContractorRevenue() {
             {createdReceipt.quotation_accepted && <p>The payment accepted this quotation. Propose work dates for the customer to confirm.</p>}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => downloadReceipt(createdReceipt)} disabled={busy === createdReceipt.id} className="rounded-lg border border-emerald-300 px-3 py-2 font-semibold">Preview receipt</button>
+            <button type="button" onClick={() => downloadReceipt(createdReceipt)} disabled={busy === createdReceipt.id} className="rounded-lg border border-emerald-300 px-3 py-2 font-semibold bp-ui-action">Preview receipt</button>
             {createdReceipt.schedule_url && <Link to={createdReceipt.schedule_url} className="rounded-lg bg-emerald-700 px-3 py-2 font-semibold text-white">Propose work dates</Link>}
           </div>
         </section>
@@ -205,7 +205,7 @@ export default function ContractorRevenue() {
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
                 Payment receipt
               </p>
-              <h2 className="mt-1 text-xl font-bold">
+              <h2 className="mt-1 text-xl font-bold bp-ui-section-heading">
                 Record customer payment
               </h2>
               
@@ -213,14 +213,14 @@ export default function ContractorRevenue() {
             <button
               type="button"
               onClick={() => setShowReceiptForm(false)}
-              className="rounded-lg p-2 hover:bg-white"
+              className="rounded-lg p-2 hover:bg-white bp-ui-icon-action"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Receipt against">
-              <select
+              <select className="bp-ui-control"
                 required
                 value={receiptForm.document_type}
                 onChange={(event) =>
@@ -238,7 +238,7 @@ export default function ContractorRevenue() {
             </Field>
             {receiptForm.document_type === "QUOTATION" && (
               <Field label="Quotation">
-                <select
+                <select className="bp-ui-control"
                   required
                   value={receiptForm.quotation}
                   onChange={(event) =>
@@ -260,7 +260,7 @@ export default function ContractorRevenue() {
             )}
             {receiptForm.document_type === "INVOICE" && (
               <Field label="Final invoice">
-                <select
+                <select className="bp-ui-control"
                   required
                   value={receiptForm.invoice}
                   onChange={(event) =>
@@ -281,7 +281,7 @@ export default function ContractorRevenue() {
               </Field>
             )}
             <Field label="Received date">
-              <input
+              <input className="bp-ui-control"
                 required
                 type="date"
                 max={new Date().toISOString().slice(0, 10)}
@@ -295,7 +295,7 @@ export default function ContractorRevenue() {
               />
             </Field>
             <Field label="Amount received">
-              <input
+              <input className="bp-ui-control"
                 required
                 type="number"
                 min="0.01"
@@ -307,7 +307,7 @@ export default function ContractorRevenue() {
               />
             </Field>
             <Field label="Payment mode">
-              <select
+              <select className="bp-ui-control"
                 required
                 value={receiptForm.payment_mode}
                 onChange={(event) =>
@@ -326,7 +326,7 @@ export default function ContractorRevenue() {
               </select>
             </Field>
             <Field label="Payment reference">
-              <input
+              <input className="bp-ui-control"
                 value={receiptForm.payment_reference}
                 onChange={(event) =>
                   setReceiptForm({
@@ -338,7 +338,7 @@ export default function ContractorRevenue() {
               />
             </Field>
             <Field label="Notes">
-              <input
+              <input className="bp-ui-control"
                 value={receiptForm.notes}
                 onChange={(event) =>
                   setReceiptForm({ ...receiptForm, notes: event.target.value })
@@ -349,7 +349,7 @@ export default function ContractorRevenue() {
             <div className="flex items-end md:col-span-2">
               <button
                 disabled={savingReceipt}
-                className="w-full rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white disabled:opacity-40"
+                className="w-full rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white disabled:opacity-40 bp-ui-action"
               >
                 {savingReceipt
                   ? "Generating receipt..."
@@ -372,14 +372,14 @@ export default function ContractorRevenue() {
           icon={ReceiptText}
           label="Advance received"
           value={money(data?.advance_received)}
-          hint="Confirmed receipts"
+          
           tone="info"
         />
         <StatCard
           icon={WalletCards}
           label="Customer credits"
           value={money(data?.credits)}
-          hint="Awaiting final invoice"
+          
           tone="brand"
         />
         <StatCard
@@ -401,7 +401,7 @@ export default function ContractorRevenue() {
           <select
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
-            className="rounded-xl border px-4 py-3"
+            className="rounded-xl border px-4 py-3 bp-ui-control"
           >
             {(data?.available_years || [year]).map((value) => (
               <option key={value}>{value}</option>
@@ -410,7 +410,7 @@ export default function ContractorRevenue() {
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
-            className="rounded-xl border px-4 py-3"
+            className="rounded-xl border px-4 py-3 bp-ui-control"
           >
             {months.map((name, index) => (
               <option key={name} value={index}>
@@ -424,12 +424,12 @@ export default function ContractorRevenue() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search receipt, customer, project, quotation or invoice"
-              className="w-full rounded-xl border py-3 pl-11 pr-4"
+              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-ui-control"
             />
           </label>
         </div>
       </SectionCard>
-      <SectionCard title="Payment register" description="Advance receipts remain available before the final invoice is created." className="finance-register-card" bodyClassName="p-0">
+      <SectionCard title="Payment register"  className="finance-register-card" bodyClassName="p-0">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-slate-600">{tab === "RECEIPTS" ? `${receipts.length} matching receipts` : tab === "INVOICES" ? `${invoices.length} matching invoices` : `${dues.length} matching customer balances`}</p>
           <div className="finance-tabs flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Payment register views">
@@ -467,7 +467,7 @@ function Receipts({ rows, busy, download }) {
           <div className="finance-mobile-record-actions"><span>{row.document}</span><Button variant="secondary" onClick={() => download(row)} disabled={busy === row.id} loading={busy === row.id}><Download className="h-4 w-4" />Preview receipt</Button></div>
         </article>)}
       </div>
-      <table className="w-full min-w-[940px] text-left text-sm">
+      <table className="w-full min-w-[940px] text-left text-sm bp-ui-table">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th className="p-4">Date</th>
@@ -509,7 +509,7 @@ function Receipts({ rows, busy, download }) {
                 <button
                   disabled={busy === row.id}
                   onClick={() => download(row)}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 bp-ui-action"
                 >
                   <Download className="h-4 w-4" />
                   PDF
@@ -519,7 +519,7 @@ function Receipts({ rows, busy, download }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && <EmptyState title="No payment receipts found" description="Receipts matching this period and search will appear here." />}
+      {!rows.length && <EmptyState title="No payment receipts found"  />}
     </div>
   );
 }
@@ -532,7 +532,7 @@ function Invoices({ rows }) {
           <div className="finance-mobile-record-meta"><span>{formatDate(row.date)}</span><span>Paid {money(row.paid)}</span><span>Balance {money(row.balance)}</span></div>
         </article>)}
       </div>
-      <table className="w-full min-w-[850px] text-left text-sm">
+      <table className="w-full min-w-[850px] text-left text-sm bp-ui-table">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th className="p-4">Date</th>
@@ -565,7 +565,7 @@ function Invoices({ rows }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && <EmptyState title="No final invoices found" description="Invoices raised in this period will appear here." />}
+      {!rows.length && <EmptyState title="No final invoices found"  />}
     </div>
   );
 }
@@ -579,7 +579,7 @@ function CustomerDues({ rows }) {
           {row.invoices.length > 0 && <p className="finance-mobile-reference">Invoices: {row.invoices.join(", ")}</p>}
         </article>)}
       </div>
-      <table className="w-full min-w-[980px] text-left text-sm">
+      <table className="w-full min-w-[980px] text-left text-sm bp-ui-table">
         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th className="p-4">Customer</th>
@@ -619,7 +619,7 @@ function CustomerDues({ rows }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && <EmptyState title="No customer balances are due" description="Outstanding balances will appear here when invoices have an amount due." />}
+      {!rows.length && <EmptyState title="No customer balances are due"  />}
     </div>
   );
 }
@@ -629,7 +629,7 @@ function Tab({ active, onClick, children }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-lg px-3 py-2 text-xs font-bold ${active ? "bg-slate-950 text-white" : "text-slate-600"}`}
+      className={(`rounded-lg px-3 py-2 text-xs font-bold ${active ? "bg-slate-950 text-white" : "text-slate-600"}`) + " bp-ui-action"}
     >
       {children}
     </button>

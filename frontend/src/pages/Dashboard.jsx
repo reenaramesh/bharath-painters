@@ -75,7 +75,7 @@ export default function Dashboard() {
     ) : (
       <div className="rounded-2xl bg-red-50 p-6 text-red-700">
         {error}
-        <button onClick={load} className="ml-3 font-bold">
+        <button onClick={load} className="ml-3 font-bold bp-ui-action">
           Retry
         </button>
       </div>
@@ -83,7 +83,7 @@ export default function Dashboard() {
   if (user?.role !== "CONTRACTOR")
     return (
       <div className="rounded-2xl border bg-white p-10">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold bp-ui-page-title">Dashboard</h1>
         <p className="mt-2 text-slate-500">Welcome to Bharath Apps.</p>
       </div>
     );
@@ -97,7 +97,7 @@ export default function Dashboard() {
     return (
       <div className="rounded-2xl bg-red-50 p-6 text-red-700">
         {error}
-        <button onClick={load} className="ml-3 font-bold">
+        <button onClick={load} className="ml-3 font-bold bp-ui-action">
           Retry
         </button>
       </div>
@@ -129,7 +129,7 @@ function SubscriptionCard({ billing }) {
         <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
           Current subscription
         </p>
-        <h2 className="truncate text-sm font-bold">
+        <h2 className="truncate text-sm font-bold bp-ui-section-heading">
           {plan?.name || "No active package"}
         </h2>
         <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -185,13 +185,13 @@ function ApplicatorDashboard({ data, onRefresh }) {
   const c = data.counts;
   return (
     <div className="painter-portal-page painter-dashboard-page space-y-4 sm:space-y-7">
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex items-start justify-between gap-3 bp-ui-page-header">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Welcome, {data.name}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl bp-ui-page-title">Welcome, {data.name}</h1>
         </div>
         <button
           onClick={onRefresh}
-          className="rounded-xl border bg-white p-3"
+          className="rounded-xl border bg-white p-3 bp-ui-icon-action"
           title="Refresh"
         >
           <RefreshCw className="h-5 w-5" />
@@ -234,7 +234,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
         <section className="overflow-hidden rounded-2xl border bg-white xl:col-span-2">
           <header className="flex items-center justify-between border-b p-4 sm:p-5">
             <div>
-              <h2 className="font-bold">Recent completed projects</h2>
+              <h2 className="font-bold bp-ui-section-heading">Recent completed projects</h2>
               
             </div>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">
@@ -269,7 +269,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           )}
         </section>
         <section className="rounded-2xl bg-slate-950 p-6 text-white">
-          <h2 className="font-bold">Current work</h2>
+          <h2 className="font-bold bp-ui-section-heading">Current work</h2>
           
           <Link
             to="/painter-assignments"

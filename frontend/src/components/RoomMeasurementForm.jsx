@@ -632,7 +632,7 @@ export default function RoomMeasurementForm({
               <Sparkles className="h-3.5 w-3.5" />
               Contractor measurement workspace
             </div>
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold bp-ui-section-heading">
               {initialRoomId ? "Edit Room Calculation" : "New Room"}
             </h2>
             <p className="mt-1 text-sm text-slate-300">
@@ -671,7 +671,7 @@ export default function RoomMeasurementForm({
                   setRoomTypeSaved(false);
                   setRoomTypeMenuOpen(true);
                 }}
-                className="mt-2 w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-base font-semibold shadow-sm outline-none transition placeholder:font-normal focus:border-amber-500 focus:ring-4 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600"
+                className="mt-2 w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-base font-semibold shadow-sm outline-none transition placeholder:font-normal focus:border-amber-500 focus:ring-4 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600 bp-ui-control"
               />
               {roomTypeMenuOpen && (
                 <div className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl">
@@ -688,7 +688,7 @@ export default function RoomMeasurementForm({
                         setRoomTypeSaved(false);
                         setRoomTypeMenuOpen(false);
                       }}
-                      className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-amber-50"
+                      className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-amber-50 bp-ui-action"
                     >
                       {entry.name}
                     </button>
@@ -871,7 +871,7 @@ export default function RoomMeasurementForm({
               value={customAreaGroupName}
               onChange={(event) => setCustomAreaGroupName(event.target.value)}
               placeholder="Floor, Terrace, Balcony..."
-              className="mt-1.5 h-10 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-violet-600"
+              className="mt-1.5 h-10 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-violet-600 bp-ui-control"
             />
             <datalist id="custom-area-group-options">
               <option value="Floor" />
@@ -952,7 +952,7 @@ export default function RoomMeasurementForm({
             <select
               value={itemType}
               onChange={(event) => setItemType(event.target.value)}
-              className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold sm:w-56 sm:px-4"
+              className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold sm:w-56 sm:px-4 bp-ui-control"
             >
               <option>Window</option>
               <option>Door</option>
@@ -988,7 +988,7 @@ export default function RoomMeasurementForm({
                 ]);
                 setOpenItem(i);
               }}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-400 sm:px-5"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-400 sm:px-5 bp-ui-action"
             >
               <Plus className="h-4 w-4" />
               Add item
@@ -1035,7 +1035,7 @@ export default function RoomMeasurementForm({
                   setSaving(false);
                 }
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3.5 font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3.5 font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50 sm:w-auto bp-ui-action"
             >
               <Trash2 className="h-4 w-4" />
               Delete Room Calculation
@@ -1043,7 +1043,7 @@ export default function RoomMeasurementForm({
           )}
           <button
             disabled={saving}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-600 disabled:opacity-50 sm:w-auto bp-ui-action"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : initialRoomId ? "Update Room" : "Save Room"}
@@ -1064,7 +1064,7 @@ function Section({ title, subtitle, action, add, children }) {
         <button
           type="button"
           onClick={add}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold transition hover:border-amber-400 hover:bg-amber-50 sm:w-auto"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold transition hover:border-amber-400 hover:bg-amber-50 sm:w-auto bp-ui-action"
         >
           <Plus className="h-4 w-4" />
           {action}
@@ -1140,7 +1140,7 @@ function CustomArea({ entry, unit, area, change, remove }) {
           value={entry.areaGroupName}
           onChange={(event) => change("areaGroupName", event.target.value)}
           placeholder="Floor, Terrace, Balcony..."
-          className="mt-1.5 h-10 w-full min-w-0 rounded-lg border px-3 py-2"
+          className="mt-1.5 h-10 w-full min-w-0 rounded-lg border px-3 py-2 bp-ui-control"
         />
       </label>
       <Field
@@ -1215,7 +1215,7 @@ function Item({ entry, unit, area, change, remove }) {
           <select
             value={entry.sides}
             onChange={(e) => change("sides", e.target.value)}
-            className="mt-1.5 h-10 w-full min-w-0 rounded-lg border px-3 py-2"
+            className="mt-1.5 h-10 w-full min-w-0 rounded-lg border px-3 py-2 bp-ui-control"
           >
             <option value="1">1 side</option>
             <option value="2">2 sides</option>
@@ -1251,7 +1251,7 @@ function Collapsed({ label, name, area, open }) {
     <button
       type="button"
       onClick={open}
-      className="flex w-full items-center justify-between rounded-xl border bg-slate-50 px-4 py-3 text-left hover:border-amber-400 hover:bg-amber-50"
+      className="flex w-full items-center justify-between rounded-xl border bg-slate-50 px-4 py-3 text-left hover:border-amber-400 hover:bg-amber-50 bp-ui-action"
     >
       <div>
         <p className="text-xs font-semibold uppercase text-slate-500">
@@ -1296,9 +1296,9 @@ function Delete({ action, compact = false }) {
       onClick={action}
       aria-label="Delete line"
       className={
-        compact
+        (compact
           ? "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600"
-          : "mt-5 p-2 text-red-600"
+          : "mt-5 p-2 text-red-600") + " bp-ui-icon-action"
       }
     >
       <Trash2 className="h-4 w-4" />

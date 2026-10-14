@@ -1,12 +1,12 @@
 import {
-  LayoutDashboard, Users, Building2, Target, CalendarCheck, FileText,
+  LayoutDashboard, Users, Building2, Target, CalendarCheck, FileText, Phone,
   CalendarClock, ListTodo, Handshake, Network, BriefcaseBusiness,
   ReceiptText, WalletCards, MessageCircle, CircleHelp, ClipboardList,
   Settings, Wrench, BarChart3, Camera, Palette, Activity, CreditCard,
   Star, UserPlus, UserRound, ShieldCheck, Package, Ruler,
 } from "lucide-react";
 
-export const GROUPS = ["Overview", "Quick Actions", "Customers & Sales", "Work Management", "People & Network", "Finance", "Communication", "Business Setup"];
+export const GROUPS = ["Overview", "Quick Actions", "Customers & Sales", "Work Management", "Work Orders", "People & Network", "Subcontractors", "Finance", "Communication", "Business Setup"];
 const C = ["CONTRACTOR"], E = ["PAINTER"], A = ["ADMIN"], U = ["CUSTOMER"], S = ["SUPPORT"];
 const all = [...C, ...E, ...A, ...U, ...S];
 const workers = [...C, ...E];
@@ -22,6 +22,7 @@ export const NAVIGATION = [
   item("customers", "Customers", "/customers", Users, "Customers & Sales", C),
   item("properties", "Properties & Measurements", "/properties", Building2, "Customers & Sales", C, { aliases: ["/measurement-trial"], description: "Measurements and area calculator stay inside each property; no duplicate sidebar destination." }),
   item("leads", "Leads", "/leads", Target, "Customers & Sales", C),
+  item("call-inbox", "Call Inbox", "/call-inbox", Phone, "Customers & Sales", C),
   item("site-visits", "Site Visits", "/site-visits", CalendarCheck, "Customers & Sales", C),
   item("quotations", "Quotations", "/quotations", FileText, "Customers & Sales", C, { verified: true }),
   item("customer-properties", "My Properties", "/customer-properties", Building2, "Customers & Sales", U),
@@ -32,7 +33,7 @@ export const NAVIGATION = [
   item("work-changes", "Work Changes", "/work-changes", ClipboardList, "Work Management", [...C, ...U]),
   item("work-reschedules", "Work Reschedules", "/work-reschedules", CalendarClock, "Work Management", C),
   item("tasks", "Tasks", "/tasks", ListTodo, "Work Management", C, { badge: "tasks" }),
-  item("subcontracts", "Outsourced & Received Work", "/subcontract-work-orders", Handshake, "Work Management", C, { verified: true, description: "One existing screen for work sent and received, with status filters. Billing stays in the work-order detail." }),
+  item("subcontracts", "Work Orders", "/subcontract-work-orders", Handshake, "Work Orders", C, { verified: true, description: "Work sent and received, with status filters. Billing stays in the work-order detail." }),
   item("assignments", "My Assignments", "/painter-assignments", ClipboardList, "Work Management", E),
   item("availability", "Availability & Calendar", "/applicator-availability", CalendarClock, "Work Management", E, { employment: "freelance" }),
   item("completed", "Completed Work", "/completed-work", CalendarCheck, "Work Management", [...C, ...U]),
@@ -40,7 +41,7 @@ export const NAVIGATION = [
   item("reviews", "Ratings & Reviews", "/work-reviews", Star, "Work Management", workers),
   item("employees", "My Employees", "/in-house-applicators", Users, "People & Network", C),
   item("employment", "My Employment", "/in-house-applicators", BriefcaseBusiness, "People & Network", E, { employment: "in-house" }),
-  item("network", "Contractor Network", "/contractor-network", Network, "People & Network", C, { verified: true }),
+  item("network", "Subcontractors", "/contractor-network", Network, "Subcontractors", C, { verified: true }),
   item("jobs", "Job Posts & Applications", "/jobs", BriefcaseBusiness, "People & Network", C, { aliases: ["/painter-seeking"], description: "Work Network tabs include job posts and available professionals." }),
   item("available-work", "Available Work", "/jobs", BriefcaseBusiness, "People & Network", E, { aliases: ["/painter-seeking"], employment: "freelance" }),
   item("job-activity", "Applications & Invitations", "/job-activity", ClipboardList, "People & Network", workers),

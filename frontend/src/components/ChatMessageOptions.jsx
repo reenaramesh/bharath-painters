@@ -26,11 +26,11 @@ export default function ChatMessageOptions({ message, onReply, onForward, onEdit
   }
 
   return <>
-    <button ref={trigger} type="button" className="chat-options-trigger" popoverTarget={id} aria-label="Message options" title="Message options" onClick={positionPanel}><Ellipsis size={16} aria-hidden="true" /></button>
+    <button ref={trigger} type="button" className="chat-options-trigger bp-ui-icon-action" popoverTarget={id} aria-label="Message options" title="Message options" onClick={positionPanel}><Ellipsis size={16} aria-hidden="true" /></button>
     <div ref={panel} id={id} popover="auto" className="chat-options-popover" aria-label="Message options" onToggle={(event) => { if (event.newState === "open") panel.current.querySelector("button")?.focus(); }}>
       {actions.map((action) => {
         const { label, Icon } = options[action];
-        return <button key={action} type="button" className={action === "delete" ? "is-danger" : ""} onClick={() => { panel.current.hidePopover(); trigger.current.focus(); handlers[action](message); }}><Icon size={16} aria-hidden="true" /><span>{label}</span></button>;
+        return <button key={action} type="button" className={(action === "delete" ? "is-danger" : "") + " bp-ui-action"} onClick={() => { panel.current.hidePopover(); trigger.current.focus(); handlers[action](message); }}><Icon size={16} aria-hidden="true" /><span>{label}</span></button>;
       })}
     </div>
   </>;

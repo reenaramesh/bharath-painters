@@ -14,7 +14,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import BharathUser
-from quotations.models import ContractorConnection, ProjectScope, QuotationItem
+from jobs.models import ContractorApplicatorTeam
+from quotations.models import ContractorConnection, PortalNotification, ProjectScope, QuotationItem
 from django.http import Http404, HttpResponse
 from django.utils.dateparse import parse_datetime
 from .pricing import prepare_pricing, save_pricing
@@ -314,7 +315,14 @@ class WorkOrderAssignmentView(APIView):
 
         employee = request.data.get("employee")
         user_row = get_object_or_404(BharathUser, pk=employee) if employee else None
-        if user_row is None or user_row.role != BharathUser.Roles.PAINTER:
+        if (user_row is None or user_row.role != BharathUser.Roles.PAINTER
+                or not user_row.is_active or not user_row.is_verified
+                or user_row.verification_status != BharathUser.VerificationStatus.VERIFIED
+                or not ContractorApplicatorTeam.objects.filter(
+                    contractor=request.user, painter=user_row, is_active=True,
+                    employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                         ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+                ).exists()):
             raise ValidationError({"employee": "Choose one of your employees."})
 
         assignment, created = WorkOrderAssignment.objects.get_or_create(
@@ -327,6 +335,14 @@ class WorkOrderAssignmentView(APIView):
             assignment.assigned_at = timezone.now()
             assignment.released_at = None
             assignment.save(update_fields=["status", "assigned_at", "released_at"])
+        elif not created:
+            raise ValidationError({"employee": "This employee already has an active assignment."})
+        PortalNotification.objects.create(
+            recipient=user_row, actor=request.user, event_type="ASSIGNMENT",
+            title="New contractor work assignment",
+            message=f"{work_order.reference}: {work_order.project_title}",
+            link="/painter-assignments",
+        )
         return Response(
             WorkOrderAssignmentSerializer(assignment).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -337,10 +353,142 @@ class WorkOrderAssignmentView(APIView):
         if work_order.receiving_contractor_id != request.user.id:
             raise ValidationError("Only the receiving contractor can change their team.")
         assignment = get_object_or_404(WorkOrderAssignment, pk=request.data.get("assignment"), work_order=work_order)
+        if assignment.status in {WorkOrderAssignment.Status.IN_PROGRESS, WorkOrderAssignment.Status.COMPLETED}:
+            raise ValidationError({"assignment": "Work that has started cannot be released from the employee history."})
         assignment.status = WorkOrderAssignment.Status.RELEASED
         assignment.released_at = timezone.now()
         assignment.save(update_fields=["status", "released_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkOrderMyAssignmentsView(APIView):
+    """Return only the operational details an assigned employee needs."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != BharathUser.Roles.PAINTER:
+            return Response({"detail": "Paint Applicator access only."}, status=status.HTTP_403_FORBIDDEN)
+        assignments = WorkOrderAssignment.objects.filter(
+            employee=request.user,
+            status__in=(WorkOrderAssignment.Status.PROPOSED, WorkOrderAssignment.Status.ACCEPTED,
+                        WorkOrderAssignment.Status.IN_PROGRESS),
+            work_order__status__in=(SubcontractWorkOrder.Status.ACCEPTED, SubcontractWorkOrder.Status.SCHEDULED,
+                                    SubcontractWorkOrder.Status.IN_PROGRESS),
+        ).select_related("work_order", "work_order__receiving_contractor").prefetch_related("work_order__scopes")
+        return Response([{
+            "id": row.id,
+            "reference": row.work_order.reference,
+            "project_title": row.work_order.project_title,
+            "site_address": row.work_order.site_address,
+            "instructions": row.work_order.instructions,
+            "contractor_name": row.work_order.receiving_contractor.get_full_name() or row.work_order.receiving_contractor.mobile,
+            "start_date": row.work_order.required_start_date,
+            "end_date": row.work_order.required_end_date,
+            "status": row.status,
+            "assigned_at": row.assigned_at,
+            "responded_at": row.responded_at,
+            "work_started_at": row.work_started_at,
+            "work_completed_at": row.work_completed_at,
+            "scope": [{
+                "id": scope.id,
+                "title": scope.title_snapshot,
+                "description": scope.work_description_snapshot,
+                "quantity": scope.quantity,
+                "unit": scope.unit_name_snapshot,
+            } for scope in row.work_order.scopes.all()],
+        } for row in assignments.order_by("work_order__required_start_date", "assigned_at")])
+
+
+class WorkOrderAssignmentResponseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        if request.user.role != BharathUser.Roles.PAINTER:
+            return Response({"detail": "Paint Applicator access only."}, status=status.HTTP_404_NOT_FOUND)
+        assignment = WorkOrderAssignment.objects.select_for_update().select_related(
+            "work_order", "work_order__receiving_contractor"
+        ).filter(pk=pk, employee=request.user).first()
+        if not assignment:
+            return Response({"detail": "Assignment not found."}, status=status.HTTP_404_NOT_FOUND)
+        order = assignment.work_order
+        action = str(request.data.get("action") or "").strip().upper()
+        now = timezone.now()
+        if action in {"ACCEPT", "REJECT"}:
+            if order.status not in {SubcontractWorkOrder.Status.ACCEPTED, SubcontractWorkOrder.Status.SCHEDULED,
+                                    SubcontractWorkOrder.Status.IN_PROGRESS}:
+                return Response({"detail": "This work order is not open for employee responses."}, status=status.HTTP_400_BAD_REQUEST)
+            if assignment.status != WorkOrderAssignment.Status.PROPOSED or assignment.responded_at:
+                return Response({"detail": "This assignment has already received a response."}, status=status.HTTP_400_BAD_REQUEST)
+            if action == "ACCEPT":
+                eligible = (
+                    request.user.is_active and request.user.is_verified
+                    and request.user.verification_status == BharathUser.VerificationStatus.VERIFIED
+                    and ContractorApplicatorTeam.objects.filter(
+                        contractor=order.receiving_contractor, painter=request.user, is_active=True,
+                        employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                             ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+                    ).exists()
+                )
+                if not eligible:
+                    return Response({"detail": "An active verified employee membership is required."}, status=status.HTTP_400_BAD_REQUEST)
+                assignment.status = WorkOrderAssignment.Status.ACCEPTED
+            else:
+                assignment.status = WorkOrderAssignment.Status.DECLINED
+                assignment.note = str(request.data.get("note") or "").strip()[:180]
+            assignment.responded_at = now
+            assignment.save(update_fields=("status", "responded_at", "note"))
+            PortalNotification.objects.create(
+                recipient=order.receiving_contractor, actor=request.user,
+                event_type="ASSIGNMENT_RESPONSE", title="Employee work response",
+                message=f"{request.user.get_full_name() or request.user.mobile} {'accepted' if action == 'ACCEPT' else 'declined'} {order.reference}.",
+                link="/subcontract-work-orders",
+            )
+        elif action == "START":
+            if assignment.status != WorkOrderAssignment.Status.ACCEPTED:
+                return Response({"detail": "Accept this assignment before starting work."}, status=status.HTTP_400_BAD_REQUEST)
+            eligible = (
+                request.user.is_active and request.user.is_verified
+                and request.user.verification_status == BharathUser.VerificationStatus.VERIFIED
+                and ContractorApplicatorTeam.objects.filter(
+                    contractor=order.receiving_contractor, painter=request.user, is_active=True,
+                    employment_type__in=(ContractorApplicatorTeam.EmploymentType.IN_HOUSE,
+                                         ContractorApplicatorTeam.EmploymentType.FLEXIBLE),
+                ).exists()
+            )
+            if not eligible:
+                return Response({"detail": "An active verified employee membership is required to start work."}, status=status.HTTP_400_BAD_REQUEST)
+            if order.status not in {SubcontractWorkOrder.Status.ACCEPTED, SubcontractWorkOrder.Status.SCHEDULED,
+                                    SubcontractWorkOrder.Status.IN_PROGRESS}:
+                return Response({"detail": "This work order cannot be started in its current state."}, status=status.HTTP_400_BAD_REQUEST)
+            if WorkOrderAssignment.objects.filter(work_order=order).exclude(
+                status__in=(WorkOrderAssignment.Status.ACCEPTED, WorkOrderAssignment.Status.IN_PROGRESS,
+                            WorkOrderAssignment.Status.COMPLETED, WorkOrderAssignment.Status.DECLINED,
+                            WorkOrderAssignment.Status.RELEASED),
+            ).exists():
+                return Response({"detail": "Every active employee must accept their assignment before work starts."}, status=status.HTTP_400_BAD_REQUEST)
+            if order.required_start_date and timezone.localdate() < order.required_start_date:
+                return Response({"detail": f"Work can be started on or after {order.required_start_date}."}, status=status.HTTP_400_BAD_REQUEST)
+            assignment.status = WorkOrderAssignment.Status.IN_PROGRESS
+            assignment.work_started_at = now
+            assignment.save(update_fields=("status", "work_started_at"))
+            if order.status != SubcontractWorkOrder.Status.IN_PROGRESS:
+                order.status = SubcontractWorkOrder.Status.IN_PROGRESS
+                order.started_at = order.started_at or now
+                order.save(update_fields=("status", "started_at", "updated_at"))
+        elif action == "COMPLETE":
+            if assignment.status != WorkOrderAssignment.Status.IN_PROGRESS:
+                return Response({"detail": "Start your work before marking it complete."}, status=status.HTTP_400_BAD_REQUEST)
+            assignment.status = WorkOrderAssignment.Status.COMPLETED
+            assignment.work_completed_at = now
+            assignment.save(update_fields=("status", "work_completed_at"))
+        else:
+            return Response({"action": "Select ACCEPT, REJECT, START, or COMPLETE."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "id": assignment.id, "reference": order.reference, "project_title": order.project_title,
+            "status": assignment.status, "responded_at": assignment.responded_at,
+            "work_started_at": assignment.work_started_at, "work_completed_at": assignment.work_completed_at,
+        })
 
 
 class WorkOrderWageView(generics.ListCreateAPIView):
@@ -364,7 +512,8 @@ class WorkOrderWageView(generics.ListCreateAPIView):
         assigned = WorkOrderAssignment.objects.filter(
             work_order=work_order,
             employee=employee,
-            status__in=[WorkOrderAssignment.Status.PROPOSED, WorkOrderAssignment.Status.ACCEPTED],
+            status__in=[WorkOrderAssignment.Status.ACCEPTED, WorkOrderAssignment.Status.IN_PROGRESS,
+                        WorkOrderAssignment.Status.COMPLETED],
         ).exists()
         if not assigned:
             raise ValidationError({"employee": "That employee is not on this work order."})

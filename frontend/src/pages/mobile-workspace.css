@@ -1,0 +1,113 @@
+@media (max-width: 767px) {
+  .contractor-dashboard .bp-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: start;
+  }
+  .contractor-dashboard .bp-page-header .bp-page-actions,
+  .contractor-dashboard .bp-page-header .bp-page-actions .bp-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+  .dashboard-refresh-label { display: none; }
+  .customer-dashboard-page > header.bp-page-header { grid-template-columns: minmax(0, 1fr) 96px; }
+  .customer-dashboard-page > header.bp-page-header > .bp-page-actions { width: 96px; }
+  .customer-dashboard-header-actions { display: flex; gap: 8px; }
+  .customer-dashboard-refresh { width: 44px; height: 44px; flex: none; padding: 0; }
+  .customer-dashboard-page .customer-dashboard-header-actions .customer-dashboard-refresh { min-width: 44px; width: 44px; padding: 0; }
+
+  .crm-customers-page section[id^="customer-letter-"] .crm-customer-letter-heading {
+    background: #fff;
+    color: #64748b;
+    backdrop-filter: none;
+  }
+  .crm-customers-page [aria-label="Jump to customer initial"] button.crm-customer-letter-link {
+    color: #64748b;
+    background: transparent;
+    min-width: 32px;
+  }
+  .crm-customers-page [aria-label="Jump to customer initial"] button.crm-customer-letter-link:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .mobile-square-summary,
+  .work-changes-page .work-change-summary,
+  .work-changes-page.customer-work-changes-page .customer-work-change-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .mobile-task-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tasks-page .mobile-task-summary .mobile-square-stat { min-height: 76px; padding: 8px; }
+  .mobile-square-stat,
+  .work-changes-page .work-change-summary > div,
+  .work-changes-page .customer-work-change-summary > article {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-width: 0;
+    min-height: 92px;
+    aspect-ratio: 1;
+    padding: 10px;
+    border: 1px solid var(--bp-line, #dbe4eb);
+    border-radius: 12px;
+    text-align: left;
+    background: #fff;
+    overflow-wrap: anywhere;
+  }
+  .mobile-square-stat span,
+  .work-changes-page .work-change-summary p,
+  .work-changes-page .customer-work-change-summary article p {
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .mobile-square-stat strong { font-size: 20px; line-height: 1.2; }
+  .mobile-square-stat[aria-pressed="true"] { border-color: #176b9b; background: #edf6fb; }
+  .mobile-square-stat:focus-visible { outline: 2px solid #176b9b; outline-offset: 2px; }
+  .mobile-square-stat.tone-red strong { color: #b91c1c; }
+  .mobile-square-stat.tone-amber strong { color: #b45309; }
+  .mobile-square-stat.tone-blue strong { color: #0369a1; }
+  .work-changes-page .work-change-summary b { font-size: 22px; margin-top: 8px; }
+  .work-changes-page .customer-work-change-summary article strong { font-size: 22px; }
+  .work-changes-page .customer-work-change-summary .bp-stat-hint { display: none; }
+
+  .mobile-task-list { display: grid; gap: 10px; }
+  .mobile-task-card { min-width: 0; border: 1px solid #dbe4eb; border-radius: 12px; background: #fff; padding: 12px; }
+  .mobile-task-top { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+  .mobile-task-top a { color: #193750; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  .mobile-task-top span { font-size: 10px; color: #64748b; }
+  .mobile-task-card time { font-size: 12px; color: #475569; }
+  .mobile-task-card p { font-size: 12px; margin: 6px 0; overflow-wrap: anywhere; }
+  .mobile-task-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-top: 1px solid #eef2f6; padding-top: 6px; }
+  .mobile-task-actions :is(a, button) { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 1; font-size: 11px; border: 1px solid #dbe4eb; border-radius: 8px; padding: 5px; white-space: nowrap; }
+  .mobile-task-actions button:last-child { color: #047857; }
+  .mobile-list-empty { padding: 20px 12px; font-size: 13px; color: #64748b; text-align: center; }
+
+  .bp-work-schedules-page :is(.schedule-status-scroll, .schedule-grid-scroll) {
+    min-width: 0;
+    max-width: 100%;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+    overscroll-behavior-inline: contain;
+  }
+  .bp-work-schedules-page .schedule-status-scroll { gap: 6px; }
+  .bp-work-schedules-page .schedule-status-scroll button { flex: 0 0 auto; min-height: 44px; padding: 8px 10px; font-size: 11px; }
+  .bp-work-schedules-page :is(.schedule-status-scroll, .schedule-grid-scroll)::-webkit-scrollbar { width: 4px; height: 4px; }
+  .bp-work-schedules-page :is(.schedule-status-scroll, .schedule-grid-scroll)::-webkit-scrollbar-thumb { border-radius: 8px; background: #cbd5e1; }
+  .bp-work-schedules-page .schedule-grid-scroll { overflow-x: auto; }
+  .bp-work-reschedules-page .reschedule-list-card article { padding: 12px; }
+  .work-changes-page > section > .grid.md\:hidden { padding: 10px; gap: 8px; }
+}
+
+@media (max-width:767px) {
+  .work-changes-page .customer-work-change-summary .bp-stat-icon { display: none; }
+  .work-changes-page .customer-work-change-summary article > div { display:flex; flex-direction:column; justify-content:space-between; height:100%; }
+}

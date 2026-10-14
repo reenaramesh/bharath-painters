@@ -1,3 +1,4 @@
+import { contractorProfileLink } from "../utils/contractorProfileLink.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
@@ -9,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import api, { API_BASE_URL } from "../api/client";
+import api from "../api/client";
 import ContractorConnectSearch from "../components/ContractorConnectSearch";
 import {
   Button,
@@ -158,7 +159,7 @@ export default function CustomerConnections() {
       <PageHeader
         eyebrow="Your network"
         title="Your contractors"
-        description="Connect with contractors you choose. Each contractor can see and share records only for work connected to your account."
+        
       />
 
       {error && !loadFailed && (
@@ -176,7 +177,7 @@ export default function CustomerConnections() {
 
       <div className="customer-connection-tabs" role="group" aria-label="Filter contractor connections">
         {tabs.map(([value, label]) => (
-          <button
+          <button className="bp-ui-action"
             key={value}
             type="button"
             aria-pressed={tab === value}
@@ -190,13 +191,7 @@ export default function CustomerConnections() {
 
       <SectionCard
         title={tabLabel(tab)}
-        description={
-          tab === "PENDING"
-            ? "Review incoming requests or a previous request response."
-            : tab === "CONNECTED"
-              ? "Contractors you have connected with."
-              : "Contractors you have blocked from connecting."
-        }
+        
         className="customer-connections-list"
         bodyClassName="p-0"
       >
@@ -251,7 +246,7 @@ function ConnectionCard({ item, onView, onAct, onMessage, busy }) {
           <Building2 />
         </span>
         <div className="connection-card-identity">
-          <h2>{contractor.business_name || "Contractor"}</h2>
+          <h2 className="bp-ui-section-heading">{contractor.business_name || "Contractor"}</h2>
           <p>{contractor.contractor_id || "Bharath Apps Contractor"}</p>
         </div>
         <StatusBadge status={item.status} label={statusLabel} tone={connectionTone(item.status)} />
@@ -381,7 +376,7 @@ function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessa
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-widest text-white/75">Contractor profile</p>
-              <h2 id="customer-contractor-dialog-title" className="mt-2 break-words text-2xl font-extrabold">
+              <h2 id="customer-contractor-dialog-title" className="mt-2 break-words text-2xl font-extrabold bp-ui-section-heading">
                 {contractor.business_name || "Contractor"}
               </h2>
               <p className="mt-1 break-words text-sm text-white/85">{contractor.name}</p>
@@ -391,7 +386,7 @@ function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessa
               type="button"
               onClick={onClose}
               aria-label="Close contractor profile"
-              className="contractor-dialog-close"
+              className="contractor-dialog-close bp-ui-icon-action"
             >
               <X aria-hidden="true" />
             </button>
@@ -587,11 +582,4 @@ function confirmText(item, action) {
   })[action] || `Update ${name}?`;
 }
 
-function contractorProfileUrl(bharathId) {
-  return bharathId
-    ? new URL(
-        `${API_BASE_URL.replace(/\/$/, "")}/accounts/verify-page/${encodeURIComponent(bharathId)}/`,
-        window.location.origin,
-      ).href
-    : "";
-}
+function contractorProfileUrl(bharathId) { return contractorProfileLink(bharathId); }

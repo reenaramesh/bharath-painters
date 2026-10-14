@@ -38,15 +38,15 @@ export default function ShareAppButton({ shortcut = false, collapsed = false, si
   }
 
   return <>
-    <button type="button" onClick={shareApp} title="Share App" aria-label="Share App" className={sidebar ? `ws-nav-link ${collapsed ? "ws-nav-icon" : ""}` : shortcut ? "bp-dashboard-shortcut" : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-indigo-700 hover:bg-indigo-50"}>
+    <button type="button" onClick={shareApp} title="Share App" aria-label="Share App" className={(sidebar ? `ws-nav-link ${collapsed ? "ws-nav-icon" : ""}` : shortcut ? "bp-dashboard-shortcut" : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-indigo-700 hover:bg-indigo-50") + " bp-ui-action"}>
       {shortcut ? <><span className="bp-shortcut-icon"><Share2 aria-hidden="true" strokeWidth={1.8} /></span><span className="bp-shortcut-label">Share App</span></> : <><Share2 className="h-5 w-5 shrink-0" /><span className={sidebar ? collapsed ? "ws-nav-tooltip" : "ws-nav-label" : collapsed ? "lg:hidden" : ""}>Share App</span></>}
     </button>
     {message && createPortal(<div ref={dialogRef} data-share-app-dialog className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="Share Bharath Apps">
       <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
-        <div className="flex items-center justify-between gap-4"><h2 className="font-bold text-slate-900">Share App</h2><button type="button" onClick={() => setMessage("")} aria-label="Close sharing" className="rounded-full bg-slate-100 p-2"><X className="h-4 w-4" /></button></div>
+        <div className="flex items-center justify-between gap-4"><h2 className="font-bold text-slate-900 bp-ui-section-heading">Share App</h2><button type="button" onClick={() => setMessage("")} aria-label="Close sharing" className="rounded-full bg-slate-100 p-2 bp-ui-icon-action"><X className="h-4 w-4" /></button></div>
         <p role="status" className="mt-3 text-sm text-slate-600">{message}</p>
-        <input aria-label="Application link" readOnly value={appUrl} onFocus={(event) => event.target.select()} className="mt-3 w-full rounded-xl border p-3 text-sm text-slate-900" />
-        <button type="button" onClick={() => setMessage("")} className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Done</button>
+        <input aria-label="Application link" readOnly value={appUrl} onFocus={(event) => event.target.select()} className="mt-3 w-full rounded-xl border p-3 text-sm text-slate-900 bp-ui-control" />
+        <button type="button" onClick={() => setMessage("")} className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white bp-ui-action">Done</button>
       </div>
     </div>, document.body)}
   </>;

@@ -8,9 +8,11 @@ import {
   CheckCircle2,
   FileText,
   MessageCircle,
+  RefreshCw,
   ShieldCheck,
   Users,
 } from "lucide-react";
+import "./mobile-workspace.css";
 import api from "../api/client";
 import CustomerAds from "../components/CustomerAds";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
@@ -167,17 +169,17 @@ export default function CustomerDashboard() {
         title={`Welcome back, ${data.customer_name || "there"}`}
         description={customerContext}
         actions={
-          <Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
+          <div className="customer-dashboard-header-actions"><Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             <span className="customer-profile-action-label">Profile settings</span>
-          </Link>
+          </Link><button type="button" onClick={load} aria-label="Refresh customer dashboard" className="bp-button bp-button-secondary customer-dashboard-refresh md:hidden bp-ui-icon-action"><RefreshCw size={17} /></button></div>
         }
       />
 
       <section className="customer-overview-grid" aria-label="Account overview">
-        <StatCard icon={Building2} label="My properties" value={counts.properties || 0} hint="Places connected to your projects" tone="brand" />
-        <StatCard icon={Users} label="My contractors" value={counts.contractors || 0} hint="Contractors connected to you" tone="info" />
-        <StatCard icon={FileText} label="My quotations" value={counts.quotations || 0} hint="Estimates shared with you" tone="success" />
+        <StatCard icon={Building2} label="My properties" value={counts.properties || 0}  tone="brand" />
+        <StatCard icon={Users} label="My contractors" value={counts.contractors || 0}  tone="info" />
+        <StatCard icon={FileText} label="My quotations" value={counts.quotations || 0}  tone="success" />
       </section>
 
       <MobileDashboardShortcuts mobileOnly={false} />
@@ -185,7 +187,7 @@ export default function CustomerDashboard() {
       {attention.length > 0 ? (
         <SectionCard
           title="Needs your attention"
-          description="A few things are ready for you to review."
+          
           className="customer-attention-card"
         >
           <div className="customer-attention-grid">
@@ -221,7 +223,7 @@ export default function CustomerDashboard() {
       <div className="customer-project-grid">
       <SectionCard
         title="Your work"
-        description="Upcoming and active projects, with the dates shared by your contractor."
+        
         action={<PanelLink to="/work-schedules" label="View work progress" />}
         className="customer-work-card"
         bodyClassName="p-0"
@@ -235,7 +237,7 @@ export default function CustomerDashboard() {
         ) : (
           <EmptyState
             title="No scheduled work yet"
-            description="When a project is scheduled, you’ll see its dates and progress here."
+            
             className="customer-dashboard-empty"
           />
         )}
@@ -243,7 +245,7 @@ export default function CustomerDashboard() {
 
       <SectionCard
         title="Quotations"
-        description="See who sent each estimate, the property, total and what to do next."
+        
         action={<PanelLink to="/customer-quotations" label="View all quotations" />}
         className="customer-quotations-card"
         bodyClassName="p-0"
@@ -257,7 +259,7 @@ export default function CustomerDashboard() {
         ) : (
           <EmptyState
             title="No quotations yet"
-            description="Quotations from connected contractors will appear here."
+            
             className="customer-dashboard-empty"
           />
         )}
@@ -266,14 +268,14 @@ export default function CustomerDashboard() {
       {finance && (
         <SectionCard
           title="Payments"
-          description="Totals from your receipts and invoices."
+          
           action={<PanelLink to="/customer-invoices" label="View payments" />}
           className="customer-payments-card"
         >
           <div className="customer-payment-summary">
-            <StatCard label="Paid" value={formatMoney(finance.total_paid)} hint="Payments received" tone="success" />
-            <StatCard label="Balance due" value={formatMoney(finance.balance_due)} hint={Number(finance.balance_due || 0) > 0 ? "See invoices and payment details" : "No invoice balance due"} tone="warning" />
-            <StatCard label="Advance credit" value={formatMoney(finance.advance_credit)} hint="Credit recorded before final invoices" tone="info" />
+            <StatCard label="Paid" value={formatMoney(finance.total_paid)}  tone="success" />
+            <StatCard label="Balance due" value={formatMoney(finance.balance_due)}  tone="warning" />
+            <StatCard label="Advance credit" value={formatMoney(finance.advance_credit)}  tone="info" />
           </div>
         </SectionCard>
       )}
@@ -301,13 +303,13 @@ export default function CustomerDashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No service requests yet" description="Ask for painting work when you’re ready." className="customer-dashboard-empty" />
+            <EmptyState title="No service requests yet"  className="customer-dashboard-empty" />
           )}
         </SectionCard>
 
         <SectionCard
           title="Your contractors"
-          description="People connected to your projects."
+          
           action={<PanelLink to="/customer/connections" label="View connections" />}
           className="customer-list-card"
           bodyClassName="p-0"
@@ -325,13 +327,13 @@ export default function CustomerDashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No contractors connected yet" description="Review connection requests or find your contractor details." className="customer-dashboard-empty" />
+            <EmptyState title="No contractors connected yet"  className="customer-dashboard-empty" />
           )}
         </SectionCard>
 
         <SectionCard
           title="My properties"
-          description="Properties your contractors have added for your projects."
+          
           action={<PanelLink to="/customer-properties" label="View properties" />}
           className="customer-list-card"
           bodyClassName="p-0"
@@ -348,7 +350,7 @@ export default function CustomerDashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No properties yet" description="Properties will appear when added by your contractor." className="customer-dashboard-empty" />
+            <EmptyState title="No properties yet"  className="customer-dashboard-empty" />
           )}
         </SectionCard>
 
@@ -372,7 +374,7 @@ export default function CustomerDashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No support requests" description="If you need help, start a support request." className="customer-dashboard-empty" />
+            <EmptyState title="No support requests"  className="customer-dashboard-empty" />
           )}
         </SectionCard>
       </div>

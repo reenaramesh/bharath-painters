@@ -13,6 +13,7 @@ const popupLabels = {
   cancel: supportedScripts.map(language => transliterate("Cancel", language)),
 };
 const releasePopupProtection = installPopupInputProtection(document, window, {getLabels:()=>popupLabels});
+document.body.classList.add("bp-ui");
 if (import.meta.hot) import.meta.hot.dispose(releasePopupProtection);
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

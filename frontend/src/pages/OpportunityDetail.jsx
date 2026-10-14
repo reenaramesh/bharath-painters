@@ -1,4 +1,6 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import useMobileView from "../hooks/useMobileView.js";
+import { recentFirst } from "../utils/workspaceLists.js";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   CalendarClock,
@@ -55,6 +57,7 @@ function Field({ label: text, children }) {
 }
 
 export default function OpportunityDetail() {
+  const mobile = useMobileView();
   const { id } = useParams();
   const [item, setItem] = useState(null);
   const [visits, setVisits] = useState([]);
@@ -113,7 +116,7 @@ export default function OpportunityDetail() {
     };
   }, [id, item?.stage]);
 
-  const history = useMemo(() => item?.history || [], [item]);
+  const history = useMemo(() => mobile ? recentFirst(item?.history || []) : item?.history || [], [item, mobile]);
 
   function startEditing() {
     setDraft({
@@ -272,7 +275,7 @@ export default function OpportunityDetail() {
       {/* STAGE */}
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-slate-900">Opportunity stage</h2>
+          <h2 className="font-bold text-slate-900 bp-ui-section-heading">Opportunity stage</h2>
           <span className="text-xs text-slate-500">
             Updated {formatDateTime(item.updated_at)}
           </span>
@@ -284,11 +287,11 @@ export default function OpportunityDetail() {
               type="button"
               disabled={saving}
               onClick={() => changeStage(value)}
-              className={`rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-60 ${
+              className={(`rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-60 ${
                 value === item.stage
                   ? "bg-slate-950 text-white"
                   : "border bg-white text-slate-600 hover:border-slate-900"
-              }`}
+              }`) + " bp-ui-action"}
             >
               {stageLabel(value)}
             </button>
@@ -314,7 +317,7 @@ export default function OpportunityDetail() {
                 value={lostReason}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => setLostReason(event.target.value)}
-                className="mt-1.5 block rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold outline-none focus:border-slate-900"
+                className="mt-1.5 block rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold outline-none focus:border-slate-900 bp-ui-control"
               >
                 <option value="">Select reason</option>
                 {LOST_REASON_OPTIONS.map(([value, text]) => (
@@ -330,14 +333,14 @@ export default function OpportunityDetail() {
                 value={lostNote}
                 onChange={(event) => setLostNote(event.target.value)}
                 placeholder="What happened?"
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </label>
             <button
               type="button"
               disabled={saving || !lostReason}
               onClick={() => changeStage("LOST")}
-              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
             >
               Save
             </button>
@@ -379,12 +382,12 @@ export default function OpportunityDetail() {
       {/* DETAILS / EDIT */}
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-slate-900">Requirement details</h2>
+          <h2 className="font-bold text-slate-900 bp-ui-section-heading">Requirement details</h2>
           {!editing ? (
             <button
               type="button"
               onClick={startEditing}
-              className="rounded-xl border px-4 py-2.5 text-sm font-semibold hover:border-slate-900"
+              className="rounded-xl border px-4 py-2.5 text-sm font-semibold hover:border-slate-900 bp-ui-action"
             >
               Edit
             </button>
@@ -400,7 +403,7 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, title: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </label>
             <label className="text-sm font-semibold">
@@ -410,7 +413,7 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, priority: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               >
                 {PRIORITY_OPTIONS.map(([value, text]) => (
                   <option key={value} value={value}>
@@ -428,7 +431,7 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, estimated_value: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </label>
             <label className="text-sm font-semibold sm:col-span-2">
@@ -439,7 +442,7 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, next_follow_up: event.target.value })
                 }
-                className={input}
+                className={(input) + " bp-ui-control"}
               />
             </label>
             <label className="text-sm font-semibold sm:col-span-2">
@@ -450,7 +453,7 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, description: event.target.value })
                 }
-                className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900"
+                className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 bp-ui-control"
               />
             </label>
             <label className="text-sm font-semibold sm:col-span-2">
@@ -461,21 +464,21 @@ export default function OpportunityDetail() {
                 onChange={(event) =>
                   setDraft({ ...draft, notes: event.target.value })
                 }
-                className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900"
+                className="mt-2 w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 bp-ui-control"
               />
             </label>
             <div className="flex justify-end gap-2 border-t pt-4 sm:col-span-2">
               <button
                 type="button"
                 onClick={cancelEditing}
-                className="rounded-xl border px-4 py-2.5 text-sm font-semibold"
+                className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Saving..." : "Save changes"}
@@ -496,7 +499,7 @@ export default function OpportunityDetail() {
 
       {/* LINKED RECORDS */}
       <section className={card}>
-        <h2 className="font-bold text-slate-900">Linked records</h2>
+        <h2 className="font-bold text-slate-900 bp-ui-section-heading">Linked records</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {item.quotation_id ? (
             <Link
@@ -553,7 +556,7 @@ export default function OpportunityDetail() {
       {/* SITE VISITS */}
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-slate-900">Site visits</h2>
+          <h2 className="font-bold text-slate-900 bp-ui-section-heading">Site visits</h2>
           <Link
             to="/site-visits"
             className="text-sm font-semibold text-slate-600 underline hover:text-slate-950"
@@ -591,7 +594,7 @@ export default function OpportunityDetail() {
 
       {/* HISTORY */}
       <section className={card}>
-        <h2 className="flex items-center gap-2 font-bold text-slate-900">
+        <h2 className="flex items-center gap-2 font-bold text-slate-900 bp-ui-section-heading">
           <History className="h-4 w-4 text-slate-400" />
           Stage history
         </h2>

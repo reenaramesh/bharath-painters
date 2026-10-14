@@ -64,7 +64,7 @@ export default function PushAlertControl({ userId }) {
   }
 
   if (!config) return null;
-  if (!supported()) return <p className="border-b p-3 text-xs text-slate-500">This browser does not support background alerts.</p>;
-  if (!config.enabled) return <p className="border-b p-3 text-xs text-slate-500">Background alerts are not configured on the server yet.</p>;
-  return <div className="border-b bg-[#f8fbfc] p-3"><div className="flex items-center justify-between gap-3"><span><b className="block text-xs">Background alerts</b><small className="text-[11px] text-slate-500">Receive updates when the app is closed.</small></span><button type="button" disabled={busy} onClick={active ? disable : enable} className="shrink-0 rounded-lg bg-[#176b9b] px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{busy ? "Working..." : active ? "Turn off" : "Enable"}</button></div>{message && <p role="status" className="mt-2 text-xs text-[#1d5e7b]">{message}</p>}</div>;
+  if (!supported()) return null;
+  if (!config.enabled) return null;
+  return <div className="border-b bg-[#f8fbfc] p-3"><div className="flex items-center justify-between gap-3"><span><b className="block text-xs">Background alerts</b></span><button type="button" disabled={busy} onClick={active ? disable : enable} className="shrink-0 rounded-lg bg-[#176b9b] px-3 py-2 text-xs font-bold text-white disabled:opacity-50 bp-ui-action">{busy ? "Working..." : active ? "Turn off" : "Enable"}</button></div>{message && <p role="status" className="mt-2 text-xs text-[#1d5e7b]">{message}</p>}</div>;
 }

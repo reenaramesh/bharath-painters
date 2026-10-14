@@ -1333,3 +1333,12 @@ textarea.bp-control {
     margin-inline: -1.5rem;
   }
 }
+
+@media (min-width:1024px) {
+  .bp-topbar { gap:16px; }
+  .bp-topbar-main, .bp-topbar-workspace { min-width:0; }
+  .bp-topbar-workspace { flex:1; }
+  .bp-topbar-workspace .bp-topbar-search { flex:1; width:100%; max-width:288px; min-width:120px; }
+  .bp-topbar-right { margin-left:auto; }
+  .bp-topbar-page-reference { text-align:right; overflow-wrap:anywhere; }
+}

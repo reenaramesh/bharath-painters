@@ -25,7 +25,7 @@ export default function WorkOrderPricingFields({ items, selected, pricing, onCha
  const rows=new Map((preview?.lines || []).map(line=>[line.source_item,line]));
  return <section className="wo-margin-editor" aria-label="Contractor margin pricing">
   <h3>Contractor margin</h3>
-  <p className="wo-margin-hint">Approved scope is read only. Margin uses post-discount, pre-tax values. Customer GST is excluded from the margin.</p>
+  
   <FormField label="Margin mode" as="select" value={pricing.margin_mode} onChange={event=>update('margin_mode',event.target.value)}><option value="LINE">Line-by-Line Margin</option><option value="OVERALL">Overall Quotation Margin</option></FormField>
   {showTax && <WorkOrderTaxFields pricing={pricing} onChange={onChange}/>}
   {pricing.margin_mode==='OVERALL' && <MarginControl label="Overall margin" type={pricing.margin_type} value={pricing.margin_value} onType={value=>update('margin_type',value)} onValue={value=>update('margin_value',value)}/>}
@@ -50,15 +50,15 @@ export default function WorkOrderPricingFields({ items, selected, pricing, onCha
   })}</div>
   <div className="wo-margin-summary" role="status"><span>{pending?'Calculating…':'Contractor payable'}</span><strong>{preview ? workOrderMoney(preview.totals.grand_total) : '—'}</strong>{preview && <small>Subtotal {workOrderMoney(preview.totals.subtotal)} · GST {workOrderMoney(preview.totals.gst_amount)}</small>}</div>
   <details className="wo-margin-source"><summary>Original quotation · read-only reference</summary><p>{frozen?.quotation_number} · Revision {frozen?.revision}</p><p>Original subtotal {workOrderMoney(frozen?.subtotal)} · Customer discount {workOrderMoney(frozen?.discount)} · Original total {workOrderMoney(frozen?.total)}</p><p>{frozen?.customer_name} · {frozen?.site_address}</p><p>{frozen?.notes}</p><p>{frozen?.terms}</p></details>
-  <details><summary>Open Platform</summary><p className="wo-margin-hint">Publishing requires a separate Jobs integration. Only approximate locality and vendor-facing scope and amounts may be published.</p><button type="button" disabled className="min-h-11 rounded-xl border px-3 text-sm opacity-60">Publish to Open Platform · pending integration</button></details>
+  <details><summary>Open Platform</summary><button type="button" disabled className="min-h-11 rounded-xl border px-3 text-sm opacity-60 bp-ui-action">Publish to Open Platform · pending integration</button></details>
   <fieldset className="wo-sharing-controls"><legend>Recipient visibility</legend>{[['share_site_pin','Show Precise Site Pin'],['share_customer_address','Show Full Property Address'],['share_customer_contact','Show Customer Contact Details'],['show_pricing_adjustment','Show Pricing Adjustment to Vendor']].map(([key,label])=><label key={key}><input type="checkbox" checked={Boolean(pricing[key])} onChange={event=>update(key,event.target.checked)}/><span>{label}</span></label>)}</fieldset>
  </section>;
 }
 
 function MarginControl({label,type,value,onType,onValue}) {
- return <div className="wo-margin-control"><select aria-label={`${label} type`} value={type} onChange={event=>onType(event.target.value)}><option value="PERCENTAGE">%</option><option value="FIXED">₹</option></select><input aria-label={`${label} value`} type="number" min="0" max={type==='PERCENTAGE'?100:undefined} step="0.01" required value={value} onChange={event=>onValue(event.target.value)}/></div>;
+ return <div className="wo-margin-control"><select className="bp-ui-control" aria-label={`${label} type`} value={type} onChange={event=>onType(event.target.value)}><option value="PERCENTAGE">%</option><option value="FIXED">₹</option></select><input className="bp-ui-control" aria-label={`${label} value`} type="number" min="0" max={type==='PERCENTAGE'?100:undefined} step="0.01" required value={value} onChange={event=>onValue(event.target.value)}/></div>;
 }
 
 export function WorkOrderTaxFields({pricing,onChange}) {
- return <fieldset className="min-w-0 space-y-3"><legend className="font-semibold">Work Order GST</legend><p className="wo-margin-hint">Select the applicable tax for this vendor agreement. Customer quotation GST is not inherited.</p><FormField label="GST treatment" as="select" value={pricing.gst_mode || 'NO_GST'} onChange={event=>onChange(current=>({...current,gst_mode:event.target.value}))}><option value="NO_GST">No GST</option><option value="GST_EXTRA">GST Exclusive</option><option value="GST_INCLUDED">GST Inclusive</option></FormField>{pricing.gst_mode && pricing.gst_mode!=='NO_GST' && <FormField label="GST percentage" aria-label="GST percentage" type="number" min="0.01" step="0.01" required value={pricing.gst_percentage} onChange={event=>onChange(current=>({...current,gst_percentage:event.target.value}))}/>}</fieldset>;
+ return <fieldset className="min-w-0 space-y-3"><legend className="font-semibold">Work Order GST</legend><FormField label="GST treatment" as="select" value={pricing.gst_mode || 'NO_GST'} onChange={event=>onChange(current=>({...current,gst_mode:event.target.value}))}><option value="NO_GST">No GST</option><option value="GST_EXTRA">GST Exclusive</option><option value="GST_INCLUDED">GST Inclusive</option></FormField>{pricing.gst_mode && pricing.gst_mode!=='NO_GST' && <FormField label="GST percentage" aria-label="GST percentage" type="number" min="0.01" step="0.01" required value={pricing.gst_percentage} onChange={event=>onChange(current=>({...current,gst_percentage:event.target.value}))}/>}</fieldset>;
 }

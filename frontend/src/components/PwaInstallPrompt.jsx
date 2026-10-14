@@ -50,15 +50,15 @@ export default function PwaInstallPrompt() {
 
   return (
     <aside className="fixed inset-x-3 bottom-3 z-[100] mx-auto max-w-lg rounded-2xl border border-indigo-200 bg-white p-4 shadow-2xl sm:bottom-5" role="status">
-      <button type="button" onClick={dismiss} className="absolute right-3 top-3 rounded-full p-1 text-slate-500 hover:bg-slate-100" aria-label="Dismiss install message"><X size={18} /></button>
+      <button type="button" onClick={dismiss} className="absolute right-3 top-3 rounded-full p-1 text-slate-500 hover:bg-slate-100 bp-ui-icon-action" aria-label="Dismiss install message"><X size={18} /></button>
       <div className="flex items-start gap-3 pr-7">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white">{isIos && !installEvent ? <Share2 size={22} /> : <Download size={22} />}</span>
         <div>
           <p className="font-bold text-slate-950">Install Bharath Apps</p>
-          <p className="mt-1 text-sm leading-5 text-slate-600">{isIos && !installEvent ? "Tap Share, then Add to Home Screen. The installed app opens without the browser address bar." : "Add the app to this device for a full-screen experience without the browser address bar."}</p>
+          
         </div>
       </div>
-      {installEvent && <button type="button" onClick={install} className="mt-3 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700">Install app</button>}
+      {installEvent && <button type="button" onClick={install} className="mt-3 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 bp-ui-action">Install app</button>}
     </aside>
   );
 }

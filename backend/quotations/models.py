@@ -45,6 +45,7 @@ class MasterDataBase(models.Model):
 
 
 class Area(MasterDataBase):
+    painting_area = models.CharField(max_length=10, choices=[("INTERIOR", "Interior"), ("EXTERIOR", "Exterior"), ("OTHER", "Others")], default="OTHER")
 
     def __str__(self):
         return self.name
@@ -1567,7 +1568,7 @@ class Quotation(models.Model):
     # CALCULATION SETTINGS
     # -----------------------------------------------------
 
-    discount_mode = models.CharField(max_length=10, choices=(("OVERALL", "Overall"), ("LINE", "Per line")), default="OVERALL")
+    discount_mode = models.CharField(max_length=10, choices=(("OVERALL", "Overall"), ("LINE", "Per line"), ("BOTH", "Line and overall")), default="OVERALL")
 
     gst_mode = models.CharField(
         max_length=20,
@@ -2306,6 +2307,7 @@ class PropertyRoom(models.Model):
         max_length=150
     )
 
+    painting_area = models.CharField(max_length=10, choices=[("INTERIOR", "Interior"), ("EXTERIOR", "Exterior"), ("OTHER", "Others")], blank=True, default="")
     section = models.CharField(max_length=150, blank=True)
     description = models.TextField(blank=True)
 

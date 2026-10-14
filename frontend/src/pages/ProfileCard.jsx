@@ -55,7 +55,7 @@ export default function ProfileCard() {
     );
   if (!data)
     return (
-      error ? <div className="bp-page-state" role="alert">{error}<button type="button" onClick={()=>setAttempt(value=>value+1)} className="min-h-11 px-3 underline">Retry</button></div> : <ContractorProfileSkeleton />
+      error ? <div className="bp-page-state" role="alert">{error}<button type="button" onClick={()=>setAttempt(value=>value+1)} className="min-h-11 px-3 underline bp-ui-action">Retry</button></div> : <ContractorProfileSkeleton />
     );
   if (user?.role === "CONTRACTOR" && data.digital_card)
     return <ContractorDigitalCard data={data} />;
@@ -63,11 +63,11 @@ export default function ProfileCard() {
     return <PainterDigitalCard data={data} />;
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
+      <header className="bp-ui-page-header">
         <p className="text-sm font-semibold text-violet-600">
           Digital identity
         </p>
-        <h1 className="mt-1 text-3xl font-bold">My Bharath Profile</h1>
+        <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">My Bharath Profile</h1>
         
       </header>
       <section className="overflow-hidden rounded-3xl border bg-white shadow-sm">
@@ -94,7 +94,7 @@ export default function ProfileCard() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-bold">{data.title}</h2>
+                <h2 className="text-2xl font-bold bp-ui-section-heading">{data.title}</h2>
                 {data.verified && (
                   <BadgeCheck className="h-6 w-6 text-emerald-400" />
                 )}
@@ -143,7 +143,7 @@ export default function ProfileCard() {
               </a>
               <button
                 onClick={copyProfile}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-3 font-semibold"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-3 font-semibold bp-ui-action"
               >
                 <Copy className="h-5 w-5" />
                 {copied ? "Copied" : "Copy verification link"}

@@ -1,3 +1,4 @@
+import useMobileView from "../hooks/useMobileView.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 import "./contractor-network.css";
@@ -7,6 +8,7 @@ import ContractorInvitation from "../components/ContractorInvitation";
 import { ContractorContactLinks } from '../components/ContractorProfileDetails';
 import ContractorProfileAdapter from "../components/ContractorProfileAdapter";
 import ContractorNetworkProfile from "../components/ContractorNetworkProfile";
+import WorkOrderNetworkTabs from "../components/WorkOrderNetworkTabs";
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import { apiErrorMessage, connectionCounterparty } from "../utils/subcontract";
 import { getLocationEngine, getMobileLocation } from "../utils/indiaLocation";
@@ -26,6 +28,7 @@ const DISCOVER_METHODS = [
 ];
 
 export default function ContractorNetwork() {
+  const mobile = useMobileView();
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [directory, setDirectory] = useState([]);
@@ -56,7 +59,7 @@ export default function ContractorNetwork() {
     api.get('/outsourcing/work-orders/').then(({data}) => setWorkOrders(Array.isArray(data) ? data : data?.next ? null : data?.results || [])).catch(() => {});
   }, [load]);
   const rowDetails = (row) => {
-    const profile = directory.find(item => item.id === connectionCounterparty(row).id) || (row.viewer_authority === 'RECIPIENT' ? row.requester_details : null);
+    const profile = directory.find(item => String(item.id) === String(connectionCounterparty(row).id)) || (row.viewer_authority === 'RECIPIENT' ? row.requester_details : null);
     const orders = workOrders?.filter(item => item.connection === row.id);
     return {profile, stats: {completed: orders ? orders.filter(item => item.status === 'COMPLETED').length : row.completed_work_orders, active: orders ? orders.filter(item => ['ACCEPTED','SCHEDULED','IN_PROGRESS','CORRECTION_REQUESTED','SUBMITTED_FOR_REVIEW'].includes(item.status)).length : null}};
   };
@@ -114,22 +117,23 @@ export default function ContractorNetwork() {
 
   return (
     <div className="contractor-network-page space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4 bp-ui-page-header">
         <div>
           <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
-          <h1 className="mt-1 text-3xl font-bold">Contractor Network</h1>
+          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Subcontractors</h1>
           
         </div>
         {isContractor && (
           <button
             onClick={() => setRequesting(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white bp-ui-action"
           >
             <Search className="h-4 w-4" /> Find contractor
           </button>
         )}
       </header>
 
+      {isContractor && <WorkOrderNetworkTabs />}
       {isContractor && <ContractorInvitation user={user} />}
 
       {error && <ErrorState message={error} onRetry={load} />}
@@ -147,11 +151,11 @@ export default function ContractorNetwork() {
                 <button
                   key={option.value}
                   onClick={() => setTab(option.value)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                  className={(`rounded-full px-4 py-2 text-sm font-semibold ${
                     tab === option.value
                       ? "bg-slate-900 text-white"
                       : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
+                  }`) + " bp-ui-action"}
                 >
                   {option.label}
                   {option.value === "PENDING" && incoming > 0 ? (
@@ -170,29 +174,15 @@ export default function ContractorNetwork() {
             <LoadingState label="Loading your network…" />
           ) : tab === "PENDING" ? (
             <div className="space-y-4">
-              {[['Requests received', grouped.PENDING.filter(row => row.viewer_authority === 'RECIPIENT')], ['Requests sent', grouped.PENDING.filter(row => row.viewer_authority === 'REQUESTER')]].map(([title, requests]) => <section key={title} className="space-y-3"><h2 className="text-base font-bold">{title} <span className="text-sm font-normal text-slate-500">({requests.length})</span></h2>{requests.length ? requests.map(row => <NetworkListRow key={row.id} {...rowDetails(row)} row={row} busy={busy} onView={(action) => { setActionError(''); setViewing({row,action}); }} onAccept={() => act(row,'accept')} />) : <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">No {title.toLowerCase()}.</p>}</section>)}
+              {[['Requests received', grouped.PENDING.filter(row => row.viewer_authority === 'RECIPIENT')], ['Requests sent', grouped.PENDING.filter(row => row.viewer_authority === 'REQUESTER')]].map(([title, requests]) => <section key={title} className="space-y-3"><h2 className="text-base font-bold bp-ui-section-heading">{title} <span className="text-sm font-normal text-slate-500">({requests.length})</span></h2>{requests.length ? <NetworkTable rows={requests} mobile={mobile} details={rowDetails} busy={busy} onView={(row,action) => { setActionError(''); setViewing({row,action}); }} onAccept={row => act(row,'accept')} /> : <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">No {title.toLowerCase()}.</p>}</section>)}
             </div>
           ) : grouped[tab].length === 0 ? (
             <EmptyState
               title={tab === "CONNECTED" ? "No contractors yet" : "No history yet"}
-              description={
-                tab === "CONNECTED"
-                  ? "Find a contractor, review their profile and send a connection request."
-                  : "Nothing to show here."
-              }
+              
             />
           ) : (
-            <div className="space-y-3">
-              {grouped[tab].map((row) => (
-                <NetworkListRow
-                  key={row.id}
-                  {...rowDetails(row)}
-                  row={row}
-                  busy={busy}
-                  onView={(action) => { setActionError(''); setViewing({row,action}); }}
-                />
-              ))}
-            </div>
+            <NetworkTable rows={grouped[tab]} mobile={mobile} details={rowDetails} busy={busy} onView={(row,action) => { setActionError(''); setViewing({row,action}); }} />
           )}
         </>
       )}
@@ -215,14 +205,19 @@ export default function ContractorNetwork() {
   );
 }
 
-function NetworkListRow({row,profile,stats,busy,onView,onAccept}) {
-  const other=connectionCounterparty(row);
-  const received=row.status==='PENDING' && row.viewer_authority==='RECIPIENT';
-  return <article className="network-list-row flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4">
-    <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-bold">{other.label}</h3><p className="mt-1 text-xs text-slate-500">{row.status==='CONNECTED' ? profile?.service_areas || profile?.work_skills || '' : row.status==='PENDING' ? received ? 'Request received' : 'Request sent · Waiting for acceptance' : row.status.replaceAll('_',' ')}</p></div>
-    {row.status === 'CONNECTED' && <div className="network-list-summary"><dl><div><dt>Completed</dt><dd>{stats?.completed ?? '—'}</dd></div><div><dt>Active projects</dt><dd>{stats?.active ?? '—'}</dd></div></dl><p>Projects together</p><ContractorContactLinks mobile={profile?.mobile} /></div>}
-    <div className="flex flex-wrap items-center gap-2">{row.status !== 'CONNECTED' && <StatusBadge status={row.status} />}<button type="button" onClick={() => onView(null)} className="network-view-link">View profile</button>{received && <><button type="button" disabled={busy} onClick={onAccept} className="min-h-11 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Accept</button><button type="button" disabled={busy} onClick={() => onView('reject')} className="min-h-11 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50">Reject</button></>}</div>
-  </article>;
+function NetworkTable({ rows, mobile, details, busy, onView, onAccept }) {
+  return <div className="network-table-scroll"><table className="network-compact-table" data-mobile-table="keep" aria-label="Contractor network list"><thead><tr><th scope="col">Contractor</th><th scope="col">Contact</th><th scope="col">Projects / status</th>{!mobile && <th scope="col" data-no-sort="true">Actions</th>}</tr></thead><tbody>{rows.map(row => {
+    const other = connectionCounterparty(row);
+    const {profile, stats} = details(row);
+    const received = row.status === 'PENDING' && row.viewer_authority === 'RECIPIENT';
+    const actions = <div className="network-table-actions"><button className="bp-ui-action" type="button" onClick={() => onView(row,null)} aria-label={`View profile of ${other.label}`}>View profile</button>{received && <><button className="bp-ui-action" type="button" disabled={busy} onClick={() => onAccept?.(row)}>Accept</button><button className="bp-ui-action" type="button" disabled={busy} onClick={() => onView(row,'reject')}>Reject</button></>}</div>;
+    return <tr key={row.id} tabIndex={0} aria-label={`Open contractor ${other.label}`} onClick={() => onView(row,null)} onKeyDown={event => { if (event.target === event.currentTarget && ['Enter',' '].includes(event.key)) { event.preventDefault(); onView(row,null); } }}>
+      <td><button type="button" className="network-table-name bp-ui-action" onClick={event => { event.stopPropagation(); onView(row,null); }}><strong>{profile?.company_name || other.label}</strong>{profile?.owner_name && <small>{profile.owner_name}</small>}<small>{profile?.bharath_id || ''}</small></button><small>{profile?.service_areas || profile?.base_location || ''}</small>{!mobile && <p className="text-xs text-slate-500">{[...(profile?.services || []),profile?.work_skills].filter(Boolean).join(', ')}</p>}</td>
+      <td onClick={event => event.stopPropagation()}><p>{profile?.mobile || 'Not provided'}</p><ContractorContactLinks mobile={profile?.mobile} /></td>
+      <td><StatusBadge status={row.status} />{row.status === 'CONNECTED' && <small>Completed {stats?.completed ?? 'Not available'}<br/>Active {stats?.active ?? 'Not available'}</small>}{row.status === 'PENDING' && <small>{received ? 'Request received' : 'Request sent'}</small>}{mobile && <div onClick={event => event.stopPropagation()}>{actions}</div>}</td>
+      {!mobile && <td onClick={event => event.stopPropagation()}>{actions}</td>}
+    </tr>;
+  })}</tbody></table></div>;
 }
 
 function RequestConnection({ existing, user, onClose, onCreated }) {
@@ -375,11 +370,11 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
       <dialog ref={dialogRef} onCancel={onClose} aria-labelledby="connection-dialog-title" className="connection-dialog network-profile-dialog network-portfolio-dialog">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b px-4 py-4 sm:px-6">
           <div>
-            <h2 id="connection-dialog-title" className="text-xl font-bold">{selected ? 'Contractor profile' : 'Find contractor'}</h2>
-            <p className="mt-1 text-sm text-slate-500">Review their work and service areas before sending a connection request.</p>
+            <h2 id="connection-dialog-title" className="text-xl font-bold bp-ui-section-heading">{selected ? 'Contractor profile' : 'Find contractor'}</h2>
+            
             
           </div>
-          <button type="button" onClick={onClose} aria-label="Close connection window" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border text-slate-500 hover:bg-slate-50">
+          <button type="button" onClick={onClose} aria-label="Close connection window" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border text-slate-500 hover:bg-slate-50 bp-ui-icon-action">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -391,13 +386,13 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
         <h3 className="mb-3 font-bold">Find a contractor</h3>
 
         <div className="grid gap-3 sm:grid-cols-2">
-        <label><span className="mb-1 block text-sm font-semibold">Company, owner, ID or phone</span><input
+        <label><span className="mb-1 block text-sm font-semibold">Company, owner, ID or phone</span><input className="bp-ui-control"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Name, ID or full / partial phone number"
         /></label>
-        <label><span className="mb-1 block text-sm font-semibold">Type of work</span><input value={work} onChange={(event) => setWork(event.target.value)} placeholder="Painting, waterproofing, plumbing…" /></label>
-        <label className="sm:col-span-2"><span className="mb-1 block text-sm font-semibold">Location / service area / PIN code</span><input value={location} onChange={(event) => { setLocation(event.target.value); setOrigin(null); setLocationChoices([]); setSelected(null); setLocationError(""); }} placeholder="Area, city or six-digit PIN code" /><span className="mt-1 block text-xs text-slate-500">With a distance selected, this is the starting location for nearby contractors.</span></label>
+        <label><span className="mb-1 block text-sm font-semibold">Type of work</span><input className="bp-ui-control" value={work} onChange={(event) => setWork(event.target.value)} placeholder="Painting, waterproofing, plumbing…" /></label>
+        <label className="sm:col-span-2"><span className="mb-1 block text-sm font-semibold">Location / service area / PIN code</span><input className="bp-ui-control" value={location} onChange={(event) => { setLocation(event.target.value); setOrigin(null); setLocationChoices([]); setSelected(null); setLocationError(""); }} placeholder="Area, city or six-digit PIN code" /></label>
         </div>
         <div className="mt-3 rounded-xl bg-slate-50 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -417,23 +412,23 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           />
           <div className="flex items-center justify-between text-xs text-slate-500"><span>1 km</span><span>100 km</span></div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-slate-500">Slide to choose a distance, then search.</p>
-            <button type="button" onClick={() => { setRadius(""); setSelected(null); setLocationError(""); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Any distance</button>
+            
+            <button type="button" onClick={() => { setRadius(""); setSelected(null); setLocationError(""); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold bp-ui-action">Any distance</button>
           </div>
           {radius && <>
             <div className="mt-3 flex flex-wrap items-end gap-2">
-              <button type="button" disabled={locating} onClick={() => locate(true)} className="rounded-xl border bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50">Use my location</button>
+              <button type="button" disabled={locating} onClick={() => locate(true)} className="rounded-xl border bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50 bp-ui-action">Use my location</button>
             </div>
             <p className="mt-2 text-xs text-slate-500">{locating ? "Finding your location…" : origin ? `Searching from ${origin.label}. ` : "Choose a starting location. "}Distances are approximate, based on the contractor’s office PIN code. Profiles without a located PIN code are excluded.</p>
           </>}
           {locationError && <p role="alert" className="mt-2 text-sm text-red-700">{locationError}</p>}
           {radius && locationChoices.length > 0 && <div className="mt-3 max-h-40 space-y-2 overflow-y-auto" aria-label="Matching starting locations">
-            {locationChoices.map((point, index) => <button key={`${point.pincode}-${index}`} type="button" onClick={() => { setOrigin({ latitude: Number(point.latitude), longitude: Number(point.longitude), label: `${point.area}, ${point.district} ${point.pincode}` }); setLocationChoices([]); setLocationError(""); }} className="block w-full rounded-lg border bg-white px-3 py-2 text-left text-sm hover:bg-blue-50">{point.area}, {point.district}, {point.state} · {point.pincode}</button>)}
+            {locationChoices.map((point, index) => <button key={`${point.pincode}-${index}`} type="button" onClick={() => { setOrigin({ latitude: Number(point.latitude), longitude: Number(point.longitude), label: `${point.area}, ${point.district} ${point.pincode}` }); setLocationChoices([]); setLocationError(""); }} className="block w-full rounded-lg border bg-white px-3 py-2 text-left text-sm hover:bg-blue-50 bp-ui-action">{point.area}, {point.district}, {point.state} · {point.pincode}</button>)}
           </div>}
         </div>
         <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={clearSearch} disabled={locating} className="min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50">Clear filters</button>
-          <button type="submit" disabled={directoryLoading || locating || busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-2 text-sm font-bold text-white hover:bg-[#12577f] disabled:opacity-50"><Search className="h-4 w-4" />{locating ? "Searching…" : "Find contractor"}</button>
+          <button type="button" onClick={clearSearch} disabled={locating} className="min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50 bp-ui-action">Clear filters</button>
+          <button type="submit" disabled={directoryLoading || locating || busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-2 text-sm font-bold text-white hover:bg-[#12577f] disabled:opacity-50 bp-ui-action"><Search className="h-4 w-4" />{locating ? "Searching…" : "Find contractor"}</button>
         </div>
         </form>
         <div className="mt-4 rounded-2xl border border-slate-200 p-4">
@@ -442,30 +437,21 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
         </div>
         <p className="mt-3 text-sm text-slate-500" role="status">{directoryLoading ? "Loading contractors…" : searchingDistance ? (distanceLoading ? "Checking distances…" : "Choose a starting location to find nearby contractors.") : `${matches.length} contractors found`}</p>
 
-        <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-          {!directoryLoading && !searchingDistance && matches.map((row) => (
-            <article key={row.id} className="rounded-xl border p-3">
-            <div className="min-w-0"><h3 className="font-bold">{row.company_name || row.owner_name}</h3><p className="text-sm text-slate-600">{row.owner_name}</p><p className="text-xs text-slate-600">{row.service_areas}</p><p className="text-xs text-slate-600">{[...(row.services || []),row.work_skills].filter(Boolean).join(', ')}</p></div>
-            <button type="button" onClick={() => setSelected(row)} className="mt-2 min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold text-[var(--app-primary)]" aria-label={`View profile of ${row.company_name || row.owner_name}`}>View profile</button>
-            </article>
-          ))}
-          {!directoryLoading && !searchingDistance && matches.length === 0 && (
-            <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
-              No verified contractors match that search.
-            </p>
-          )}
+        <div className="mt-3 max-h-64 overflow-y-auto network-table-scroll">
+          {!directoryLoading && !searchingDistance && matches.length > 0 && <table className="network-compact-table" data-mobile-table="keep" aria-label="Contractor search results"><thead><tr><th scope="col">Contractor</th><th scope="col">Contact</th><th scope="col">Work / location</th></tr></thead><tbody>{matches.map(row => <tr key={row.id} tabIndex={0} onClick={() => setSelected(row)} onKeyDown={event => { if (event.target === event.currentTarget && ['Enter',' '].includes(event.key)) { event.preventDefault(); setSelected(row); } }}><td><button type="button" className="network-table-name bp-ui-action" onClick={event => { event.stopPropagation(); setSelected(row); }} aria-label={`View profile of ${row.company_name || row.owner_name}`}><strong>{row.company_name || row.owner_name}</strong><small>{row.owner_name}</small><small>{row.bharath_id}</small></button></td><td onClick={event => event.stopPropagation()}><p>{row.mobile}</p><ContractorContactLinks mobile={row.mobile}/></td><td>{row.service_areas}<small>{[...(row.services || []),row.work_skills].filter(Boolean).join(', ')}</small></td></tr>)}</tbody></table>}
+          {!directoryLoading && !searchingDistance && matches.length === 0 && <p className="p-4 text-sm text-slate-500">No verified contractors match that search.</p>}
         </div>
 
         </>}
         {selected && <>
-          <button ref={backRef} type="button" onClick={() => setSelected(null)} className="network-back">Back to contractors</button>
+          <button ref={backRef} type="button" onClick={() => setSelected(null)} className="network-back bp-ui-action">Back to contractors</button>
           <ContractorProfileAdapter profile={selected} onBack={() => setSelected(null)} />
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-slate-600">Connect with this contractor to work together.</p>
+          
           <details><summary className="text-sm font-semibold cursor-pointer py-2">Add a message (optional)</summary>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">How did you find them</span>
-            <select
+            <select className="bp-ui-control"
               value={form.discover_method}
               onChange={(event) => setForm({ ...form, discover_method: event.target.value })}
             >
@@ -479,7 +465,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           <label className="block">
             <span className="mb-1 block text-sm font-semibold">Message</span>
             
-            <textarea
+            <textarea className="bp-ui-control"
               rows={3}
               maxLength={2000}
               value={form.message}
@@ -495,7 +481,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border px-4 py-2.5 text-sm font-semibold"
+            className="rounded-xl border px-4 py-2.5 text-sm font-semibold bp-ui-action"
           >
             Cancel
           </button>
@@ -503,7 +489,7 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
             type="button"
             onClick={submit}
             disabled={busy || !selected || searchingDistance}
-            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300"
+            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:bg-slate-300 bp-ui-action"
           >
             <Send className="h-4 w-4" />
             {busy ? "Sending…" : "Send request"}

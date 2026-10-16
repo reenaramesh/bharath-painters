@@ -1643,12 +1643,16 @@ class CustomerListCreateView(
     def get_queryset(self):
         if self.request.user.role != BharathUser.Roles.CONTRACTOR:
             return Customer.objects.none()
-        scope = models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED)
-        if self.request.query_params.get("include_pending") == "1":
-            scope |= models.Q(contractor_connections__contractor=self.request.user, contractor_connections__status=ContractorCustomerConnection.Status.PENDING)
+        from .customer_identity import authorized_customers_for_contractor
+        queryset = authorized_customers_for_contractor(
+            self.request.user,
+            include_pending=self.request.query_params.get("include_pending") == "1",
+        )
         if self.request.query_params.get("include_saved") == "1":
-            scope |= models.Q(saved_contacts__contractor=self.request.user)
-        return Customer.objects.filter(scope).exclude(status=Customer.Status.CANCELLED).distinct().order_by("-updated_at")
+            queryset = queryset | Customer.objects.filter(
+                saved_contacts__contractor=self.request.user,
+            ).exclude(status=Customer.Status.CANCELLED)
+        return queryset.distinct().order_by("-updated_at")
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -3740,15 +3744,10 @@ class LeadListCreateView(APIView):
     def post(self, request):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
-        connected_customers = Customer.objects.filter(
-            contractor_connections__contractor=request.user,
-            contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-        )
-        legacy_customers = Customer.objects.filter(
-            contractor=request.user, contractor_connections__isnull=True,
-        )
-        customer_qs = (connected_customers | legacy_customers).exclude(status=Customer.Status.CANCELLED)
-        customer = customer_qs.filter(pk=request.data.get("customer")).distinct().first()
+        from .customer_identity import authorized_customers_for_contractor
+        customer = authorized_customers_for_contractor(request.user).filter(
+            pk=request.data.get("customer"),
+        ).first()
         if not customer:
             return Response({"customer": "Select one of your existing customers."}, status=status.HTTP_400_BAD_REQUEST)
         title = str(request.data.get("title") or "").strip()
@@ -3880,12 +3879,8 @@ class ClientSearchView(APIView):
         if digits and len(digits) >= 6:
             filters |= models.Q(mobile__icontains=digits) | models.Q(whatsapp__icontains=digits) | models.Q(alternate_mobile__icontains=digits)
         filters |= models.Q(name__icontains=query) | models.Q(email__icontains=query) | models.Q(bharath_id__icontains=query)
-        customers = Customer.objects.filter(
-            models.Q(
-                contractor_connections__contractor=request.user,
-                contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
-            ) | models.Q(contractor=request.user, contractor_connections__isnull=True),
-        ).exclude(status=Customer.Status.CANCELLED).filter(filters).distinct()[:8]
+        from .customer_identity import authorized_customers_for_contractor
+        customers = authorized_customers_for_contractor(request.user).filter(filters)[:8]
         return Response([{
             "id": item.id, "bharath_id": item.bharath_id, "name": item.name, "mobile": item.mobile,
             "alternate_mobile": item.alternate_mobile, "email": item.email, "client_type": item.client_type,

@@ -1,0 +1,29 @@
+/* Dashboard-specific adjustments; shared primitives remain in application-ui.css. */
+.bp-ui.minimia-shell .painter-dashboard-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 144px;
+  padding: 20px;
+}
+.painter-dashboard-metric .bp-stat-icon { width: 40px; height: 40px; flex-basis: 40px; }
+.painter-dashboard-metric p { margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
+.painter-dashboard-metric strong { font-size: 28px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.bp-ui.minimia-shell .admin-dashboard .admin-directory-table :is(thead, tbody, tfoot, tr, th, td) { border-color: var(--bp-line); }
+.bp-ui.minimia-shell .admin-dashboard .admin-directory-table { border-color: var(--bp-line); }
+.admin-dashboard :is(.admin-register-toolbar, .admin-register-pagination, .admin-register > .border-b) { border-color: var(--bp-line); }
+.bp-ui.minimia-shell .admin-dashboard .admin-summary { border-color: var(--bp-line); }
+.bp-ui.minimia-shell .admin-dashboard .admin-summary.is-active { border-color: var(--bp-brand); }
+.painter-dashboard-page section > header { border-color: var(--bp-line); }
+@media(max-width: 767px) {
+  .bp-ui.minimia-shell .painter-dashboard-metric { min-height: 136px; padding: 16px; gap: 8px; }
+  .painter-dashboard-metric p { font-size: 13px; }
+  .painter-dashboard-metric strong { font-size: 26px; }
+}
+@media(max-width: 375px) {
+  .dashboard-welcome-banner .dashboard-welcome-symbol { display: none; }
+  .bp-ui.minimia-shell .dashboard-welcome-banner:has(.dashboard-welcome-symbol) .bp-page-header :is(h1, .bp-eyebrow) { padding-right: 0; }
+  .dashboard-welcome-banner .customer-dashboard-header-actions .bp-button-primary { font-size: 13px; }
+  .dashboard-welcome-banner .customer-dashboard-header-actions .bp-button-secondary { flex: 0 0 44px; width: 44px; padding-inline: 8px; }
+}

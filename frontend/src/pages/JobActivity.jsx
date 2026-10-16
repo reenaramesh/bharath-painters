@@ -170,7 +170,7 @@ export default function JobActivity() {
 
   return (
     <div className={`space-y-6 jobs-schedules-page bp-job-activity-page ${user?.role === "PAINTER" ? "painter-portal-page painter-job-activity-page" : ""}`}>
-      <PageHeader eyebrow="People and workforce" title="Job Activity"  />
+      <PageHeader eyebrow="People and workforce" title="Job Activity" description="Review applications, assignments and their latest activity."  />
       {user?.role === "PAINTER" && <section className="painter-activity-focus" aria-label="Painter job activity summary"><div><span>Accepted work</span><strong>{rows.filter((row) => row.status === "ACCEPTED").length}</strong><small>Jobs you have accepted</small></div><div className="is-action"><span>Waiting on action</span><strong>{rows.filter((row) => ["CANCELLATION_REQUESTED", "TRANSFER_REQUESTED"].includes(row.status)).length}</strong><small>Requests to review</small></div><div><span>History records</span><strong>{rows.filter((row) => row.section === "HISTORY").length}</strong><small>Past work activity</small></div></section>}
       {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
       <SectionCard title="Activity records" description={`${visible.length} matching activity ${visible.length === 1 ? "record" : "records"}`} className="job-activity-card" bodyClassName="p-0">

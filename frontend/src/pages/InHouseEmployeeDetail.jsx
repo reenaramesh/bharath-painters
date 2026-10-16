@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
+import "./painter-workspace-ui.css";
 import { Attendance, Summary } from "./InHouseApplicators";
 import EmployeeWages from "../components/EmployeeWages";
 import useAuth from "../context/useAuth";
@@ -118,27 +120,14 @@ export default function InHouseEmployeeDetail() {
   if (!data) return <p className="p-12 text-center">{error || "Loading..."}</p>;
   return (
     <div className="employee-page space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4 bp-ui-page-header">
-        <div>
-          <Link to="/in-house-applicators" className="text-sm text-slate-500">
-            ← Employees
-          </Link>
-          <p className="mt-3 text-sm font-semibold text-amber-600">
-            {data.employee_code}
-          </p>
-          <h1 className="text-3xl font-bold bp-ui-page-title">{data.name}</h1>
-          <p className="mt-1 text-slate-500">
-            {data.mobile} · Joined {data.joined_on}
-          </p>
-        </div>
-        {canManage && <div className="flex flex-wrap gap-2"><button
+      <Link to="/in-house-applicators" className="inline-flex min-h-11 items-center text-sm text-slate-500">Back to employees</Link>
+      <PageHeader eyebrow={data.employee_code} title={data.name} description={<span>{data.mobile} / Joined {data.joined_on}</span>} actions={<>{canManage && <div className="flex flex-wrap gap-2"><button
           disabled={saving}
           onClick={() => setEditing(!editing)}
           className="rounded-xl border px-5 py-3 font-semibold bp-ui-action"
         >
           {editing ? "Cancel edit" : "Edit profile"}
-        </button>{data.is_active !== false && <button type="button" disabled={saving} onClick={removeEmployee} className="min-h-11 rounded-xl border border-red-200 px-4 py-2.5 text-sm text-red-700 bp-ui-action">Delete employee</button>}</div>}
-      </header>
+        </button>{data.is_active !== false && <button type="button" disabled={saving} onClick={removeEmployee} className="min-h-11 rounded-xl border border-red-200 px-4 py-2.5 text-sm text-red-700 bp-ui-action">Delete employee</button>}</div>}</>} />
       <EmployeeQuickActions employeeId={id} />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>

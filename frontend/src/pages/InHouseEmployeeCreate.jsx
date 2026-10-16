@@ -2,6 +2,8 @@ import EmployeeQuickActions from "../components/EmployeeQuickActions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
+import "./painter-workspace-ui.css";
 
 const today = new Date().toLocaleDateString("en-CA");
 export default function InHouseEmployeeCreate() {
@@ -48,13 +50,8 @@ export default function InHouseEmployeeCreate() {
   }
   return (
     <div className="employee-page mx-auto max-w-5xl space-y-6">
-      <header className="bp-ui-page-header">
-        <Link to="/in-house-applicators" className="text-sm text-slate-500">
-          ← Employees
-        </Link>
-        <h1 className="mt-3 text-3xl font-bold bp-ui-page-title">Create in-house employee</h1>
-        
-      </header>
+      <Link to="/in-house-applicators" className="inline-flex min-h-11 items-center text-sm text-slate-500">Back to employees</Link>
+      <PageHeader eyebrow="Permanent workforce" title="Create in-house employee" description="Enter employee details using your existing employment setup." />
       <EmployeeQuickActions />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>

@@ -10,10 +10,10 @@ import {
   Plus,
   Search,
   Users,
-  X,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { Dialog } from "../components/ui/Dialog";
 import useAuth from "../context/useAuth";
 import { useLanguage } from "../i18n/LanguageContext";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
@@ -335,7 +335,7 @@ export default function Jobs() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-jobs-page">
       <MobilePageBack />
-      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")}  actions={<div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")} description="Review job requirements, applications and available work." actions={<div className="flex flex-wrap gap-2">
           <Link
             to={APPLICATOR_AVAILABILITY_PATH}
             className="bp-button bp-button-secondary inline-flex items-center gap-2"
@@ -494,6 +494,7 @@ export default function Jobs() {
       </SectionCard>
       {showForm && contractor && (
         <JobForm
+          error={error}
           form={form}
           setForm={setForm}
           saving={saving}
@@ -503,6 +504,7 @@ export default function Jobs() {
       )}
       {detailJob && (
         <JobDetailModal
+          error={error}
           job={detailJob}
           contractor={contractor}
           saving={saving}
@@ -527,19 +529,12 @@ export default function Jobs() {
   );
 }
 
-function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate, onTransferResponse, onReassign, transferTargets }) {
+function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate, onTransferResponse, onReassign, transferTargets, error }) {
   const wage = job.job_type === "DAILY" ? job.daily_wage : job.weekly_wage;
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="job-detail-modal max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-3xl">
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b bg-white p-5 sm:p-6">
-          <div>
-            <div className="flex flex-wrap items-center gap-2"><StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} /><Badge>{job.job_type}</Badge></div>
-            <h2 className="mt-3 text-2xl font-extrabold text-slate-950 bp-ui-section-heading">{job.title}</h2>
-            <p className="mt-1 text-sm text-slate-500">{contractor ? `${job.applications_count} applications` : job.contractor_name}</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-full border p-2 bp-ui-icon-action" aria-label="Close job details"><X className="h-5 w-5" /></button>
-        </header>
+    <Dialog title={job.title} description={contractor ? `${job.applications_count} applications` : job.contractor_name} icon={BriefcaseBusiness} size="xl" closeLabel="Close job details" closeOnBackdrop onClose={onClose}>
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <div className="flex flex-wrap items-center gap-2"><StatusBadge status={job.status} label={labelStatus(job.status)} tone={jobStatusTone(job.status)} /><Badge>{job.job_type}</Badge></div>
         <div className="p-5 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Detail label="Location" value={[job.location, job.city, job.pincode].filter(Boolean).join(", ")} />
@@ -566,8 +561,7 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
             </div>
           )}
         </div>
-      </section>
-    </div>
+    </Dialog>
   );
 }
 
@@ -659,7 +653,7 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
   );
 }
 
-function JobForm({ form, setForm, saving, onClose, onSubmit }) {
+function JobForm({ form, setForm, saving, onClose, onSubmit, error }) {
   const { t } = useLanguage();
   const input = "mt-2 w-full rounded-xl border px-3 py-3 font-normal";
   const field = (name) => ({
@@ -673,21 +667,9 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
     setForm({ ...form, required_skills: [...next].join(", ") });
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form
-        onSubmit={onSubmit}
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-bold bp-ui-section-heading">
-              {t("Post requirement")}
-            </h2>
-          </div>
-          <button className="bp-ui-icon-action" type="button" onClick={onClose} aria-label="Close post requirement form">
-            <X />
-          </button>
-        </div>
+    <Dialog title={t("Post requirement")} icon={BriefcaseBusiness} size="lg" closeLabel="Close post requirement form" onClose={onClose}>
+      <form onSubmit={onSubmit}>
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label="Job title">
             <input required {...field("title")} className={(input) + " bp-ui-control"} />
@@ -766,7 +748,7 @@ function JobForm({ form, setForm, saving, onClose, onSubmit }) {
           {saving ? "Posting..." : t("Post requirement")}
         </button>
       </form>
-    </div>
+    </Dialog>
   );
 }
 function Field({ label, wide, children }) {

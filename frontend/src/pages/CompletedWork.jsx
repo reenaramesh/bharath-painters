@@ -38,11 +38,7 @@ export default function CompletedWork() {
 
   return (
     <div className={`${customerView ? "customer-completed-work-page" : ""} space-y-6`}>
-      {customerView ? (
-        <PageHeader eyebrow="Your projects" title="Completed projects"  />
-      ) : (
-        <header className="bp-ui-page-header"><p className="text-sm font-semibold text-amber-600">Project planning</p><h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Completed work</h1></header>
-      )}
+      <PageHeader eyebrow={customerView ? "Your projects" : "Project planning"} title={customerView ? "Completed projects" : "Completed work"} description="Review completed work, project details and recorded progress." />
       {customerView && <section className="customer-completed-pulse" aria-label="Completed project summary">
         <div><span>Completed projects</span><strong>{items.length}</strong><small>Marked complete by your contractor</small></div>
         <div><span>Latest completion</span><strong>{formatWorkDate(items[0]?.work_completed_at || items[0]?.end_date)}</strong><small>Most recent finished work</small></div>

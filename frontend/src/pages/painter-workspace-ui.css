@@ -6,6 +6,7 @@
 .employee-page .bp-stat-card { flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; }
 .employee-page .bp-stat-card > div { width: 100%; min-width: 0; }
 .employee-page .bp-stat-card strong { font-size: 22px; overflow-wrap: normal; }
+.employee-page :is(details, .border-b, .border-t) { border-color: var(--bp-line); }
 @media (max-width: 428px) {
   .painter-availability-page .availability-calendar-days button { height: 36px; font-size: 13px; }
   .employee-page .bp-stat-card { min-width: 0; padding: 14px 12px; }

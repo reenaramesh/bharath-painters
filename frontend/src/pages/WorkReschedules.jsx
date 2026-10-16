@@ -2,9 +2,10 @@ import useMobileView from "../hooks/useMobileView.js";
 import { recentFirst } from "../utils/workspaceLists.js";
 import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarClock, Search, X } from "lucide-react";
+import { ArrowLeft, CalendarClock, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
+import { Dialog } from "../components/ui/Dialog";
 import useAuth from "../context/useAuth";
 import { Button, EmptyState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./jobs-schedules.css";
@@ -117,7 +118,7 @@ export default function WorkReschedules() {
           <ArrowLeft className="h-4 w-4" />
           Back to Work Schedules
         </Link>
-        <PageHeader eyebrow="Schedule changes" title="Reschedule work"  />
+        <PageHeader eyebrow="Schedule changes" title="Reschedule work" description="Propose revised dates for customer approval."  />
       </div>
 
       {error && (
@@ -219,24 +220,9 @@ export default function WorkReschedules() {
       </SectionCard>
 
       {editing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-          <form
-            onSubmit={submit}
-            className="w-full max-w-xl rounded-2xl bg-white p-6"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-bold bp-ui-section-heading">
-                  Reschedule {editing.quotation_number}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {editing.customer} | {editing.property}
-                </p>
-              </div>
-              <button className="bp-ui-icon-action" type="button" onClick={() => setEditing(null)}>
-                <X />
-              </button>
-            </div>
+        <Dialog title={`Reschedule ${editing.quotation_number}`} description={`${editing.customer} / ${editing.property}`} icon={CalendarClock} size="md" onClose={() => setEditing(null)}>
+          <form onSubmit={submit}>
+            {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <DateField
                 label="New start date"
@@ -280,7 +266,7 @@ export default function WorkReschedules() {
               Send revised dates for customer approval
             </button>
           </form>
-        </div>
+        </Dialog>
       )}
     </div>
   );

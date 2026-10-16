@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
@@ -212,17 +213,7 @@ export default function PainterSeeking() {
   }
   return (
     <div className={`painter-portal-page painter-work-network-page space-y-6 ${isPainter ? "is-painter" : ""}`}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Work Network</p>
-          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">
-            {isPainter
-              ? "My job-seeking posts"
-              : "Paint Applicators seeking work"}
-          </h1>
-          
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Work network" title={isPainter ? "My job-seeking posts" : "Paint Applicators seeking work"} description="Review availability posts and connect around upcoming work." actions={<div className="flex flex-wrap gap-2">
           <Link
             to={WORK_REQUIREMENTS_PATH}
             className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
@@ -239,8 +230,7 @@ export default function PainterSeeking() {
               Post availability
             </button>
           )}
-        </div>
-      </header>
+        </div>} />
       <WorkNetworkTabs
         pathname={pathname}
         contractor={!isPainter}

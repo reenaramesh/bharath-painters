@@ -1,0 +1,786 @@
+{
+  "/dashboard": {
+    "status": "partial: Contractor/Painter/Admin dashboard presentation reviewed; conditional business states pending",
+    "evidence": [
+      "qa/reference-theme/after",
+      "qa/application_shell_check.py",
+      "qa/reference_artwork_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Populated admin actions and query sections",
+      "Painter freelance/in-house and failure variants",
+      "Role-specific workflow interactions"
+    ]
+  },
+  "/tasks": {
+    "status": "partial: add/reschedule forms complete; populated grouping/filter/completion review pending",
+    "evidence": [
+      "qa/application_crm_check.py",
+      "qa/application-ui-migration/crm"
+    ],
+    "checklist": {
+      "controls": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "All overdue/today/upcoming list states",
+      "Task completion and failure",
+      "Full-page language/accessibility review"
+    ]
+  },
+  "/site-visits": {
+    "status": "partial: schedule form complete; populated visit/status/filter review pending",
+    "evidence": [
+      "qa/application_crm_check.py",
+      "qa/application-ui-migration/crm"
+    ],
+    "checklist": {
+      "controls": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Native and follow-up visits/status updates",
+      "Date/status filters and groups",
+      "Full-page language/accessibility review"
+    ]
+  },
+  "/leads": {
+    "status": "partial: create form complete; populated stage/history/filter review pending",
+    "evidence": [
+      "qa/application_crm_check.py",
+      "qa/application-ui-migration/crm"
+    ],
+    "checklist": {
+      "controls": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated active/history lists and stage update",
+      "Search/date/stage combinations",
+      "Loading/error/empty states and language review"
+    ]
+  },
+  "/customer-dashboard": {
+    "status": "partial: shared welcome/cards and eight-width review; populated approvals/work states pending",
+    "evidence": [
+      "qa/reference-theme/after/CustomerDashboard-320.png",
+      "qa/reference-theme/after/CustomerDashboard-1440.png"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Populated approval/payment/schedule states",
+      "All supported-language layout review"
+    ]
+  },
+  "/opportunities": {
+    "status": "partial: shared header, two-column narrow summaries and filter accessibility",
+    "evidence": [
+      "qa/application-ui-migration",
+      "qa/application_crm_lists_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Full create/select-client workflow",
+      "Empty/error/loading and localization review"
+    ]
+  },
+  "/opportunities/new": {
+    "status": "partial: shared header and native quick-client dialog",
+    "evidence": [
+      "qa/application-ui-migration",
+      "qa/application_opportunity_create_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Existing-client opportunity creation",
+      "Duplicate selection and inline field validation"
+    ]
+  },
+  "/opportunities/:id": {
+    "status": "partial: stage selection and failed-edit retention",
+    "evidence": [
+      "qa/application-ui-migration",
+      "qa/application_opportunity_detail_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Lost/cancelled transitions",
+      "History and quotation navigation"
+    ]
+  },
+  "/activity-log": {
+    "status": "partial: shared header/cards; tablet clipping fixed",
+    "evidence": [
+      "qa/application-ui-migration",
+      "qa/application_crm_lists_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Admin review and export interactions",
+      "Localized/empty/error states"
+    ]
+  },
+  "/call-inbox": {
+    "status": "partial: shared manual/details/lead dialogs; manual and lead retries",
+    "evidence": [
+      "qa/application-ui-migration",
+      "qa/application_call_inbox_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Customer creation approval integration",
+      "Populated filter/dismiss/block states"
+    ]
+  },
+  "/properties": {
+    "status": "partial: shared header; property/calculator layouts and save-error drawer",
+    "evidence": [
+      "qa/application_properties_projects_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Populated sorting/pagination variants",
+      "Successful create/detail navigation"
+    ]
+  },
+  "/completed-projects": {
+    "status": "partial: shared header; inline portfolio form layout",
+    "evidence": [
+      "qa/application_properties_projects_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Photo upload/map lookup/edit/delete interactions"
+    ]
+  },
+  "/work-schedules": {
+    "status": "partial: shared date proposal and team dialogs; proposal retry",
+    "evidence": [
+      "qa/application_work_schedules_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Customer date acceptance/payment/progress",
+      "Populated team assignment and schedule states"
+    ]
+  },
+  "/work-changes": {
+    "status": "partial: shared draft/detail dialogs; Contractor draft and Customer approval retry",
+    "evidence": [
+      "qa/application_work_changes_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "All five change line types",
+      "Reject/send/cancel and populated line snapshots"
+    ]
+  },
+  "/painter-assignments": {
+    "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+    "evidence": [
+      "qa/application_painter_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated assignments/bookings/earnings variants",
+      "Freelance/in-house eligibility and localized states"
+    ]
+  },
+  "/applicator-availability": {
+    "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+    "evidence": [
+      "qa/application_painter_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated assignments/bookings/earnings variants",
+      "Freelance/in-house eligibility and localized states"
+    ]
+  },
+  "/applicator-bookings": {
+    "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+    "evidence": [
+      "qa/application_painter_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated assignments/bookings/earnings variants",
+      "Freelance/in-house eligibility and localized states"
+    ]
+  },
+  "/in-house-earnings": {
+    "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+    "evidence": [
+      "qa/application_painter_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated assignments/bookings/earnings variants",
+      "Freelance/in-house eligibility and localized states"
+    ]
+  },
+  "/customer/profile": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/customer-properties": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/customer-quotations": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/customer-invoices": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/customer-reviews": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/measurement-access": {
+    "status": "partial: shared presentation and eight-width review; review submission retry",
+    "evidence": [
+      "qa/application_customer_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated details/approval/payment variants",
+      "Email/photo and measured-property sharing variants"
+    ]
+  },
+  "/admin-integrations": {
+    "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/support-staff": {
+    "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/support-workspace": {
+    "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/customer-connections": {
+    "status": "partial: shared header, mobile audit action and native history/table-details dialogs reviewed",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration",
+      "qa/application_admin_history_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/billing": {
+    "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/packages": {
+    "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+    "evidence": [
+      "qa/application_admin_workspace_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Populated operational records and account actions",
+      "Package assignments/requests and approval variants"
+    ]
+  },
+  "/customer/connections": {
+    "status": "partial: native contractor profile, contrast, block confirmation/error and backdrop/focus checks",
+    "evidence": [
+      "qa/application_customer_connections_check.py",
+      "qa/application-ui-migration/customer-connections"
+    ],
+    "checklist": {
+      "structure": true,
+      "controls": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Pending/reconnect/cooldown and message/share interactions"
+    ]
+  },
+  "/login": {
+    "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+    "evidence": [
+      "qa/application_public_auth_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Real OTP/account creation and provider sign-in integrations"
+    ]
+  },
+  "/register": {
+    "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+    "evidence": [
+      "qa/application_public_auth_check.py",
+      "qa/application-ui-migration",
+      "qa/application_registration_consent_check.py"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Real OTP/account creation and provider sign-in integrations"
+    ]
+  },
+  "/customer-register": {
+    "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+    "evidence": [
+      "qa/application_public_auth_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Real OTP/account creation and provider sign-in integrations"
+    ]
+  },
+  "/forgot-password": {
+    "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+    "evidence": [
+      "qa/application_public_auth_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Real OTP/account creation and provider sign-in integrations"
+    ]
+  },
+  "/my-packages": {
+    "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+    "evidence": [
+      "qa/application_contractor_tools_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Plan registration/payment, exports and colour sharing variants"
+    ]
+  },
+  "/reports": {
+    "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+    "evidence": [
+      "qa/application_contractor_tools_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Plan registration/payment, exports and colour sharing variants"
+    ]
+  },
+  "/colors-shades": {
+    "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+    "evidence": [
+      "qa/application_contractor_tools_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Plan registration/payment, exports and colour sharing variants"
+    ]
+  },
+  "/service-requests": {
+    "status": "partial: native request/follow-up dialogs; request failure/retry and service prefill",
+    "evidence": [
+      "qa/application_service_requests_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Contractor follow-up/status variants and appointment path"
+    ]
+  },
+  "/support-tickets": {
+    "status": "partial: shared header and native ticket dialogs; multipart failure retention",
+    "evidence": [
+      "qa/application_support_tickets_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Reply, attachment, moderation and staff/internal-note variants"
+    ]
+  },
+  "/jobs": {
+    "status": "partial: native requirement/detail/revised-date dialogs; eight-width review and revised-date retry",
+    "evidence": [
+      "qa/application_work_network_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Painter applications and contractor applicant decision variants"
+    ]
+  },
+  "/work-reschedules": {
+    "status": "partial: native requirement/detail/revised-date dialogs; eight-width review and revised-date retry",
+    "evidence": [
+      "qa/application_work_network_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Painter applications and contractor applicant decision variants"
+    ]
+  },
+  "/painter-seeking": {
+    "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Employment/payroll/account mutations and populated role variants"
+    ]
+  },
+  "/in-house-applicators": {
+    "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Employment/payroll/account mutations and populated role variants"
+    ]
+  },
+  "/in-house-applicators/new": {
+    "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Employment/payroll/account mutations and populated role variants"
+    ]
+  },
+  "/in-house-applicators/:id": {
+    "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Employment/payroll/account mutations and populated role variants"
+    ]
+  },
+  "/account-security": {
+    "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration"
+    ],
+    "checklist": {
+      "structure": true,
+      "mobile": true,
+      "desktop": true
+    },
+    "remaining": [
+      "Employment/payroll/account mutations and populated role variants"
+    ]
+  },
+  "/applicator-team": {
+    "status": "partial: shared presentation and targeted dialog behavior verified at eight widths",
+    "evidence": [
+      "qa/application_workforce_settings_check.py",
+      "qa/application-ui-migration/workforce-settings"
+    ],
+    "checklist": {
+      "controls": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Referral successful creation/credentials copy and WhatsApp variants",
+      "Populated team profiles and language review"
+    ]
+  },
+  "/master-services": {
+    "status": "partial: shared presentation and targeted dialog behavior verified at eight widths",
+    "evidence": [
+      "qa/application_master_defaults_check.py",
+      "qa/application-ui-migration/master-defaults"
+    ],
+    "checklist": {
+      "controls": true,
+      "mobile": true,
+      "desktop": true,
+      "visualReview": true
+    },
+    "remaining": [
+      "Populated category editing/import/reordering variants",
+      "Full-page language/accessibility review"
+    ]
+  }
+}

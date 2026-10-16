@@ -1,6 +1,7 @@
 import { ROOM_CATEGORIES, roomCategoryLabel } from "../utils/roomClassification.js";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Dialog } from "../components/ui/Dialog";
 import { createPortal } from "react-dom";
 import {
   BedDouble,
@@ -589,12 +590,8 @@ function QuotationDefaults() {
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><FileText className="h-4 w-4" /></span>
         <span className="min-w-0 flex-1 text-sm font-bold text-slate-950">Terms and Conditions</span>
       </button>
-      {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" role="dialog" data-popup-saved-version={savedVersion} aria-modal="true" aria-labelledby="quotation-terms-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-        <form onSubmit={save} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-3xl sm:rounded-3xl">
-          <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-5 sm:px-6">
-            <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 id="quotation-terms-title" className="text-xl font-bold bp-ui-section-heading">Terms and Conditions</h2></div>
-            <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border bp-ui-icon-action" aria-label="Close"><X className="h-5 w-5" /></button>
-          </header>
+      {open && createPortal(<Dialog title="Terms and Conditions" icon={FileText} size="lg" closeOnBackdrop savedVersion={savedVersion} onClose={() => setOpen(false)}>
+        <form onSubmit={save}>
           <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
             {loading ? <p className="sm:col-span-2">Loading...</p> : <>
               <Field label="Prepared by"><input className="bp-ui-control" name="quotation_prepared_by" value={values.quotation_prepared_by} onChange={update} /></Field>
@@ -604,13 +601,13 @@ function QuotationDefaults() {
               <Field label="Product details"><textarea className="bp-ui-control" rows="3" name="quotation_product_details" value={values.quotation_product_details} onChange={update} /></Field>
               <Field label="Work procedures and safety"><textarea className="bp-ui-control" rows="4" name="quotation_work_procedures" value={values.quotation_work_procedures} onChange={update} /></Field>
               <div className="sm:col-span-2"><Field label="Terms and conditions"><textarea className="bp-ui-control" rows="5" name="quotation_terms_conditions" value={values.quotation_terms_conditions} onChange={update} /></Field></div>
-              {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
-              {message && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
+              {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+              {message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
             </>}
           </div>
           {!loading && <footer className="sticky bottom-0 border-t bg-white p-4 sm:px-6"><button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50 bp-ui-action"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save Terms and Conditions"}</button></footer>}
         </form>
-      </div>, document.body)}
+      </Dialog>, document.body)}
     </>
   );
 }

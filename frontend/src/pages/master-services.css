@@ -399,3 +399,8 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Match the shared reference surfaces without changing semantic status colours. */
+.master-services-page :is(.border, .border-t, .border-b, .divide-y > :not(:last-child)):not([class*="border-red"]):not([class*="border-amber"]):not([class*="border-indigo"]):not([class*="border-violet"]) {
+  border-color: var(--bp-border);
+}

@@ -10,9 +10,9 @@ import {
   Paintbrush,
   Plus,
   Search,
-  X,
 } from "lucide-react";
 import api from "../api/client";
+import ContractorDialog from "../components/ContractorDialog";
 import { previewPdf } from "../components/PdfPreview";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
@@ -417,7 +417,7 @@ export default function WorkSchedules() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-work-schedules-page">
       <MobilePageBack />
-      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"}  actions={<div className="flex flex-col gap-2 sm:flex-row">
+      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"} description="Review proposed dates, scheduled work and project progress." actions={<div className="flex flex-col gap-2 sm:flex-row">
           {user.role === "CONTRACTOR" && (
             <Link
               to="/work-reschedules"
@@ -468,6 +468,8 @@ export default function WorkSchedules() {
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
       <input
+              type="search"
+              aria-label="Search work schedules"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={user.role === "CUSTOMER" ? "Search quotation or property" : "Search quotation, customer, or property"}
@@ -475,6 +477,7 @@ export default function WorkSchedules() {
             />
           </label>
           <select
+            aria-label="Filter schedule dates"
             value={datePreset}
             onChange={(e) => chooseDatePreset(e.target.value)}
             className="rounded-xl border px-4 py-2.5 text-sm bp-ui-control"
@@ -561,7 +564,7 @@ export default function WorkSchedules() {
         </article>)}</div>
       </SectionCard>}
       {showForm && (
-        <ScheduleModal onClose={() => setShowForm(false)}>
+        <ScheduleModal error={error} onClose={() => setShowForm(false)}>
           <ScheduleForm
             form={form}
             setForm={setForm}
@@ -576,6 +579,7 @@ export default function WorkSchedules() {
       {assigning && (
         <PainterModal
           item={assigning}
+          error={error}
           painters={painters}
           selected={selected}
           setSelected={setSelected}
@@ -878,7 +882,7 @@ function ScheduleForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="grid gap-4 rounded-2xl border bg-white p-5 md:grid-cols-[1fr_180px_180px_auto]"
+      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_160px_160px_auto]"
     >
       <label className="text-sm font-semibold">
         Accepted quotation
@@ -922,7 +926,7 @@ function ScheduleForm({
         {rescheduling ? "Send revised dates" : "Propose dates"}
       </button>
       {role === "CONTRACTOR" && rescheduling && (
-        <label className="text-sm font-semibold md:col-span-4">
+        <label className="text-sm font-semibold xl:col-span-4">
           Reason for rescheduling *
           <textarea
             required
@@ -936,26 +940,11 @@ function ScheduleForm({
     </form>
   );
 }
-function ScheduleModal({ children, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold bp-ui-section-heading">Schedule work dates</h2>
-            
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"
-          >
-            <X />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+function ScheduleModal({ children, onClose, error }) {
+  return <ContractorDialog title="Schedule work dates" description="Propose dates for an accepted quotation." icon={CalendarDays} onClose={onClose}>
+    {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {children}
+  </ContractorDialog>;
 }
 function PainterModal({
   item,
@@ -965,6 +954,7 @@ function PainterModal({
   saving,
   onClose,
   onSubmit,
+  error,
 }) {
   function toggle(p) {
     setSelected((current) =>
@@ -974,25 +964,9 @@ function PainterModal({
     );
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-2xl rounded-xl bg-white p-6"
-      >
-        <div className="flex justify-between">
-          <div>
-            <h2 className="text-xl font-bold bp-ui-section-heading">
-              Assign verified Paint Applicators
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Select applicators for {item.start_date} to {item.end_date}.
-              Payment and wages are handled separately.
-            </p>
-          </div>
-          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
-            <X />
-          </button>
-        </div>
+    <ContractorDialog title="Assign verified Paint Applicators" description={`Select applicators for ${item.start_date} to ${item.end_date}. Payment and wages are handled separately.`} icon={Paintbrush} size="md" onClose={onClose}>
+      <form onSubmit={onSubmit}>
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="mt-5 max-h-[55vh] space-y-2 overflow-y-auto">
           {painters.map((p) => {
             const chosen = selected.includes(p.id);
@@ -1024,7 +998,7 @@ function PainterModal({
           Assign Paint Applicators
         </button>
       </form>
-    </div>
+    </ContractorDialog>
   );
 }
 function Action({ children, onClick, disabled, primary }) {

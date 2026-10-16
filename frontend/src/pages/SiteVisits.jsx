@@ -4,6 +4,9 @@ import "./mobile-workspace.css";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, MapPin, Phone, Plus, RefreshCw } from "lucide-react";
 import api from "../api/client";
+import ContractorDialog from "../components/ContractorDialog";
+import { Button, PageHeader } from "../components/ui";
+import "./crm-pages.css";
 import { siteVisitFollowups } from "../utils/siteVisitFollowups";
 import { stageLabel } from "../utils/opportunityOptions";
 
@@ -95,28 +98,8 @@ export default function SiteVisits() {
   const visible = mobile ? recentFirst(groups[tab] || []) : groups[tab] || [];
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3 bp-ui-page-header">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Sales</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900 bp-ui-page-title">Site Visits</h1>
-          
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={load}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:border-slate-900 bp-ui-action"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-          <button
-            onClick={() => setShowSchedule(true)}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white bp-ui-action"
-          >
-            <Plus className="h-4 w-4" /> Schedule Visit
-          </button>
-        </div>
-      </header>
+    <div className="space-y-6 crm-page crm-site-visits-page">
+      <PageHeader eyebrow="Sales" title="Site Visits" description="Plan site visits and review upcoming, overdue and completed appointments." actions={<><Button variant="secondary" onClick={load} aria-label="Refresh site visits"><RefreshCw size={17} aria-hidden="true" />Refresh</Button><Button onClick={() => setShowSchedule(true)}><Plus size={17} aria-hidden="true" />Schedule Visit</Button></>} />
 
       {error && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -125,6 +108,7 @@ export default function SiteVisits() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <select
+          aria-label="Filter site visits by status"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
           className={(input) + " bp-ui-control"}
@@ -138,6 +122,7 @@ export default function SiteVisits() {
         </select>
         <input
           type="date"
+          aria-label="Filter site visits by date"
           value={dateFilter}
           onChange={(event) => setDateFilter(event.target.value)}
           className={(input) + " bp-ui-control"}
@@ -252,6 +237,7 @@ export default function SiteVisits() {
                 {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
                   <select
                     disabled={busyId === visit.id}
+                    aria-label={`Status for ${visit.customer_name || visit.contact_person || "site visit"}`}
                     value={visit.status}
                     onChange={(event) => updateStatus(visit, event.target.value)}
                     className={(`${input} disabled:opacity-50`) + " bp-ui-control"}
@@ -341,15 +327,10 @@ function ScheduleVisitModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form
-        onSubmit={submit}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6"
-      >
-        <h2 className="text-xl font-bold bp-ui-section-heading">Schedule site visit</h2>
-        
+    <ContractorDialog title="Schedule site visit" icon={CalendarDays} size="md" onClose={onClose}>
+      <form onSubmit={submit}>
         {error && (
-          <div className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
         <div className="mt-4 space-y-3">
           <label className="block text-sm font-semibold">
@@ -434,6 +415,6 @@ function ScheduleVisitModal({ onClose, onCreated }) {
           </button>
         </div>
       </form>
-    </div>
+    </ContractorDialog>
   );
 }

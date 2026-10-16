@@ -1,12 +1,19 @@
 .crm-page {
-  --crm-ink: #172033;
-  --crm-muted: #596579;
+  --crm-ink: var(--bp-ink);
+  --crm-muted: var(--bp-muted);
   color: var(--crm-ink);
   min-width: 0;
 }
 
+/* Legacy border utilities otherwise inherit the text colour in Tailwind 4. */
+.crm-properties-page .border-b,
+.crm-completed-projects :is(.border, .border-t),
+.crm-page form .border-t {
+  border-color: var(--bp-line);
+}
+
 .crm-page :is(a, button):focus-visible {
-  outline: 3px solid var(--app-primary, #176b9b);
+  outline: 3px solid var(--bp-focus-ring);
   outline-offset: 3px;
 }
 
@@ -47,7 +54,7 @@
 
 .crm-page .bp-section-card {
   min-width: 0;
-  border-radius: 14px;
+  border-radius: var(--bp-radius-panel);
 }
 
 .crm-page .bp-section-card > header h2 {
@@ -405,7 +412,7 @@
   }
 
   .crm-opportunities-page .grid.grid-cols-2 {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .crm-opportunity-detail > .grid {

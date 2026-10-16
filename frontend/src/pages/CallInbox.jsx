@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Ban, Clock3, Eye, FilePlus2, Phone, Plus, Search, UserRoundPlus, X } from "lucide-react";
 import api from "../api/client";
 import CustomerForm from "../components/CustomerForm";
+import ContractorDialog from "../components/ContractorDialog";
 import { Button, PageHeader } from "../components/ui";
 import "./call-inbox.css";
 
@@ -86,7 +87,7 @@ export default function CallInbox() {
   }
 
   return <div className="call-inbox-page">
-    <PageHeader title="Call Inbox" description="Review incoming calls and connect new callers to your CRM." actions={<Button onClick={() => { setError(""); setManualOpen(true); }}><Plus size={18}/> Add call</Button>} />
+    <PageHeader eyebrow="Customer relationships" title="Call Inbox" description="Review incoming calls and connect new callers to your CRM." actions={<Button onClick={() => { setError(""); setManualOpen(true); }}><Plus size={18}/> Add call</Button>} />
     {error && <div role="alert" className="call-inbox-alert">{error}</div>}
 
     <section className="call-inbox-summary">
@@ -122,24 +123,24 @@ export default function CallInbox() {
       </article>)}</div> : <div className="call-inbox-state"><Phone size={28}/><strong>No calls in this view</strong><span>Add a call manually or wait for the Android companion integration.</span>{tab === "all" && <button type="button" className="call-inbox-action primary" onClick={() => setManualOpen(true)}><Plus size={17}/>Add call</button>}</div>}
     </section>
 
-    {manualOpen && <ManualCallModal onClose={() => setManualOpen(false)} onSave={saveManual} saving={saving}/>}
+    {manualOpen && <ManualCallModal onClose={() => setManualOpen(false)} onSave={saveManual} saving={saving} error={error}/>}
     {customerDraft && <CustomerForm initialValue={customerDraft} onSubmit={saveCustomer} onClose={() => { setCustomerDraft(null); setCustomerEvent(null); setLeadEvent(null); }} saving={saving} error={error}/>}
     {details && <DetailsModal event={details} onClose={() => setDetails(null)}/>}
-    {leadEvent && leadEvent.matched_customer && <LeadModal event={leadEvent} onClose={() => setLeadEvent(null)} onSubmit={(values) => action(leadEvent, "create-lead", values)}/>}
+    {leadEvent && leadEvent.matched_customer && <LeadModal event={leadEvent} onClose={() => setLeadEvent(null)} error={error} onSubmit={(values) => action(leadEvent, "create-lead", values)}/>}
   </div>;
 }
 
-function ManualCallModal({ onClose, onSave, saving }) {
+function ManualCallModal({ onClose, onSave, saving, error }) {
   const [form, setForm] = useState({ phone_number: "", caller_name: "", name_source: "UNKNOWN", occurred_at: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16), call_status: "" });
   const update = (event) => setForm({ ...form, [event.target.name]: event.target.value });
-  return <div className="call-inbox-overlay" role="presentation"><form className="call-inbox-modal" role="dialog" aria-modal="true" aria-labelledby="call-manual-title" onSubmit={(event) => { event.preventDefault(); onSave({ ...form, occurred_at: new Date(form.occurred_at).toISOString() }); }}>
-    <div className="call-inbox-modal-head"><div><h2 id="call-manual-title">Add incoming call</h2><p>Manual entry for testing or calls not captured on Android.</p></div><button type="button" className="call-inbox-icon" onClick={onClose} aria-label="Close"><X size={20}/></button></div>
+  return <ContractorDialog title="Add incoming call" description="Record an incoming call and review it in your inbox." icon={Phone} size="md" onClose={onClose}><form onSubmit={(event) => { event.preventDefault(); onSave({ ...form, occurred_at: new Date(form.occurred_at).toISOString() }); }}>
+    {error && <p role="alert" className="call-inbox-alert">{error}</p>}
     <div className="call-inbox-modal-body"><label>Phone number *<input required name="phone_number" value={form.phone_number} onChange={update} placeholder="10-digit mobile or +country code" inputMode="tel"/></label><label>Caller name<input name="caller_name" value={form.caller_name} onChange={(event) => setForm({ ...form, caller_name: event.target.value, name_source: event.target.value ? "USER_ENTRY" : "UNKNOWN" })} placeholder="Optional"/></label><label>Call time<input required type="datetime-local" name="occurred_at" value={form.occurred_at} onChange={update}/></label><label>Call status<select name="call_status" value={form.call_status} onChange={update}><option value="">Unavailable</option><option value="ANSWERED">Answered</option><option value="MISSED">Missed</option><option value="REJECTED">Rejected</option></select></label></div>
     <div className="call-inbox-modal-footer"><button type="button" className="call-inbox-secondary" onClick={onClose}>Cancel</button><button className="call-inbox-submit" disabled={saving}>{saving ? "Saving…" : "Save call"}</button></div>
-  </form></div>;
+  </form></ContractorDialog>;
 }
 
-function DetailsModal({ event, onClose }) { return <div className="call-inbox-overlay" role="presentation"><section className="call-inbox-modal" role="dialog" aria-modal="true" aria-labelledby="call-detail-title"><div className="call-inbox-modal-head"><div><h2 id="call-detail-title">Call details</h2><p>{event.phone_number} · {new Date(event.occurred_at).toLocaleString("en-IN")}</p></div><button className="call-inbox-icon" onClick={onClose} aria-label="Close"><X size={20}/></button></div><div className="call-inbox-modal-body">{event.caller_name && <p><b>Caller name:</b> {event.caller_name} ({event.name_source.replaceAll("_", " ").toLowerCase()})</p>}<p><b>Call status:</b> {statusLabel[event.call_status] || "Unavailable"}</p><p><b>Captured by:</b> {event.capture_source === "MANUAL" ? "Manual entry" : "Android companion"}</p><h3>Call history for this number</h3>{event.history?.length ? event.history.map((item) => <p key={item.id} className="call-inbox-history">{new Date(item.occurred_at).toLocaleString("en-IN")} · {statusLabel[item.call_status] || "Status unavailable"}</p>) : <p>No previous calls.</p>}</div><div className="call-inbox-modal-footer"><button className="call-inbox-submit" onClick={onClose}>Done</button></div></section></div>; }
+function DetailsModal({ event, onClose }) { return <ContractorDialog title="Call details" description={`${event.phone_number} \u00b7 ${new Date(event.occurred_at).toLocaleString("en-IN")}`} icon={Phone} size="md" onClose={onClose}><div className="call-inbox-modal-body">{event.caller_name && <p><b>Caller name:</b> {event.caller_name} ({event.name_source.replaceAll("_", " ").toLowerCase()})</p>}<p><b>Call status:</b> {statusLabel[event.call_status] || "Unavailable"}</p><p><b>Captured by:</b> {event.capture_source === "MANUAL" ? "Manual entry" : "Android companion"}</p><h3>Call history for this number</h3>{event.history?.length ? event.history.map((item) => <p key={item.id} className="call-inbox-history">{new Date(item.occurred_at).toLocaleString("en-IN")} · {statusLabel[item.call_status] || "Status unavailable"}</p>) : <p>No previous calls.</p>}</div><div className="call-inbox-modal-footer"><button className="call-inbox-submit" onClick={onClose}>Done</button></div></ContractorDialog>; }
 
-function LeadModal({ event, onClose, onSubmit }) { const [title, setTitle] = useState("Incoming call enquiry"); const [description, setDescription] = useState(""); return <div className="call-inbox-overlay"><form className="call-inbox-modal" role="dialog" aria-modal="true" onSubmit={(e) => { e.preventDefault(); onSubmit({ title, description }); }}><div className="call-inbox-modal-head"><div><h2>Create lead</h2><p>{event.display_name} · {event.phone_number}</p></div><button type="button" className="call-inbox-icon" onClick={onClose} aria-label="Close"><X size={20}/></button></div><div className="call-inbox-modal-body"><label>Lead title *<input required value={title} onChange={(e) => setTitle(e.target.value)}/></label><label>Notes<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3"/></label></div><div className="call-inbox-modal-footer"><button type="button" className="call-inbox-secondary" onClick={onClose}>Cancel</button><button className="call-inbox-submit">Create lead</button></div></form></div>; }
+function LeadModal({ event, onClose, onSubmit, error }) { const [title, setTitle] = useState("Incoming call enquiry"); const [description, setDescription] = useState(""); return <ContractorDialog title="Create lead" description={`${event.display_name} \u00b7 ${event.phone_number}`} icon={FilePlus2} size="md" onClose={onClose}><form onSubmit={(e) => { e.preventDefault(); onSubmit({ title, description }); }}>{error && <p role="alert" className="call-inbox-alert">{error}</p>}<div className="call-inbox-modal-body"><label>Lead title *<input required value={title} onChange={(e) => setTitle(e.target.value)}/></label><label>Notes<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3"/></label></div><div className="call-inbox-modal-footer"><button type="button" className="call-inbox-secondary" onClick={onClose}>Cancel</button><button className="call-inbox-submit">Create lead</button></div></form></ContractorDialog>; }
 

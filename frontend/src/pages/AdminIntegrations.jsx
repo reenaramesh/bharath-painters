@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, KeyRound, MapPin } from "lucide-react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import "./admin-portal.css";
 
@@ -44,8 +45,8 @@ export default function AdminIntegrations() {
   }
 
   if (user?.role !== "ADMIN") return <p className="rounded-xl border bg-white p-6">Administrator access only.</p>;
-  return <div className="mx-auto max-w-3xl space-y-5">
-    <header className="bp-ui-page-header"><p className="text-sm font-semibold text-[var(--app-primary)]">Administration</p><h1 className="mt-1 text-3xl font-bold bp-ui-page-title">API Settings</h1></header>
+  return <div className="admin-ui-page mx-auto max-w-3xl space-y-5">
+    <PageHeader eyebrow="Administration" title="API Settings" description="Manage the service integrations used by your team." />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{message}</p>}
     <section className="rounded-2xl border bg-white p-5 sm:p-6">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, ChevronDown, MapPin, Phone, Search } from "lucide-react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
 import "./painter-portal.css";
@@ -129,11 +130,7 @@ export default function ApplicatorBookings() {
   return (
     <div className={`painter-portal-page painter-bookings-page space-y-6 ${painter ? "is-painter" : ""}`}>
       <MobilePageBack />
-      <header className="bp-ui-page-header">
-        <h1 className="text-3xl font-bold bp-ui-page-title">
-          {painter ? "Booking Requests" : "Book Applicator"}
-        </h1>
-      </header>
+      <PageHeader eyebrow="Work bookings" title={painter ? "Booking Requests" : "Book Applicator"} description={painter ? "Review booking requests and manage your upcoming work." : "Find an available applicator and send a booking request."} />
 
       {!painter && (
         <details open className="group overflow-visible rounded-2xl border bg-white">
@@ -149,6 +146,8 @@ export default function ApplicatorBookings() {
             <label className="flex items-center gap-2 rounded-xl border px-3 py-2.5">
               <Search className="h-4 w-4 text-slate-400" />
               <input
+                type="search"
+                aria-label="Find an applicator"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);

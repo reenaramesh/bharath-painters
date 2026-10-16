@@ -1,0 +1,13 @@
+.painter-availability-page .availability-calendar-days button { width: min(40px, 100%); min-width: 0; }
+.painter-availability-page :is(.border-b, .border-t), .employee-page :is(.border-b, .border-t) { border-color: var(--bp-line); }
+.painter-availability-page form input { max-width: 100%; }
+.painter-availability-page button:focus-visible { outline: 3px solid var(--bp-focus-ring); outline-offset: 2px; }
+.painter-availability-page > form { border-color: var(--bp-line); border-radius: var(--bp-radius-panel); }
+.employee-page .bp-stat-card { flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; }
+.employee-page .bp-stat-card > div { width: 100%; min-width: 0; }
+.employee-page .bp-stat-card strong { font-size: 22px; overflow-wrap: normal; }
+@media (max-width: 428px) {
+  .painter-availability-page .availability-calendar-days button { height: 36px; font-size: 13px; }
+  .employee-page .bp-stat-card { min-width: 0; padding: 14px 12px; }
+  .employee-page .bp-stat-card strong { font-size: 20px; }
+}

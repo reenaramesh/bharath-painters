@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { History, RefreshCw, Search, UsersRound, X } from "lucide-react";
+import { History, RefreshCw, Search, UsersRound } from "lucide-react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
+import { Dialog } from "../components/ui/Dialog";
 import "./admin-portal.css";
 
 export default function AdminCustomerConnections() {
@@ -56,16 +58,12 @@ export default function AdminCustomerConnections() {
     }
   };
 
-  return <div className="space-y-6">
-    <header className="bp-ui-page-header">
-      <p className="text-sm font-bold text-indigo-600">Administration</p>
-      <h1 className="mt-1 text-3xl font-extrabold bp-ui-page-title">Customer connection management</h1>
-      
-    </header>
+  return <div className="admin-ui-page space-y-6">
+    <PageHeader eyebrow="Administration" title="Customer connection management" description="Review customer connections, their status and audit history." />
 
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {["CONNECTED", "PENDING", "REJECTED", "DISCONNECTED", "BLOCKED"].map((value) =>
-        <button key={value} onClick={() => setStatus(status === value ? "" : value)} className={(`rounded-2xl border p-4 text-left ${status === value ? "border-indigo-500 bg-indigo-50" : "bg-white"}`) + " bp-ui-action"}>
+        <button key={value} aria-pressed={status === value} onClick={() => setStatus(status === value ? "" : value)} className={(`rounded-2xl border p-4 text-left ${status === value ? "border-indigo-500 bg-indigo-50" : "bg-white"}`) + " bp-ui-action"}>
           <b className="block text-2xl">{counts[value] || 0}</b>
           <span className="text-xs font-bold text-slate-500">{value}</span>
         </button>,
@@ -76,7 +74,7 @@ export default function AdminCustomerConnections() {
       <div className="border-b p-4">
         <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
           <Search className="h-4 w-4 text-slate-400" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Customer ID, Contractor ID or mobile" className="w-full bg-transparent text-sm outline-none bp-ui-control" />
+          <input type="search" aria-label="Search customer connections" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Customer ID, Contractor ID or mobile" className="w-full bg-transparent text-sm outline-none bp-ui-control" />
         </label>
       </div>
       {error && <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 p-4 text-sm text-red-700">
@@ -96,7 +94,7 @@ export default function AdminCustomerConnections() {
             <td className="p-3"><b>{item.contractor?.business_name}</b><small className="block text-slate-500">{item.contractor?.contractor_id}</small></td>
             <td className="p-3 font-bold">{item.status}</td><td className="p-3">{date(item.requested_at)}</td>
             <td className="p-3">{date(item.approved_at)}</td><td className="p-3">{date(item.blocked_at || item.disconnected_at || item.rejected_at)}</td>
-            <td className="p-3"><button onClick={() => openTimeline(item)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 font-bold hover:bg-slate-50 bp-ui-action"><History className="h-4 w-4" /> History</button></td>
+            <td className="p-3" data-mobile-action="true"><button onClick={() => openTimeline(item)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 font-bold hover:bg-slate-50 bp-ui-action"><History className="h-4 w-4" /> History</button></td>
           </tr>)}</tbody>
         </table>
         {!loading && !error && !items.length && <div className="p-12 text-center text-slate-400"><UsersRound className="mx-auto h-8 w-8" /><p className="mt-2">No matching connections.</p></div>}
@@ -104,14 +102,9 @@ export default function AdminCustomerConnections() {
       </div>
     </section>
 
-    {timeline && <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-6" onMouseDown={(event) => event.target === event.currentTarget && setTimeline(null)}>
-      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:p-7">
-        <div className="flex items-start justify-between gap-4">
-          <div><p className="text-xs font-bold uppercase tracking-widest text-indigo-600">Security audit</p><h2 className="mt-1 text-xl font-extrabold bp-ui-section-heading">Connection history</h2><p className="mt-1 text-sm text-slate-500">{timeline.connection?.customer?.bharath_id} · {timeline.connection?.contractor?.contractor_id}</p></div>
-          <button onClick={() => setTimeline(null)} className="rounded-full border p-2 bp-ui-icon-action" aria-label="Close audit history"><X className="h-5 w-5" /></button>
-        </div>
+    {timeline && <Dialog title="Connection history" description={`${timeline.connection?.customer?.bharath_id || "Customer"} / ${timeline.connection?.contractor?.contractor_id || "Contractor"}`} icon={History} size="lg" onClose={() => setTimeline(null)} closeLabel="Close audit history" closeOnBackdrop>
         {timelineLoading && <p className="py-10 text-center text-sm text-slate-500">Loading audit history…</p>}
-        {timeline.error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{timeline.error}</p>}
+        {timeline.error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{timeline.error}</p>}
         {!timelineLoading && !timeline.error && <div className="mt-6 space-y-3">
           {timeline.events?.map((event) => <article key={event.id} className="rounded-2xl border bg-slate-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-2"><b>{event.action_label}</b><time className="text-xs font-semibold text-slate-500">{dateTime(event.timestamp)}</time></div>
@@ -120,8 +113,7 @@ export default function AdminCustomerConnections() {
           </article>)}
           {!timeline.events?.length && <p className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">No audit events recorded.</p>}
         </div>}
-      </section>
-    </div>}
+    </Dialog>}
   </div>;
 }
 

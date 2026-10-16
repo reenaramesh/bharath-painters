@@ -50,7 +50,7 @@ export default function CustomerProperties() {
     <div className="customer-properties-page space-y-6">
       <PageHeader
         eyebrow="Your projects"
-        title="My properties"
+        title="My properties" description="Review your sites, saved measurements and property access requests."
         
       />
       <section className="customer-property-pulse" aria-label="Property summary">

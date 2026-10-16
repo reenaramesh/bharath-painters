@@ -14,6 +14,7 @@ export function Dialog({
   icon: Icon,
   closeLabel = 'Close dialog',
   bodyClassName = '',
+  closeOnBackdrop = false,
 }) {
   const { t } = useLanguage();
   const ref = useRef(null);
@@ -70,6 +71,11 @@ export function Dialog({
       aria-describedby={description ? descriptionId : undefined}
       onKeyDown={handleKeyDown}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
+      onMouseDown={(event) => {
+        if (!closeOnBackdrop || event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
+      }}
     >
       <header className="bp-dialog-header">
         <div className="bp-dialog-heading">

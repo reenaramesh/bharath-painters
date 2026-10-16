@@ -48,7 +48,7 @@ export default function CustomerContractorReviews() {
   }
 
   return <div className="customer-review-page mx-auto max-w-4xl space-y-6 pb-8">
-    <PageHeader eyebrow="Your feedback" title="Review your contractors"  />
+    <PageHeader eyebrow="Your feedback" title="Review your contractors" description="Share project feedback with your connected contractors."  />
     <section className="customer-review-pulse" aria-label="Review summary">
       <div><span>Connected contractors</span><strong>{contractors.length}</strong><small>People working with you</small></div>
       <div className="is-reviewed"><span>Reviews shared</span><strong>{contractors.filter((contractor) => contractor.review).length}</strong><small>Your published feedback</small></div>

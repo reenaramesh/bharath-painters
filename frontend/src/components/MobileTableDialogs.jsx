@@ -1,7 +1,7 @@
-import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useEffect, useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { Dialog, DialogFooter } from "./ui/Dialog";
 
 const interactiveSelector =
   "a, button, input, select, textarea, label, [role='button']";
@@ -132,17 +132,6 @@ export default function MobileTableDialogs() {
     };
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    if (!dialog) return undefined;
-    const releaseScrollLock = lockBodyScroll();
-    const closeOnEscape = (event) => event.key === "Escape" && setDialog(null);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      releaseScrollLock();
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [dialog]);
-
   function openRecord() {
     if (!dialog?.row) return;
     dialog.row.dataset.allowOriginalClick = "true";
@@ -153,38 +142,16 @@ export default function MobileTableDialogs() {
 
   if (!dialog) return null;
   return (
-    <div
-      className="bp-mobile-table-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bp-mobile-table-title"
-      onMouseDown={(event) =>
-        event.target === event.currentTarget && setDialog(null)
-      }
-    >
-      <section className="bp-mobile-table-dialog">
-        <header>
-          <div className="min-w-0">
-            <p>Record details</p>
-            <h2 className="bp-ui-section-heading" id="bp-mobile-table-title">{dialog.title}</h2>
-          </div>
-          <button className="bp-ui-icon-action"
-            type="button"
-            onClick={() => setDialog(null)}
-            aria-label="Close details"
-          >
-            <X />
-          </button>
-        </header>
-        <div className="bp-mobile-table-fields">
+    <Dialog title={dialog.title} description="Record details" onClose={() => setDialog(null)} closeLabel="Close details" closeOnBackdrop size="md" className="bp-record-details-dialog">
+        <dl className="bp-mobile-table-fields">
           {dialog.fields.map((field, index) => (
             <div key={`${field.label}-${index}`}>
               <dt>{field.label}</dt>
               <dd>{field.value}</dd>
             </div>
           ))}
-        </div>
-        <footer>
+        </dl>
+        <DialogFooter>
           <button
             type="button"
             className="bp-mobile-table-close bp-ui-action"
@@ -201,8 +168,7 @@ export default function MobileTableDialogs() {
               Open record <ArrowRight />
             </button>
           )}
-        </footer>
-      </section>
-    </div>
+        </DialogFooter>
+    </Dialog>
   );
 }

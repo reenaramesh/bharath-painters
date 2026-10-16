@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import ProfileImageControl from "../components/ProfileImageControl";
-import { ErrorState, LoadingState } from "../components/ui";
+import { ErrorState, LoadingState, PageHeader } from "../components/ui";
 
 export default function CustomerProfile() {
   const { refreshUser } = useAuth();
@@ -101,11 +101,7 @@ export default function CustomerProfile() {
   if (loading && !profile) return <LoadingState label="Loading your profile…" />;
   if (!profile) return <ErrorState message={error || "Customer profile could not be loaded."} onRetry={load} />;
   return <div className="customer-account-page mx-auto w-full min-w-0 max-w-3xl space-y-4 overflow-x-hidden pb-16 sm:space-y-5">
-    <header className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-7 bp-ui-page-header">
-     <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-primary,#176b9b)]">Customer portal</p>
-      <h1 className="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl bp-ui-page-title">My profile</h1>
-      
-    </header>
+    <PageHeader eyebrow="Customer portal" title="My profile" description="Keep your contact details, address and account information up to date." />
     <section className="customer-profile-pulse" aria-label="Account summary">
       <div><span>Customer ID</span><strong>{profile.customer_id || "Not assigned"}</strong><small>Use this when contacting support</small></div>
       <div className={profile.email_verified ? "is-ready" : "is-action"}><span>Email status</span><strong>{profile.email_verified ? "Verified" : "Needs verification"}</strong><small>{profile.email || "Add an email address"}</small></div>

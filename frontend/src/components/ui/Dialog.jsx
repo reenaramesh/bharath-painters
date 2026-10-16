@@ -15,6 +15,7 @@ export function Dialog({
   closeLabel = 'Close dialog',
   bodyClassName = '',
   closeOnBackdrop = false,
+  savedVersion,
 }) {
   const { t } = useLanguage();
   const ref = useRef(null);
@@ -69,6 +70,7 @@ export function Dialog({
       className={`bp-dialog ${sizeClasses[size] || sizeClasses.md} ${className}`.trim()}
       aria-labelledby={headingId}
       aria-describedby={description ? descriptionId : undefined}
+      data-popup-saved-version={savedVersion}
       onKeyDown={handleKeyDown}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
       onMouseDown={(event) => {

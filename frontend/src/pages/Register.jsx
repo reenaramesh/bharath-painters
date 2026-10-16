@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Eye, EyeOff, Palette } from "lucide-react";
 import api from "../api/client";
+import "../styles/auth-reference.css";
 import RegistrationConsent from "../components/RegistrationConsent";
 
 export default function Register() {
@@ -102,12 +103,12 @@ export default function Register() {
     }
   }
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
+    <main className="auth-reference-page min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-2xl">
         <Link to="/login" className="text-sm font-semibold text-slate-600">
           ← Back to login
         </Link>
-        <div className="mt-6 rounded-2xl border bg-white p-6 sm:p-8">
+        <div className="auth-registration-card mt-6 rounded-2xl border bg-white p-6 sm:p-8">
           <h1 className="text-3xl font-bold bp-ui-page-title">Create your account</h1>
           
           <div className="mt-6 grid grid-cols-2 gap-3">
@@ -117,8 +118,9 @@ export default function Register() {
             ].map(([value, Icon]) => (
               <button
                 key={value}
+                aria-pressed={role === value}
                 onClick={() => setRole(value)}
-                className={(`rounded-xl border p-4 text-left ${role === value ? "border-slate-950 bg-slate-50" : "border-slate-200"}`) + " bp-ui-action"}
+                className={(`auth-role-option rounded-xl border p-4 text-left ${role === value ? "border-slate-950 bg-slate-50" : "border-slate-200"}`) + " bp-ui-action"}
               >
                 <Icon className="h-5 w-5" />
                 <p className="mt-2 font-semibold">

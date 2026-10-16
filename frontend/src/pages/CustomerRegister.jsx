@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import api from "../api/client";
+import "../styles/auth-reference.css";
 import RegistrationConsent from "../components/RegistrationConsent";
 
 export default function CustomerRegister() {
@@ -53,7 +54,7 @@ export default function CustomerRegister() {
     }
   }
 
-  return <main className="min-h-screen bg-slate-950 p-4 sm:p-6">
+  return <main className="auth-reference-page min-h-screen bg-slate-950 p-4 sm:p-6">
     <div className="mx-auto w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl sm:p-8">
       <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400"><MessageCircle /></span>
        <h1 className="mt-5 text-3xl font-bold bp-ui-page-title">{invitation ? "Create an account to join this property" : "Customer account"}</h1>

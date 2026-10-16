@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, KeyRound, MailCheck, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import "../styles/auth-reference.css";
 
 const roles = [
   ["CUSTOMER", "Customer"],
@@ -82,7 +83,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-950 p-4 sm:p-6">
+    <main className="auth-reference-page grid min-h-screen place-items-center bg-slate-950 p-4 sm:p-6">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
         <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400"><KeyRound /></span>
         <h1 className="mt-5 text-3xl font-bold bp-ui-page-title">Forgot password</h1>

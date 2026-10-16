@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, FileText, LoaderCircle, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, FileText, LoaderCircle, ShieldCheck } from "lucide-react";
 import api from "../api/client";
+import { Dialog } from "./ui/Dialog";
 
 export default function RegistrationConsent({ role, onConsentChange, inline = false }) {
   const documentEnd = useRef(null);
@@ -97,8 +98,8 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
   </section>;
 
   return <>
-    <section className={`rounded-2xl border p-4 sm:col-span-2 ${accepted ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>
-      <div className="flex items-start gap-3">
+    <section className={`registration-consent-card rounded-2xl border p-4 sm:col-span-2 ${accepted ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-slate-50"}`}>
+      <div className="registration-consent-summary flex items-start gap-3">
         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${accepted ? "bg-emerald-600 text-white" : "bg-slate-950 text-white"}`}>
           {accepted ? <CheckCircle2 className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
         </span>
@@ -113,14 +114,8 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
       </div>
     </section>
 
-    {open && document && <div className="fixed inset-0 z-[100] flex items-end bg-slate-950/70 sm:items-center sm:justify-center sm:p-5">
-      <div className="flex h-[96vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl">
-        <header className="flex items-start justify-between gap-4 border-b p-4 sm:p-5">
-          <div><p className="text-xs font-bold uppercase tracking-wider text-amber-600">Registration agreement</p><h2 className="mt-1 text-xl font-extrabold sm:text-2xl bp-ui-section-heading">Terms of Use & Privacy Notice</h2><p className="mt-1 text-xs text-slate-500">{document.operator_name} / {document.operator_address}</p><p className="mt-1 text-xs text-slate-500">Version {document.policy_version} / Effective {document.effective_date}</p></div>
-          <button type="button" onClick={() => setOpen(false)} className="rounded-xl border p-2 bp-ui-icon-action" aria-label="Close"><X className="h-5 w-5" /></button>
-        </header>
-
-        <div onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-5 sm:px-7">
+    {open && document && <Dialog title="Terms of Use & Privacy Notice" description={<span>{document.operator_name} / {document.operator_address}<br/>Version {document.policy_version} / Effective {document.effective_date}</span>} icon={ShieldCheck} size="xl" onClose={() => setOpen(false)} closeLabel="Close" className="registration-agreement-dialog" bodyClassName="registration-agreement-body">
+        <div data-registration-document onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-5 sm:px-7">
           <LegalDocument title={document.terms_title} sections={document.terms_sections} icon={FileText} />
           <LegalDocument title={document.privacy_title} sections={document.privacy_sections} icon={ShieldCheck} />
           <section className="rounded-2xl border bg-white p-5">
@@ -139,8 +134,7 @@ export default function RegistrationConsent({ role, onConsentChange, inline = fa
           </label>
           <button type="button" onClick={confirm} disabled={!reachedEnd || !checked} className="mt-3 w-full rounded-xl bg-slate-950 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action">Accept and continue</button>
         </footer>
-      </div>
-    </div>}
+    </Dialog>}
   </>;
 }
 

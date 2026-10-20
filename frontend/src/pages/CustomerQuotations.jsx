@@ -45,7 +45,7 @@ export default function CustomerQuotations() {
     <div className="customer-quotations-page space-y-6">
       <PageHeader
         eyebrow="Plans and estimates"
-        title="My quotations"
+        title="My quotations" description="Review contractor estimates and follow the progress of accepted projects."
         
       />
       <section className="customer-quotation-pulse" aria-label="Quotation summary">

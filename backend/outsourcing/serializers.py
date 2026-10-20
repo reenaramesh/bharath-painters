@@ -15,6 +15,7 @@ from .models import (
     WageRecord,
     WorkOrderAssignment,
     WorkOrderCompletion,
+    WorkOrderCompletionScope,
     WorkOrderEvent,
 )
 
@@ -106,9 +107,20 @@ class CorrectionRequestSerializer(serializers.ModelSerializer):
         return user_label(obj.requested_by)
 
 
+class WorkOrderCompletionScopeSerializer(serializers.ModelSerializer):
+    work_order_scope_id = serializers.IntegerField(read_only=True)
+    scope_title = serializers.CharField(source="work_order_scope.title_snapshot", read_only=True)
+
+    class Meta:
+        model = WorkOrderCompletionScope
+        fields = ["work_order_scope_id", "scope_title", "reported_quantity", "accepted_quantity"]
+        read_only_fields = fields
+
+
 class WorkOrderCompletionSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.SerializerMethodField()
     correction_requests = CorrectionRequestSerializer(many=True, read_only=True)
+    scope_progress = WorkOrderCompletionScopeSerializer(many=True, read_only=True)
 
     class Meta:
         model = WorkOrderCompletion
@@ -122,6 +134,8 @@ class WorkOrderCompletionSerializer(serializers.ModelSerializer):
             "is_current",
             "open_correction_count",
             "correction_requests",
+            "scope_progress",
+            "approved_at",
             "submitted_at",
         ]
         read_only_fields = fields
@@ -320,6 +334,9 @@ class SubcontractQuoteSerializer(serializers.ModelSerializer):
 
 class SubcontractInvoicePaymentSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.SerializerMethodField()
+    # Workflow owns uniqueness/replay checks so retries are not rejected by a
+    # serializer uniqueness validator, and keys never leak through invoice reads.
+    idempotency_key = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True, write_only=True)
 
     class Meta:
         model = SubcontractInvoicePayment
@@ -330,6 +347,7 @@ class SubcontractInvoicePaymentSerializer(serializers.ModelSerializer):
             "payment_mode",
             "payment_reference",
             "notes",
+            "idempotency_key",
             "recorded_by_name",
             "created_at",
         ]
@@ -380,6 +398,12 @@ class SubcontractInvoiceSerializer(serializers.ModelSerializer):
 
     def get_receiving_contractor_name(self, obj):
         return user_label(obj.work_order.receiving_contractor)
+
+    def validate(self, attrs):
+        for name in ("subtotal", "tax_amount", "total"):
+            if name in attrs and attrs[name] < 0:
+                raise serializers.ValidationError({name: "Enter a non-negative amount."})
+        return attrs
 
 
 class WageRecordSerializer(serializers.ModelSerializer):

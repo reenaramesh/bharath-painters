@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   font-family:
@@ -15,21 +15,22 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   /* Shared Bharath Painters / Bharath Apps design tokens. */
-  --bp-color-canvas: #f8fafc;
+  --bp-color-canvas: #f5f7fc;
   --bp-color-surface: #ffffff;
-  --bp-color-surface-muted: #faf8ff;
+  --bp-color-surface-muted: #f8f8ff;
   --bp-color-surface-container: #f2f3ff;
   --bp-color-ink: #0f172a;
   --bp-color-text: #334155;
   --bp-color-muted: #475569;
-  --bp-color-border: #e2e8f0;
-  --bp-color-brand: #2563eb;
-  --bp-color-brand-strong: #1e3a8a;
-  --bp-color-accent: #f59e0b;
+  --bp-color-border: #e1e6f2;
+  --bp-color-brand: #5740ec;
+  --bp-color-brand-strong: #3928a4;
+  --bp-color-accent: #fb4b8b;
+  --bp-color-navigation: #0d1736;
   --bp-color-paint: #ea580c;
   --bp-color-tertiary: #10b981;
   --bp-color-on-brand: #ffffff;
-  --bp-color-focus: #2563eb;
+  --bp-color-focus: #5740ec;
   --bp-color-success: #047857;
   --bp-color-success-surface: #ecfdf5;
   --bp-color-info: #1d4ed8;
@@ -50,19 +51,19 @@
   --bp-space-12: 48px;
   --bp-space-16: 64px;
 
-  --bp-type-page-title: clamp(1.75rem, 3vw, 2rem);
-  --bp-type-section-title: 1.25rem;
-  --bp-type-body: 1rem;
+  --bp-type-page-title: clamp(1.5rem, 2.8vw, 1.75rem);
+  --bp-type-section-title: 1rem;
+  --bp-type-body: 0.875rem;
   --bp-type-supporting: 0.875rem;
   --bp-type-metadata: 0.75rem;
   --bp-leading-body: 1.5;
 
-  --bp-radius-control: 0.5rem;
-  --bp-radius-card: 0.75rem;
-  --bp-radius-panel: 1rem;
+  --bp-radius-control: 0.625rem;
+  --bp-radius-card: 1rem;
+  --bp-radius-panel: 1.25rem;
   --bp-radius-pill: 999px;
   --bp-shadow:
-    0 1px 3px rgb(15 23 42 / 0.05), 0 8px 24px -18px rgb(15 23 42 / 0.18);
+    0 2px 5px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
 
   /* Backward-compatible names used by existing pages and components. */
   --bp-brand: var(--bp-color-brand);
@@ -83,6 +84,7 @@ html {
 }
 body {
   margin: 0;
+  font-size: var(--bp-type-body);
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;

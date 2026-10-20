@@ -42,3 +42,24 @@ test('work order filters match the existing web statuses', () => {
   assert.deepEqual(filterWorkOrders(items, 'SUBMITTED_FOR_REVIEW').map(item => item.status), ['SUBMITTED_FOR_REVIEW']);
   assert.deepEqual(filterWorkOrders(items, 'COMPLETED').map(item => item.status), ['COMPLETED']);
 });
+
+test('quotation detail presents server-calculated totals, lines and linked source records', () => {
+  const record = mapRecord({
+    id: 88, quotation_number: 'BA-2026-0088', quotation_type: 'MEASUREMENT', status: 'DRAFT',
+    customer: 12, customer_details: { id: 12, name: 'Anita Rao' },
+    property: 19, property_details: { id: 19, name: 'Lake View Home' }, measurement_record: 22,
+    quotation_date: '2026-10-17', valid_until: '2026-11-17', subtotal: '18000.00',
+    discount: '1000.00', discount_amount: '1000.00', gst_amount: '3060.00', grand_total: '20060.00',
+    gst_mode: 'GST_EXTRA', gst_percentage: '18',
+    items: [{ id: 4, description: 'Interior painting', quantity: '900.00', unit: 'sqft', rate: '20.00', amount: '18000.00' }],
+  }, 'quotations');
+
+  assert.equal(record.reference, 'BA-2026-0088');
+  assert.equal(record.customerId, '12');
+  assert.equal(record.propertyId, '19');
+  assert.ok(record.details.some(item => item.label === 'Measurement record' && item.value === '22'));
+  assert.ok(record.details.some(item => item.label === 'Discount' && item.value === '1000.00'));
+  assert.ok(record.details.some(item => item.label === 'GST' && item.value === '18% · GST EXTRA'));
+  assert.ok(record.details.some(item => item.value.includes('Interior painting · 900.00 sqft · ₹20.00 · ₹18000.00')));
+  assert.ok(record.details.some(item => item.label === 'Grand total' && item.value === '20060.00'));
+});

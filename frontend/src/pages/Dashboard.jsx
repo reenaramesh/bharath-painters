@@ -16,6 +16,10 @@ import ContractorDashboard from "./ContractorDashboard";
 import AdminDashboard from "./AdminDashboard";
 import SupportWorkspace from "./SupportWorkspace";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
+import DashboardWelcomeBanner from '../components/DashboardWelcomeBanner';
+import { StatCard } from '../components/ui';
+import { useLanguage } from '../i18n/LanguageContext';
+import { menuRouteEnabled } from '../utils/menuVisibility';
 import "./painter-portal.css";
 
 export default function Dashboard() {
@@ -68,6 +72,12 @@ export default function Dashboard() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    if (user?.role !== 'CONTRACTOR') return;
+    const refresh = () => { if (document.visibilityState === 'visible') load(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [load, user?.role]);
   if (user?.role === "ADMIN") return <AdminDashboard />;
   if (user?.role === "SUPPORT") return <SupportWorkspace />;
   if (user?.role === "PAINTER")
@@ -174,7 +184,7 @@ function formatDate(value) {
 }
 function ApplicatorActiveCount({ value }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-white p-3 sm:gap-4 sm:rounded-2xl sm:p-5">
+    <div className="bp-card flex items-center gap-3 rounded-xl border bg-white p-3 sm:gap-4 sm:rounded-2xl sm:p-5">
       <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-700 sm:h-11 sm:w-11 sm:rounded-xl">
         <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
       </span>
@@ -189,23 +199,19 @@ function ApplicatorActiveCount({ value }) {
 }
 
 function ApplicatorDashboard({ data, onRefresh }) {
+  const { t } = useLanguage();
   const { employmentStatus = "loading" } = useOutletContext() || {};
+  const { user, menuVisibility } = useAuth();
   const c = data.counts;
   return (
     <div className="painter-portal-page painter-dashboard-page space-y-4 sm:space-y-7">
-      <header className="flex items-start justify-between gap-3 bp-ui-page-header">
-        <div>
-          <h1 className="text-2xl font-bold sm:text-3xl bp-ui-page-title">Welcome, {data.name}</h1>
-        </div>
-        <button
-          onClick={onRefresh}
-          className="rounded-xl border bg-white p-3 bp-ui-icon-action"
-          title="Refresh"
-        >
-          <RefreshCw className="h-5 w-5" />
-        </button>
-      </header>
-      <MobileDashboardShortcuts mobileOnly={false} />
+      <DashboardWelcomeBanner eyebrow="Your work workspace" title={<>{t('Welcome')}, {data.name}</>}
+        description="Your assignments, schedules and work updates, together in one place."
+        icon={Paintbrush} label="Painter workspace"
+        actions={<>
+          {menuRouteEnabled(user?.role, menuVisibility, '/painter-assignments') && <Link to="/painter-assignments" className="bp-button bp-button-primary"><ClipboardList size={17} aria-hidden="true" />My assignments</Link>}
+          <button onClick={onRefresh} className="bp-button bp-button-secondary" aria-label="Refresh painter dashboard"><RefreshCw size={17} aria-hidden="true" />Refresh</button>
+        </>} />
       <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
         <ApplicatorMetric
           icon={ClipboardList}
@@ -232,6 +238,7 @@ function ApplicatorDashboard({ data, onRefresh }) {
           color="bg-amber-50 text-amber-700"
         />
       </div>
+      <MobileDashboardShortcuts mobileOnly={false} />
       <section className="painter-dashboard-focus" aria-label="Painter work focus">
         <div><span>Work in motion</span><strong>{Number(c.in_progress || 0) + Number(c.assigned || 0)}</strong><small>Assigned or currently in progress</small></div>
         <div><span>Finished work</span><strong>{c.completed || 0}</strong><small>Projects in your work history</small></div>
@@ -276,19 +283,19 @@ function ApplicatorDashboard({ data, onRefresh }) {
             <Empty text="No completed projects yet." />
           )}
         </section>
-        <section className="rounded-2xl bg-slate-950 p-6 text-white">
+        <section className="bp-section-card rounded-2xl border bg-white p-6">
           <h2 className="font-bold bp-ui-section-heading">Current work</h2>
           
           <Link
             to="/painter-assignments"
-            className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-slate-950"
+            className="bp-button bp-button-primary mt-6 w-full"
           >
             <ClipboardList className="h-4 w-4" />
             Open My Assignments
           </Link>
           {["freelance", "in-house"].includes(employmentStatus) && <Link
             to={employmentStatus === "in-house" ? "/in-house-applicators" : "/jobs"}
-            className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/20 px-4 py-3 font-semibold"
+            className="bp-button bp-button-secondary mt-3 w-full"
           >
             <ArrowRight className="h-4 w-4" />
             {employmentStatus === "in-house" ? "View My Employment" : "Find available jobs"}
@@ -299,15 +306,6 @@ function ApplicatorDashboard({ data, onRefresh }) {
   );
 }
 function ApplicatorMetric({ icon: Icon, label, value, color }) {
-  return (
-    <div className="rounded-xl border bg-white p-3 sm:rounded-2xl sm:p-5">
-      <span
-        className={`grid h-9 w-9 place-items-center rounded-lg sm:h-11 sm:w-11 sm:rounded-xl ${color}`}
-      >
-        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-      </span>
-      <p className="mt-3 min-h-8 text-xs leading-4 text-slate-500 sm:mt-5 sm:min-h-0 sm:text-sm">{label}</p>
-      <p className="mt-0.5 text-2xl font-bold sm:mt-1 sm:text-3xl">{value}</p>
-    </div>
-  );
+  const tone = color.includes('emerald') ? 'success' : color.includes('amber') ? 'warning' : 'brand';
+  return <StatCard icon={Icon} label={label} value={value} tone={tone} className="painter-dashboard-metric" />;
 }

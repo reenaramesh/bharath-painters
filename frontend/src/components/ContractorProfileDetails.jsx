@@ -1,9 +1,11 @@
 import { Building2, MapPin, Phone, MessageCircle } from 'lucide-react';
 
 export function ContractorContactLinks({ mobile }) {
-  const digits = String(mobile || '').replace(/\D/g, '');
+  const raw = String(mobile || '').trim();
+  const digits = raw.replace(/\D/g, '');
   if (digits.length < 7 || digits.length > 15) return <span className="text-xs text-slate-500">Phone not provided</span>;
-  const international = digits.length === 10 ? `91${digits}` : digits;
+  const international = raw.startsWith('00') ? digits.slice(2)
+    : !raw.startsWith('+') && digits.length === 10 ? `91${digits}` : digits;
   return <div className="network-contact-links">
     <a href={`tel:+${international}`} aria-label={`Call ${mobile}`}><Phone size={16} /> Call</a>
     <a href={`https://wa.me/${international}`} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${mobile}`}><MessageCircle size={16} /> WhatsApp</a>

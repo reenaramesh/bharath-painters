@@ -25,6 +25,8 @@ const endpoints: Record<Exclude<ModuleId, 'settings'>, string> = {
   payments: '/quotations/invoices/',
   messages: '/quotations/chat/conversations/',
   subcontracts: '/outsourcing/work-orders/',
+  employees: '/jobs/in-house-applicators/',
+  'wage-register': '/jobs/wage-register/',
 };
 
 export function modulePath(module: ModuleId) {
@@ -106,6 +108,31 @@ export function mapRecord(raw: unknown, module: ModuleId): NativeRecord {
       const unit = value(scope.unit_name_snapshot);
       fields.push([`Scope ${index + 1}`, [service, quantity && `${quantity}${unit ? ` ${unit}` : ''}`].filter(Boolean).join(' · ')]);
     });
+  }
+  if (module === 'quotations') {
+    const quotationType = value(row.quotation_type);
+    const gstMode = value(row.gst_mode).replaceAll('_', ' ');
+    const items = Array.isArray(row.items) ? row.items as Row[] : [];
+    fields.unshift(
+      ['Quotation type', quotationType ? quotationType.replaceAll('_', ' ') : ''],
+      ['Quotation date', row.quotation_date],
+      ['Valid until', row.valid_until],
+      ['Measurement record', row.measurement_record],
+      ['Subtotal', row.subtotal],
+      ['Discount', row.discount_amount ?? row.discount],
+      ['GST', row.gst_percentage != null ? `${value(row.gst_percentage)}%${gstMode ? ` · ${gstMode}` : ''}` : ''],
+      ['GST amount', row.gst_amount],
+      ['Grand total', row.grand_total],
+    );
+    items.forEach((line, index) => {
+      const description = value(line.description || line.service_type_name || line.service_name_snapshot) || `Quotation line ${index + 1}`;
+      const quantity = value(line.quantity);
+      const unit = value(line.custom_unit || line.unit_name_snapshot || line.unit);
+      const rate = value(line.rate);
+      const amount = value(line.amount);
+      fields.push([`Line ${index + 1}`, [description, quantity && `${quantity}${unit ? ` ${unit}` : ''}`, rate && `₹${rate}`, amount && `₹${amount}`].filter(Boolean).join(' · ')]);
+    });
+    if (typeof row.notes === 'string' && row.notes.trim()) fields.push(['Notes', row.notes]);
   }
   const details = fields.filter(([, item]) => value(item)).map(([label, item]) => ({ label, value: value(item) }));
   const subtitle = workOrder

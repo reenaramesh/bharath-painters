@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFile } from 'node:fs/promises';
+import React from 'react';
+import { act, create } from 'react-test-renderer';
+import { transformWithOxc } from 'vite';
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+test('scheduling method defaults to portal and explicitly explains contractor authority', async () => {
+ const url = new URL('./ScheduleApprovalMethod.jsx', import.meta.url);
+ const transformed = await transformWithOxc(await readFile(url,'utf8'),url.pathname,{jsx:{runtime:'automatic'}});
+ const code = transformed.code.replace(/from\s+(["'])([^"']+)\1/g,(_m,_q,path)=>`from ${JSON.stringify(import.meta.resolve(path))}`);
+ const Component = (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)).default;
+ const selected=[];
+ let view;
+ await act(async()=>{view=create(React.createElement(Component,{onChange:value=>selected.push(value)}));});
+ assert.equal(view.root.findByType('select').props.value,'PORTAL');
+ assert.deepEqual(view.root.findAllByType('option').map(n=>n.props.value),['PORTAL','CONTRACTOR']);
+ await act(async()=>view.root.findByType('select').props.onChange({target:{value:'CONTRACTOR'}}));
+ assert.deepEqual(selected,['CONTRACTOR']);
+ await act(async()=>view.update(React.createElement(Component,{value:'CONTRACTOR',disabled:true,onChange:()=>{}})));
+ assert.equal(view.root.findByType('select').props.disabled,true);
+ assert.match(view.root.findByType('span').props.children,/Customer acceptance remains separate/);
+ await act(async()=>view.unmount());
+});

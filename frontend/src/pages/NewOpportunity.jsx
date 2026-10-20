@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Check, Plus, UserRound } from "lucide-react";
 import api from "../api/client";
 import BackButton from "../components/BackButton";
+import ContractorDialog from "../components/ContractorDialog";
+import { PageHeader } from "../components/ui";
+import "./crm-pages.css";
 import {
   SOURCE_OPTIONS,
   PRIORITY_OPTIONS,
@@ -182,15 +185,9 @@ export default function NewOpportunity() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 crm-page crm-opportunity-create">
       <BackButton fallback="/opportunities" label="Back to opportunities" />
-      <header className="bp-ui-page-header">
-        <p className="text-sm font-semibold text-amber-600">Sales</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900 bp-ui-page-title">
-          New Opportunity
-        </h1>
-        
-      </header>
+      <PageHeader eyebrow="Sales pipeline" title="New Opportunity" description="Select a client, then capture their service requirement and next steps." />
 
       {error && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -216,7 +213,8 @@ export default function NewOpportunity() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Mobile number, name or email"
-                className="min-w-[240px] flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 bp-ui-control"
+                aria-label="Find a client"
+                className="min-w-0 w-full sm:w-auto flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900 bp-ui-control"
               />
               <button
                 disabled={searching}
@@ -305,12 +303,12 @@ export default function NewOpportunity() {
 
       {/* Quick client create modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
+        <ContractorDialog title="Quick create client" description="Save a client contact for this opportunity." onClose={() => setShowCreate(false)} size="md">
           <form
             onSubmit={createClient}
-            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6"
+            className="space-y-4"
           >
-            <h2 className="text-xl font-bold bp-ui-section-heading">Quick create client</h2>
+            {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold">
                 Name *
@@ -410,7 +408,7 @@ export default function NewOpportunity() {
               </button>
             </div>
           </form>
-        </div>
+        </ContractorDialog>
       )}
 
       {/* STEP 2 — OPPORTUNITY */}

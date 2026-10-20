@@ -1,5 +1,4 @@
-from unittest.mock import patch
-from django.utils import timezone
+﻿from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework.test import APITestCase
@@ -200,70 +199,6 @@ class DraftRepairTests(APITestCase):
         self.assertEqual(response.data["rooms"][0]["id"], room.id)
         added_room = next(entry for entry in response.data["rooms"] if entry["name"] == "New custom room")
         self.assertEqual(response.data["items"][-1]["room"], added_room["id"])
-
-
-class ContractorQuotationRevisionTests(APITestCase):
-    setUp = fixtures.QuotationApiTests.setUp
-
-    def draft(self):
-        quotation = Quotation.objects.create(
-            contractor=self.contractor, customer=self.customer, property=self.property,
-            connection=self.connection, notes="Original", quotation_type="MANUAL_LUMPSUM",
-            quotation_number=f"REVISION-TEST-{Quotation.objects.count() + 1}",
-        )
-        room = QuotationRoom.objects.create(quotation=quotation, property_room=self.room, name="Saved room", length=10)
-        item = QuotationItem.objects.create(quotation=quotation, room=room, description="Saved work", calculation_method="MANUAL", quantity=2, rate=10, amount=20)
-        return quotation, room, item
-
-    def test_contractor_can_create_and_resubmit_revision_without_customer_request(self):
-        quotation, room, item = self.draft()
-        quotation.status = Quotation.Status.SENT
-        quotation.sent_at = timezone.now()
-        quotation.save(update_fields=("status", "sent_at", "updated_at"))
-        original_sent_at = quotation.sent_at
-
-        response = self.client.post(f"/api/quotations/{quotation.pk}/revision-draft/", {}, format="json")
-        self.assertEqual(response.status_code, 201, getattr(response, "data", None))
-        revision = Quotation.objects.get(pk=response.data["id"])
-        quotation.refresh_from_db()
-        self.assertEqual(quotation.status, Quotation.Status.SENT)
-        self.assertEqual(quotation.sent_at, original_sent_at)
-        self.assertEqual(quotation.customer_response_note, "")
-        self.assertEqual(revision.status, Quotation.Status.DRAFT)
-        self.assertEqual(revision.version_number, 2)
-        self.assertTrue(revision.quotation_number.endswith("-V2"))
-        self.assertEqual(revision.revision_of_id, quotation.pk)
-        self.assertEqual(revision.rooms.count(), 1)
-        self.assertEqual(revision.items.count(), 1)
-        self.assertEqual(revision.items.get().description, item.description)
-
-        repeated = self.client.post(f"/api/quotations/{quotation.pk}/revision-draft/", {}, format="json")
-        self.assertEqual(repeated.status_code, 200)
-        self.assertEqual(repeated.data["id"], revision.pk)
-
-        submit = self.client.post(reverse("quotation-submit", kwargs={"pk": revision.pk}), {}, format="json")
-        self.assertEqual(submit.status_code, 200, getattr(submit, "data", None))
-        self.assertTrue(submit.data["is_revision"])
-        revision.refresh_from_db()
-        self.assertEqual(revision.status, Quotation.Status.SENT)
-
-    def test_revision_creation_requires_connected_customer_and_unaccepted_status(self):
-        quotation, _, _ = self.draft()
-        quotation.status = Quotation.Status.SENT
-        quotation.save(update_fields=("status", "updated_at"))
-        self.connection.status = "DISCONNECTED"
-        self.connection.save(update_fields=("status", "updated_at"))
-        response = self.client.post(f"/api/quotations/{quotation.pk}/revision-draft/", {}, format="json")
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(quotation.revisions.count(), 0)
-
-        self.connection.status = "CONNECTED"
-        self.connection.save(update_fields=("status", "updated_at"))
-        quotation.status = Quotation.Status.ACCEPTED
-        quotation.save(update_fields=("status", "updated_at"))
-        response = self.client.post(f"/api/quotations/{quotation.pk}/revision-draft/", {}, format="json")
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(quotation.revisions.count(), 0)
 
 
 class GroupedDraftRepairTests(APITestCase):

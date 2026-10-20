@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
+import "./admin-portal.css";
 import useAuth from "../context/useAuth";
 
 export default function SupportStaff() {
@@ -53,8 +55,8 @@ export default function SupportStaff() {
   }
 
   if (user?.role !== "ADMIN") return <p className="rounded-xl border bg-white p-6">Administrator access only.</p>;
-  return <div className="mx-auto max-w-5xl space-y-5">
-    <header className="bp-ui-page-header"><p className="text-sm font-semibold text-[var(--app-primary)]">Administration</p><h1 className="text-3xl font-bold bp-ui-page-title">Support staff</h1></header>
+  return <div className="admin-ui-page mx-auto max-w-5xl space-y-5">
+    <PageHeader eyebrow="Administration" title="Support staff" description="Manage support access and review recent support activity." />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{message}</p>}
     {credentials && <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm"><h2 className="font-bold bp-ui-section-heading">One-time login details</h2><p className="mt-2">Mobile: <strong>{credentials.mobile}</strong></p><p>Temporary password: <strong>{credentials.temporary_password}</strong></p><button type="button" onClick={() => setCredentials(null)} className="mt-3 rounded-lg border px-3 py-2 font-semibold bp-ui-action">I have saved these details</button></section>}

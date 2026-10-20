@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Eye, EyeOff, Palette } from "lucide-react";
 import api from "../api/client";
+import "../styles/auth-reference.css";
 import RegistrationConsent from "../components/RegistrationConsent";
 
 export default function Register() {
@@ -18,15 +19,15 @@ export default function Register() {
   const [verification, setVerification] = useState(null);
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
+  const [consent, setConsent] = useState({ ready: false, accepted: false, policyVersion: "" });
   const update = (event) =>
     setForm((value) => ({ ...value, [event.target.name]: event.target.value }));
   const input =
     "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
   async function submit(event) {
     event.preventDefault();
-    if (!consent.accepted) {
-      setError("Read and accept the Terms of Use and Privacy Notice before registering.");
+    if (!consent.ready) {
+      setError("Wait for the Terms of Use and Privacy Notice to load before registering.");
       return;
     }
     setSaving(true);
@@ -40,7 +41,7 @@ export default function Register() {
         "name",
       ].forEach((field) => contractor.append(field, form[field]));
       contractor.append("policy_version", consent.policyVersion);
-      contractor.append("document_scrolled", String(consent.scrolled));
+      contractor.append("acceptance_method", "REGISTRATION_SUBMIT");
       contractor.append("terms_accepted", "true");
       contractor.append("privacy_notice_acknowledged", "true");
       const painter = {
@@ -49,7 +50,7 @@ export default function Register() {
         password: form.password,
         name: form.name.trim(),
         policy_version: consent.policyVersion,
-        document_scrolled: consent.scrolled,
+        acceptance_method: "REGISTRATION_SUBMIT",
         terms_accepted: true,
         privacy_notice_acknowledged: true,
       };
@@ -102,12 +103,12 @@ export default function Register() {
     }
   }
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
+    <main className="auth-reference-page min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-2xl">
         <Link to="/login" className="text-sm font-semibold text-slate-600">
           ← Back to login
         </Link>
-        <div className="mt-6 rounded-2xl border bg-white p-6 sm:p-8">
+        <div className="auth-registration-card mt-6 rounded-2xl border bg-white p-6 sm:p-8">
           <h1 className="text-3xl font-bold bp-ui-page-title">Create your account</h1>
           
           <div className="mt-6 grid grid-cols-2 gap-3">
@@ -117,8 +118,9 @@ export default function Register() {
             ].map(([value, Icon]) => (
               <button
                 key={value}
+                aria-pressed={role === value}
                 onClick={() => setRole(value)}
-                className={(`rounded-xl border p-4 text-left ${role === value ? "border-slate-950 bg-slate-50" : "border-slate-200"}`) + " bp-ui-action"}
+                className={(`auth-role-option rounded-xl border p-4 text-left ${role === value ? "border-slate-950 bg-slate-50" : "border-slate-200"}`) + " bp-ui-action"}
               >
                 <Icon className="h-5 w-5" />
                 <p className="mt-2 font-semibold">
@@ -176,7 +178,7 @@ export default function Register() {
             
             <RegistrationConsent role={role} onConsentChange={setConsent} />
             <button
-              disabled={saving || !consent.accepted}
+              disabled={saving || !consent.ready}
               className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-60 bp-ui-action"
             >
               {saving ? "Creating account..." : "Register"}

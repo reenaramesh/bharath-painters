@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import React from 'react';
@@ -17,13 +17,13 @@ function resetBrowser() {
  globalThis.window={localStorage:browserStorage(),sessionStorage:browserStorage(),addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events),dispatchEvent:events.dispatchEvent.bind(events)};
  window.localStorage.setItem('bharath_user',JSON.stringify({id:1}));
 }
-const fixture=()=>({id:42,customer:1,property:2,status:'DRAFT',can_edit:true,quotation_type:'MEASUREMENT',measurement_record:measurement.id,updated_at:'2026-10-11T01:00:00Z',discount_mode:'LINE',discount_type:'FIXED',discount_value:'0',gst_mode:'NO_GST',gst_percentage:'0',notes:'Saved notes',rooms:measurement.rooms.map(room=>({id:room.id+100,property_room:room.id,name:room.name})),items:assignmentQuotationItems(measurement,exampleAssignments(),masters).map((line,index)=>({...line,id:200+index,room:null}))});
+const fixture=()=>({id:42,customer:1,property:2,status:'DRAFT',can_edit:true,can_create_version:true,quotation_type:'MEASUREMENT',measurement_record:measurement.id,updated_at:'2026-10-11T01:00:00Z',discount_mode:'LINE',discount_type:'FIXED',discount_value:'0',gst_mode:'NO_GST',gst_percentage:'0',notes:'Saved notes',rooms:measurement.rooms.map(room=>({id:room.id+100,property_room:room.id,name:room.name})),items:assignmentQuotationItems(measurement,exampleAssignments(),masters).map((line,index)=>({...line,id:200+index,room:null}))});
 const stub=`import React from ${JSON.stringify(import.meta.resolve('react'))};
 const params=new URLSearchParams(),location={pathname:'/quotations/new',state:{}};
 export const useSearchParams=()=>[params,()=>{}];export const useLocation=()=>globalThis.__builderLocation || location;export const useNavigate=()=>target=>globalThis.__builderNavigate=target;
 export const useAuth=()=>({user:{id:1,role:'CONTRACTOR'}});
 export const useDraftUnsavedChanges=()=>()=>{};
-export const api={get:async path=>{if(globalThis.__builderReadFailure && path.endsWith('/measurement-records/'))throw Error('Measurement loading unavailable');const m=globalThis.__builderMasters,q=globalThis.__builderFixture;const lists={'service-categories':m.categories,'service-types':m.services || [],'paint-types':m.paintTypes,'brands':m.brands,'units':m.units,'work-descriptions':[],'colors':[],'areas':[]};let data=lists[path.split('/').filter(Boolean).at(-1)] || [];if(path==='/quotations/customers/')data=[{id:1,name:'Saved customer'}];if(path==='/quotations/properties/')data=[{id:2,customer:1,name:'Saved site'}];if(path.endsWith('/rooms/'))data=globalThis.__builderMeasurement.rooms;if(path.endsWith('/measurements/'))data=globalThis.__builderMeasurement.surfaces;if(path.endsWith('/measurement-records/'))data=[{id:q.measurement_record,version:3}];if(path.includes('contractor-profile'))data={quotation_terms_conditions:'New default',quotation_prepared_by:'New preparer'};return {data};},patch:async(path,payload)=>{globalThis.__builderCalls.push(['patch',path,payload]);if(globalThis.__builderWait)await globalThis.__builderWait;if(globalThis.__builderFailure)throw globalThis.__builderFailure;return {data:{...globalThis.__builderFixture,updated_at:'2026-10-11T02:00:00Z'}};},post:async(path,payload)=>{globalThis.__builderCalls.push(['post',path,payload]);if(globalThis.__builderSendFailure)throw globalThis.__builderSendFailure;return {data:{...globalThis.__builderFixture}};}};
+export const api={get:async path=>{if(globalThis.__builderReadFailure && path.endsWith('/measurement-records/'))throw Error('Measurement loading unavailable');const m=globalThis.__builderMasters,q=globalThis.__builderFixture;const lists={'service-categories':m.categories,'service-types':m.services || [],'paint-types':m.paintTypes,'brands':m.brands,'units':m.units,'work-descriptions':[],'colors':[],'areas':[]};let data=lists[path.split('/').filter(Boolean).at(-1)] || [];if(path==='/quotations/customers/')data=[{id:1,name:'Saved customer'}];if(path==='/quotations/properties/')data=[{id:2,customer:1,name:'Saved site'}];if(path.endsWith('/rooms/'))data=globalThis.__builderMeasurement.rooms;if(path.endsWith('/measurements/'))data=globalThis.__builderMeasurement.surfaces;if(path.endsWith('/measurement-records/'))data=[{id:q.measurement_record,version:3}];if(path.includes('contractor-profile'))data={quotation_terms_conditions:'New default',quotation_prepared_by:'New preparer'};return {data};},patch:async(path,payload)=>{globalThis.__builderCalls.push(['patch',path,payload]);if(globalThis.__builderWait)await globalThis.__builderWait;if(globalThis.__builderFailure)throw globalThis.__builderFailure;return {data:{...globalThis.__builderFixture,updated_at:'2026-10-11T02:00:00Z'}};},post:async(path,payload)=>{globalThis.__builderCalls.push(['post',path,payload]);if(path.endsWith('/versions/')){if(globalThis.__builderWait)await globalThis.__builderWait;if(globalThis.__builderFailure)throw globalThis.__builderFailure;return {data:{...globalThis.__builderFixture,id:43,version_number:2,updated_at:'2026-10-11T02:00:00Z'}};}if(globalThis.__builderSendFailure)throw globalThis.__builderSendFailure;return {data:{...globalThis.__builderFixture}};}};
 export const GroupedQuotationWorkspace=props=>React.createElement('workspace',props);
 export const QuotationPricingRows=props=>React.createElement('pricing-rows',props);
 export const QuotationDocumentItems=()=>null;
@@ -76,10 +76,10 @@ test('shared pricing changes save atomically; failed save keeps edits and retry 
   const rows=view.root.findByType('pricing-rows'),line=rows.props.items[0];
   await act(async()=>rows.props.onChange(line,'discount_type','PERCENTAGE'));await act(async()=>view.root.findByType('pricing-rows').props.onChange(view.root.findByType('pricing-rows').props.items[0],'discount_value','15'));
   globalThis.__builderFailure={response:{status:409,data:{detail:'Draft changed in another session.'}}};
-  await act(async()=>button(view,'Save draft').props.onClick());
+  await act(async()=>button(view,'Save new version').props.onClick());
   assert.equal(view.root.findByType('pricing-rows').props.items[0].discount_value,'15');assert.match(view.root.findByProps({role:'alert'}).children.join(''),/another session/);
-  delete globalThis.__builderFailure;await act(async()=>button(view,'Save draft').props.onClick());
-  const request=globalThis.__builderCalls.at(-1);assert.equal(request[0],'patch');assert.equal(request[1],'/quotations/42/draft/');assert.equal(request[2].expected_updated_at,fixture().updated_at);assert.equal(request[2].items[0].discount_value,'15');assert.equal(request[2].items[0].id,200);assert.equal(request[2].status,undefined);assert.equal(globalThis.__builderCalls.filter(([method])=>method==='post').length,0);
+  delete globalThis.__builderFailure;await act(async()=>button(view,'Save new version').props.onClick());
+  const request=globalThis.__builderCalls.at(-1);assert.equal(request[0],'post');assert.equal(request[1],'/quotations/42/versions/');assert.equal(request[2].expected_updated_at,fixture().updated_at);assert.equal(request[2].items[0].discount_value,'15');assert.equal(request[2].items[0].id,200);assert.equal(request[2].status,undefined);assert.equal(globalThis.__builderCalls.filter(([method,path])=>method==='post' && path.endsWith('/submit/')).length,0);assert.equal(globalThis.__builderCalls[0][2].edit_request_id,request[2].edit_request_id);assert.equal(globalThis.__builderNavigate,'/quotations/43');
  }finally{await act(async()=>view.unmount());}
 });
 
@@ -136,7 +136,7 @@ test('pending atomic save disables inputs and repeated clicks do not submit twic
  try{
   await act(async()=>button(view,'Continue').props.onClick());await act(async()=>button(view,'Continue').props.onClick());
   globalThis.__builderWait=new Promise(resolve=>{release=resolve;});
-  const save=button(view,'Save draft').props.onClick;
+  const save=button(view,'Save new version').props.onClick;
   await act(async()=>{operation=save();});
   assert.ok(view.root.findAllByType('fieldset').some(node=>node.props.disabled===true));
   await act(async()=>{save();});assert.equal(globalThis.__builderCalls.length,1);

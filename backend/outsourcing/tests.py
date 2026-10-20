@@ -15,6 +15,7 @@ from quotations.models import (
     Property,
     ProjectScope,
     Quotation,
+    QuotationItem,
     ServiceCategory,
     Unit,
     WorkDescription,
@@ -205,17 +206,78 @@ class WorkOrderCreationTests(OutsourcingTestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_customer_sees_no_work_orders(self):
-        self.make_work_order()
+        work_order = self.make_work_order()
         self.authenticate(self.customer_user)
         listing = self.client.get(reverse("work-order-list-create"))
         self.assertEqual(listing.status_code, status.HTTP_200_OK)
         self.assertEqual(listing.data, [])
 
-        detail = self.client.get(reverse("work-order-detail", args=[1]))
+        detail = self.client.get(reverse("work-order-detail", args=[work_order.pk]))
         self.assertEqual(detail.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class WorkOrderWorkflowTests(OutsourcingTestBase):
+    def test_completion_resolves_scope_by_explicit_quotation_item_reference(self):
+        from .models import SubcontractWorkOrderScope
+
+        item = QuotationItem.objects.create(
+            quotation=self.quotation, service_category=self.painting,
+            description="Measured interior walls", quantity=Decimal("1200"),
+            unit=self.sqft, custom_unit="", rate=Decimal("38"), amount=Decimal("45600"),
+        )
+        work_order = self.make_work_order()
+        shared = SubcontractWorkOrderScope.objects.create(
+            work_order=work_order, source_quotation_item=item,
+            category=self.painting, title_snapshot=item.description,
+            quantity=Decimal("500"), unit_rate=Decimal("30"),
+        )
+        workflow.transition(self.main, work_order, "SENT")
+        workflow.transition(self.receiving, work_order, "ACCEPTED")
+        workflow.transition(self.receiving, work_order, "IN_PROGRESS")
+        workflow.transition(
+            self.receiving, work_order, "SUBMITTED_FOR_REVIEW",
+            scope_progress=[{"scope_id": shared.pk, "quantity": "300"}],
+        )
+
+        workflow.transition(self.main, work_order, "COMPLETED")
+
+        project_scope = ProjectScope.objects.get(source_quotation_item=item)
+        self.assertEqual(project_scope.quotation_id, self.quotation.id)
+        self.assertEqual(project_scope.completed_quantity, Decimal("300.00"))
+        shared.refresh_from_db()
+        self.assertEqual(shared.project_scope_id, project_scope.id)
+
+    def test_approved_partial_subcontract_completion_updates_only_its_project_scope(self):
+        work_order = self.make_work_order()
+        workflow.share_scopes(work_order, [self.scope])
+        shared = work_order.scopes.get()
+        workflow.transition(self.main, work_order, "SENT")
+        workflow.transition(self.receiving, work_order, "ACCEPTED")
+        workflow.transition(self.receiving, work_order, "IN_PROGRESS")
+        workflow.transition(
+            self.receiving, work_order, "SUBMITTED_FOR_REVIEW", note="First half",
+            scope_progress=[{"scope_id": shared.pk, "quantity": "300"}],
+        )
+        workflow.transition(self.main, work_order, "COMPLETED")
+        self.scope.refresh_from_db()
+        self.assertEqual(self.scope.completed_quantity, Decimal("300.00"))
+        self.assertEqual(self.scope.status, ProjectScope.Status.IN_PROGRESS)
+        completion = work_order.completions.get(is_current=True)
+        self.assertEqual(completion.scope_progress.get().accepted_quantity, Decimal("300.00"))
+
+    def test_scope_progress_rejects_quantity_above_shared_scope(self):
+        work_order = self.make_work_order()
+        workflow.share_scopes(work_order, [self.scope])
+        shared = work_order.scopes.get()
+        workflow.transition(self.main, work_order, "SENT")
+        workflow.transition(self.receiving, work_order, "ACCEPTED")
+        workflow.transition(self.receiving, work_order, "IN_PROGRESS")
+        with self.assertRaises(ValidationError):
+            workflow.transition(
+                self.receiving, work_order, "SUBMITTED_FOR_REVIEW",
+                scope_progress=[{"scope_id": shared.pk, "quantity": "1201"}],
+            )
+
     def test_full_lifecycle_from_draft_to_invoice(self):
         work_order = self.make_work_order()
         self.authenticate(self.main)

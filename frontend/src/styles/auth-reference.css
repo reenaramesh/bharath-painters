@@ -1,0 +1,25 @@
+.auth-reference-page { background: var(--bp-color-canvas); color: var(--bp-color-ink); }
+.auth-reference-page .auth-brand-panel { background: linear-gradient(140deg, var(--bp-color-navigation), #27205a); }
+.auth-reference-page .auth-brand-panel h1 { color: white; font-size: clamp(36px, 3.6vw, 54px); letter-spacing: -.04em; }
+.auth-reference-page .auth-brand-eyebrow { color: #c6bdff; }
+.auth-reference-page .auth-service-art { width: 140px; height: 140px; margin-bottom: 24px; object-fit: contain; }
+.auth-reference-page .auth-form-card { padding: 28px; border: 1px solid var(--bp-color-border); border-radius: var(--bp-radius-panel); background: white; box-shadow: var(--bp-shadow); }
+.auth-reference-page :is(h1, h2) { font-family: "Plus Jakarta Sans", Inter, sans-serif; font-weight: 800; letter-spacing: -.035em; }
+.auth-reference-page .bg-amber-400 { background: var(--bp-color-brand); color: white; }
+.auth-reference-page :is(input, select, textarea, button) { min-height: 44px; }
+.auth-reference-page :is(input, select, textarea, button, a):focus-visible { outline: 3px solid var(--bp-color-focus); outline-offset: 3px; }
+.auth-reference-page .auth-registration-card { border-color: var(--bp-color-border); box-shadow: var(--bp-shadow); }
+.auth-reference-page .auth-role-option[aria-pressed="true"] { border-color: var(--bp-color-brand); background: var(--bp-color-surface-container); color: var(--bp-color-brand-strong); }
+.bp-ui .registration-agreement-dialog { height: 90dvh; }
+.bp-ui .registration-agreement-body { display: flex; flex: 1; flex-direction: column; overflow: hidden; padding: 0; }
+.registration-agreement-body > footer { flex-shrink: 0; max-height: 48dvh; overflow-y: auto; border-color: var(--bp-line); }
+.auth-reference-page input[type="checkbox"] { min-height: 20px; }
+@media (max-width: 428px) {
+  .auth-reference-page { padding: 16px; }
+  .auth-reference-page > section { padding: 0; background: transparent; }
+  .auth-reference-page .auth-form-card { padding: 20px 16px; }
+  .auth-reference-page .auth-registration-card { padding: 20px 16px; }
+  .auth-reference-page .auth-role-option { padding: 12px; font-size: 14px; }
+  .registration-consent-summary { display: grid; grid-template-columns: 40px minmax(0, 1fr); }
+  .registration-consent-summary > button { grid-column: 1 / -1; width: 100%; }
+}

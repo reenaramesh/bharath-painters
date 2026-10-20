@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { resolveAppTheme } from "../utils/appTheme";
 
 const presets = [
-  { label: "Studio Painterly", primary: "#2563EB", accent: "#F59E0B" },
+  { label: "Bharath Premium", primary: "#5740EC", accent: "#FB4B8B" },
   { label: "Deep teal", primary: "#395F6E", accent: "#FCB29B" },
   { label: "Indigo", primary: "#4F46E5", accent: "#7771E8" },
   { label: "Forest", primary: "#276749", accent: "#8BBF9F" },

@@ -9,6 +9,8 @@ import { canOpenModule, formatINR, modules, type ModuleId } from '../../../src/c
 import { moduleDetailPath, mapRecord, parseModulePage, type NativeRecord } from '../../../src/core/moduleRecords';
 import { ContactButtons, StatusPill, moduleStyles } from '../../../src/components/ModuleUI';
 import { PropertyCreateScreen } from '../../../src/screens/PropertyCreateScreen';
+import { ManualQuotationCreateScreen } from '../../../src/screens/ManualQuotationCreateScreen';
+import { MeasurementQuotationCreateScreen } from '../../../src/screens/MeasurementQuotationCreateScreen';
 import { tokens } from '../../../src/theme';
 
 type Message = { id: number; sender: number; text: string; created_at: string; is_mine: boolean };
@@ -81,6 +83,8 @@ export default function RecordDetail() {
 
   if (!entry || !user || !menuReady || !canOpenModule(user, moduleParam, disabledMenus)) return <Screen><State title="Access unavailable" description="Return to your workspace to choose an available tool." /></Screen>;
   if (moduleId === 'properties' && id === 'new') return <><Stack.Screen options={{ title: 'Add property' }} /><PropertyCreateScreen initialCustomer={customer} /></>;
+  if (moduleId === 'quotations' && id === 'new' && user.role === 'CONTRACTOR' && !demo) return <><Stack.Screen options={{ title: 'New quotation' }} /><ManualQuotationCreateScreen /></>;
+  if (moduleId === 'quotations' && id === 'measurement-new' && user.role === 'CONTRACTOR' && !demo) return <><Stack.Screen options={{ title: 'Measurement quotation' }} /><MeasurementQuotationCreateScreen /></>;
   if (moduleId === 'customers' && id === 'new') return <>
     <Stack.Screen options={{ title: 'Add customer' }} />
     <Screen>
@@ -128,6 +132,9 @@ export default function RecordDetail() {
       </Card.Content>
     </Card>
     {moduleId === 'properties' && <Button mode="outlined" icon="ruler-square" contentStyle={styles.control} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'measurements', id: activeRecord.id } })}>View measurements</Button>}
+    {moduleId === 'quotations' && activeRecord.customerId && <Button mode="outlined" icon="account-outline" contentStyle={styles.control} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'customers', id: String(activeRecord.customerId) } })}>View customer</Button>}
+    {moduleId === 'quotations' && activeRecord.propertyId && <Button mode="outlined" icon="home-outline" contentStyle={styles.control} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'properties', id: String(activeRecord.propertyId) } })}>View property</Button>}
+    {moduleId === 'quotations' && activeRecord.propertyId && activeRecord.details.some(item => item.label === 'Measurement record') && <Button mode="outlined" icon="ruler-square" contentStyle={styles.control} onPress={() => router.push({ pathname: '/module/[module]', params: { module: 'measurements', propertyId: String(activeRecord.propertyId), measurementId: String(activeRecord.details.find(item => item.label === 'Measurement record')?.value || '') } })}>Open linked measurement</Button>}
     {moduleId === 'customers' && <Button mode="contained" icon="home-plus-outline" contentStyle={styles.control} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'properties', id: 'new', customer: activeRecord.id } })}>Add property for this customer</Button>}
     {moduleId === 'measurements' && activeRecord.details.length === 0 && <State title="No measurements saved" description="Measurement records for this property will appear here after they are created." />}
     {error && <State title="Refresh failed" description={error} action="Retry" onAction={() => void load()} />}

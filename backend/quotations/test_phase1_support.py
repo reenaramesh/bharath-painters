@@ -1,4 +1,4 @@
-"""Focused Recovery Center search coverage for global customer identities."""
+﻿"""Focused Recovery Center search coverage for global customer identities."""
 
 from django.urls import reverse
 from rest_framework import status
@@ -103,3 +103,49 @@ class Phase1SupportSearchTests(APITestCase):
         by_subject = {row["subject"]: row for row in rows}
         self.assertEqual(by_subject["Signed in"]["requester_identity_source"], "AUTHENTICATED_ACCOUNT")
         self.assertEqual(by_subject["Claimed"]["requester_identity_source"], "UNVERIFIED_CLAIM")
+        from .models import SupportTicket
+        public_ticket = SupportTicket.objects.get(subject="Claimed")
+        self.assertIsNone(public_ticket.requester_id)
+        self.assertIn(painter.mobile, public_ticket.description)
+
+    def test_public_ticket_for_inactive_account_is_unverified_and_cannot_authorize_deletion(self):
+        from .models import SupportTicket
+        painter = BharathUser.objects.create_user(mobile="9000060191", password="Pass123!", role="PAINTER", is_active=False)
+        response = self.client.post(reverse("support-ticket-public"), {
+            "mobile": painter.mobile, "subject": "Reactivate", "description": "Please help me recover access",
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        ticket = SupportTicket.objects.get(subject="Reactivate")
+        self.assertIsNone(ticket.requester_id)
+        self.client.force_authenticate(self.staff)
+        rejected = self.client.post(reverse("support-workspace-actions"), {
+            "action": "DELETE_ACCOUNT", "target_id": painter.pk,
+            "ticket_id": ticket.pk, "reason": "Claimed mobile deletion request",
+        }, format="json")
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        # Legacy public tickets may already contain a claimed requester ID.
+        ticket.requester = painter
+        ticket.save(update_fields=("requester",))
+        rejected = self.client.post(reverse("support-workspace-actions"), {
+            "action": "DELETE_ACCOUNT", "target_id": painter.pk,
+            "ticket_id": ticket.pk, "reason": "Claimed mobile deletion request",
+        }, format="json")
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        painter.refresh_from_db()
+        self.assertTrue(painter.has_usable_password())
+
+    def test_authenticated_account_holder_ticket_still_authorizes_staff_suspension(self):
+        painter = BharathUser.objects.create_user(mobile="9000060192", password="Pass123!", role="PAINTER")
+        self.client.force_authenticate(painter)
+        created = self.client.post(reverse("support-ticket-list"), {
+            "subject": "Suspend my account", "description": "Please suspend my account until I return",
+        }, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        self.client.force_authenticate(self.staff)
+        response = self.client.post(reverse("support-workspace-actions"), {
+            "action": "SUSPEND_ACCOUNT", "target_id": painter.pk,
+            "ticket_id": created.data["id"], "reason": "Account holder requested suspension",
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        painter.refresh_from_db()
+        self.assertFalse(painter.is_active)

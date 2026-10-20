@@ -10,7 +10,6 @@ import {
   Phone,
   Save,
   StickyNote,
-  Target,
   Wrench,
 } from "lucide-react";
 import api from "../api/client";
@@ -237,7 +236,7 @@ export default function OpportunityDetail() {
       <PageHeader eyebrow="Sales opportunity" title={item.title} description={item.reference_no || `OPP-${item.id}`} actions={<StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} />} />
 
       {formError && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {formError}
         </div>
       )}
@@ -286,6 +285,7 @@ export default function OpportunityDetail() {
               key={value}
               type="button"
               disabled={saving}
+              aria-pressed={value === item.stage}
               onClick={() => changeStage(value)}
               className={(`rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-60 ${
                 value === item.stage

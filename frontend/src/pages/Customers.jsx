@@ -14,7 +14,6 @@ import {
   Search,
   Upload,
   Users,
-  X,
 } from "lucide-react";
 import api from "../api/client";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
@@ -25,7 +24,9 @@ import useAuth from "../context/useAuth";
 import CustomerAccountStatus from "../components/CustomerAccountStatus";
 import CustomerActivationShare from "../components/CustomerActivationShare";
 import { customerAccountStatus } from "../utils/customerActivation";
-import { Button, EmptyState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import { Button, EmptyState, LoadingState, StatusBadge } from "../components/ui";
+import PageHeader from '../components/ContractorModuleHeader';
+import ContractorDialog from '../components/ContractorDialog';
 import "./crm-pages.css";
 
 const statusColors = {
@@ -352,9 +353,9 @@ export default function Customers() {
   }
 
   return (
-    <div className="space-y-6 crm-page crm-customers-page">
+    <div className="space-y-6 crm-page crm-customers-page contractor-people-page">
       <MobilePageBack />
-      <PageHeader eyebrow="Customer relationships" title="Customers"  actions={
+      <PageHeader icon={Users} eyebrow="Customer relationships" title="Customers" description="Customer details, connection requests and follow-ups in one place." actions={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -362,9 +363,10 @@ export default function Customers() {
             disabled={importing}
             aria-label="Add from phone contacts"
             title="Add from phone contacts"
-            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60 bp-ui-icon-action"
+            className="people-header-action"
           >
             <ContactRound className="h-5 w-5" />
+            <span>Phone contacts</span>
           </button>
           <button
             type="button"
@@ -374,15 +376,16 @@ export default function Customers() {
             }}
             aria-label="Bulk upload customers"
             title="Bulk upload customers"
-            className="grid h-11 w-11 place-items-center rounded-xl border bg-white text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 bp-ui-icon-action"
+            className="people-header-action"
           >
             <Upload className="h-5 w-5" />
+            <span>Import file</span>
           </button>
           <Button variant="primary"
             type="button"
             onClick={() => setShowConnectionFlow(true)}
             aria-label="Add customer"
-            className="crm-add-customer"
+            className="crm-add-customer people-header-action people-primary-action"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />Add customer
           </Button>
@@ -410,8 +413,8 @@ export default function Customers() {
         {!connectionRows.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
       </section>}
 
-      <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} rounded-2xl border border-slate-200 bg-white`}>
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
+      <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} people-surface rounded-2xl border border-slate-200 bg-white`}>
+        <div className="people-toolbar flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5">
             <Search className="h-4 w-4 text-slate-400" />
             <input
@@ -752,20 +755,7 @@ export default function Customers() {
         </div>
       </div>
       {showImport && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-bold bp-ui-section-heading">Bulk import customers</h2>
-                
-              </div>
-              <button
-                onClick={() => setShowImport(false)}
-                className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        <ContractorDialog title="Bulk import customers" description="Upload your customer file or choose phone contacts." icon={Upload} onClose={() => setShowImport(false)}>
             <div className="mt-5 rounded-xl border border-dashed p-6 text-center">
               <Upload className="mx-auto h-8 w-8 text-slate-400" />
               <p className="mt-3 text-sm text-slate-600">
@@ -778,7 +768,8 @@ export default function Customers() {
                   accept=".xlsx,.csv"
                   disabled={importing}
                   onChange={importFile}
-                  className="hidden"
+                  aria-label="Choose Excel or CSV"
+                  className="sr-only"
                 />
               </label>
             </div>
@@ -820,8 +811,7 @@ export default function Customers() {
               </button>
               
             </div>
-          </div>
-        </div>
+        </ContractorDialog>
       )}
       {showConnectionFlow && <CustomerConnectionFlow
         onClose={() => setShowConnectionFlow(false)}
@@ -924,10 +914,11 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
             const whatsappNumber = contactDetailsAvailable ? formatWhatsAppNumber(customer.whatsapp || customer.mobile) : "";
             const canOpen = Boolean(customer.id && (!customer.is_pending_connection || /^\d+$/.test(String(customer.id))));
             const openCustomer = () => { if (canOpen) navigate(`/customers/${customer.id}`); };
-            return <div key={customer.id} role={canOpen ? "button" : undefined} tabIndex={canOpen ? 0 : undefined} onClick={openCustomer} onKeyDown={(event) => { if (canOpen && event.target === event.currentTarget && event.key === "Enter") openCustomer(); }} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition focus:bg-indigo-50/60 focus:outline-none md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,1fr)_auto] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2"><p className="truncate font-bold text-slate-950">{customer.name || "Unnamed customer"}</p><span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>{label(customer.status)}</span></div>
-                <p className="mt-0.5 truncate text-xs text-slate-500">{customer.bharath_id || "No customer ID"} · {customer.mobile || "No mobile"}</p>
+            return <div key={customer.id} onClick={openCustomer} className={`people-contact-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,1fr)_auto] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
+              <div className="contractor-contact-person">
+                <span className="contractor-contact-avatar" aria-hidden="true">{String(customer.name || '?').charAt(0).toUpperCase()}</span>
+                <div><div className="flex flex-wrap items-center gap-2">{canOpen ? <Link className="people-contact-name" to={`/customers/${customer.id}`} onClick={event => event.stopPropagation()}>{customer.name || 'Unnamed customer'}</Link> : <strong className="people-contact-name">{customer.name || 'Unnamed customer'}</strong>}<span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>{label(customer.status)}</span></div>
+                <p className="mt-0.5 break-words text-xs text-slate-500">{customer.bharath_id || "No customer ID"} · {customer.mobile || "No mobile"}</p></div>
               </div>
               <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
               <p className="hidden min-w-0 break-words text-sm font-semibold tabular-nums text-slate-700 md:block">{customer.mobile || "—"}</p>
@@ -937,7 +928,7 @@ function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, 
                 <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><Phone className="h-4 w-4" /></a>
                 <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><MessageCircle className="h-4 w-4" /></a>
               </div>
-              <div className="col-span-2 min-w-0 md:hidden"><p className="truncate text-xs font-semibold text-slate-700">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 text-[11px] text-slate-400">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"} · Tap contact to view</p></div>
+              <div className="col-span-2 min-w-0 md:hidden"><p className="truncate text-xs font-semibold text-slate-700">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 text-[11px] text-slate-600">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"} · Tap contact to view</p></div>
             </div>;
           })}
         </div>

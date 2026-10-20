@@ -6,7 +6,6 @@ import ProviderProfile from "./ProviderProfile";
 import ContractorBusinessSettings from "./ContractorBusinessSettings";
 import ApplicatorProfile from "./ApplicatorProfile";
 import { PageHeader } from "../components/ui";
-import LanguageSelector from "../components/LanguageSelector";
 
 // Contractor Settings uses the approved combined business form. Employee
 // Settings retains its existing personal/trade modules and role-specific APIs.
@@ -35,12 +34,11 @@ export default function Settings() {
     setParams(next, { replace: true });
   };
 
-  if (!isEmployee) return <div className="space-y-6"><LanguageSelector /><ContractorBusinessSettings /></div>;
+  if (!isEmployee) return <div className="space-y-6"><ContractorBusinessSettings /></div>;
 
   if (isEmployee) {
     return (
       <div className="space-y-6">
-        <LanguageSelector />
         <PageHeader
           eyebrow="Settings"
           title="Your trade and personal details"

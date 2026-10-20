@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import "./admin-portal.css";
 
@@ -73,8 +74,8 @@ export default function SupportWorkspace() {
   }
 
   if (!["ADMIN", "SUPPORT"].includes(user?.role)) return <p className="rounded-xl border bg-white p-6">Support access only.</p>;
-  return <div className="mx-auto max-w-6xl space-y-5">
-    <header className="bp-ui-page-header"><p className="text-sm font-semibold text-[var(--app-primary)]">Support operations</p><h1 className="text-3xl font-bold bp-ui-page-title">Recovery Center</h1></header>
+  return <div className="admin-ui-page mx-auto max-w-6xl space-y-5">
+    <PageHeader eyebrow="Support operations" title="Recovery Center" description="Find records and follow the existing account recovery workflow." />
     <div className="rounded-xl border bg-white p-4 text-sm text-slate-600"><strong className="text-slate-900">Common cases:</strong> sign-in → verify account and send recovery instructions; quotation → restore or cancel an unlinked draft; invoice, payment or submitted measurement → document the issue in a ticket and escalate to an administrator.</div>
     <section className="grid gap-3 sm:grid-cols-2">{guides.map(([title, body]) => <details key={title} className="rounded-xl border bg-white p-4"><summary className="cursor-pointer text-sm font-semibold">{title}</summary><p className="mt-2 text-sm text-slate-600">{body}</p></details>)}</section>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}

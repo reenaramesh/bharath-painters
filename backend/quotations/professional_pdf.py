@@ -20,6 +20,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import CondPageBreak, Flowable, Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from PIL import Image as PILImage, ImageDraw, ImageOps
 from .product_details import consolidated_product_details
+from django.db.models import Prefetch
+from .models import PropertyRoom
+from .measurement_storage import readable_measurement_rows, readable_surfaces
 
 
 INK = colors.HexColor("#172033")
@@ -887,7 +890,7 @@ def build_quotation_pdf(quotation, included_sections=None):
         service = item.service_name_snapshot or item.custom_service_type or (item.service_type.name if item.service_type else "")
         room_names = list(dict.fromkeys(entry.get("room_name") for entry in details.get("contributions", []) if entry.get("room_name") and float(entry.get("quantity", 0)) > 0))
         room = ", ".join(room_names) or quotation_room_area_label(item)
-        surfaces = details.get("surfaces") or [details.get("surface") or item.surface_type]
+        surfaces = details.get("surfaces") or [details.get("surface") or ""]
         surface = " + ".join(surface_label(value) for value in surfaces if value)
         product = item.product_type_name_snapshot or item.custom_product_type or (item.paint_type.name if item.paint_type else "")
         brand = item.brand_name_snapshot or item.custom_brand or (item.paint_brand.name if item.paint_brand else "")
@@ -1127,7 +1130,49 @@ def _measurement_pdf_header(context, reference, version, measured_on, s, palette
     return [heading, details]
 
 
+def _measurement_number(value):
+    return _indian_number(value, 4).rstrip("0").rstrip(".")
+
+
+def _measurement_area(value):
+    return f"{_measurement_number(value)} sq.ft"
+
+
+def _measurement_deductions(openings, property_obj, s, palette, fonts):
+    rows = [["Deduction / affected surface", "Dimensions / quantity", "Reason / effective deduction", "Affected surface net area"]]
+    shown_surfaces = set()
+    for opening in openings:
+        if opening.effect != "DEDUCT" or opening.effective_deduction <= 0:
+            continue
+        surface = opening.surface
+        target = surface.get_surface_type_display().replace("Paintable ", "")
+        if surface.area_group_name:
+            target += f" / {surface.area_group_name}"
+        if surface.name and surface.name != "__ROOM_ADJUSTMENTS__":
+            target += f" / {surface.name}"
+        dimensions = f"{_measurement_number(opening.height)} x {_measurement_number(opening.width)} x {opening.quantity}"
+        measured = property_obj.area_to_sqft(opening.quantity * opening.width * opening.height)
+        percent = opening.deduction_percentage if opening.deduction_mode == "PERCENTAGE" else Decimal("100")
+        reason = f"Deduct {_measurement_number(percent)}%: {_measurement_number(measured)} x {_measurement_number(percent)}% = -{_measurement_area(opening.effective_deduction)}"
+        net = ""
+        if surface.pk not in shown_surfaces:
+            shown_surfaces.add(surface.pk)
+            before = surface.gross_area + surface.addition_area
+            net = f"Before deductions: {_measurement_area(before)}<br/>Total deductions: {_measurement_area(surface.deduction_area)}<br/>After deductions: {_measurement_area(surface.net_area)}"
+            if surface.deduction_area > before:
+                net += "<br/>Surface net area is limited to zero."
+        rows.append([Paragraph(f"{_text(opening.name or opening.get_opening_type_display())}<br/>Applies to: {_text(target)}", s["body"]),
+            Paragraph(f"{_text(dimensions)} ({_text(property_obj.linear_unit_label)}) = {_measurement_area(measured)}", s["body"]),
+            Paragraph(_text(reason), s["body"]), Paragraph(net, s["body"])])
+    if len(rows) == 1:
+        return []
+    return [CondPageBreak(32*mm), Paragraph("DEDUCTION EXPLANATION", s["section"]),
+        _data_table(rows, [44*mm, 35*mm, 49*mm, 52*mm], numeric_from=4, font_size=7.1,
+            header_color=palette["dark"], header_text_color=palette["on_dark"], body_text_color=palette["text"], fonts=fonts), Spacer(1, 2*mm)]
+
+
 def _measurement_aggregate_table(groups, total_label, s, palette, fonts, totals_only=False):
+    area = _measurement_area
     buckets = [("Walls", "WALL"), ("Ceilings", "CEILING"), ("Doors", "DOOR"), ("Windows", "WINDOW"), ("Other surfaces", "OTHER")]
     def bucket(surface):
         return surface.surface_type if surface.surface_type in {"WALL", "CEILING", "DOOR", "WINDOW"} else "OTHER"
@@ -1153,6 +1198,7 @@ def _measurement_aggregate_table(groups, total_label, s, palette, fonts, totals_
 
 
 def build_measurement_pdf(property_obj, measurement_record=None):
+    area = _measurement_area
     buffer = BytesIO()
     contractor = (measurement_record.contractor if measurement_record else None) or property_obj.contractor or property_obj.customer.contractor
     context = _contractor_context(contractor, {}, prefer_profile=True)
@@ -1169,7 +1215,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     if measurement_record:
         surface_scope = surface_scope.filter(measurement_record=measurement_record)
         room_scope = room_scope.filter(measurement_record=measurement_record)
-    surfaces = list(surface_scope.select_related("room").prefetch_related("openings"))
+    surfaces = list(readable_surfaces(surface_scope).prefetch_related(
+        Prefetch("room", queryset=readable_measurement_rows(PropertyRoom.objects.all()))))
     wall = sum((x.net_area for x in surfaces if x.surface_type == "WALL"), Decimal("0"))
     ceiling = sum((x.net_area for x in surfaces if x.surface_type == "CEILING"), Decimal("0"))
     window_surfaces = [x for x in surfaces if x.surface_type == "WINDOW"]
@@ -1216,7 +1263,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
         opening_cards.extend([("Door area", area(door_area)), ("Door qty", quantity(door_quantity))])
     if opening_cards:
         story.extend([_summary_cards(opening_cards, s, palette=palette), Spacer(1, 2*mm)])
-    rooms = list(room_scope.select_related("room_type"))
+    rooms = list(readable_measurement_rows(room_scope).select_related("room_type"))
     groups = [(room.name, [x for x in surfaces if x.room_id == room.id]) for room in rooms]
     unassigned = [x for x in surfaces if not x.room_id]
     if unassigned: groups.append((property_obj.name or "General area", unassigned))
@@ -1306,34 +1353,18 @@ def build_measurement_pdf(property_obj, measurement_record=None):
                 if surface.surface_type == "OTHER"
                 else surface.get_surface_type_display().replace("Paintable ", "")
             )
-            first_dimension = quantity(surface.length) if not surface.manual_area else ""
-            second_dimension = quantity(surface.breadth) if not surface.manual_area else ""
+            first_dimension = _measurement_number(surface.length) if not surface.manual_area else ""
+            second_dimension = _measurement_number(surface.breadth) if not surface.manual_area else ""
             if surface.manual_area:
-                calculation = f"Manual {quantity(surface.manual_area)} {property_obj.input_area_unit_label}"
+                calculation = f"Manual {_measurement_number(surface.manual_area)} {property_obj.input_area_unit_label}"
             else:
-                factors = [quantity(surface.length), quantity(surface.breadth)]
+                factors = [_measurement_number(surface.length), _measurement_number(surface.breadth)]
                 if surface.quantity != 1:
                     factors.append(quantity(surface.quantity))
                 if surface.paintable_sides != 1:
                     factors.append(f"{surface.paintable_sides} sides")
                 calculation = " x ".join(factors)
             rows.append([category, Paragraph(_text(surface.name), s["body"]), first_dimension, second_dimension, str(surface.quantity), calculation, classification, area(surface.gross_area)])
-        for opening in values["openings"]:
-            if opening.area <= 0:
-                continue
-            measured_area = property_obj.area_to_sqft(opening.quantity * opening.width * opening.height)
-            if opening.effect == "ADD":
-                action = "Add"
-            elif opening.deduction_mode == "IGNORE":
-                action = "Reference"
-            elif opening.deduction_mode == "PERCENTAGE":
-                action = f"Deduct {quantity(opening.deduction_percentage)}%"
-            else:
-                action = "Deduct"
-            calculation = f"{quantity(opening.height)} x {quantity(opening.width)}"
-            if opening.quantity != 1:
-                calculation += f" x {opening.quantity}"
-            rows.append([opening.get_opening_type_display(), Paragraph(f"{_text(opening.name)}<br/>{_text(action)}", s["body"]), quantity(opening.height), quantity(opening.width), str(opening.quantity), calculation, classification, area(measured_area)])
         totals = [
             ("Wall total", values["wall_gross"]),
             ("Door total", values["doors"]),
@@ -1362,6 +1393,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
             total_styles.extend([("TOPPADDING", (0, 0), (-1, -1), 2.2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2)])
             table.setStyle(TableStyle(total_styles))
             story.append(KeepTogether([Paragraph(_text(room_name), s["section"]), table, Spacer(1, 2*mm)]))
+        story.extend(_measurement_deductions(values["openings"], property_obj, s, palette, fonts))
+    overall_start = len(story)
     story.extend([Spacer(1, 2*mm), Paragraph("OVERALL TOTALS", s["section"]),
                   _measurement_aggregate_table(populated_groups, "TOTAL MEASURED AREA", s, palette, fonts, totals_only=True)])
     if measurement_record and measurement_record.notes: story += _section("Measurement remarks", measurement_record.notes, s, palette)
@@ -1369,6 +1402,8 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     signature = Table([[Paragraph("PREPARED BY", s["label"]), Paragraph("SIGNATURE", s["label"])], [Paragraph(_text(prepared), s["body"]), ""]], colWidths=[90*mm, 90*mm])
     signature.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), .5, LINE), ("INNERGRID", (0, 0), (-1, -1), .5, LINE), ("BACKGROUND", (0, 0), (-1, 0), PANEL), ("TOPPADDING", (0, 1), (-1, 1), 12), ("BOTTOMPADDING", (0, 1), (-1, 1), 5), ("LEFTPADDING", (0, 0), (-1, -1), 6)]))
     story += [Spacer(1, 1*mm), KeepTogether(signature)]
+    # Keep the final totals with their sign-off instead of orphaning a signature.
+    story[overall_start:] = [KeepTogether(story[overall_start:])]
     doc.build(story, onFirstPage=lambda c,d: _footer(c,d,context["company"],palette,fonts,context["logo"],context["logo_shape"]), onLaterPages=lambda c,d: _footer(c,d,context["company"],palette,fonts,context["logo"],context["logo_shape"]))
     buffer.seek(0)
     return buffer

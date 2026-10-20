@@ -12,6 +12,10 @@ import { previewPdf } from "../components/PdfPreview";
 import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { measurementRoomTable, roomMeasurementSurfaces } from "../utils/measurementRoomTable";
+import useAuth from "../context/useAuth";
+import OfflineQueueStatus from "../components/OfflineQueueStatus";
+import { enqueueOfflineOperation, listOfflineOperations } from "../utils/offlineOperationQueue";
+import { measurementEditState } from "../utils/measurementEditState.js";
 
 const SURFACE_TYPES = [
   ["WALL", "Wall"], ["CEILING", "Ceiling"], ["FLOOR", "Floor"],
@@ -80,6 +84,7 @@ const blankDeduction = { type: "Window", name: "", width: "", height: "", quanti
 const blankArea = { painting_area: "", name: "", section: "", description: "", isCustom: false, saveForFuture: false };
 
 export default function MeasurementCalculator() {
+  const { user } = useAuth();
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const measurementId = searchParams.get("measurement") || "";
@@ -98,12 +103,31 @@ export default function MeasurementCalculator() {
   const [viewingArea, setViewingArea] = useState(null);
   const [areaDraft, setAreaDraft] = useState(blankArea);
   const [surfaceDraft, setSurfaceDraft] = useState(blankSurface);
+  const createSurfaceKey = useRef("");
   const [deductionDraft, setDeductionDraft] = useState(blankDeduction);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pendingRoomName, setPendingRoomName] = useState("");
 
   const query = useMemo(() => measurementId ? { measurement: measurementId } : isNew ? { new: 1 } : {}, [measurementId, isNew]);
+  const createRoomKey = useRef("");
+  const refreshPendingRoom = useCallback(async (serverRooms = null) => {
+    if (!user?.id) return;
+    try {
+      const queued = await listOfflineOperations(user.id);
+      const roomRows = queued.filter(row => row.kind === "measurement" && row.endpoint.includes(`/properties/${id}/rooms/`)
+        && (measurementId ? row.endpoint.includes(`measurement=${measurementId}`) : row.endpoint.includes("new=1")));
+      const active = roomRows.find(row => ["PENDING", "AUTH_REQUIRED", "CONFLICT"].includes(row.state));
+      if (active) { setPendingRoomName(active.payload?.name || "New room"); return; }
+      const synced = roomRows.find(row => row.state === "SYNCED");
+      if (synced && serverRooms?.some(room => room.name === synced.payload?.name)) {
+        setPendingRoomName("");
+        setNotice("Your offline room is synced. You can add its surfaces now.");
+      } else if (!synced) setPendingRoomName("");
+    } catch { /* The offline queue panel reports storage failures separately. */ }
+  }, [id, measurementId, user?.id]);
   const load = useCallback(async () => {
     try {
       const calls = [
@@ -123,15 +147,17 @@ export default function MeasurementCalculator() {
       setRecord(recordResult?.data || null);
       const loadedSurfaces = surfaceResult.data.results || surfaceResult.data;
       const loadedRooms = roomResult.data.results || roomResult.data;
+      await refreshPendingRoom(loadedRooms);
       const loadedRecordId = loadedSurfaces[0]?.measurement_record || loadedRooms[0]?.measurement_record;
       if (!measurementId && loadedRecordId) setSearchParams({ measurement: String(loadedRecordId) }, { replace: true });
       setError("");
     } catch {
       setError("Area Calculation could not be loaded.");
     }
-  }, [id, measurementId, query, setSearchParams]);
+  }, [id, measurementId, query, refreshPendingRoom, setSearchParams]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { void refreshPendingRoom(); }, [refreshPendingRoom]);
   useEffect(() => {
     if (!activeAreaId) { roomDefaultApplied.current = ""; return; }
     if (roomDefaultApplied.current === activeAreaId) return;
@@ -178,7 +204,18 @@ export default function MeasurementCalculator() {
     editing || !rooms.some((room) => room.name.trim().toLowerCase() === type.name.trim().toLowerCase())
   );
 
+  function allowMeasurementEdit() {
+    const state = measurementEditState(property, record);
+    if (!state.readOnly) return true;
+    setError(state.reason);
+    return false;
+  }
+
   async function submitMeasurement() {
+    if (!measurementEditState(property, record).canSubmit) {
+      if (!record?.submitted_at) setError("Measurement editing is temporarily unavailable. Saved calculations can still be viewed.");
+      return;
+    }
     const recordId = record?.id || measurementId || surfaces[0]?.measurement_record || rooms[0]?.measurement_record;
     if (!recordId) return;
     setSaving(true);
@@ -209,12 +246,15 @@ export default function MeasurementCalculator() {
   }
 
   async function openAreaDialog(area = null) {
-    let availableRoomTypes;
-    try {
-      const {data} = await api.get("/quotations/areas/");
-      availableRoomTypes = data.results || data;
-      setRoomTypes(availableRoomTypes);
-    } catch { setError("Room sections could not be refreshed. Please retry Add Room."); return; }
+    if (!allowMeasurementEdit()) return;
+    let availableRoomTypes = roomTypes;
+    if (globalThis.navigator?.onLine !== false) {
+      try {
+        const {data} = await api.get("/quotations/areas/");
+        availableRoomTypes = data.results || data;
+        setRoomTypes(availableRoomTypes);
+      } catch { setError("Room sections could not be refreshed. Please retry Add Room."); return; }
+    }
     setEditing(area);
     const known = area && availableRoomTypes.some((item) => item.name.toLowerCase() === area.name.toLowerCase());
     setAreaDraft(area ? {
@@ -225,19 +265,23 @@ export default function MeasurementCalculator() {
   }
   async function saveArea(event) {
     event.preventDefault();
+    if (!allowMeasurementEdit()) return;
     if (!areaDraft.name.trim() || !ROOM_CATEGORIES.some(([value]) => value === areaDraft.painting_area)) return;
     const classification = ROOM_CATEGORIES.some(([value]) => value === areaDraft.painting_area) ? areaDraft.painting_area : roomTypes.find(type => type.name.trim().toLowerCase() === areaDraft.name.trim().toLowerCase())?.painting_area || "OTHER";
     setSaving(true);
+    let payload = null;
     try {
       let roomType = (editing?.name === areaDraft.name.trim() ? editing.room_type : null) || roomTypes.find((item) => item.name.toLowerCase() === areaDraft.name.trim().toLowerCase())?.id || null;
-      if (areaDraft.isCustom && !roomType) {
+      if (!editing) createRoomKey.current = createRoomKey.current || globalThis.crypto?.randomUUID?.() || `room-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      if (areaDraft.isCustom && !roomType && globalThis.navigator?.onLine !== false) {
         const savedType = (await api.post("/quotations/areas/", { name: areaDraft.name.trim(), painting_area:classification })).data;
         roomType = savedType.id;
       }
-      const payload = {
+      payload = {
         name: areaDraft.name.trim(), painting_area:classification, section: areaDraft.section,
         description: areaDraft.description, room_type: roomType,
       };
+      if (!editing) payload.idempotency_key = createRoomKey.current;
       const saved = editing
         ? (await api.patch(`/quotations/rooms/${editing.id}/`, payload)).data
         : (await api.post(`/quotations/properties/${id}/rooms/`, payload, { params: query })).data;
@@ -247,11 +291,29 @@ export default function MeasurementCalculator() {
       setPaintingArea(saved.painting_area === "EXTERIOR" ? "EXTERIOR" : "INTERIOR");
       setDialog("");
       setEditing(null);
+      if (!editing) createRoomKey.current = "";
       setError("");
-    } catch (requestError) { setError(requestMessage(requestError, "Area could not be saved.")); }
+    } catch (requestError) {
+      if (!editing && payload && user?.id && !requestError.response) {
+        try {
+          const endpoint = `/quotations/properties/${id}/rooms/${measurementId ? `?measurement=${measurementId}` : isNew ? "?new=1" : ""}`;
+          await enqueueOfflineOperation({
+            actorId: user.id, kind: "measurement", endpoint, method: "POST", payload,
+            dedupeKey: `room-create:${createRoomKey.current}`,
+            reviewPath: `/properties/${id}/measurements${measurementId ? `?measurement=${measurementId}` : ""}`,
+          });
+          setPendingRoomName(payload.name);
+          setNotice("Room saved on this device as Pending Sync. Sync it and refresh this property before adding surfaces; the server assigns the room ID needed by those measurements.");
+          setDialog(""); setEditing(null); setError(""); createRoomKey.current = "";
+          await refreshPendingRoom();
+          return;
+        } catch (queueError) { setError(queueError.message || "Room could not be saved offline."); }
+      } else setError(requestMessage(requestError, "Area could not be saved."));
+    }
     finally { setSaving(false); }
   }
   async function deleteArea(area) {
+    if (!allowMeasurementEdit()) return;
     if (area.legacy || !window.confirm(`Delete "${area.name}" and every surface and deduction inside it?`)) return;
     try {
       await api.delete(`/quotations/rooms/${area.id}/`);
@@ -261,8 +323,10 @@ export default function MeasurementCalculator() {
   }
 
   function openSurfaceDialog(surface = null, preferredGroup = null) {
+    if (!allowMeasurementEdit()) return;
     const label = surface ? groupLabel(surface) : preferredGroup?.label || "Wall";
     setEditing(surface);
+    createSurfaceKey.current = surface ? "" : createSurfaceKey.current || globalThis.crypto?.randomUUID?.() || `surface-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setSurfaceDraft(surface ? {
       work_area: surface.work_area || workArea, surfaceLabel: label, name: surface.name, length: String(surface.length || ""),
       breadth: String(surface.breadth || ""), quantity: surface.quantity || 1, manual_area:String(surface.manual_area || ""),
@@ -282,6 +346,7 @@ export default function MeasurementCalculator() {
   }
   async function saveSurface(event) {
     event.preventDefault();
+    if (!allowMeasurementEdit()) return;
     const [surfaceType, selectedLabel] = resolveSurfaceType(surfaceDraft.surfaceLabel);
     if (!selectedLabel) {
       setError("Select or enter a surface type.");
@@ -301,6 +366,8 @@ export default function MeasurementCalculator() {
         manual_area: number(surfaceDraft.manual_area), quantity: Math.max(1, parseInt(surfaceDraft.quantity, 10) || 1),
         paintable_sides: editing?.paintable_sides || 1, room: activeAreaId === "exterior" ? null : Number(activeAreaId),
       };
+      if (!editing) payload.idempotency_key = createSurfaceKey.current;
+      if (editing?.updated_at) payload.expected_updated_at = editing.updated_at;
       const saved = editing
         ? (await api.patch(`/quotations/measurements/${editing.id}/`, payload)).data
         : (await api.post(`/quotations/properties/${id}/measurements/`, payload, { params: query })).data;
@@ -308,11 +375,33 @@ export default function MeasurementCalculator() {
       else await load();
       setDialog("");
       setEditing(null);
+      if (!editing) createSurfaceKey.current = "";
       setError("");
-    } catch (requestError) { setError(requestMessage(requestError, "Surface could not be saved.")); }
+    } catch (requestError) {
+      if (!requestError.response && user?.id && (editing || createSurfaceKey.current)) {
+        try {
+          const endpoint = editing
+            ? `/quotations/measurements/${editing.id}/`
+            : `/quotations/properties/${id}/measurements/${measurementId ? `?measurement=${measurementId}` : "?new=1"}`;
+          await enqueueOfflineOperation({
+            actorId: user.id, kind: "measurement", endpoint, method: editing ? "PATCH" : "POST", payload,
+            expectedVersion: editing?.updated_at || null,
+            dedupeKey: editing ? `surface:${editing.id}` : `surface-create:${createSurfaceKey.current}`,
+            reviewPath: `/properties/${id}/measurements${measurementId ? `?measurement=${measurementId}` : ""}`,
+          });
+          setNotice(editing
+            ? "Measurement change saved on this device. It will sync when the app is online; a version conflict will need review."
+            : "New surface saved on this device as Pending Sync. A stable request key prevents duplicate surfaces when it retries.");
+          setDialog(""); setEditing(null); setError("");
+          if (!editing) createSurfaceKey.current = "";
+          return;
+        } catch (queueError) { setError(queueError.message || "Measurement could not be saved offline."); }
+      } else setError(requestMessage(requestError, "Surface could not be saved."));
+    }
     finally { setSaving(false); }
   }
   async function saveSurfaceBatch(surfaceLabel, rows, saveForFuture = false) {
+    if (!allowMeasurementEdit()) return;
     const [surfaceType, selectedLabel] = resolveSurfaceType(surfaceLabel);
     const completed = rows.filter((row) =>
       row.name.trim() && number(row.length) > 0 && number(row.breadth) > 0
@@ -354,6 +443,7 @@ export default function MeasurementCalculator() {
     } finally { setSaving(false); }
   }
   async function deleteSurface(surface) {
+    if (!allowMeasurementEdit()) return;
     if ((surface.openings || []).length) {
       setError("Delete the deductions linked to this surface group before deleting this surface.");
       return;
@@ -364,6 +454,7 @@ export default function MeasurementCalculator() {
   }
 
   function openDeductionDialog(opening = null, group = null) {
+    if (!allowMeasurementEdit()) return;
     const target = opening ? openingKey(opening, opening.parentSurface) : group?.key || activeGroups[0]?.key || "";
     setEditing(opening);
     setDeductionDraft(opening ? {
@@ -375,6 +466,7 @@ export default function MeasurementCalculator() {
   }
   async function saveDeduction(event) {
     event.preventDefault();
+    if (!allowMeasurementEdit()) return;
     const group = activeGroups.find((item) => item.key === deductionDraft.target);
     const anchor = group?.surfaces[0];
     if (!anchor) { setError("Add a surface before adding a deduction to it."); return; }
@@ -406,6 +498,7 @@ export default function MeasurementCalculator() {
     finally { setSaving(false); }
   }
   async function deleteDeduction(opening) {
+    if (!allowMeasurementEdit()) return;
     if (!window.confirm(`Delete "${opening.name || opening.opening_type}" deduction?`)) return;
     try { await api.delete(`/quotations/measurement-openings/${opening.id}/`); await load(); }
     catch (requestError) { setError(requestMessage(requestError, "Deduction could not be deleted.")); }
@@ -432,8 +525,14 @@ export default function MeasurementCalculator() {
   return (
     <main className="bp-calculator quotation-measurement-page bp-measurement-calculator -m-4 min-h-screen bg-[#f4f6f9] pb-24 text-[#12345b] sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
       <div className="mx-auto max-w-7xl p-4 sm:p-0">
+        <OfflineQueueStatus actorId={user?.id} />
+        {property?.measurement_editing_available === false && <p role="status" className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Saved calculations are available to view. Editing is temporarily unavailable.</p>}
+        {record?.status === "LOCKED" && property?.measurement_editing_available !== false && <p role="status" className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">This Area Calculation is used in a quotation and cannot be changed.</p>}
+        {notice && <p role="status" className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{notice}</p>}
+        {pendingRoomName && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><span><b>Room pending sync:</b> {pendingRoomName}. Sync and refresh this property before adding surfaces.</span><button type="button" onClick={() => void load()} className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 font-semibold">Refresh property</button></div>}
         {!activeArea ? (
           <AreaList property={property} record={record} areas={areas} summaries={areaSummaries}
+            pendingRoomName={pendingRoomName}
             totals={totals} openArea={openAreaDialog} deleteArea={deleteArea}
             viewArea={setViewingArea} editArea={(area) => { setActiveAreaId(String(area.id)); if (area.legacy) setPaintingArea("EXTERIOR"); setTab("surfaces"); }}
             downloadPdf={downloadPdf} submitMeasurement={submitMeasurement} submitting={saving} measurementId={measurementId} isNew={isNew} savedTotals={savedTotals} />
@@ -455,12 +554,12 @@ export default function MeasurementCalculator() {
       {dialog === "area" && <AreaDialog draft={areaDraft} setDraft={setAreaDraft} editing={editing} save={saveArea} close={() => setDialog("")} saving={saving} roomTypes={selectableRoomTypes} />}
       {dialog === "surface" && <SurfaceDialog draft={surfaceDraft} setDraft={setSurfaceDraft} save={saveSurface} close={() => setDialog("")} saving={saving} unit={linearUnit} liveArea={liveSurfaceArea} editing={editing} />}
       {dialog === "deduction" && <DeductionDialog draft={deductionDraft} setDraft={setDeductionDraft} groups={activeGroups} save={saveDeduction} close={() => setDialog("")} saving={saving} unit={linearUnit} liveArea={liveDeductionArea} editing={editing} />}
-      {viewingArea && <AreaViewDialog area={viewingArea} summary={areaSummaries.get(String(viewingArea.id))} close={() => setViewingArea(null)} edit={() => { setViewingArea(null); setActiveAreaId(String(viewingArea.id)); setTab("surfaces"); }} />}
+      {viewingArea && <AreaViewDialog area={viewingArea} summary={areaSummaries.get(String(viewingArea.id))} readOnly={measurementEditState(property, record).readOnly} close={() => setViewingArea(null)} edit={() => { setViewingArea(null); setActiveAreaId(String(viewingArea.id)); setTab("surfaces"); }} />}
     </main>
   );
 }
 
-function AreaActions({ area, viewArea, editArea, deleteArea }) {
+function AreaActions({ area, viewArea, editArea, deleteArea, readOnly = false }) {
   const menuRef = useRef(null);
   useEffect(() => {
     const dismiss = (event) => {
@@ -491,13 +590,14 @@ function AreaActions({ area, viewArea, editArea, deleteArea }) {
     <summary title="Room actions" aria-label={`Actions for ${area.name}`} className="bp-ui-icon-action"><MoreHorizontal className="h-5 w-5" /></summary>
     <div className="measurement-area-action-list" role="group" aria-label={`Actions for ${area.name}`}>
       <button type="button" onClick={() => act(viewArea)}><Eye className="h-5 w-5" />View</button>
-      <button type="button" onClick={() => act(editArea)}><Pencil className="h-5 w-5" />Edit</button>
-      {!area.legacy && <button type="button" className="measurement-area-action-delete" onClick={() => act(deleteArea)}><Trash2 className="h-5 w-5" />Delete</button>}
+      <button type="button" disabled={readOnly} onClick={() => act(editArea)}><Pencil className="h-5 w-5" />Edit</button>
+      {!area.legacy && <button type="button" className="measurement-area-action-delete" disabled={readOnly} onClick={() => act(deleteArea)}><Trash2 className="h-5 w-5" />Delete</button>}
     </div>
   </details>;
 }
 
-function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, editArea, downloadPdf, submitMeasurement, submitting, measurementId, isNew, savedTotals }) {
+function AreaList({ property, record, areas, summaries, totals, openArea, deleteArea, viewArea, editArea, downloadPdf, submitMeasurement, submitting, measurementId, isNew, savedTotals, pendingRoomName }) {
+  const editState = measurementEditState(property, record);
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileTab, setMobileTab] = useState("rooms");
@@ -513,16 +613,16 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
       <button type="button" onClick={goBack} className="measurement-back bp-ui-action"><ArrowLeft aria-hidden="true" />Properties</button>
       <div className="measurement-header-main">
         <div className="measurement-heading">
-          <div className="measurement-title-row"><h1 className="bp-ui-page-title">Measurements</h1><StatusBadge status={record?.submitted_at ? "SUBMITTED" : "DRAFT"} tone={record?.submitted_at ? "success" : "neutral"} /></div>
+          <div className="measurement-title-row"><h1 className="bp-ui-page-title">Measurements</h1><StatusBadge status={editState.status} tone={editState.tone} /></div>
           <p className="measurement-property">{property.name || property.property_type}</p>
           <p className="measurement-meta">{[record?.reference_no, property.property_type, property.city].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="measurement-area-meter"><div><p>Total measured area</p><strong className="measurement-area-value">{areaText(totals.net)}</strong><p>{areas.length} rooms · {totals.surfaces} surfaces · {totals.deductions} deductions</p></div><Ruler aria-hidden="true" /></div>
       </div>
       <div className="measurement-actions">
-        <button type="button" onClick={submitMeasurement} disabled={submitting || !totals.surfaces || !!record?.submitted_at} aria-busy={submitting} className="measurement-action measurement-action-primary measurement-submit bp-ui-action"><Check aria-hidden="true" />{submitting ? "Submitting..." : record?.submitted_at ? "Submitted" : "Submit"}</button>
+        <button type="button" onClick={submitMeasurement} disabled={!editState.canSubmit || submitting || !totals.surfaces} aria-busy={submitting} className="measurement-action measurement-action-primary measurement-submit bp-ui-action"><Check aria-hidden="true" />{submitting ? "Submitting..." : editState.submitLabel}</button>
         <button type="button" disabled={waitingForFirstSave} onClick={downloadPdf} className="measurement-action bp-ui-action"><Download aria-hidden="true" />View PDF</button>
-        {waitingForFirstSave
+        {(waitingForFirstSave || property?.measurement_editing_available === false)
           ? <button type="button" disabled className="measurement-action bp-ui-action"><FilePlus2 aria-hidden="true" />New quotation</button>
           : <Link to={`/quotations/new?customer=${property.customer}&property=${property.id}${measurementId ? `&measurement=${measurementId}` : ""}`} className="measurement-action"><FilePlus2 aria-hidden="true" />New quotation</Link>}
       </div>
@@ -544,7 +644,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
               <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{area.name}</strong><small className="mt-1 block text-xs text-slate-500">{summary.surfaceCount ? `${summary.surfaceCount} surfaces · ${summary.deductions} deductions` : "No measurements yet"}</small></span>
               <span className="shrink-0 text-right text-xs font-extrabold">{summary.surfaceCount > 0 && areaText(summary.net)}<ChevronRight className={`ml-auto mt-1 h-4 w-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} /></span>
             </button>
-            <AreaActions area={area} viewArea={viewArea} editArea={editArea} deleteArea={deleteArea} />
+            <AreaActions area={area} viewArea={viewArea} editArea={editArea} deleteArea={deleteArea} readOnly={editState.readOnly} />
             </div>
             {expanded && <div className="border-t border-[#e7edf1] px-4 pb-4 pt-3">
               {summary.groups?.length ? <div className="space-y-1 text-xs text-slate-600">{summary.groups.map((group) => <div key={group.key} className="flex justify-between gap-2"><span>{group.label}</span><b className="text-[#193750]">{areaText(group.net)}</b></div>)}</div> : null}
@@ -558,7 +658,7 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
     <section className="hidden rounded-2xl border border-[#e1e7ef] bg-white p-4 shadow-sm sm:p-6 md:block">
       <div className="flex items-center justify-between gap-3">
         <div><h2 className="text-lg font-extrabold bp-ui-section-heading">Areas</h2></div>
-        <button onClick={() => openArea()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white bp-ui-action"><Plus className="h-4 w-4" />Add Room</button>
+        <button disabled={!!pendingRoomName || editState.readOnly} onClick={() => openArea()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#176b9b] px-4 font-bold text-white disabled:opacity-50 bp-ui-action"><Plus className="h-4 w-4" />Add Room</button>
       </div>
       <div className="measurement-area-cards mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {areas.map((area) => {
@@ -573,13 +673,13 @@ function AreaList({ property, record, areas, summaries, totals, openArea, delete
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
             </button>
-            <AreaActions area={area} viewArea={viewArea} editArea={editArea} deleteArea={deleteArea} />
+            <AreaActions area={area} viewArea={viewArea} editArea={editArea} deleteArea={deleteArea} readOnly={editState.readOnly} />
           </article>;
         })}
         {!areas.length && <div className="rounded-xl border border-dashed p-10 text-center text-slate-500 md:col-span-2 lg:col-span-4"><Ruler className="mx-auto mb-3 h-8 w-8" />No rooms added.</div>}
       </div>
     </section>
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden"><button type="button" onClick={() => openArea()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white bp-ui-action"><Plus className="h-4 w-4" />Add Room</button></div>
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dbe4ef] bg-white px-4 py-3 shadow-[0_-8px_25px_rgba(15,23,42,.10)] md:hidden"><button type="button" disabled={!!pendingRoomName || editState.readOnly} onClick={() => openArea()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#176b9b] text-sm font-bold text-white disabled:opacity-50 bp-ui-action"><Plus className="h-4 w-4" />Add Room</button></div>
   </div>;
 }
 
@@ -598,6 +698,7 @@ function RoomTotalsTable({ data }) {
 }
 
 function AreaDetail({ area, property, record, groups, summary, tab, setTab, back, editRoom, editSurface, deleteSurface, addDeduction, editDeduction, deleteDeduction, surfaceTypes, saveSurfaceBatch, saving, unit, multiplier, savedTotals }) {
+  const editState = measurementEditState(property, record);
   const adjustments = groups.flatMap((group) => [
     ...group.deductions.map((item) => ({ ...item, targetLabel: group.label })),
     ...group.additions.map((item) => ({ ...item, targetLabel: group.label })),
@@ -607,14 +708,14 @@ function AreaDetail({ area, property, record, groups, summary, tab, setTab, back
       <button type="button" onClick={back} className="measurement-back bp-ui-action"><ArrowLeft aria-hidden="true" />All rooms</button>
       <div className="measurement-header-main">
         <div className="measurement-heading">
-          <div className="measurement-title-row"><h1 className="bp-ui-page-title">{area.name}</h1><StatusBadge status={record?.submitted_at ? "SUBMITTED" : "DRAFT"} tone={record?.submitted_at ? "success" : "neutral"} /></div>
+          <div className="measurement-title-row"><h1 className="bp-ui-page-title">{area.name}</h1><StatusBadge status={editState.status} tone={editState.tone} /></div>
           <p className="measurement-property">{property?.name || property?.property_type}</p>
           <p className="measurement-meta">{[area.section || "Area measurement", record?.reference_no].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="measurement-area-meter"><div><p>Net measured area</p><strong className="measurement-area-value">{areaText(summary.net)}</strong></div><Ruler aria-hidden="true" /></div>
       </div>
       {!area.legacy && <div className="measurement-actions">
-        {!area.legacy && <button type="button" onClick={editRoom} className="measurement-action bp-ui-action"><Pencil aria-hidden="true" />Change Room</button>}
+        {!area.legacy && <button type="button" disabled={editState.readOnly} onClick={editRoom} className="measurement-action bp-ui-action"><Pencil aria-hidden="true" />Change Room</button>}
       </div>}
       <nav className="measurement-tabs" aria-label="Room measurement view">
         {[["surfaces", "Surfaces", Layers3], ["deductions", "Deduct / Add", Plus], ["summary", "Summary", Ruler]].map(([key, label, Icon]) =>
@@ -622,8 +723,8 @@ function AreaDetail({ area, property, record, groups, summary, tab, setTab, back
       </nav>
     </header>
     {savedTotals}
-    {tab === "surfaces" && <SurfaceTab groups={groups} editSurface={editSurface} deleteSurface={deleteSurface} surfaceTypes={surfaceTypes} saveBatch={saveSurfaceBatch} saving={saving} unit={unit} multiplier={multiplier} />}
-    {tab === "deductions" && <DeductionTab groups={groups} deductions={adjustments} addDeduction={addDeduction} editDeduction={editDeduction} deleteDeduction={deleteDeduction} />}
+    {tab === "surfaces" && <fieldset disabled={editState.readOnly} className="contents"><SurfaceTab groups={groups} editSurface={editSurface} deleteSurface={deleteSurface} surfaceTypes={surfaceTypes} saveBatch={saveSurfaceBatch} saving={saving} unit={unit} multiplier={multiplier} /></fieldset>}
+    {tab === "deductions" && <fieldset disabled={editState.readOnly} className="contents"><DeductionTab groups={groups} deductions={adjustments} addDeduction={addDeduction} editDeduction={editDeduction} deleteDeduction={deleteDeduction} /></fieldset>}
     {tab === "summary" && <SummaryTab groups={groups} summary={summary} deductions={adjustments} />}
   </div>;
 }
@@ -762,7 +863,7 @@ function SummaryStat({ tone, label, value }) {
   return <div className={`rounded-xl border p-3 text-center sm:p-5 ${colors[tone]}`}><p className="text-[10px] font-bold uppercase leading-tight sm:text-xs">{label}</p><b className="mt-2 block text-lg sm:text-2xl">{number(value).toFixed(0)}</b><small>sq.ft</small></div>;
 }
 
-function AreaViewDialog({ area, summary, close, edit }) {
+function AreaViewDialog({ area, summary, close, edit, readOnly = false }) {
   const groups = summary?.groups || [];
   const [openGroups, setOpenGroups] = useState(() => new Set());
   const toggleGroup = (key) => setOpenGroups((current) => {
@@ -795,7 +896,7 @@ function AreaViewDialog({ area, summary, close, edit }) {
         })}
         {!groups.length && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">No measurements saved for this room.</p>}
       </div>
-      <button onClick={edit} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white bp-ui-action"><Pencil className="mr-2 inline h-4 w-4" />Edit Measurements</button>
+      <button onClick={edit} className="min-h-12 w-full rounded-lg bg-[#176b9b] font-bold text-white bp-ui-action">{readOnly ? <Eye className="mr-2 inline h-4 w-4" /> : <Pencil className="mr-2 inline h-4 w-4" />}{readOnly ? "View Measurements" : "Edit Measurements"}</button>
     </div>
   </DialogShell>;
 }

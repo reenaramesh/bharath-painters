@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GripVertical, Plus, Search, Share2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 
 const groups = ["All", "Chromatics", "Colours of India", "Whites", "Fandeck"];
@@ -205,11 +206,7 @@ export default function ColorsShades() {
   }
 
   return <div className="mx-auto max-w-6xl space-y-5 p-4 pb-24 sm:p-6">
-    <header className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 bp-ui-page-header">
-      <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-primary,#176b9b)]">Work · Colour studio</p>
-      <h1 className="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl bp-ui-page-title">Colors &amp; Shades</h1>
-      
-    </header>
+    <PageHeader eyebrow="Colour studio" title="Colors & Shades" description="Compare paint shades and share your selected combinations." />
     <section className={`rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 ${draftLoaded ? "" : "pointer-events-none opacity-60"}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900 bp-ui-section-heading">Your comparison</h2><p className="text-xs text-slate-500">{selected.filter(Boolean).length} of 8 colours selected · Drag a shade to another slot</p></div><button type="button" onClick={openShare} disabled={!selected.some(Boolean)} className="flex items-center gap-2 rounded-lg bg-[var(--app-primary,#176b9b)] text-[var(--app-on-primary,#fff)] px-4 py-2 text-sm font-bold text-white disabled:opacity-40 bp-ui-action"><Share2 className="h-4 w-4" />Share in Messages</button></div>
       {notice && <p role="status" className="mb-3 text-sm text-[var(--app-primary,#176b9b)]">{notice}</p>}

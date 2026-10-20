@@ -53,6 +53,9 @@ class BillingLifecycleTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_expired_subscription_falls_back_to_free_plan(self):
+        # --keepdb does not recreate data-migration seeds after a test flush.
+        BillingPlan.objects.get_or_create(audience="CONTRACTOR", billing_cycle="FREE", is_active=True,
+            defaults={"name": "Contractor Free", "price": 0, "quotation_limit": 5, "employee_limit": 2})
         Subscription.objects.create(user=self.contractor, plan=self.plan, start_date=timezone.localdate()-timedelta(days=40), end_date=timezone.localdate()-timedelta(days=10), is_active=True)
         self.client.force_authenticate(self.contractor)
         response = self.client.get("/api/billing/me/")

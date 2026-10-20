@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
-import LanguageSelector from "../components/LanguageSelector";
 
 export default function RecoveryEmailSettings() {
   const navigate = useNavigate();
@@ -92,8 +92,7 @@ export default function RecoveryEmailSettings() {
   if (loading && !account) return <div className="p-12 text-center text-slate-500">Loading account security...</div>;
   if (!account) return <div className="mx-auto max-w-2xl rounded-2xl border bg-white p-6"><h1 className="text-2xl font-bold bp-ui-page-title">Account Security</h1><p role="alert" className="mt-3 text-sm text-red-700">{error || "Account security details could not be loaded."}</p><button type="button" onClick={load} className="mt-4 rounded-xl bg-[#176b9b] px-4 py-2 text-sm font-bold text-white bp-ui-action">Try again</button></div>;
    return <div className={`mx-auto max-w-2xl space-y-6 ${user?.role === "CUSTOMER" ? "customer-security-page" : ""}`}>
-    <LanguageSelector />
-     <header className="bp-ui-page-header"><p className="text-sm font-semibold text-[#176b9b]">Your account</p><h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Account Security</h1></header>
+     <PageHeader eyebrow="Your account" title="Account Security" description="Manage your recovery email, password and account controls." />
      {user?.role === "CUSTOMER" && <section className="customer-security-pulse" aria-label="Security summary">
        <div className="is-ready"><span>Password login</span><strong>Protected</strong><small>Change it anytime below</small></div>
        <div className={account?.verified ? "is-ready" : "is-action"}><span>Recovery email</span><strong>{account?.verified ? "Verified" : "Not verified"}</strong><small>{account?.masked_email || "Manage from My Profile"}</small></div>

@@ -20,6 +20,7 @@ import { previewPdf } from "../components/PdfPreview";
 import { Button, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { continueMeasurementPath } from "../utils/measurementRecords.js";
+import { loadPropertyDetail } from "../utils/propertyDetailLoad.js";
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -37,24 +38,22 @@ export default function PropertyDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [measurementError, setMeasurementError] = useState("");
+  const [customerError, setCustomerError] = useState("");
   const backPath = returnTo || customerPath || "/properties";
   const returnsToCustomer = backPath.startsWith("/customers/");
+  const measurementEditingAvailable = property?.measurement_editing_available !== false;
 
   const load = useCallback(async () => {
     try {
-      const [p, r, m, records, c] = await Promise.all([
-        api.get(`/quotations/properties/${id}/`),
-        api.get(`/quotations/properties/${id}/rooms/`),
-        api.get(`/quotations/properties/${id}/measurements/`),
-        api.get(`/quotations/properties/${id}/measurement-records/`),
-        api.get("/quotations/customers/"),
-      ]);
-      setProperty(p.data);
-      setRooms(r.data.results || r.data);
-      setMeasurements(m.data.results || m.data);
-      const savedRecords = records.data.results || records.data;
-      setMeasurementRecords(savedRecords);
-      setCustomers(c.data.results || c.data);
+      const loaded = await loadPropertyDetail(api, id);
+      setProperty(loaded.property);
+      setRooms(loaded.rooms);
+      setMeasurements(loaded.measurements);
+      setMeasurementRecords(loaded.measurementRecords);
+      setCustomers(loaded.customers);
+      setMeasurementError(loaded.measurementError);
+      setCustomerError(loaded.customerError);
       setError("");
     } catch {
       setError("Property details could not be loaded.");
@@ -143,6 +142,7 @@ export default function PropertyDetail() {
     <div className="space-y-6 quotation-measurement-page bp-property-detail">
       <BackButton fallback={backPath} label={returnsToCustomer ? "Back to customer" : "Back to properties"} />
       <PageHeader eyebrow="Property" title={property.name || property.property_type} description={customer?.name ? `Customer · ${customer.name}` : "Project details and saved area calculations."} />
+      {customerError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{customerError}</p>}
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -195,12 +195,18 @@ export default function PropertyDetail() {
             </div>
         </div>
         <div className="px-4 pt-4 sm:px-6">
-        <SectionCard title="Saved Area Calculations" description="Save interior and exterior areas together, then choose them in your quotation." className="bp-measurement-records" bodyClassName="p-0" action={<div className="bp-page-actions measurement-record-actions"><Button onClick={createMeasurement}><Plus className="h-4 w-4" aria-hidden="true" />{hasEditableMeasurement ? "Continue measurement" : "Start measurement"}</Button>{hasEditableMeasurement && <button type="button" onClick={() => navigate(`/properties/${id}/measurements?new=1`)} className="min-h-11 rounded-xl border px-3 text-sm font-semibold bp-ui-action">New</button>}</div>}>
-        {measurementRecords.length ? (
+        <SectionCard title="Saved Area Calculations" description="Save interior and exterior areas together, then choose them in your quotation." className="bp-measurement-records" bodyClassName="p-0" action={<div className="bp-page-actions measurement-record-actions"><Button disabled={Boolean(measurementError) || !measurementEditingAvailable} onClick={createMeasurement}><Plus className="h-4 w-4" aria-hidden="true" />{measurementEditingAvailable && hasEditableMeasurement ? "Continue measurement" : "Start measurement"}</Button>{!measurementError && measurementEditingAvailable && hasEditableMeasurement && <button type="button" onClick={() => navigate(`/properties/${id}/measurements?new=1`)} className="min-h-11 rounded-xl border px-3 text-sm font-semibold bp-ui-action">New</button>}</div>}>
+        {!measurementError && !measurementEditingAvailable && <p role="status" className="p-4 text-sm text-slate-600">Saved calculations are available to view. Editing is temporarily unavailable.</p>}
+        {measurementError ? (
+          <div role="alert" className="space-y-3 p-6 text-sm text-red-700">
+            <p>{measurementError}</p>
+            <Button variant="secondary" onClick={load}>Retry measurements</Button>
+          </div>
+        ) : measurementRecords.length ? (
           <>
           <div className="grid gap-3 p-3 md:hidden">
             {measurementRecords.map((record) => {
-              const editable = record.status === "DRAFT" || record.status === "IN_PROGRESS";
+              const editable = measurementEditingAvailable && (record.status === "DRAFT" || record.status === "IN_PROGRESS");
               return (
                 <article key={record.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="grid grid-cols-2 gap-3">
@@ -217,7 +223,7 @@ export default function PropertyDetail() {
                       {editable ? "Edit" : "View"}
                     </Link>
                     <button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold disabled:opacity-40 bp-ui-action"><Download className="h-4 w-4" />PDF</button>
-                    <button type="button" disabled={record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="grid h-10 w-10 place-items-center rounded-xl border border-red-200 text-red-600 disabled:opacity-30 bp-ui-icon-action"><Trash2 className="h-4 w-4" /></button>
+                    <button type="button" disabled={!measurementEditingAvailable || record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="grid h-10 w-10 place-items-center rounded-xl border border-red-200 text-red-600 disabled:opacity-30 bp-ui-icon-action"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </article>
               );
@@ -242,7 +248,7 @@ export default function PropertyDetail() {
                     <td className="px-5 py-4 font-bold">{Number(record.total_sqft || 0).toFixed(0)} sq ft<MeasurementAreaTotals record={record} /></td>
                     <td className="px-5 py-4">{record.room_count || 0}</td>
                     <td className="px-5 py-4"><StatusBadge status={record.status} tone={record.status === "LOCKED" ? "success" : record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "warning" : "info"} /></td>
-                    <td className="px-5 py-4"><div className="flex items-center gap-2"><Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold"><Eye className="h-4 w-4" />{record.status === "DRAFT" || record.status === "IN_PROGRESS" ? "Edit" : "View"}</Link><button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 bp-ui-action"><Download className="h-4 w-4" />PDF</button><button type="button" disabled={record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="grid h-11 w-11 place-items-center rounded-lg border border-red-200 text-red-600 disabled:cursor-not-allowed disabled:opacity-30 bp-ui-icon-action"><Trash2 className="h-4 w-4" /></button></div></td>
+                    <td className="px-5 py-4"><div className="flex items-center gap-2"><Link to={`/properties/${id}/measurements?measurement=${record.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold"><Eye className="h-4 w-4" />{measurementEditingAvailable && (record.status === "DRAFT" || record.status === "IN_PROGRESS") ? "Edit" : "View"}</Link><button type="button" disabled={!record.surface_count} onClick={() => downloadMeasurements(record)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 bp-ui-action"><Download className="h-4 w-4" />PDF</button><button type="button" disabled={!measurementEditingAvailable || record.status === "LOCKED"} onClick={() => deleteMeasurement(record)} aria-label={`Delete Area Calculation ${record.reference_no}`} className="grid h-11 w-11 place-items-center rounded-lg border border-red-200 text-red-600 disabled:cursor-not-allowed disabled:opacity-30 bp-ui-icon-action"><Trash2 className="h-4 w-4" /></button></div></td>
                   </tr>
                 ))}
               </tbody>

@@ -6,7 +6,7 @@ import { lockBodyScroll } from "../utils/bodyScrollLock";
 const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", google_maps_url: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
 
-export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, quotationTheme = false }) {
+export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, error, quotationTheme = false }) {
   const dialogRef = useRef(null);
   const titleId = useId();
   const ownerId = useId();
@@ -155,6 +155,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   return <dialog ref={dialogRef} aria-labelledby={titleId} onKeyDown={containFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} className={`${quotationTheme ? "bp-quotation-property-dialog bp-quotation-dialog " : ""}fixed inset-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-xl overflow-y-auto border-0 bg-white p-0 text-slate-950 backdrop:bg-slate-950/40`}>
     <div className="flex items-center justify-between border-b p-6"><div><h2 id={titleId} className="text-xl font-bold bp-ui-section-heading">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button type="button" aria-label="Close property form" onClick={onClose} className="p-2 bp-ui-icon-action"><X aria-hidden="true" /></button></div>
     <form onSubmit={(event) => { event.preventDefault(); if (!form.customer) { setOwnerOpen(true); return; } onSubmit({ ...form, customer: Number(form.customer), approximate_area: form.approximate_area || null }); }} className="grid gap-5 p-6 sm:grid-cols-2">
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
       <div className="relative sm:col-span-2">
         <label htmlFor={ownerId} className="text-sm font-medium">Owner name *</label>
         <span className="relative mt-1.5 flex items-center">

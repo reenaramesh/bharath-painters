@@ -1,7 +1,8 @@
 import useMobileView from "../hooks/useMobileView.js";
 import "./mobile-workspace.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { needsKickoffAdvance, resolveScheduleQuery, schedulableQuotations } from "../utils/salesHandoffs.js";
 import {
   CalendarDays,
   ChevronDown,
@@ -10,12 +11,14 @@ import {
   Paintbrush,
   Plus,
   Search,
-  X,
 } from "lucide-react";
 import api from "../api/client";
+import ContractorDialog from "../components/ContractorDialog";
 import { previewPdf } from "../components/PdfPreview";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
+import ScheduleWorkspaceNav from "../components/ScheduleWorkspaceNav";
+import ScheduleApprovalMethod from "../components/ScheduleApprovalMethod";
 import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./jobs-schedules.css";
 
@@ -42,6 +45,10 @@ export default function WorkSchedules() {
   const mobile = useMobileView();
   const { user } = useAuth();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const kickoffQueue = user.role === "CONTRACTOR" && params.get("queue") === "kickoff";
+  const [loaded, setLoaded] = useState(false);
+  const handledQuery = useRef("");
   const propertyId = params.get("property_id") || "";
   const [items, setItems] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -51,6 +58,7 @@ export default function WorkSchedules() {
     start_date: todayKey(),
     end_date: tomorrowKey(),
     reason: "",
+    scheduling_mode: "PORTAL",
   });
   const [showForm, setShowForm] = useState(false);
   const [assigning, setAssigning] = useState(null);
@@ -83,11 +91,8 @@ export default function WorkSchedules() {
       if (user.role === "CONTRACTOR") calls.push(api.get("/jobs/my-team/"));
       const responses = await Promise.all(calls);
       setItems(responses[0].data);
-      setQuotations(
-        (responses[1].data.results || responses[1].data).filter(
-          (q) => q.status === "ACCEPTED" && !(user.role === "CUSTOMER" && q.accepted_via_receipt_at),
-        ),
-      );
+      setQuotations(responses[1].data.results || responses[1].data);
+      setLoaded(true);
       if (responses[2]) setPainters(responses[2].data);
       setError("");
     } catch {
@@ -103,24 +108,52 @@ export default function WorkSchedules() {
       window.removeEventListener("focus", load);
     };
   }, [load]);
+  const schedulable = useMemo(
+    () => schedulableQuotations(quotations, items).filter(q => !(user.role === "CUSTOMER" && q.accepted_via_receipt_at)),
+    [items, quotations, user.role],
+  );
+  const contractorSchedulable = useMemo(() => user.role === "CONTRACTOR"
+    ? schedulableQuotations(quotations, items, { contractorAuthorized: true }) : schedulable,
+  [items, quotations, schedulable, user.role]);
+  useEffect(() => {
+    if (!kickoffQueue) return;
+    setDatePreset("ALL");
+    setDateFrom("");
+    setDateTo("");
+    setFilter("ALL");
+    setSearch("");
+  }, [kickoffQueue]);
   useEffect(() => {
     const quotation = params.get("quotation");
-    if (quotation) {
-      setForm((current) => ({ ...current, quotation }));
+    if (!quotation) { handledQuery.current = ""; return; }
+    if (!loaded || handledQuery.current === quotation) return;
+    handledQuery.current = quotation;
+    const target = resolveScheduleQuery(quotation, items, contractorSchedulable, quotations);
+    setShowForm(false);
+    if (target.kind === "reschedule") {
+      if (user.role === "CONTRACTOR") navigate(target.path, { replace: true });
+      else setError("These work dates need to be revised by your contractor.");
+    } else if (target.kind === "schedule") {
+      setExpanded(target.schedule.id);
+      setDatePreset("ALL");
+      setDateFrom("");
+      setDateTo("");
+      setFilter("ALL");
+      setSearch("");
+    } else if (target.kind === "proposal") {
+      const selectedQuotation = quotations.find(item => String(item.id) === target.quotation);
+      setForm(current => ({ ...current, quotation: target.quotation, scheduling_mode: user.role === "CONTRACTOR" && selectedQuotation?.status !== "ACCEPTED" ? "CONTRACTOR" : "PORTAL" }));
       setShowForm(true);
+    } else if (target.kind === "unavailable") {
+      setError("This quotation is unavailable for a new schedule. Select a current eligible quotation below.");
     }
-  }, [params]);
+  }, [params, loaded, items, quotations, contractorSchedulable, navigate, user.role]);
 
-  const schedulable = useMemo(
-    () => quotations.filter(
-      (q) => !items.some((item) => String(item.quotation) === String(q.id)),
-    ),
-    [items, quotations],
-  );
   const visible = useMemo(() => {
     const today = todayKey();
     const rows = items.filter((item) => {
-      if (item.status === "COMPLETED" || item.needs_reschedule) return false;
+      if ((item.status === "COMPLETED" && expanded !== item.id) || item.needs_reschedule) return false;
+      if (kickoffQueue && !needsKickoffAdvance(item)) return false;
       const upcoming =
         item.end_date >= today &&
         !["COMPLETED", "CANCELLED"].includes(item.status);
@@ -159,11 +192,7 @@ export default function WorkSchedules() {
         : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
       return sort.direction === "asc" ? result : -result;
     });
-  }, [items, filter, search, datePreset, dateFrom, dateTo, sort, mobile]);
-  const completedSchedules = useMemo(
-    () => items.filter((item) => item.status === "COMPLETED").slice().sort((a, b) => String(b.work_completed_at || b.end_date || "").localeCompare(String(a.work_completed_at || a.end_date || ""))),
-    [items],
-  );
+  }, [items, filter, search, datePreset, dateFrom, dateTo, sort, mobile, kickoffQueue, expanded]);
   function changeSort(key) {
     setSort((current) => ({
       key,
@@ -197,16 +226,18 @@ export default function WorkSchedules() {
     }
   }
   const counts = useMemo(
-    () =>
-      Object.fromEntries(
+    () => {
+      const records = kickoffQueue ? items.filter(needsKickoffAdvance) : items;
+      return Object.fromEntries(
         filters.map((value) => [
           value,
               value === "ALL"
-            ? items.filter((item) => item.status !== "COMPLETED" && !item.needs_reschedule).length
-            : items.filter((item) => item.status === value && !item.needs_reschedule).length,
+            ? records.filter((item) => item.status !== "COMPLETED" && !item.needs_reschedule).length
+            : records.filter((item) => item.status === value && !item.needs_reschedule).length,
         ]),
-      ),
-    [items],
+      );
+    },
+    [items, kickoffQueue],
   );
   const customerUpcoming = useMemo(
     () => items
@@ -215,8 +246,8 @@ export default function WorkSchedules() {
     [items],
   );
   const customerJourney = user.role === "CUSTOMER" ? [
-    { label: "Quotation accepted", active: items.length > 0 },
-    { label: "Dates agreed", active: items.some((item) => ["CONFIRMED", "IN_PROGRESS"].includes(item.status)) },
+    { label: "Schedule created", active: items.length > 0 },
+    { label: "Dates confirmed", active: items.some((item) => ["CONFIRMED", "IN_PROGRESS"].includes(item.status)) },
     { label: "Work started", active: items.some((item) => item.status === "IN_PROGRESS") },
     { label: "Completed", active: items.some((item) => item.status === "COMPLETED") },
   ] : [];
@@ -238,6 +269,7 @@ export default function WorkSchedules() {
         start_date: todayKey(),
         end_date: tomorrowKey(),
         reason: "",
+        scheduling_mode: "PORTAL",
       });
       setShowForm(false);
       await load();
@@ -417,17 +449,8 @@ export default function WorkSchedules() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-work-schedules-page">
       <MobilePageBack />
-      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"}  actions={<div className="flex flex-col gap-2 sm:flex-row">
-          {user.role === "CONTRACTOR" && (
-            <Link
-              to="/work-reschedules"
-              className="bp-button bp-button-secondary inline-flex items-center justify-center gap-2"
-            >
-              <CalendarDays className="h-4 w-4" />
-              Reschedule work
-            </Link>
-          )}
-          {schedulable.length > 0 && (
+      <PageHeader eyebrow={user.role === "CUSTOMER" ? "Your projects" : "Project planning"} title={user.role === "CUSTOMER" ? "Work dates & progress" : "Work schedules"} description="Review proposed dates, scheduled work and project progress." actions={<div className="flex flex-col gap-2 sm:flex-row">
+          {contractorSchedulable.length > 0 && (
             <Button
               type="button"
               onClick={() => setShowForm((value) => !value)}
@@ -437,7 +460,19 @@ export default function WorkSchedules() {
             </Button>
           )}
       </div>} />
+      <ScheduleWorkspaceNav />
       {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
+      {kickoffQueue && <SectionCard title="Kickoff queue" description="Current accepted quotations needing dates, and scheduled work with advances awaiting action.">
+        {!loaded ? <p className="text-sm text-slate-500">Loading kickoff queue...</p> : <>
+          <div className="mb-4 flex justify-end"><Link to="/work-schedules" className="text-sm font-semibold text-slate-700 underline">View all work schedules</Link></div>
+          <h2 className="mb-3 text-sm font-bold text-slate-900">Accepted quotations needing dates ({schedulable.length})</h2>
+          {schedulable.length ? <div className="space-y-3">{schedulable.map(q => <article key={q.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+            <div><p className="font-semibold text-slate-900">{q.quotation_number || q.number}</p><p className="text-sm text-slate-500">{q.customer_details?.name || q.customer_name || "Customer"} / {q.property_name || "Property"}</p></div>
+            <Button variant="secondary" onClick={() => { setForm(current => ({ ...current, quotation: String(q.id), scheduling_mode: "PORTAL" })); setShowForm(true); }}>Propose work dates</Button>
+          </article>)}</div> : <p className="text-sm text-slate-500">No accepted quotations are waiting for dates.</p>}
+          {items.filter(item => item.needs_reschedule && needsKickoffAdvance(item)).map(item => <div key={item.id} className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-3"><p className="text-sm text-amber-800">{item.quotation_number}: revise the work dates before continuing.</p><Link to="/work-reschedules" className="text-sm font-semibold text-amber-900 underline">Reschedule work</Link></div>)}
+        </>}
+      </SectionCard>}
       {user.role === "CUSTOMER" && (
         <section className="customer-schedule-journey" aria-label="Project journey">
           <div className="customer-schedule-journey-heading">
@@ -463,11 +498,13 @@ export default function WorkSchedules() {
           </ol>
         </section>
       )}
-      <SectionCard title={datePreset === "UPCOMING" ? "Upcoming work" : "Schedule records"}  className="schedule-list-card" bodyClassName="p-0">
-        <div className="flex flex-col gap-3 border-b p-3 xl:flex-row xl:items-center">
+      <SectionCard title={kickoffQueue ? "Schedules awaiting kickoff advances" : datePreset === "UPCOMING" ? "Upcoming work" : "Schedule records"}  className="schedule-list-card" bodyClassName="p-0">
+        <div className="schedule-list-toolbar flex flex-col gap-3 border-b p-3 xl:flex-row xl:items-center">
           <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
       <input
+              type="search"
+              aria-label="Search work schedules"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={user.role === "CUSTOMER" ? "Search quotation or property" : "Search quotation, customer, or property"}
@@ -475,6 +512,7 @@ export default function WorkSchedules() {
             />
           </label>
           <select
+            aria-label="Filter schedule dates"
             value={datePreset}
             onChange={(e) => chooseDatePreset(e.target.value)}
             className="rounded-xl border px-4 py-2.5 text-sm bp-ui-control"
@@ -517,17 +555,15 @@ export default function WorkSchedules() {
           </div>
         )}
         {visible.length ? (
-          <div className="schedule-grid-scroll overflow-x-auto">
-            <div className="hidden min-w-[1120px] grid-cols-[minmax(220px,1.4fr)_180px_130px_155px_120px_230px_44px] gap-4 bg-slate-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 lg:grid">
-              <SortHeader label={user.role === "CUSTOMER" ? "Quotation / property" : "Quotation / customer"} column="quotation" sort={sort} onSort={changeSort} />
+          <div className="schedule-grid-scroll">
+            <div className="schedule-summary-grid schedule-summary-head">
+              <SortHeader label="Project" column="quotation" sort={sort} onSort={changeSort} />
               <SortHeader label="Work dates" column="dates" sort={sort} onSort={changeSort} />
-              <SortHeader label="Schedule" column="schedule" sort={sort} onSort={changeSort} />
-              <SortHeader label="Payment" column="payment" sort={sort} onSort={changeSort} />
-              <SortHeader label={user.role === "CUSTOMER" ? "Work team" : "Paint Applicators"} column="painters" sort={sort} onSort={changeSort} />
-              <span>Next action</span>
-              <span />
+              <SortHeader label="Status" column="schedule" sort={sort} onSort={changeSort} />
+              <SortHeader label={user.role === "CUSTOMER" ? "Work team" : "Assigned painters"} column="painters" sort={sort} onSort={changeSort} />
+              <span>Details</span>
             </div>
-            <div className="min-w-0 divide-y lg:min-w-[1120px]">
+            <div className="min-w-0 divide-y">
               {visible.map((item) => (
                 <ProjectRow
                   key={item.id}
@@ -552,20 +588,12 @@ export default function WorkSchedules() {
           <EmptyState title="No schedules match this view"  />
         )}
       </SectionCard>
-      {user.role === "CONTRACTOR" && completedSchedules.length > 0 && <SectionCard title="Completed schedules"  className="completed-schedules-card" bodyClassName="p-0">
-        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{completedSchedules.slice(0, 6).map((item) => <article key={item.id} className="completed-schedule-card rounded-xl border p-4">
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-bold text-slate-900">{item.quotation_number}</p><p className="mt-1 truncate text-sm text-slate-700">{item.customer} · {item.property}</p></div><StatusBadge status={item.status} tone="success" /></div>
-          <p className="mt-3 text-sm text-slate-600">{formatDate(item.start_date)} – {formatDate(item.end_date)}</p>
-          <p className="mt-1 text-sm text-slate-500">{item.painters?.length || 0} assigned</p>
-          {item.work_completed_at && <p className="mt-1 text-sm text-slate-500">Completed {new Date(item.work_completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>}
-        </article>)}</div>
-      </SectionCard>}
       {showForm && (
-        <ScheduleModal onClose={() => setShowForm(false)}>
+        <ScheduleModal error={error} onClose={() => setShowForm(false)}>
           <ScheduleForm
             form={form}
             setForm={setForm}
-            quotations={schedulable}
+            quotations={user.role === "CONTRACTOR" && form.scheduling_mode === "CONTRACTOR" ? contractorSchedulable : schedulable}
             items={items}
             role={user.role}
             saving={saving}
@@ -576,6 +604,7 @@ export default function WorkSchedules() {
       {assigning && (
         <PainterModal
           item={assigning}
+          error={error}
           painters={painters}
           selected={selected}
           setSelected={setSelected}
@@ -631,36 +660,6 @@ function ProjectRow({
       </Action>
     ) : role === "CONTRACTOR" &&
       item.status === "CONFIRMED" &&
-      item.painters.length === 0 ? (
-      <Action onClick={() => onAssign(item)} primary>
-        Assign Paint Applicators
-      </Action>
-    ) : role === "CONTRACTOR" &&
-      item.status === "CONFIRMED" &&
-      item.payment_status === "NOT_REQUESTED" ? (
-      <>
-        <Action
-          onClick={() => onPayment(item, "REQUEST")}
-          disabled={saving}
-          primary
-        >
-          Set advance
-        </Action>
-        <Action onClick={() => onPayment(item, "RECORD")} disabled={saving}>
-          Payment received
-        </Action>
-      </>
-    ) : role === "CUSTOMER" && item.property_access?.permissions?.make_payment && item.payment_status === "AWAITING_PAYMENT" ? (
-      <Action onClick={() => onPayment(item, "SUBMIT")} primary>
-        Pay advance
-      </Action>
-    ) : role === "CONTRACTOR" &&
-      item.payment_status === "PENDING_CONFIRMATION" ? (
-      <Action onClick={() => onPayment(item, "CONFIRM")} primary>
-        Confirm payment
-      </Action>
-    ) : role === "CONTRACTOR" &&
-      item.status === "CONFIRMED" &&
       ready &&
       item.payment_status !== "CONFIRMED" ? (
       <span className="text-sm font-semibold text-amber-700">
@@ -686,101 +685,27 @@ function ProjectRow({
     );
   return (
     <article className={`bg-white ${role === "CUSTOMER" ? "customer-schedule-record" : ""}`}>
-      <div className="p-4 lg:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate font-bold text-slate-950 bp-ui-section-heading">
-              {item.quotation_number}
-            </h2>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-700">
-              {role === "CUSTOMER" ? item.property : item.customer}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">
-              {role === "CUSTOMER" ? `With ${item.contractor}` : item.property}
-            </p>
-          </div>
-          <Status value={item.status} />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Work dates</p>
-            <p className="mt-1 text-sm font-bold text-slate-800">{formatDate(item.start_date)}</p>
-            <p className="mt-0.5 text-sm text-slate-600">to {formatDate(item.end_date)}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Payment</p>
-            <div className="mt-1"><StatusBadge status={item.payment_status} label={role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)} tone={paid ? "success" : "warning"} /></div>
-            <p className="mt-1 text-sm text-slate-600">
-              {item.advance_amount ? `₹${Number(item.advance_amount).toLocaleString("en-IN")}` : role === "CUSTOMER" ? "No advance recorded" : "No advance"}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{role === "CUSTOMER" ? "Work team" : "Paint Applicators"}</p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-700">
-              {item.painters.length || 0} assigned
-            </p>
-          </div>
-          <button
-            onClick={onToggle}
-            aria-expanded={expanded}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 bp-ui-action"
-          >
-            {expanded ? "Hide details" : "View details"}
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-          {nextAction}
-        </div>
-      </div>
-      <div className="hidden gap-4 p-5 lg:grid lg:grid-cols-[minmax(220px,1.4fr)_180px_130px_155px_120px_230px_44px] lg:items-center">
+      <div className="schedule-summary-grid schedule-summary-row">
         <div className="min-w-0">
-          <h2 className="truncate font-bold bp-ui-section-heading">{item.quotation_number}</h2>
-          <p className="mt-1 truncate text-sm text-slate-500">
-            {role === "CUSTOMER" ? `${item.property} · With ${item.contractor}` : `${item.customer} | ${item.property}`}
-          </p>
+          <h2 className="font-bold text-slate-950 bp-ui-section-heading">{item.quotation_number}</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-700">{role === "CUSTOMER" ? item.property : item.customer}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{role === "CUSTOMER" ? `With ${item.contractor}` : item.property}</p>
         </div>
-        <div>
-          <p className="text-sm font-semibold">{formatDate(item.start_date)}</p>
-          <p className="mt-1 text-sm text-slate-500">to {formatDate(item.end_date)}</p>
+        <div><p className="schedule-mobile-label">Work dates</p><p className="text-sm font-semibold">{formatDate(item.start_date)}</p><p className="mt-1 text-xs text-slate-500">to {formatDate(item.end_date)}</p></div>
+        <div className="flex flex-wrap items-start gap-2"><Status value={item.status} />{item.scheduling_mode === "CONTRACTOR" && <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">Contractor-authorized</span>}</div>
+        <div className="schedule-painters">
+          <p className="schedule-mobile-label">{role === "CUSTOMER" ? "Work team" : "Assigned painters"}</p>
+          {item.painters.length ? <ul className="space-y-1">{item.painters.map(painter => <li key={painter.assignment_id || painter.id} className="flex flex-wrap items-center gap-1 text-sm"><span className="font-semibold text-slate-800">{painter.name}</span><span className="text-xs text-slate-500">{label(painter.status || "ASSIGNED")}</span></li>)}</ul> : <p className="text-sm text-slate-500">No painters assigned</p>}
+          {role === "CONTRACTOR" && item.status === "CONFIRMED" && <button type="button" onClick={() => onAssign(item)} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-indigo-700 bp-ui-action"><Paintbrush className="h-4 w-4" aria-hidden="true" />Manage painters</button>}
         </div>
-        <Status value={item.status} />
-        <div>
-          <StatusBadge status={item.payment_status} label={role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)} tone={paid ? "success" : "warning"} />
-          {item.advance_amount && (
-            <p className="mt-1 text-xs text-slate-500">
-              ₹{Number(item.advance_amount).toLocaleString("en-IN")}
-            </p>
-          )}
-        </div>
-        <button
-          disabled={role !== "CONTRACTOR" || item.status !== "CONFIRMED"}
-          onClick={() => onAssign(item)}
-          className="text-left disabled:cursor-default bp-ui-action"
-        >
-          <p className="text-sm font-semibold">
-            {item.painters.length || 0} assigned
-          </p>
-          {role === "CONTRACTOR" && item.status === "CONFIRMED" && (
-            <p className="mt-1 text-xs text-blue-600">Manage</p>
-          )}
-        </button>
-        <div className="flex flex-wrap items-center gap-2">{nextAction}</div>
-        <button onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? "Hide" : "View"} details for ${item.quotation_number}`} className="rounded-lg border p-2 bp-ui-action">
-          {expanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={`schedule-details-${item.id}`} className="schedule-details-toggle inline-flex min-h-11 items-center justify-center gap-1 rounded-xl border px-3 text-sm font-semibold text-indigo-700 bp-ui-action">{expanded ? "Hide details" : "View details"}{expanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}</button>
       </div>
       {expanded && (
-        <div className="grid gap-3 border-t bg-slate-50/60 p-4 md:grid-cols-3 lg:p-5">
-          <Detail title="Date approval">
+        <div id={`schedule-details-${item.id}`} className="grid gap-3 border-t bg-slate-50/60 p-4 md:grid-cols-3 lg:p-5">
+          <Detail title="Schedule details">
+            {item.scheduling_mode === "CONTRACTOR" && <p className="font-semibold text-blue-700">Contractor-authorized dates — portal approval not required.</p>}
             <p>
-              {role === "CUSTOMER" ? "You" : "Customer"}: <b>{item.customer_accepted ? "Accepted" : "Pending"}</b>
+              {role === "CUSTOMER" ? "You" : "Customer"}: <b>{item.customer_accepted ? "Accepted" : item.scheduling_mode === "CONTRACTOR" ? "Not approved in portal" : "Pending"}</b>
             </p>
             <p>
               Contractor:{" "}
@@ -795,11 +720,11 @@ function ProjectRow({
               <p className="text-amber-700">Reason: {item.reschedule_reason}</p>
             )}
           </Detail>
-          <Detail title="Advance payment">
+          <Detail title="Advance & receipts">
             <p>
               Status: <b>{role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)}</b>
             </p>
-            {item.advance_amount && (
+            {Number(item.advance_amount) > 0 && (
               <p>
                 Amount:{" "}
                 <b>₹{Number(item.advance_amount).toLocaleString("en-IN")}</b>
@@ -834,12 +759,8 @@ function ProjectRow({
               </button>
             )}
           </Detail>
-          <Detail title={role === "CUSTOMER" ? "Work progress" : "Paint Applicators and work"}>
-            <p>
-              {item.painters.length
-                ? <ul className="mt-1 space-y-1">{item.painters.map((p) => <li key={p.assignment_id || p.id} className="flex flex-wrap items-center gap-2"><span>{p.name}</span><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${p.status === "ACCEPTED" ? "bg-emerald-50 text-emerald-700" : p.status === "DECLINED" ? "bg-red-50 text-red-700" : p.status === "RELEASED" ? "bg-slate-100 text-slate-500" : p.status === "IN_PROGRESS" ? "bg-violet-50 text-violet-700" : p.status === "COMPLETED" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800"}`}>{(p.status || "ASSIGNED").replaceAll("_", " ")}</span></li>)}</ul>
-                : role === "CUSTOMER" ? "Work team not assigned yet" : "No Paint Applicators assigned"}
-            </p>
+          <Detail title="Work progress">
+            <div className="flex flex-wrap gap-2">{nextAction}</div>
             {item.work_started_at && (
               <p className="text-slate-500">
                 Started: {new Date(item.work_started_at).toLocaleString()}
@@ -878,10 +799,11 @@ function ScheduleForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="grid gap-4 rounded-2xl border bg-white p-5 md:grid-cols-[1fr_180px_180px_auto]"
+      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_160px_160px_auto]"
     >
+      {role === "CONTRACTOR" && <div className="xl:col-span-4"><ScheduleApprovalMethod value={form.scheduling_mode || "PORTAL"} disabled={saving} onChange={mode => setForm(current => ({ ...current, scheduling_mode: mode, quotation: "" }))} /></div>}
       <label className="text-sm font-semibold">
-        Accepted quotation
+        {role === "CONTRACTOR" && form.scheduling_mode === "CONTRACTOR" ? "Quotation" : "Accepted quotation"}
         <select
           required
           value={form.quotation}
@@ -919,10 +841,10 @@ function ScheduleForm({
         disabled={saving}
         className="self-end rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white bp-ui-action"
       >
-        {rescheduling ? "Send revised dates" : "Propose dates"}
+        {form.scheduling_mode === "CONTRACTOR" ? "Authorize work dates" : rescheduling ? "Send revised dates" : "Propose dates"}
       </button>
       {role === "CONTRACTOR" && rescheduling && (
-        <label className="text-sm font-semibold md:col-span-4">
+        <label className="text-sm font-semibold xl:col-span-4">
           Reason for rescheduling *
           <textarea
             required
@@ -936,26 +858,11 @@ function ScheduleForm({
     </form>
   );
 }
-function ScheduleModal({ children, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold bp-ui-section-heading">Schedule work dates</h2>
-            
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"
-          >
-            <X />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+function ScheduleModal({ children, onClose, error }) {
+  return <ContractorDialog title="Schedule work dates" description="Request portal approval or authorize the dates yourself." icon={CalendarDays} onClose={onClose}>
+    {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {children}
+  </ContractorDialog>;
 }
 function PainterModal({
   item,
@@ -965,6 +872,7 @@ function PainterModal({
   saving,
   onClose,
   onSubmit,
+  error,
 }) {
   function toggle(p) {
     setSelected((current) =>
@@ -974,25 +882,9 @@ function PainterModal({
     );
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-2xl rounded-xl bg-white p-6"
-      >
-        <div className="flex justify-between">
-          <div>
-            <h2 className="text-xl font-bold bp-ui-section-heading">
-              Assign verified Paint Applicators
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Select applicators for {item.start_date} to {item.end_date}.
-              Payment and wages are handled separately.
-            </p>
-          </div>
-          <button className="bp-ui-icon-action" type="button" onClick={onClose}>
-            <X />
-          </button>
-        </div>
+    <ContractorDialog title="Assign verified Paint Applicators" description={`Select applicators for ${item.start_date} to ${item.end_date}. Payment and wages are handled separately.`} icon={Paintbrush} size="md" onClose={onClose}>
+      <form onSubmit={onSubmit}>
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="mt-5 max-h-[55vh] space-y-2 overflow-y-auto">
           {painters.map((p) => {
             const chosen = selected.includes(p.id);
@@ -1024,7 +916,7 @@ function PainterModal({
           Assign Paint Applicators
         </button>
       </form>
-    </div>
+    </ContractorDialog>
   );
 }
 function Action({ children, onClick, disabled, primary }) {

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
@@ -101,6 +102,39 @@ class WorkScheduleProgressTests(TestCase):
         )
         WorkSchedulePainter.objects.create(schedule=self.schedule, painter=self.painter)
 
+    def test_painter_assignment_uses_approved_effective_work_change_scope(self):
+        from quotations.models import PaintType, QuotationItem, QuotationRoom, ServiceCategory, ServiceType, Unit, WorkChange, WorkChangeItem
+        from .views import painter_assignment_data
+
+        room = QuotationRoom.objects.create(quotation=self.quotation, name="Bedroom")
+        category = ServiceCategory.objects.create(name="Painting")
+        old_material = PaintType.objects.create(name="Standard", service_category=category)
+        new_material = PaintType.objects.create(name="Premium", service_category=category)
+        service = ServiceType.objects.create(name="Wall painting", category_master=category)
+        unit = Unit.objects.create(name="sq ft")
+        item = QuotationItem.objects.create(
+            quotation=self.quotation, room=room, service_category=category,
+            service_type=service, paint_type=old_material, description="Bedroom walls",
+            quantity=Decimal("400"), unit=unit, rate=Decimal("10"), amount=Decimal("4000"),
+        )
+        change = WorkChange.objects.create(
+            quotation=self.quotation, contractor=self.contractor,
+            customer=self.quotation.customer, status=WorkChange.Status.APPROVED,
+        )
+        WorkChangeItem.objects.create(
+            work_change=change, change_type=WorkChangeItem.ChangeType.CHANGE_MATERIAL,
+            original_item=item, area_name="Bedroom", completed_quantity=Decimal("100"),
+            changed_quantity=Decimal("300"), new_product_type=new_material,
+            unit=unit, new_rate=Decimal("20"), description="Premium on remaining walls",
+        )
+
+        assignment_data = painter_assignment_data(self.schedule.painter_assignments.get())
+
+        self.assertEqual(
+            [(line["description"], line["quantity"]) for line in assignment_data["work_scope"]],
+            [("Bedroom walls", Decimal("100.00")), ("Premium on remaining walls", Decimal("300"))],
+        )
+
     def test_start_work_on_india_local_schedule_date(self):
         self.client.force_authenticate(self.painter)
         self.client.post(
@@ -197,6 +231,67 @@ class WorkScheduleProgressTests(TestCase):
         self.assertEqual(response.status_code, 200, response.data)
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, "RELEASED")
+
+    def test_resaving_unchanged_assignment_preserves_terms_and_history(self):
+        assignment = self.schedule.painter_assignments.get()
+        assignment.status = WorkSchedulePainter.Status.ACCEPTED
+        assignment.wage_type = WorkSchedulePainter.WageType.WEEKLY
+        assignment.agreed_wage = Decimal("2400.00")
+        assignment.responded_at = timezone.now() - timedelta(days=1)
+        assignment.save(update_fields=("status", "wage_type", "agreed_wage", "responded_at"))
+        original = (assignment.id, assignment.agreed_wage, assignment.responded_at, assignment.assigned_at)
+        self.client.force_authenticate(self.contractor)
+        response = self.client.put(
+            reverse("work-schedule-painters", args=(self.schedule.id,)),
+            {"painters": [self.painter.id]}, format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        assignment.refresh_from_db()
+        self.assertEqual((assignment.id, assignment.agreed_wage, assignment.responded_at, assignment.assigned_at), original)
+        self.assertEqual(assignment.wage_type, WorkSchedulePainter.WageType.WEEKLY)
+        self.assertEqual(assignment.status, WorkSchedulePainter.Status.ACCEPTED)
+
+    def test_schedule_reschedules_keep_an_immutable_date_history(self):
+        self.client.force_authenticate(self.contractor)
+        today = timezone.localdate()
+        for offset, reason in ((5, "Weather delay"), (9, "Customer date change")):
+            response = self.client.post(reverse("work-schedule-list"), {
+                "quotation": self.quotation.id,
+                "start_date": (today + timedelta(days=offset)).isoformat(),
+                "end_date": (today + timedelta(days=offset + 2)).isoformat(),
+                "reason": reason,
+            }, format="json")
+            self.assertEqual(response.status_code, 201, response.data)
+        history = response.data["reschedule_history"]
+        self.assertEqual(len(history), 2)
+        self.assertEqual([row["reason"] for row in history], ["Weather delay", "Customer date change"])
+        self.assertEqual(str(history[0]["start_date"]), (today + timedelta(days=5)).isoformat())
+
+    def test_rescheduling_preserves_unchanged_painter_assignment_history(self):
+        assignment = self.schedule.painter_assignments.get()
+        responded_at = timezone.now() - timedelta(days=1)
+        assignment.status = WorkSchedulePainter.Status.ACCEPTED
+        assignment.wage_type = WorkSchedulePainter.WageType.WEEKLY
+        assignment.agreed_wage = Decimal("2700.00")
+        assignment.responded_at = responded_at
+        assignment.painter_note = "Ready for site"
+        assignment.save(update_fields=("status", "wage_type", "agreed_wage", "responded_at", "painter_note"))
+        original = (assignment.pk, assignment.status, assignment.wage_type, assignment.agreed_wage,
+                    assignment.assigned_at, assignment.responded_at, assignment.painter_note)
+
+        self.client.force_authenticate(self.contractor)
+        today = timezone.localdate()
+        response = self.client.post(reverse("work-schedule-list"), {
+            "quotation": self.quotation.pk,
+            "start_date": (today + timedelta(days=5)).isoformat(),
+            "end_date": (today + timedelta(days=7)).isoformat(),
+            "reason": "Weather delay",
+        }, format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        assignment.refresh_from_db()
+        self.assertEqual((assignment.pk, assignment.status, assignment.wage_type, assignment.agreed_wage,
+                          assignment.assigned_at, assignment.responded_at, assignment.painter_note), original)
 
 
 class JobLocationTests(TestCase):

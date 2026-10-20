@@ -1,6 +1,7 @@
 import useMobileView from "../hooks/useMobileView.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Send, X } from "lucide-react";
+import { Handshake, Search, Send, X } from "lucide-react";
+import ContractorModuleHeader from '../components/ContractorModuleHeader';
 import "./contractor-network.css";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
@@ -116,22 +117,15 @@ export default function ContractorNetwork() {
   const isContractor = user?.role === "CONTRACTOR";
 
   return (
-    <div className="contractor-network-page space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4 bp-ui-page-header">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">Outsourcing</p>
-          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Subcontractors</h1>
-          
-        </div>
-        {isContractor && (
+    <div className={`contractor-network-page space-y-6 ${isContractor ? 'contractor-people-page' : ''}`}>
+      <ContractorModuleHeader icon={Handshake} eyebrow="Your contractor network" title="Subcontractors" description="Find professionals, review requests and manage your working relationships." actions={isContractor && (
           <button
             onClick={() => setRequesting(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white bp-ui-action"
+            className="people-header-action people-primary-action"
           >
             <Search className="h-4 w-4" /> Find contractor
           </button>
-        )}
-      </header>
+        )} />
 
       {isContractor && <WorkOrderNetworkTabs />}
       {isContractor && <ContractorInvitation user={user} />}
@@ -369,7 +363,8 @@ function RequestConnection({ existing, user, onClose, onCreated }) {
   return (
       <dialog ref={dialogRef} onCancel={onClose} aria-labelledby="connection-dialog-title" className="connection-dialog network-profile-dialog network-portfolio-dialog">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b px-4 py-4 sm:px-6">
-          <div>
+          <div className="contractor-dialog-heading">
+            <span className="contractor-module-icon" aria-hidden="true"><Handshake size={24} strokeWidth={1.8} /></span>
             <h2 id="connection-dialog-title" className="text-xl font-bold bp-ui-section-heading">{selected ? 'Contractor profile' : 'Find contractor'}</h2>
             
             

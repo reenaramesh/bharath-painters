@@ -40,7 +40,7 @@ export default function Opportunities() {
       setItems(data);
       setError("");
     } catch {
-      setError("Opportunities could not be loaded.");
+      setError("Leads could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -69,12 +69,12 @@ export default function Opportunities() {
 
   return (
     <div className="space-y-6 crm-page crm-opportunities-page">
-      <PageHeader eyebrow="Sales pipeline" title="Sales Opportunities"  actions={<Button
+      <PageHeader eyebrow="Sales pipeline" title="Leads" description="Track enquiries, follow-ups and quotations through your sales pipeline." actions={<Button
           onClick={() => navigate("/opportunities/new")}
-          aria-label="Create a sales opportunity"
+          aria-label="Create a new lead"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          New Opportunity
+          New lead
         </Button>} />
 
       {error && <ErrorState message={error} onRetry={load} />}
@@ -88,11 +88,13 @@ export default function Opportunities() {
         <SharedStatCard label="Lost" value={counts.lost} tone="danger" className="crm-opportunity-stat" />
       </div>
 
-      <SectionCard title="Find opportunities"  className="crm-filters-card" bodyClassName="space-y-3">
+      <SectionCard title="Find leads"  className="crm-filters-card" bodyClassName="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
+              type="search"
+              aria-label="Search leads"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search ID, client, mobile, property or service"
@@ -108,6 +110,7 @@ export default function Opportunities() {
             ].map(([value, label]) => (
               <button
                 key={value}
+                aria-pressed={view === value}
                 onClick={() => setView(value)}
                 className={(`rounded-xl px-3 py-2 text-xs font-bold ${
                   view === value
@@ -122,6 +125,7 @@ export default function Opportunities() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
+            aria-label="Filter leads by stage"
             value={stage}
             onChange={(event) => setStage(event.target.value)}
             className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
@@ -134,6 +138,7 @@ export default function Opportunities() {
             ))}
           </select>
           <select
+            aria-label="Filter leads by source"
             value={source}
             onChange={(event) => setSource(event.target.value)}
             className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
@@ -146,6 +151,7 @@ export default function Opportunities() {
             ))}
           </select>
           <select
+            aria-label="Filter leads by priority"
             value={priority}
             onChange={(event) => setPriority(event.target.value)}
             className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
@@ -180,13 +186,13 @@ export default function Opportunities() {
         </div>
       </SectionCard>
 
-      {loading ? <LoadingState label="Loading opportunities..." /> : items.length ? (
-        <SectionCard title="Opportunity records" description={`${items.length} matching ${items.length === 1 ? "opportunity" : "opportunities"}`} className="crm-records-card" bodyClassName="p-0">
+      {loading ? <LoadingState label="Loading leads..." /> : items.length ? (
+        <SectionCard title="Lead records" description={`${items.length} matching ${items.length === 1 ? "lead" : "leads"}`} className="crm-records-card" bodyClassName="p-0">
           <div className="crm-opportunity-mobile-list">{items.map((item) => <OpportunityCard key={item.id} item={item} />)}</div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px] text-left text-sm bp-ui-table">
               <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Opportunity</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Source</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
+                <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Lead</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Source</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
               </thead>
               <tbody className="divide-y">{items.map((item) => (
                 <tr key={item.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/opportunities/${item.id}`)}>
@@ -206,7 +212,7 @@ export default function Opportunities() {
           </div>
         </SectionCard>
       ) : (
-        <EmptyState title="No opportunities found"  />
+        <EmptyState title="No leads found"  />
       )}
     </div>
   );

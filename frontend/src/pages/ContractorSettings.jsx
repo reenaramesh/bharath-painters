@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Award, Check, Eye, EyeOff, FileText, Plus, QrCode, Save, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
@@ -18,8 +18,8 @@ const pdfColorTemplates = [
   { value: "MIST", label: "Mist", colors: ["#7B8285", "#D9EDF5"] },
 ];
 const appColorPresets = [
-  { label: "Studio Painterly", primary: "#2563EB", accent: "#F59E0B" },
-  { label: "Coastal", primary: "#176B9B", accent: "#508398" },
+  { label: "Bharath Premium", primary: "#5740EC", accent: "#FB4B8B" },
+  { label: "Coastal", primary: "#176C9B", accent: "#508498" },
   { label: "Deep teal", primary: "#395F6E", accent: "#FCB29B" },
   { label: "Indigo", primary: "#4F46E5", accent: "#7771E8" },
   { label: "Forest", primary: "#276749", accent: "#8BBF9F" },
@@ -81,8 +81,8 @@ const blank = {
   pdf_custom_primary_color: "#142743",
   pdf_custom_accent_color: "#FF991F",
   pdf_custom_text_color: "#172033",
-  app_primary_color: "#2563EB",
-  app_accent_color: "#F59E0B",
+  app_primary_color: "#5740EC",
+  app_accent_color: "#FB4B8B",
   office_address: "",
   service_areas: "",
   work_skills: "",

@@ -1,17 +1,18 @@
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import { invoiceSavePayload } from "../utils/invoiceSavePayload.js";
+import { createPaymentSender } from "../utils/paymentRequest.js";
+import { formatINRAmount } from "../types/financialDisplay.ts";
+import { invoiceCollectionMatches } from "../utils/workflowAttention.js";
 import { previewPdf } from "../components/PdfPreview";
 import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./finance-pages.css";
 
-const money = (v) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(
-    Number(v || 0),
-  );
+const money = (v) => formatINRAmount(v) ??
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(v || 0));
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const last7Days = () => { const today = new Date(); const start = new Date(today); start.setDate(today.getDate() - 6); return { from: dateKey(start), to: dateKey(today) }; };
 const blankLine = {
@@ -41,6 +42,7 @@ const adjustmentArea = (row) => {
 };
 const adjustmentAmount = (row) => adjustmentArea(row) * (Number(row.rate) || 0);
 export default function Invoices() {
+  const paymentSender = useRef(createPaymentSender((url, payload) => api.post(url, payload)));
   const initialDates = last7Days();
   const [items, setItems] = useState([]),
     [customers, setCustomers] = useState([]),
@@ -63,6 +65,12 @@ export default function Invoices() {
   const [invoiceRooms, setInvoiceRooms] = useState([]);
   const [invoiceMasters, setInvoiceMasters] = useState({ categories: [], services: [], products: [], descriptions: [], brands: [], units: [] });
   const [params, setParams] = useSearchParams();
+  const collections = params.get('collections') || '';
+  useEffect(() => {
+    if (['overdue', 'outstanding'].includes(collections)) {
+      setDatePreset('ALL'); setDateFrom(''); setDateTo('');
+    }
+  }, [collections]);
   const [tab, setTab] = useState("details");
   useEffect(() => { setTab("details"); }, [editing?.id]);
   const load = useCallback(async () => {
@@ -115,9 +123,9 @@ export default function Invoices() {
     () => items.filter((x) => {
       const invoiceDate = String(x.invoice_date || "");
       const matchesDate = datePreset === "ALL" || (dateFrom && dateTo && invoiceDate >= dateFrom && invoiceDate <= dateTo);
-      return matchesDate && [x.invoice_number, x.quotation_number, x.customer_name, x.property_name, x.status].some((v) => String(v || "").toLowerCase().includes(search.toLowerCase()));
+      return matchesDate && invoiceCollectionMatches(x, collections, dateKey(new Date())) && [x.invoice_number, x.quotation_number, x.customer_name, x.property_name, x.status].some((v) => String(v || "").toLowerCase().includes(search.toLowerCase()));
     }),
-    [items, search, datePreset, dateFrom, dateTo],
+    [items, search, datePreset, dateFrom, dateTo, collections],
   );
   function chooseDatePreset(value) { const today=new Date(); setDatePreset(value); if(value==="ALL"){setDateFrom("");setDateTo("");} if(value==="TODAY"){const date=dateKey(today);setDateFrom(date);setDateTo(date);} if(value==="LAST_7"){const start=new Date(today);start.setDate(today.getDate()-6);setDateFrom(dateKey(start));setDateTo(dateKey(today));} if(value==="THIS_MONTH"){setDateFrom(dateKey(new Date(today.getFullYear(),today.getMonth(),1)));setDateTo(dateKey(today));} }
   function openInvoice(invoice) {
@@ -210,7 +218,7 @@ export default function Invoices() {
   async function savePayment() {
     setPaymentSaving(true);
     try {
-      const { data } = await api.post(`/quotations/invoices/${editing.id}/payments/`, paymentDraft);
+      const { data } = await paymentSender.current(`/quotations/invoices/${editing.id}/payments/`, paymentDraft);
       setEditing(data);
       setItems((list) => list.map((item) => item.id === data.id ? data : item));
       setPaymentDraft({ received_date: dateKey(new Date()), amount: "", payment_mode: "", payment_reference: "", notes: "" });
@@ -249,6 +257,7 @@ export default function Invoices() {
   return (
     <div className="space-y-6 finance-page contractor-invoices-page">
       <PageHeader eyebrow="Customer billing" title="Invoices"  actions={<Button onClick={() => { setCreateDraft(newLumpSumInvoice()); setCreating(true); setError(""); }}><Plus className="h-4 w-4" />New lump-sum invoice</Button>} />
+      {['overdue', 'outstanding'].includes(collections) && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p>{collections === 'overdue' ? 'Overdue collections: unpaid balances due before today.' : 'Outstanding collections: all unpaid invoice balances.'}</p><Button variant="secondary" onClick={() => { const next = new URLSearchParams(params); next.delete('collections'); setParams(next); }}>Show all invoices</Button></div>}
       {error && (
         loadFailed ? <ErrorState message={error} onRetry={load} className="finance-inline-error" /> : <p className="finance-alert finance-alert-error" role="alert">{error}</p>
       )}

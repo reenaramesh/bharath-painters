@@ -1,4 +1,4 @@
-.contractor-shell.minimia-shell { --bp-canvas: var(--bp-color-canvas); --bp-ink: var(--bp-color-ink); background: var(--bp-canvas); }
+﻿.contractor-shell.minimia-shell { --bp-canvas: var(--bp-color-canvas); --bp-ink: var(--bp-color-ink); background: var(--bp-canvas); }
 .contractor-shell .bp-sidebar { background: var(--bp-color-surface-container); border-color: var(--app-soft); }
 .contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: white; }
 .contractor-shell .bp-sidebar nav a[aria-current="page"]::before { display: none; }
@@ -162,8 +162,8 @@
 
 /* Contractor app colors are saved in the profile and set on the workspace root. */
 .contractor-shell {
-  --app-primary: #2563EB;
-  --app-accent: #F59E0B;
+  --app-primary: #5740EC;
+  --app-accent: #FB4B8B;
   --app-on-primary: #ffffff;
   --app-soft: var(--bp-color-info-surface);
   --app-line: color-mix(in srgb, var(--app-primary) 22%, white);
@@ -312,4 +312,46 @@
 }
 .contractor-dashboard .contractor-tools-grid > a > svg {
   display: none;
+}
+
+/* Home: compact queues in the action rail and one consolidated agenda. */
+.contractor-dashboard .contractor-workspace { grid-template-columns: minmax(0,1.65fr) minmax(320px,1fr); }
+.contractor-dashboard .contractor-panel.bp-section-card { box-shadow: 0 3px 14px #28395408; border-color: #e3e8f0; }
+.contractor-dashboard .contractor-panel.bp-section-card > header { min-height: 60px; padding: 10px 16px; background: #eef4ff; }
+.contractor-dashboard .contractor-panel.bp-section-card > header h2 { font-size: 16px; line-height: 1.4; }
+.contractor-dashboard .contractor-workspace-column:first-child .contractor-panel:nth-child(2) > header { background: #edf7f2; }
+.contractor-dashboard .contractor-panel-link { font-size: 12px; white-space: normal; text-align: right; }
+.contractor-dashboard .contractor-workflow-queues { display: grid; gap: 14px; }
+.contractor-dashboard .contractor-workflow-queue.bp-section-card > header { min-height: 52px; background: #f2edfc; }
+.contractor-dashboard .contractor-workflow-calls.bp-section-card > header { background: #fff4df; }
+.contractor-dashboard .contractor-workflow-queue.bp-section-card > div { padding: 10px 12px; }
+.contractor-dashboard .contractor-workflow-queue ul { margin: 0; padding: 0; list-style: none; }
+.contractor-dashboard .contractor-workflow-queue li > a { padding: 10px; border-color: #edf0f5; border-radius: 9px; gap: 10px; }
+.contractor-dashboard .contractor-workflow-queue li > a > svg { color: #7350ac; }
+.contractor-dashboard .contractor-workflow-calls li > a > svg { color: #ad6713; }
+.contractor-dashboard .contractor-agenda-body { padding: 0; }
+.contractor-dashboard .contractor-agenda-group + .contractor-agenda-group { border-top: 1px solid #e5eaf2; }
+.contractor-dashboard .contractor-agenda-group > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 16px; }
+.contractor-dashboard .contractor-agenda-group h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: 13px; }
+.contractor-dashboard .contractor-agenda-group h3 > svg { color: #5376b9; }
+.contractor-dashboard .contractor-agenda-group h3 > span { padding: 3px 7px; border-radius: 6px; background: #edf2fb; color: #405b87; font-size: 11px; }
+.contractor-dashboard .contractor-agenda .contractor-timeline { padding: 8px 16px 14px !important; }
+.contractor-dashboard .contractor-agenda .contractor-task { padding-bottom: 16px; }
+.contractor-dashboard .contractor-agenda .contractor-task:last-child { padding-bottom: 0; }
+.contractor-dashboard .contractor-agenda .bp-state { min-height:0; padding:20px 12px; gap:8px; }
+.contractor-dashboard .contractor-agenda .bp-state > svg { width:22px; height:22px; }
+@media (max-width: 1023px) { .contractor-dashboard .contractor-workspace { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 479px) {
+ .contractor-dashboard .contractor-panel.bp-section-card > header { padding: 8px 12px; }
+ .contractor-dashboard .contractor-panel.bp-section-card > header h2 { font-size: 15px; }
+ .contractor-dashboard .contractor-agenda-group > header { padding-inline: 12px; }
+}
+.contractor-dashboard { gap:18px; }
+.contractor-dashboard .contractor-account-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:14px; align-items:start; }
+.contractor-dashboard .contractor-account-cards > * { min-width:0; }
+.contractor-dashboard .contractor-priority-item { padding:12px 14px; gap:10px; }
+.contractor-dashboard .contractor-priority-item h2 { margin:3px 0 0; font-size:15px; }
+.contractor-dashboard [aria-label="Collection balances"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media(min-width:1280px) {
+ .contractor-dashboard [aria-label="Collection balances"] { grid-template-columns:repeat(4,minmax(0,1fr)); }
 }

@@ -1,0 +1,224 @@
+/* Shared website presentation from the user-supplied illustrated dashboard.
+   Keep screen structure, visibility, states and business behaviour in components. */
+.bp-ui.minimia-shell.contractor-shell {
+  --bp-canvas: var(--bp-color-canvas);
+  background: var(--bp-canvas);
+  --app-soft: color-mix(in srgb, var(--app-primary) 7%, white);
+  --app-line: var(--bp-line);
+}
+.bp-ui.minimia-shell :is(.bp-topbar, .bp-mobile-bottom-nav) {
+  background: var(--bp-card);
+  border-color: var(--bp-line);
+  box-shadow: 0 2px 8px rgb(15 23 42 / .035);
+}
+.bp-ui.minimia-shell .bp-topbar-search { background: var(--bp-color-surface-muted); border-color: var(--bp-line); border-radius: var(--bp-radius-control); }
+.bp-ui.minimia-shell .bp-topbar select.bp-ui-control { padding: 8px 24px 8px 8px; font-size: 14px; }
+.bp-dialog-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.bp-dialog-icon { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid var(--bp-line); border-radius: var(--bp-radius-control); color: var(--bp-brand); background: var(--bp-card); }
+.bp-dialog-description { margin-top: 4px; color: var(--bp-muted); font-size: 13px; line-height: 1.5; }
+.bp-ui.minimia-shell main :is(.bp-page-header, .bp-ui-page-header) {
+  border: 1px solid var(--bp-line);
+  border-radius: var(--bp-radius-panel);
+  background: var(--bp-card);
+  box-shadow: var(--bp-shadow);
+}
+.bp-ui.minimia-shell main :is(h1, h2, h3) { font-family: "Plus Jakarta Sans", Inter, sans-serif; }
+.bp-ui.minimia-shell main :is(.bp-page-header, .bp-ui-page-header) h1 { font-weight: 800; letter-spacing: -.035em; }
+.bp-ui.minimia-shell main :is(.bp-card, .bp-section-card, .bp-stat-card, section.rounded-2xl, article.rounded-2xl, .people-surface) {
+  border-color: var(--bp-line);
+  border-radius: var(--bp-radius-panel);
+  box-shadow: var(--bp-shadow);
+}
+.bp-ui.minimia-shell main .bp-section-card > header { background: var(--bp-card); }
+.bp-ui.minimia-shell main .bp-section-card > header h2 { color: var(--bp-ink); }
+.bp-ui.minimia-shell .bp-dashboard-shortcuts { padding: 16px; border: 1px solid var(--bp-line); border-radius: var(--bp-radius-panel); background: var(--bp-card); box-shadow: var(--bp-shadow); }
+.bp-ui.minimia-shell .bp-shortcut-icon:not(.bp-shortcut-icon-primary) { color: var(--bp-brand); background: var(--app-soft); border-color: var(--bp-line); }
+.bp-ui.minimia-shell :is(.bp-button-primary, .people-primary-action) { box-shadow: 0 4px 12px color-mix(in srgb, var(--bp-brand) 18%, transparent); }
+.bp-ui.minimia-shell .bp-button-primary:hover { filter: brightness(.94); }
+.bp-ui.minimia-shell .bp-button-primary:disabled { filter: none; box-shadow: none; }
+.bp-ui.minimia-shell main :is(.bp-ui-table, .network-compact-table) thead { background: var(--bp-color-surface-muted); }
+.bp-ui.minimia-shell main .bp-ui-table th { background: var(--bp-color-surface-muted); color: var(--bp-ink); }
+.bp-ui.minimia-shell .contractor-module-icon { background: var(--app-soft); box-shadow: inset 0 1px 0 white, 0 4px 10px rgb(15 23 42 / .035); }
+.bp-ui.minimia-shell .people-customer-hero .contractor-module-header .bp-page-header { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.bp-ui.minimia-shell .bp-navigation-surface { background: var(--ws-card); }
+.bp-ui.minimia-shell .ws-nav-link.is-active { background: var(--app-primary); color: var(--app-on-primary); box-shadow: inset 3px 0 0 var(--app-accent); }
+.bp-ui.minimia-shell .ws-nav-link.is-active svg { color: inherit; }
+.bp-ui.minimia-shell .ws-nav-logout, .bp-ui.minimia-shell .ws-nav-logout svg { color: #ff9d92; }
+.bp-ui.minimia-shell .ws-nav-group-dot { color: var(--bp-color-navigation); }
+
+/* The banner carries the artwork; operational work screens stay easy to scan. */
+.contractor-welcome { position: relative; isolation: isolate; border: 1px solid #dce1ff; border-radius: var(--bp-radius-panel); background: linear-gradient(110deg, #f2f2ff, #e9f1ff); box-shadow: var(--bp-shadow); }
+.bp-ui.minimia-shell .contractor-welcome .bp-page-header { min-height: 200px; margin: 0; padding: 24px; padding-right: 220px; align-items: flex-start; flex-direction: column; border: 0; background: transparent; box-shadow: none; }
+.contractor-welcome .bp-page-header > div { min-width: 0; }
+.contractor-welcome .bp-page-header h1 { font-size: clamp(24px, 3vw, 30px); }
+.contractor-welcome .bp-page-description { max-width: 65ch; }
+.contractor-welcome .bp-page-actions { width: auto; }
+.contractor-welcome-art { position: absolute; z-index: -1; right: 24px; top: 50%; transform: translateY(-50%); width: 170px; height: 170px; object-fit: contain; }
+.dashboard-welcome-symbol { display: grid; place-items: center; border-radius: 32px; background: color-mix(in srgb, var(--bp-brand) 7%, white); border: 1px solid color-mix(in srgb, var(--bp-brand) 10%, white); color: var(--bp-brand); }
+.dashboard-welcome-symbol > svg { width: 65%; height: 65%; }
+.dashboard-welcome-banner .customer-dashboard-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bp-ui.minimia-shell .dashboard-welcome-banner .bp-page-header > div:first-child { flex: none; }
+.bp-ui.minimia-shell .dashboard-welcome-banner .bp-ui-action { border-color: var(--bp-line); }
+.contractor-dashboard .contractor-stat-link .bp-stat-card { position: relative; display: block; padding: 20px; border-radius: var(--bp-radius-panel); }
+.contractor-dashboard .contractor-stat-link .bp-stat-icon { position: absolute; right: 16px; top: 16px; width: 40px; height: 40px; border: 1px solid rgb(255 255 255 / .8); background: linear-gradient(145deg, #f5f3ff, #ddd6ff); color: #5740ec; box-shadow: 0 4px 12px rgb(15 23 42 / .08); }
+.contractor-dashboard .contractor-stat-link:nth-child(2) .bp-stat-icon { background: linear-gradient(145deg, #f0fbff, #c5eeff); color: #007caa; }
+.contractor-dashboard .contractor-stat-link:nth-child(3) .bp-stat-icon { background: linear-gradient(145deg, #faf5ff, #e7d8ff); color: #7731d5; }
+.contractor-dashboard .contractor-stat-link:nth-child(4) .bp-stat-icon { background: linear-gradient(145deg, #effff9, #c0f5e1); color: #087c61; }
+.contractor-dashboard .contractor-stat-link .bp-stat-card p { padding-right: 44px; margin-bottom: 20px; white-space: normal; }
+.contractor-dashboard .contractor-stat-link .bp-stat-card strong { display: block; font-size: 28px; letter-spacing: -.035em; }
+.contractor-service-categories { min-width: 0; padding: 16px; border: 1px solid var(--bp-line); border-radius: var(--bp-radius-panel); background: var(--bp-card); box-shadow: var(--bp-shadow); }
+.contractor-service-categories > header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.contractor-service-categories h2 { margin: 0; font-size: 16px; }
+.contractor-service-categories header p { margin: 0 0 4px; }
+.contractor-service-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.contractor-service-grid > a { min-width: 0; min-height: 100px; display: flex; align-items: center; justify-content: flex-start; flex-direction: column; gap: 4px; padding: 8px 4px; color: var(--bp-ink); font-size: 12px; font-weight: 600; text-align: center; text-decoration: none; border: 1px solid transparent; border-radius: var(--bp-radius-control); }
+.contractor-service-grid > a:hover { background: var(--app-soft); }
+.contractor-service-art { display: block; width: 72px; height: 72px; object-fit: contain; }
+.service-art-fallback { display: grid; place-items: center; width: var(--service-art-width); height: var(--service-art-height); color: var(--bp-brand); }
+.service-art-fallback > svg { width: 60%; height: 60%; }
+@media(max-width: 767px) {
+  .bp-ui.minimia-shell .bp-topbar select.bp-ui-control { font-size: 16px; }
+  .bp-ui.minimia-shell .contractor-welcome .bp-page-header { display: flex; min-height: 0; padding: 20px 16px; padding-right: 16px; gap: 16px; }
+  .contractor-welcome .bp-page-header > div:first-child { width: 100%; }
+  .contractor-welcome .bp-page-header :is(h1, .bp-eyebrow) { padding-right: 104px; }
+  .contractor-welcome .bp-page-description { font-size: 13px; }
+  .contractor-welcome-art { width: 88px; height: 88px; right: 8px; top: 28px; transform: none; }
+  .bp-ui.minimia-shell .contractor-welcome .bp-page-header .bp-page-actions { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; width: 100%; min-width: 0; height: auto; }
+  .bp-ui.minimia-shell .contractor-welcome .bp-page-header .bp-page-actions .bp-button { width: auto; min-width: 0; height: auto; padding: 10px 12px; flex: 1 1 auto; }
+  .contractor-welcome .dashboard-refresh-label { display: inline; }
+  .contractor-dashboard .contractor-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contractor-dashboard .contractor-stat-link .bp-stat-card { padding: 16px 12px; text-align: left; }
+  .contractor-dashboard .contractor-stat-link .bp-stat-card strong { font-size: 24px; }
+  .contractor-dashboard .contractor-stat-link .bp-stat-card p { padding-right: 32px; margin-bottom: 16px; font-size: 12px; }
+  .contractor-dashboard .contractor-stat-link .bp-stat-icon { right: 8px; top: 12px; width: 28px; height: 28px; border-radius: 8px; }
+  .contractor-dashboard .contractor-stat-link .bp-stat-icon > svg { width: 18px; height: 18px; }
+  .contractor-dashboard .contractor-stat-link .bp-stat-card small { font-size: 12px; }
+  .contractor-service-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .contractor-service-art { width: 56px; height: 56px; }
+  .contractor-service-grid > a { min-height: 92px; font-size: 11px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .bp-ui.minimia-shell .bp-button-primary { transition: none; }
+}
+@media(max-width: 399px) {
+  .contractor-service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Shared shortcut feedback. Reserve border space at rest so hover/focus never
+   shifts an icon or its label, and keep the parent link's keyboard outline. */
+.bp-ui.minimia-shell {
+  --bp-shortcut-active-surface: color-mix(in srgb, var(--bp-brand) 14%, var(--bp-card));
+  --bp-shortcut-active-border: var(--bp-brand);
+}
+.bp-ui.minimia-shell :is(.contractor-tools-grid .contractor-icon, .customer-quick-action > span:first-child) {
+  border: 1px solid var(--bp-line);
+}
+.bp-ui.minimia-shell .bp-dashboard-shortcut:is(:hover, :focus-visible) .bp-shortcut-icon:not(.bp-shortcut-icon-primary),
+.bp-ui.minimia-shell .bp-floating-actions-list a:is(:hover, :focus-visible) .bp-floating-action-icon,
+.bp-ui.minimia-shell .contractor-tools-grid > a:is(:hover, :focus-visible) .contractor-icon,
+.bp-ui.minimia-shell .customer-quick-action:is(:hover, :focus-visible) > span:first-child,
+.bp-ui.minimia-shell :is(.contractor-service-grid > a, .employee-quick-actions > a):is(:hover, :focus-visible) {
+  border-color: var(--bp-shortcut-active-border);
+  background: var(--bp-shortcut-active-surface);
+  box-shadow: inset 0 0 0 1px var(--bp-shortcut-active-border);
+}
+.bp-ui.minimia-shell .bp-dashboard-shortcut:is(:hover, :focus-visible) .bp-shortcut-icon-primary,
+.bp-ui.minimia-shell .bp-floating-actions-toggle:is(:hover, :focus-visible) > span {
+  border-color: var(--bp-brand-dark);
+  background: var(--bp-brand-dark);
+  color: var(--bp-on-brand, white);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-ui.minimia-shell :is(.bp-dashboard-shortcut, .bp-shortcut-icon, .contractor-service-grid > a, .bp-floating-actions-list a, .bp-floating-action-icon, .bp-floating-actions-toggle > span, .contractor-tools-grid > a, .contractor-icon, .customer-quick-action, .customer-quick-action > span:first-child, .employee-quick-actions > a) { transition: none !important; }
+}
+
+/* Compact shared surfaces and pastel icon tiles from the approved dashboard. */
+.bp-ui.minimia-shell {
+  --bp-reference-shadow: 0 2px 5px rgb(27 39 75 / .045), 0 5px 16px rgb(27 39 75 / .035);
+}
+.bp-ui.minimia-shell main :is(.bp-card, .bp-section-card, .bp-stat-card, .people-surface) {
+  box-shadow: var(--bp-reference-shadow);
+}
+.bp-ui.minimia-shell main .bp-section-card > header {
+  padding:14px 16px;
+  background:linear-gradient(110deg,color-mix(in srgb,var(--bp-brand) 6%,var(--bp-card)),color-mix(in srgb,var(--bp-color-info) 5%,var(--bp-card)));
+}
+.bp-ui.minimia-shell main .bp-section-card > header h2 { font-size:14px; line-height:1.45; }
+.bp-ui.minimia-shell .bp-section-card-body { padding:16px; }
+.bp-ui.minimia-shell :is(.bp-shortcut-icon, .bp-floating-action-icon, .contractor-icon, .bp-dialog-icon) {
+  --bp-icon-accent: var(--bp-brand);
+  color:var(--bp-icon-accent);
+  border:1px solid color-mix(in srgb,var(--bp-icon-accent) 16%,var(--bp-card));
+  background:linear-gradient(145deg,var(--bp-card),color-mix(in srgb,var(--bp-icon-accent) 12%,var(--bp-card)));
+  box-shadow:0 3px 7px rgb(30 41 59 / .08),inset 0 1px 0 rgb(255 255 255 / .8);
+}
+.bp-ui.minimia-shell :is(.bp-dashboard-shortcut, .contractor-tools-grid > a):nth-child(4n+2) :is(.bp-shortcut-icon, .contractor-icon) { --bp-icon-accent:var(--bp-color-success); }
+.bp-ui.minimia-shell :is(.bp-dashboard-shortcut, .contractor-tools-grid > a):nth-child(4n+3) :is(.bp-shortcut-icon, .contractor-icon) { --bp-icon-accent:var(--bp-color-warning); }
+.bp-ui.minimia-shell :is(.bp-dashboard-shortcut, .contractor-tools-grid > a):nth-child(4n+4) :is(.bp-shortcut-icon, .contractor-icon) { --bp-icon-accent:var(--bp-color-info); }
+.bp-ui.minimia-shell :is(.bp-shortcut-icon, .bp-floating-action-icon, .contractor-icon) > .lucide { width:18px; height:18px; }
+.bp-ui.minimia-shell .bp-stat-icon { border:1px solid color-mix(in srgb,currentColor 16%,transparent); box-shadow:0 3px 7px rgb(30 41 59 / .06); }
+.bp-ui.minimia-shell .bp-stat-icon > .lucide { width:20px; height:20px; }
+.bp-ui.minimia-shell main :is(.bp-workspace-tabs, [role="tablist"]) { gap:8px; }
+.bp-ui.minimia-shell main :is(.bp-workspace-tabs > a, [role="tab"]) {
+  font-size:13px;
+  border-radius:10px;
+  box-shadow:0 2px 4px rgb(30 41 59 / .035);
+}
+.bp-ui.minimia-shell main :is(.bp-workspace-tabs > a[aria-current="page"], [role="tab"][aria-selected="true"]) {
+  color:var(--bp-brand-dark);
+  border-color:color-mix(in srgb,var(--bp-brand) 45%,var(--bp-line));
+  background:color-mix(in srgb,var(--bp-brand) 9%,var(--bp-card));
+}
+.bp-ui.minimia-shell main :is(.bp-workspace-tabs > a, [role="tab"]):focus-visible { outline:2px solid var(--bp-brand); outline-offset:2px; }
+.bp-ui.minimia-shell :is(.bp-shortcut-icon-primary, .bp-floating-actions-toggle > span) { color:var(--bp-on-brand,white); background:var(--bp-brand); }
+@media (prefers-reduced-motion:reduce) {
+ .bp-ui.minimia-shell main :is(.bp-workspace-tabs > a,[role="tab"]) { transition:none; }
+}
+
+/* Related route tabs remain in view and share a surface with their section. */
+.bp-ui.minimia-shell main .bp-workspace-tabs {
+  position:sticky; top:var(--bp-workspace-top,72px); z-index:20;
+  display:flex; width:100%; max-width:100%; min-width:0; gap:6px;
+  padding:6px; border:1px solid var(--bp-line); border-radius:12px;
+  background:var(--bp-card); box-shadow:var(--bp-reference-shadow);
+  scroll-padding-inline:6px; overscroll-behavior-x:contain;
+}
+.bp-ui.minimia-shell main .bp-workspace-tabs > a {
+  min-height:44px; flex:0 0 auto; padding:8px 12px; gap:7px;
+  border:1px solid transparent; font-size:12px; line-height:1.4;
+  font-weight:600; white-space:nowrap; background:transparent;
+  color:var(--bp-muted); box-shadow:none;
+  transition:background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.bp-ui.minimia-shell main .bp-workspace-tabs > a > svg {
+  width:17px; height:17px; color:var(--bp-brand);
+}
+.bp-ui.minimia-shell main .bp-workspace-tabs > a:nth-child(3n+2) > svg { color:var(--bp-color-success); }
+.bp-ui.minimia-shell main .bp-workspace-tabs > a:nth-child(3n+3) > svg { color:var(--bp-color-info); }
+.bp-ui.minimia-shell main .bp-workspace-tabs > a[aria-current="page"] {
+  color:var(--bp-brand-dark); font-weight:700;
+  background:color-mix(in srgb,var(--bp-brand) 10%,var(--bp-card));
+  border-color:color-mix(in srgb,var(--bp-brand) 30%,var(--bp-line));
+  box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--bp-brand) 60%,transparent);
+}
+.bp-ui.minimia-shell main .bp-workspace-tabs > a:is(:hover,:focus-visible) {
+  background:color-mix(in srgb,var(--bp-brand) 8%,var(--bp-card));
+  border-color:color-mix(in srgb,var(--bp-brand) 28%,var(--bp-line));
+  box-shadow:0 3px 10px color-mix(in srgb,var(--bp-brand) 15%,transparent);
+}
+.bp-ui.minimia-shell main .bp-workspace-tabs + :is(.bp-card,.bp-section-card,section,.bg-white) {
+  border-color:color-mix(in srgb,var(--bp-brand) 18%,var(--bp-line));
+}
+@media(prefers-reduced-motion:reduce) {
+  .bp-ui.minimia-shell main .bp-workspace-tabs > a { transition:none; }
+}
+.bp-ui input::placeholder,
+.bp-ui textarea::placeholder {
+  font-size:11px;
+  font-weight:400;
+  letter-spacing:0;
+  opacity:1;
+}
+@media(min-width:768px) {
+  .bp-ui input::placeholder,.bp-ui textarea::placeholder { font-size:12px; }
+}

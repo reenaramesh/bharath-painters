@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   Download,
   FileText,
   ReceiptText,
+  WalletCards,
+  IndianRupee,
 } from "lucide-react";
 import api from "../api/client";
 import { useSearchParams } from "react-router-dom";
@@ -149,11 +151,12 @@ export default function CustomerInvoices() {
   return (
     <div className="space-y-6 finance-page customer-finance-page">
       <BackButton fallback="/customer-dashboard" label="Back to dashboard" />
-      <PageHeader eyebrow="Customer billing" title="Approved projects & payments"  />
+      <PageHeader eyebrow="Customer billing" title="Approved projects & payments" description="Review approved project values, payments, balances and final invoices."  />
       {loading ? <LoadingState label="Loading invoices and payment history..." className="finance-loading" /> : loadFailed ? <ErrorState message={error} onRetry={load} className="finance-inline-error" /> : <>
       <section className="finance-summary-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Invoice and payment summary">
         <StatCard
           label="Project value"
+          icon={FileText}
           value={totals.billed == null ? "Unavailable" : `₹${money(totals.billed)}`}
           hint={`${finance?.projects?.length || 0} accepted project(s)`}
           tone="brand"
@@ -162,15 +165,17 @@ export default function CustomerInvoices() {
         />
         <StatCard
           label="Payments received"
+          icon={ReceiptText}
           value={totals.paid == null ? "Unavailable" : `₹${money(totals.paid)}`}
 
-          hint={`${finance?.receipts_count || 0} receipt(s)`}
+          hint={finance?.receipts_count == null ? "Unavailable" : `${finance.receipts_count} receipt(s)`}
           tone="success"
           onClick={() => showLedger("payments")}
           active={ledgerView === "payments"}
         />
         <StatCard
           label="Balance remaining"
+          icon={IndianRupee}
           value={totals.due == null ? "Unavailable" : `₹${money(totals.due)}`}
 
           tone="warning"
@@ -179,6 +184,7 @@ export default function CustomerInvoices() {
         />
         <StatCard
           label="Advance credit"
+          icon={WalletCards}
           value={totals.credit == null ? "Unavailable" : `₹${money(totals.credit)}`}
           hint={`${finance?.projects?.filter((project) => project.status === "COMPLETED").length || 0} completed project(s)`}
           tone="info"

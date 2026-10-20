@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from decimal import Decimal
 from builtins import property as python_property
@@ -1416,6 +1416,7 @@ class PropertyMeasurement(models.Model):
     connection = models.ForeignKey(ContractorCustomerConnection, on_delete=models.PROTECT, related_name="measurements", null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="area_calculations_created", null=True, blank=True)
     version = models.PositiveIntegerField(default=1)
+    edit_revision = models.PositiveBigIntegerField(default=0)
     submitted_at = models.DateTimeField(null=True, blank=True)
     reference_no = models.CharField(max_length=40, unique=True, blank=True)
     measured_on = models.DateField(default=timezone.localdate)
@@ -1978,6 +1979,9 @@ class QuotationRoom(models.Model):
 
 class QuotationItem(models.Model):
 
+    class Meta:
+        ordering = ("id",)
+
     class LineType(models.TextChoices):
         SERVICE_MATERIAL = "SERVICE_MATERIAL", "Service + Material"
         SERVICE = "SERVICE", "Service"
@@ -2307,6 +2311,10 @@ class PropertyRoom(models.Model):
         max_length=150
     )
 
+    idempotency_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    idempotency_revision = models.PositiveBigIntegerField(null=True, blank=True)
+    idempotency_fingerprint = models.CharField(max_length=64, null=True, blank=True)
+
     painting_area = models.CharField(max_length=10, choices=[("INTERIOR", "Interior"), ("EXTERIOR", "Exterior"), ("OTHER", "Others")], blank=True, default="")
     section = models.CharField(max_length=150, blank=True)
     description = models.TextField(blank=True)
@@ -2503,6 +2511,9 @@ class MeasurementSurface(models.Model):
     finish = models.CharField(max_length=120, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     notes = models.TextField(blank=True)
+    idempotency_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    idempotency_revision = models.PositiveBigIntegerField(null=True, blank=True)
+    idempotency_fingerprint = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2719,16 +2730,39 @@ class InvoiceNumberSequence(models.Model):
 
 class InvoicePayment(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments")
+    source_schedule = models.ForeignKey(
+        "jobs.WorkSchedule", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="invoice_payment_allocations",
+    )
+    source_receipt = models.ForeignKey(
+        "quotations.ProjectReceipt", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="invoice_payment_allocations",
+    )
     received_date = models.DateField(default=timezone.localdate)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     payment_mode = models.CharField(max_length=20, choices=Invoice.PaymentMode.choices)
     payment_reference = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=250, blank=True)
+    idempotency_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("received_date", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("source_schedule",), condition=models.Q(source_schedule__isnull=False),
+                name="unique_invoice_payment_schedule_source",
+            ),
+            models.UniqueConstraint(
+                fields=("source_receipt",), condition=models.Q(source_receipt__isnull=False),
+                name="unique_invoice_payment_receipt_source",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(source_schedule__isnull=True) | models.Q(source_receipt__isnull=True),
+                name="invoice_payment_single_source",
+            ),
+        ]
 
 
 class ProjectReceipt(models.Model):
@@ -2748,6 +2782,7 @@ class ProjectReceipt(models.Model):
     payment_mode = models.CharField(max_length=20, choices=PaymentMode.choices)
     payment_reference = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=250, blank=True)
+    idempotency_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2811,8 +2846,23 @@ class ProjectScope(models.Model):
         blank=True,
         related_name="project_scopes",
     )
+    source_quotation_item = models.ForeignKey(
+        QuotationItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
+    source_work_change_item = models.ForeignKey(
+        WorkChangeItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="project_scopes",
+    )
 
     quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    completed_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
@@ -2850,7 +2900,29 @@ class ProjectScope(models.Model):
                 condition=~models.Q(reference=""),
                 name="unique_project_scope_reference_per_quotation",
             ),
+            models.UniqueConstraint(
+                fields=("source_quotation_item",),
+                condition=models.Q(source_quotation_item__isnull=False),
+                name="unique_project_scope_quotation_item_source",
+            ),
+            models.UniqueConstraint(
+                fields=("source_work_change_item",),
+                condition=models.Q(source_work_change_item__isnull=False),
+                name="unique_project_scope_work_change_source",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(source_quotation_item__isnull=True) | models.Q(source_work_change_item__isnull=True),
+                name="project_scope_single_source",
+            ),
         ]
+
+    @property
+    def source_key(self):
+        if self.source_quotation_item_id:
+            return f"quotation-{self.source_quotation_item_id}"
+        if self.source_work_change_item_id:
+            return f"change-{self.source_work_change_item_id}"
+        return ""
 
     def __str__(self):
         return self.title or self.work_description_snapshot or f"Scope {self.pk}"
@@ -2862,16 +2934,15 @@ class ProjectScope(models.Model):
     def assign_reference(self):
         if self.reference or not self.quotation_id:
             return self.reference
-        last_id = (
-            ProjectScope.objects.filter(quotation_id=self.quotation_id)
-            .exclude(pk=self.pk)
-            .aggregate(top=models.Max("id"))["top"]
-            or 0
-        )
-        self.reference = f"SC-{last_id + 1:04d}"
+        references = ProjectScope.objects.filter(quotation_id=self.quotation_id).exclude(pk=self.pk).values_list("reference", flat=True)
+        serials = [int(value[3:]) for value in references if value.startswith("SC-") and value[3:].isdigit()]
+        self.reference = f"SC-{max(serials, default=0) + 1:04d}"
         return self.reference
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        if not self.reference and self.quotation_id:
+            Quotation.objects.select_for_update().get(pk=self.quotation_id)
         self.calculate_amount()
         self.assign_reference()
         if self.category_id and not self.category_name_snapshot:

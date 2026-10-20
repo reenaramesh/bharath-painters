@@ -655,8 +655,16 @@
 
 .customer-connections-page .contractor-dialog-danger-action button {
   min-height: 44px;
-  color: var(--bp-color-danger);
+  color: #fff;
 }
+
+.customer-connections-page .customer-connection-dialog .contractor-identity-id,
+.customer-connections-page .customer-connection-dialog .contractor-dialog-connection-status {
+  color: var(--bp-brand);
+  background: var(--app-soft);
+  border-color: var(--bp-line);
+}
+.customer-connections-page .customer-connection-dialog .contractor-profile-body { padding-inline: 0; }
 
 @media (max-width: 767px) {
   .customer-connections-page .bp-page-header {

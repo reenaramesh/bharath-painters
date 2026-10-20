@@ -1,4 +1,4 @@
-"""Phase 1 customer identity and contractor-relationship regressions."""
+﻿"""Phase 1 customer identity and contractor-relationship regressions."""
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -96,6 +96,10 @@ class Phase1CustomerRelationshipTests(APITestCase):
         legacy_owner = BharathUser.objects.create_user(mobile="9000011110", role="CONTRACTOR")
         legacy = Customer.objects.create(contractor=legacy_owner, name="Legacy customer", mobile="9000011190")
         self.client.force_authenticate(legacy_owner)
+        listed = self.client.get(reverse("customer-list-create"))
+        self.assertEqual([row["id"] for row in listed.data], [legacy.pk])
+        searched = self.client.get(reverse("client-search"), {"query": "Legacy customer"})
+        self.assertEqual([row["id"] for row in searched.data], [legacy.pk])
         response = self.client.post(reverse("lead-list"), {
             "customer": legacy.pk, "title": "Legacy customer",
         }, format="json")

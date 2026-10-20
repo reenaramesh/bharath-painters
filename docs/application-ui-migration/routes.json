@@ -1,0 +1,5208 @@
+{
+  "generatedFrom": "frontend/src/App.jsx",
+  "routes": [
+    {
+      "path": "/preview/settings",
+      "page": "MergedSettingsPreview",
+      "source": null,
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "development-only",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "excluded: development preview",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/preview/subcontract-work-orders",
+      "page": "SubcontractWorkOrdersPreview",
+      "source": null,
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "development-only",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "excluded: development preview",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/preview/sidebar",
+      "page": "SidebarPreview",
+      "source": null,
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "development-only",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "excluded: development preview",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/preview/bharath-apps",
+      "page": "BharathAppsPreview",
+      "source": null,
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "development-only",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "excluded: development preview",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/contractor-profile/:bharathId",
+      "page": "PublicContractorProfile",
+      "source": "frontend/src/pages/PublicContractorProfile.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/login",
+      "page": "Login",
+      "source": "frontend/src/pages/Login.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "ServiceIllustration"
+      ],
+      "styles": [
+        "../styles/auth-reference.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [
+        "POST /quotations/support-tickets/public/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": false,
+        "translationHook": true
+      },
+      "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_public_auth_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Real OTP/account creation and provider sign-in integrations"
+      ]
+    },
+    {
+      "path": "/share-contact",
+      "page": "ShareContact",
+      "source": "frontend/src/pages/ShareContact.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [
+        "./share-contact.css"
+      ],
+      "apiReads": [
+        "/call-inbox/shared-contact-lookup/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/register",
+      "page": "Register",
+      "source": "frontend/src/pages/Register.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [
+        "RegistrationConsent"
+      ],
+      "styles": [
+        "../styles/auth-reference.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [
+        "POST /accounts/register/${role.toLowerCase()}/",
+        "POST /accounts/register/email/request/",
+        "POST /accounts/register/email/verify/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_public_auth_check.py",
+        "qa/application-ui-migration",
+        "qa/application_registration_consent_check.py"
+      ],
+      "remaining": [
+        "Real OTP/account creation and provider sign-in integrations"
+      ]
+    },
+    {
+      "path": "/customer-register",
+      "page": "CustomerRegister",
+      "source": "frontend/src/pages/CustomerRegister.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [
+        "RegistrationConsent"
+      ],
+      "styles": [
+        "../styles/auth-reference.css"
+      ],
+      "apiReads": [
+        "/quotations/property-invitations/token/${invitationToken}/"
+      ],
+      "apiWrites": [
+        "POST /accounts/register/customer/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_public_auth_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Real OTP/account creation and provider sign-in integrations"
+      ]
+    },
+    {
+      "path": "/customer-link/:token",
+      "page": "CustomerShareLink",
+      "source": "frontend/src/pages/CustomerShareLink.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [
+        "RegistrationConsent"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/customer-link/${token}/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customer-link/${token}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/join/property/:token",
+      "page": "JoinProperty",
+      "source": "frontend/src/pages/JoinProperty.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [
+        "/quotations/property-invitations/token/${token}/"
+      ],
+      "apiWrites": [
+        "POST /quotations/property-invitations/token/${token}/accept/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/forgot-password",
+      "page": "ForgotPassword",
+      "source": "frontend/src/pages/ForgotPassword.jsx",
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "public",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [
+        "../styles/auth-reference.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [
+        "POST /accounts/forgot-password/lookup/",
+        "POST /accounts/forgot-password/request/",
+        "POST /accounts/forgot-password/verify/",
+        "POST /accounts/forgot-password/confirm/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: master typography/palette and public layouts; login/support failure retention tested",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_public_auth_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Real OTP/account creation and provider sign-in integrations"
+      ]
+    },
+    {
+      "path": "/dashboard",
+      "page": "Dashboard",
+      "source": "frontend/src/pages/Dashboard.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "StatCard",
+        "MobileDashboardShortcuts",
+        "DashboardWelcomeBanner"
+      ],
+      "styles": [
+        "./painter-portal.css"
+      ],
+      "apiReads": [
+        "/billing/me/",
+        "/quotations/invoices/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": true
+      },
+      "status": "partial: Contractor/Painter/Admin dashboard presentation reviewed; conditional business states pending",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/reference-theme/after",
+        "qa/application_shell_check.py",
+        "qa/reference_artwork_check.py"
+      ],
+      "remaining": [
+        "Populated admin actions and query sections",
+        "Painter freelance/in-house and failure variants",
+        "Role-specific workflow interactions"
+      ]
+    },
+    {
+      "path": "/applicator",
+      "page": "Dashboard",
+      "source": "frontend/src/pages/Dashboard.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "StatCard",
+        "MobileDashboardShortcuts",
+        "DashboardWelcomeBanner"
+      ],
+      "styles": [
+        "./painter-portal.css"
+      ],
+      "apiReads": [
+        "/billing/me/",
+        "/quotations/invoices/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": true
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customer-dashboard",
+      "page": "CustomerDashboard",
+      "source": "frontend/src/pages/CustomerDashboard.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge",
+        "",
+        "CustomerAds",
+        "MobileDashboardShortcuts",
+        "DashboardWelcomeBanner"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./customer-dashboard.css"
+      ],
+      "apiReads": [
+        "/quotations/customer-portal/dashboard/",
+        "/quotations/customer-portal/quotations/",
+        "/billing/customer-finance/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": true
+      },
+      "status": "partial: shared welcome/cards and eight-width review; populated approvals/work states pending",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/reference-theme/after/CustomerDashboard-320.png",
+        "qa/reference-theme/after/CustomerDashboard-1440.png"
+      ],
+      "remaining": [
+        "Populated approval/payment/schedule states",
+        "All supported-language layout review"
+      ]
+    },
+    {
+      "path": "/customer/connections",
+      "page": "CustomerConnections",
+      "source": "frontend/src/pages/CustomerConnections.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        "",
+        "ContractorConnectSearch"
+      ],
+      "styles": [
+        "../styles/contractor-people-ui.css",
+        "./customer-connections.css"
+      ],
+      "apiReads": [
+        "/quotations/customer/connection-requests/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customer/${actionPath}/${item.id}/${action}/",
+        "POST /quotations/chat/conversations/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: native contractor profile, contrast, block confirmation/error and backdrop/focus checks",
+      "checklist": {
+        "structure": true,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_customer_connections_check.py",
+        "qa/application-ui-migration/customer-connections"
+      ],
+      "remaining": [
+        "Pending/reconnect/cooldown and message/share interactions"
+      ]
+    },
+    {
+      "path": "/customer/profile",
+      "page": "CustomerProfile",
+      "source": "frontend/src/pages/CustomerProfile.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "ProfileImageControl"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/accounts/customer-profile/"
+      ],
+      "apiWrites": [
+        "PATCH /accounts/customer-profile/",
+        "POST /accounts/recovery-email/request/",
+        "POST /accounts/recovery-email/verify/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/customer/connection-requests",
+      "page": "Navigate",
+      "source": null,
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "redirect",
+      "redirects": [
+        "/customer/connections"
+      ],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "redirect: verify destination",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/profile",
+      "page": "ProfileCard",
+      "source": "frontend/src/pages/ProfileCard.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "ADMIN",
+        "SUPPORT"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ContractorProfileSkeleton",
+        "ContractorPublicProfilePage",
+        "ContractorDigitalCard",
+        "PainterDigitalCard"
+      ],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customer-reviews",
+      "page": "CustomerContractorReviews",
+      "source": "frontend/src/pages/CustomerContractorReviews.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/accounts/customer-reviews/"
+      ],
+      "apiWrites": [
+        "POST /accounts/customer-reviews/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/completed-projects",
+      "page": "ContractorCompletedProjects",
+      "source": "frontend/src/pages/ContractorCompletedProjects.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/accounts/profile-card/projects/"
+      ],
+      "apiWrites": [
+        "POST /accounts/profile-card/projects/map-lookup/",
+        "PATCH /accounts/profile-card/projects/${editingId}/",
+        "POST /accounts/profile-card/projects/",
+        "DELETE /accounts/profile-card/projects/${projectId}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header; inline portfolio form layout",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_properties_projects_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Photo upload/map lookup/edit/delete interactions"
+      ]
+    },
+    {
+      "path": "/account-security",
+      "page": "RecoveryEmailSettings",
+      "source": "frontend/src/pages/RecoveryEmailSettings.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "ADMIN",
+        "CUSTOMER",
+        "SUPPORT"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "LanguageSelector"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/accounts/recovery-email/"
+      ],
+      "apiWrites": [
+        "POST /accounts/recovery-email/request/",
+        "POST /accounts/recovery-email/verify/",
+        "POST /accounts/account/lifecycle/",
+        "POST /accounts/change-password/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Employment/payroll/account mutations and populated role variants"
+      ]
+    },
+    {
+      "path": "/appearance",
+      "page": "AppearanceSettings",
+      "source": "frontend/src/pages/AppearanceSettings.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "CUSTOMER",
+        "ADMIN",
+        "SUPPORT"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [
+        "PATCH /accounts/me/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/contractors",
+      "page": "Contractors",
+      "source": "frontend/src/pages/Contractors.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "AdminDirectoryModal"
+      ],
+      "styles": [
+        "./admin-directory.css"
+      ],
+      "apiReads": [
+        "/accounts/contractors/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/painters",
+      "page": "Painters",
+      "source": "frontend/src/pages/Painters.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "AdminDirectoryModal"
+      ],
+      "styles": [
+        "./admin-directory.css"
+      ],
+      "apiReads": [
+        "/accounts/painters/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/painter-contacts",
+      "page": "PainterContacts",
+      "source": "frontend/src/pages/PainterContacts.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ContractorContactLinks",
+        "EmptyState",
+        "LoadingState",
+        "PageHeader"
+      ],
+      "styles": [
+        "./painter-contacts.css",
+        "./contractor-network.css"
+      ],
+      "apiReads": [
+        "/accounts/painter-contacts/"
+      ],
+      "apiWrites": [
+        "POST /accounts/painter-contacts/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/painters/contacts/:id",
+      "page": "PainterContactDetail",
+      "source": "frontend/src/pages/PainterContactDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ContractorContactLinks"
+      ],
+      "styles": [
+        "./contractor-network.css"
+      ],
+      "apiReads": [
+        "/accounts/painter-contacts/${id}/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customers",
+      "page": "Customers",
+      "source": "frontend/src/pages/Customers.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "LoadingState",
+        "StatusBadge",
+        "CustomerConnectionFlow",
+        "CustomerStatusFilter",
+        "MobilePageBack",
+        "CustomerAccountStatus",
+        "CustomerActivationShare",
+        "PageHeader",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/",
+        "/quotations/properties/",
+        "/quotations/contractor/customer-connections/",
+        "/quotations/service-categories/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/${customer.id}/activate-account/",
+        "POST /quotations/customers/",
+        "POST /quotations/customers/${onboarding.id}/share-link/",
+        "POST /quotations/contractor/customer-connections/request/",
+        "POST /quotations/customers/${item.customer.id}/share-link/",
+        "POST /quotations/customers/bulk-import/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/call-inbox",
+      "page": "CallInbox",
+      "source": "frontend/src/pages/CallInbox.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "CustomerForm",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./call-inbox.css"
+      ],
+      "apiReads": [
+        "/call-inbox/events/",
+        "/call-inbox/events/${event.id}/"
+      ],
+      "apiWrites": [
+        "POST /call-inbox/events/${event.id}/${name}/",
+        "POST /call-inbox/events/",
+        "POST /quotations/customers/",
+        "POST /call-inbox/events/${customerEvent.id}/link-customer/",
+        "POST /call-inbox/events/${event.id}/add-customer/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared manual/details/lead dialogs; manual and lead retries",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application-ui-migration",
+        "qa/application_call_inbox_check.py"
+      ],
+      "remaining": [
+        "Customer creation approval integration",
+        "Populated filter/dismiss/block states"
+      ]
+    },
+    {
+      "path": "/customers/:id",
+      "page": "CustomerDetail",
+      "source": "frontend/src/pages/CustomerDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "StatusBadge",
+        "CustomerAccountStatus",
+        "CustomerActivationShare",
+        "CustomerForm",
+        "BackButton",
+        "PageHeader"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/${id}/",
+        "/call-inbox/customers/${id}/events/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/${id}/${activationLink ? ",
+        "PATCH /quotations/customers/${id}/",
+        "PATCH /quotations/tasks/${item.id}/",
+        "POST /quotations/customers/${id}/follow-ups/",
+        "POST /quotations/contractor/customer-connections/request/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customers/:id/project-account",
+      "page": "CustomerProjectAccount",
+      "source": "frontend/src/pages/CustomerProjectAccount.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "StatCard",
+        "previewPdf",
+        "BackButton",
+        "ProjectFinanceLedger"
+      ],
+      "styles": [
+        "./finance-pages.css"
+      ],
+      "apiReads": [
+        "/billing/customers/${id}/project-finance/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customers/:id/quotations",
+      "page": "CustomerQuotationHistory",
+      "source": "frontend/src/pages/CustomerQuotationHistory.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "BackButton"
+      ],
+      "styles": [
+        "./quotation-ui.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/invoices",
+      "page": "Invoices",
+      "source": "frontend/src/pages/Invoices.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./finance-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/invoices/",
+        "/quotations/customers/",
+        "/quotations/properties/",
+        "/quotations/service-categories/",
+        "/quotations/service-types/",
+        "/quotations/paint-types/",
+        "/quotations/work-descriptions/",
+        "/quotations/brands/",
+        "/quotations/units/",
+        "/quotations/properties/${createDraft.property}/rooms/",
+        "/quotations/invoices/${data.id}/pdf/",
+        "/quotations/invoices/${editing.id}/pdf/",
+        "/quotations/invoices/${invoice.id}/receipt/"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/invoices/${editing.id}/",
+        "POST /quotations/invoices/",
+        "POST /quotations/invoices/${editing.id}/payments/",
+        "DELETE /quotations/invoices/${editing.id}/payments/${paymentId}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/tasks",
+      "page": "Tasks",
+      "source": "frontend/src/pages/Tasks.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "MobilePageBack",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./mobile-workspace.css"
+      ],
+      "apiReads": [
+        "/quotations/tasks/",
+        "/quotations/customers/"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/tasks/${task.id}/",
+        "PATCH /quotations/tasks/${editing.id}/",
+        "POST /quotations/customers/${selectedCustomer.id}/follow-ups/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: add/reschedule forms complete; populated grouping/filter/completion review pending",
+      "checklist": {
+        "structure": false,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_crm_check.py",
+        "qa/application-ui-migration/crm"
+      ],
+      "remaining": [
+        "All overdue/today/upcoming list states",
+        "Task completion and failure",
+        "Full-page language/accessibility review"
+      ]
+    },
+    {
+      "path": "/messages",
+      "page": "Chat",
+      "source": "frontend/src/pages/Chat.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "StatusBadge",
+        "ChatColourPicker",
+        "ChatMessageOptions",
+        "ContractorInboxRequests"
+      ],
+      "styles": [
+        "./communication-pages.css",
+        "./messenger-preview.css"
+      ],
+      "apiReads": [
+        "/quotations/chat/conversations/",
+        "/quotations/chat/conversations/${selected.id}/messages/",
+        "/quotations/customer/connection-requests/",
+        "/quotations/chat/contacts/",
+        "/quotations/customers/"
+      ],
+      "apiWrites": [
+        "POST /quotations/chat/conversations/",
+        "POST /quotations/chat/conversations/${selected.id}/messages/",
+        "PATCH /quotations/chat/messages/${messageId}/",
+        "DELETE /quotations/chat/messages/${messageId}/",
+        "POST /quotations/chat/messages/${messageId}/forward/",
+        "POST /quotations/chat/conversations/${selected.id}/safety/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/colors-shades",
+      "page": "ColorsShades",
+      "source": "frontend/src/pages/ColorsShades.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/colour-comparison/draft/",
+        "/quotations/chat/colours/",
+        "/quotations/customer/connection-requests/",
+        "/quotations/chat/contacts/"
+      ],
+      "apiWrites": [
+        "PUT /quotations/colour-comparison/draft/",
+        "POST /quotations/chat/conversations/",
+        "POST /quotations/chat/conversations/${conversation.id}/messages/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_contractor_tools_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Plan registration/payment, exports and colour sharing variants"
+      ]
+    },
+    {
+      "path": "/service-requests",
+      "page": "ServiceRequests",
+      "source": "frontend/src/pages/ServiceRequests.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        ""
+      ],
+      "styles": [
+        "./communication-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/service-requests/",
+        "/quotations/service-requests/options/"
+      ],
+      "apiWrites": [
+        "POST /quotations/service-requests/",
+        "PATCH /quotations/service-requests/${item.id}/",
+        "POST /quotations/customers/${schedule.customer}/follow-ups/",
+        "PATCH /quotations/service-requests/${schedule.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: native request/follow-up dialogs; request failure/retry and service prefill",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_service_requests_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Contractor follow-up/status variants and appointment path"
+      ]
+    },
+    {
+      "path": "/support-tickets",
+      "page": "SupportTickets",
+      "source": "frontend/src/pages/SupportTickets.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "ADMIN",
+        "CUSTOMER",
+        "SUPPORT"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/support-tickets/",
+        "/quotations/service-requests/options/",
+        "/quotations/support-staff/",
+        "/quotations/support-tickets/${ticket.id}/",
+        "/quotations/chat/conversations/${conversationId}/safety/",
+        "/quotations/chat/conversations/${chatSafety.conversationId}/safety/"
+      ],
+      "apiWrites": [
+        "POST /quotations/support-tickets/",
+        "PATCH /quotations/support-tickets/${editing.id}/",
+        "POST /quotations/chat/conversations/${chatSafety.conversationId}/safety/",
+        "POST /quotations/support-tickets/${editing.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header and native ticket dialogs; multipart failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_support_tickets_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Reply, attachment, moderation and staff/internal-note variants"
+      ]
+    },
+    {
+      "path": "/support-workspace",
+      "page": "SupportWorkspace",
+      "source": "frontend/src/pages/SupportWorkspace.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "SUPPORT"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/support-tickets/",
+        "/quotations/support-workspace/search/"
+      ],
+      "apiWrites": [
+        "POST /quotations/support-workspace/actions/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/support-staff",
+      "page": "SupportStaff",
+      "source": "frontend/src/pages/SupportStaff.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/support-staff/",
+        "/quotations/support-workspace/audit/"
+      ],
+      "apiWrites": [
+        "POST /quotations/support-staff/",
+        "PATCH /quotations/support-staff/${member.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/admin-integrations",
+      "page": "AdminIntegrations",
+      "source": "frontend/src/pages/AdminIntegrations.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/measurement-access",
+      "page": "MeasurementAccess",
+      "source": "frontend/src/pages/MeasurementAccess.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/measurement-access/",
+        "/quotations/customer-portal/properties/",
+        "/quotations/customers/",
+        "/quotations/measurement-access/contractors/",
+        "/quotations/measurement-access/availability/",
+        "/quotations/measurement-access/${item.id}/measurements/"
+      ],
+      "apiWrites": [
+        "POST /quotations/measurement-access/",
+        "PATCH /quotations/measurement-access/${item.id}/",
+        "POST /quotations/measurement-access/${item.id}/prepare-quotation/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/customer-quotations",
+      "page": "CustomerQuotations",
+      "source": "frontend/src/pages/CustomerQuotations.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./quotation-ui.css"
+      ],
+      "apiReads": [
+        "/quotations/customer-portal/quotations/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/customer-quotations/:id",
+      "page": "CustomerQuotation",
+      "source": "frontend/src/pages/CustomerQuotation.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "QuotationLineItemPopup",
+        "QuotationRevisionHistory",
+        "QuotationRevisionDetails",
+        "QuotationRevisionPriceChanges",
+        "previewPdf",
+        "Button",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge",
+        "QuotationLineDiscountSummary",
+        "BackButton"
+      ],
+      "styles": [
+        "./quotation-ui.css",
+        "./customer-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/customer-portal/quotations/${id}/",
+        "/quotations/customer-portal/quotations/${id}/pdf/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customer-portal/quotations/${id}/action/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customer-invoices",
+      "page": "CustomerInvoices",
+      "source": "frontend/src/pages/CustomerInvoices.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge",
+        "BackButton",
+        "ProjectFinanceLedger"
+      ],
+      "styles": [
+        "./finance-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/customer-portal/invoices/${invoice.id}/receipt/",
+        "/quotations/customer-portal/invoices/",
+        "/billing/customer-finance/",
+        "/quotations/customer-portal/invoices/${invoice.id}/pdf/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/customer-properties",
+      "page": "CustomerProperties",
+      "source": "frontend/src/pages/CustomerProperties.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/customer-portal/properties/",
+        "/quotations/customer-portal/property-share-requests/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customer-portal/property-share-requests/${contactId}/respond/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and eight-width review; review submission retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_customer_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated details/approval/payment variants",
+        "Email/photo and measured-property sharing variants"
+      ]
+    },
+    {
+      "path": "/customer-properties/:id",
+      "page": "CustomerPropertyDetail",
+      "source": "frontend/src/pages/CustomerPropertyDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge",
+        "BackButton",
+        "SharePropertyDialog"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/customer-portal/properties/${id}/measurements/pdf/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customer-properties/:id/access",
+      "page": "PropertyAccess",
+      "source": "frontend/src/pages/PropertyAccess.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/customer-portal/properties/${id}/",
+        "/quotations/properties/${id}/invitations/"
+      ],
+      "apiWrites": [
+        "POST /quotations/properties/${id}/contacts/leave/",
+        "POST /quotations/properties/${id}/contacts/transfer-primary/",
+        "POST /quotations/properties/${id}/contacts/remove/",
+        "POST /quotations/property-invitations/${dialogAction.invitation.id}/revoke/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/work-schedules",
+      "page": "WorkSchedules",
+      "source": "frontend/src/pages/WorkSchedules.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        "ContractorDialog",
+        "MobilePageBack"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./jobs-schedules.css"
+      ],
+      "apiReads": [
+        "/jobs/work-schedules/",
+        "/jobs/my-team/",
+        "/jobs/my-team/?start_date=${encodeURIComponent(item.start_date)}&end_date=${encodeURIComponent(item.end_date)}&schedule_id=${item.id}"
+      ],
+      "apiWrites": [
+        "POST /jobs/work-schedules/",
+        "POST /jobs/work-schedules/${id}/accept/",
+        "PUT /jobs/work-schedules/${assigning.id}/painters/",
+        "POST /jobs/work-schedules/${item.id}/payment/",
+        "POST /jobs/work-schedules/${item.id}/cancel/",
+        "POST /jobs/work-schedules/${item.id}/progress/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared date proposal and team dialogs; proposal retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_work_schedules_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Customer date acceptance/payment/progress",
+        "Populated team assignment and schedule states"
+      ]
+    },
+    {
+      "path": "/work-changes",
+      "page": "WorkChanges",
+      "source": "frontend/src/pages/WorkChanges.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./work-changes-ui.css"
+      ],
+      "apiReads": [
+        "/quotations/work-changes/",
+        "/quotations/",
+        "/quotations/service-types/",
+        "/quotations/paint-types/",
+        "/quotations/brands/",
+        "/quotations/units/",
+        "/quotations/${value}/",
+        "/quotations/${item.quotation}/current-scope/"
+      ],
+      "apiWrites": [
+        "POST /quotations/work-changes/",
+        "POST /quotations/work-changes/${item.id}/${name}/",
+        "POST /quotations/customer-portal/work-changes/${item.id}/${name}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared draft/detail dialogs; Contractor draft and Customer approval retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_work_changes_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "All five change line types",
+        "Reject/send/cancel and populated line snapshots"
+      ]
+    },
+    {
+      "path": "/work-reschedules",
+      "page": "WorkReschedules",
+      "source": "frontend/src/pages/WorkReschedules.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "EmptyState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./jobs-schedules.css"
+      ],
+      "apiReads": [
+        "/jobs/work-schedules/"
+      ],
+      "apiWrites": [
+        "POST /jobs/work-schedules/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: native requirement/detail/revised-date dialogs; eight-width review and revised-date retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_work_network_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Painter applications and contractor applicant decision variants"
+      ]
+    },
+    {
+      "path": "/completed-work",
+      "page": "CompletedWork",
+      "source": "frontend/src/pages/CompletedWork.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "CUSTOMER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/jobs/work-schedules/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/leads",
+      "page": "Leads",
+      "source": "frontend/src/pages/Leads.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "ErrorState",
+        "PageHeader",
+        "StatusBadge",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/leads/",
+        "/quotations/customers/"
+      ],
+      "apiWrites": [
+        "POST /quotations/leads/",
+        "PATCH /quotations/leads/${item.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: create form complete; populated stage/history/filter review pending",
+      "checklist": {
+        "structure": false,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_crm_check.py",
+        "qa/application-ui-migration/crm"
+      ],
+      "remaining": [
+        "Populated active/history lists and stage update",
+        "Search/date/stage combinations",
+        "Loading/error/empty states and language review"
+      ]
+    },
+    {
+      "path": "/opportunities",
+      "page": "Opportunities",
+      "source": "frontend/src/pages/Opportunities.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard as SharedStatCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/leads/?${params.toString()}"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header, two-column narrow summaries and filter accessibility",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application-ui-migration",
+        "qa/application_crm_lists_check.py"
+      ],
+      "remaining": [
+        "Full create/select-client workflow",
+        "Empty/error/loading and localization review"
+      ]
+    },
+    {
+      "path": "/opportunities/new",
+      "page": "NewOpportunity",
+      "source": "frontend/src/pages/NewOpportunity.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "BackButton",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/clients/search/?query=${encodeURIComponent(query.trim())}",
+        "/quotations/clients/search/?query=${normalizedMobile}"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/",
+        "POST /quotations/leads/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header and native quick-client dialog",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application-ui-migration",
+        "qa/application_opportunity_create_check.py"
+      ],
+      "remaining": [
+        "Existing-client opportunity creation",
+        "Duplicate selection and inline field validation"
+      ]
+    },
+    {
+      "path": "/opportunities/:id",
+      "page": "OpportunityDetail",
+      "source": "frontend/src/pages/OpportunityDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "StatusBadge",
+        "BackButton"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/leads/?view=all"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/leads/${id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: stage selection and failed-edit retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application-ui-migration",
+        "qa/application_opportunity_detail_check.py"
+      ],
+      "remaining": [
+        "Lost/cancelled transitions",
+        "History and quotation navigation"
+      ]
+    },
+    {
+      "path": "/site-visits",
+      "page": "SiteVisits",
+      "source": "frontend/src/pages/SiteVisits.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "ContractorDialog"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/site-visits/?${params}",
+        "/quotations/tasks/?completed=all"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/tasks/${visit.followup_id}/",
+        "PATCH /quotations/site-visits/${visit.id}/",
+        "POST /quotations/site-visits/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: schedule form complete; populated visit/status/filter review pending",
+      "checklist": {
+        "structure": false,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_crm_check.py",
+        "qa/application-ui-migration/crm"
+      ],
+      "remaining": [
+        "Native and follow-up visits/status updates",
+        "Date/status filters and groups",
+        "Full-page language/accessibility review"
+      ]
+    },
+    {
+      "path": "/painter-seeking",
+      "page": "PainterSeeking",
+      "source": "frontend/src/pages/PainterSeeking.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "IndiaLocationPicker",
+        "WorkNetworkTabs"
+      ],
+      "styles": [
+        "./painter-portal.css"
+      ],
+      "apiReads": [
+        "/jobs/seeking/"
+      ],
+      "apiWrites": [
+        "PATCH /jobs/seeking/${editing.id}/",
+        "POST /jobs/seeking/",
+        "DELETE /jobs/seeking/${item.id}/",
+        "PATCH /jobs/seeking/${item.id}/",
+        "POST /jobs/applicator-bookings/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Employment/payroll/account mutations and populated role variants"
+      ]
+    },
+    {
+      "path": "/find-painter",
+      "page": "Navigate",
+      "source": null,
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "redirect",
+      "redirects": [
+        "/applicator-bookings"
+      ],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "redirect: verify destination",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/painter-assignments",
+      "page": "PainterAssignments",
+      "source": "frontend/src/pages/PainterAssignments.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/jobs/my-assignments/",
+        "/outsourcing/work-orders/my-assignments/"
+      ],
+      "apiWrites": [
+        "POST /jobs/my-assignments/${item.id}/progress/",
+        "POST /outsourcing/work-orders/assignments/${item.id}/response/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_painter_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated assignments/bookings/earnings variants",
+        "Freelance/in-house eligibility and localized states"
+      ]
+    },
+    {
+      "path": "/jobs",
+      "page": "Jobs",
+      "source": "frontend/src/pages/Jobs.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "EmptyState",
+        "ErrorState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        "IndiaLocationPicker",
+        "MobilePageBack",
+        "WorkNetworkTabs"
+      ],
+      "styles": [
+        "./jobs-schedules.css"
+      ],
+      "apiReads": [
+        "/jobs/list/",
+        "/jobs/${job.id}/applications/",
+        "/jobs/${jobId}/applications/",
+        "/quotations/chat/conversations/"
+      ],
+      "apiWrites": [
+        "POST /jobs/create/",
+        "POST /jobs/${job.id}/apply/",
+        "POST /jobs/applications/${applicationId}/${action}/",
+        "POST /jobs/applications/${application.application_id}/cancellation/",
+        "POST /jobs/applications/${applicationId}/cancellation/",
+        "POST /jobs/applications/${applicationId}/rating/",
+        "POST /jobs/transfers/${transferId}/respond/",
+        "POST /jobs/applications/${applicationId}/reassign/",
+        "POST /quotations/chat/conversations/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": true
+      },
+      "status": "partial: native requirement/detail/revised-date dialogs; eight-width review and revised-date retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_work_network_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Painter applications and contractor applicant decision variants"
+      ]
+    },
+    {
+      "path": "/job-activity",
+      "page": "JobActivity",
+      "source": "frontend/src/pages/JobActivity.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./jobs-schedules.css",
+        "./painter-portal.css"
+      ],
+      "apiReads": [
+        "/jobs/activity/"
+      ],
+      "apiWrites": [
+        "POST /jobs/applications/${row.application_id}/cancellation/",
+        "POST /jobs/applications/${row.application_id}/rating/",
+        "POST /jobs/applications/${row.application_id}/reassign/",
+        "POST /jobs/transfers/${row.transfer_request.id}/respond/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/applicator-team",
+      "page": "ApplicatorTeam",
+      "source": "frontend/src/pages/ApplicatorTeam.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "PageHeader",
+        "Person"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/jobs/my-team/"
+      ],
+      "apiWrites": [
+        "POST /jobs/my-team/create-applicator/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and targeted dialog behavior verified at eight widths",
+      "checklist": {
+        "structure": false,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration/workforce-settings"
+      ],
+      "remaining": [
+        "Referral successful creation/credentials copy and WhatsApp variants",
+        "Populated team profiles and language review"
+      ]
+    },
+    {
+      "path": "/in-house-applicators",
+      "page": "InHouseApplicators",
+      "source": "frontend/src/pages/InHouseApplicators.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "EmployeeQuickActions"
+      ],
+      "styles": [
+        "./painter-workspace-ui.css"
+      ],
+      "apiReads": [
+        "/jobs/in-house-applicators/",
+        "/jobs/my-in-house-employment/?month=${month}"
+      ],
+      "apiWrites": [
+        "POST /jobs/in-house-applicators/${data.membership_id}/attendance/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Employment/payroll/account mutations and populated role variants"
+      ]
+    },
+    {
+      "path": "/in-house-applicators/new",
+      "page": "InHouseEmployeeCreate",
+      "source": "frontend/src/pages/InHouseEmployeeCreate.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "EmployeeQuickActions"
+      ],
+      "styles": [
+        "./painter-workspace-ui.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [
+        "POST /jobs/my-team/create-applicator/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Employment/payroll/account mutations and populated role variants"
+      ]
+    },
+    {
+      "path": "/in-house-applicators/:id",
+      "page": "InHouseEmployeeDetail",
+      "source": "frontend/src/pages/InHouseEmployeeDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "EmployeeWages",
+        "EmployeeQuickActions",
+        "AttendanceDateSelection"
+      ],
+      "styles": [
+        "./painter-workspace-ui.css"
+      ],
+      "apiReads": [
+        "/jobs/in-house-applicators/${id}/?month=${month}"
+      ],
+      "apiWrites": [
+        "PATCH /jobs/in-house-applicators/${id}/",
+        "POST /jobs/in-house-applicators/${id}/attendance/",
+        "POST /jobs/in-house-applicators/${id}/ledger/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and six eight-width layouts; source operations preserved",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_workforce_settings_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Employment/payroll/account mutations and populated role variants"
+      ]
+    },
+    {
+      "path": "/in-house-earnings",
+      "page": "InHouseEarnings",
+      "source": "frontend/src/pages/InHouseEarnings.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "StatCard",
+        "EmployeeQuickActions"
+      ],
+      "styles": [
+        "./painter-workspace-ui.css"
+      ],
+      "apiReads": [
+        "/jobs/my-in-house-earnings/?month=${month}"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_painter_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated assignments/bookings/earnings variants",
+        "Freelance/in-house eligibility and localized states"
+      ]
+    },
+    {
+      "path": "/work-reviews",
+      "page": "WorkReviews",
+      "source": "frontend/src/pages/WorkReviews.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [
+        "/jobs/work-reviews/"
+      ],
+      "apiWrites": [
+        "POST /jobs/work-reviews/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/billing",
+      "page": "AdminBilling",
+      "source": "frontend/src/pages/AdminBilling.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "PackageAssignments",
+        "PackageRequests"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/billing/plans/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/packages",
+      "page": "Billing",
+      "source": "frontend/src/pages/Billing.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/billing/plans/"
+      ],
+      "apiWrites": [
+        "PATCH /billing/plans/${editing}/",
+        "POST /billing/plans/",
+        "PATCH /billing/plans/${plan.id}/",
+        "DELETE /billing/plans/${plan.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers and eight-width review; integration reveal/hide/failure retention",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/revenue",
+      "page": "AdminRevenue",
+      "source": "frontend/src/pages/AdminRevenue.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/billing/revenue/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/customer-connections",
+      "page": "AdminCustomerConnections",
+      "source": "frontend/src/pages/AdminCustomerConnections.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "Dialog"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/admin/customer-connections/",
+        "/quotations/admin/customer-connections/${item.id}/audit/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header, mobile audit action and native history/table-details dialogs reviewed",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_admin_workspace_check.py",
+        "qa/application-ui-migration",
+        "qa/application_admin_history_check.py"
+      ],
+      "remaining": [
+        "Populated operational records and account actions",
+        "Package assignments/requests and approval variants"
+      ]
+    },
+    {
+      "path": "/contractor-revenue",
+      "page": "ContractorRevenue",
+      "source": "frontend/src/pages/ContractorRevenue.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./finance-pages.css"
+      ],
+      "apiReads": [
+        "/billing/contractor-revenue/"
+      ],
+      "apiWrites": [
+        "POST /billing/contractor-revenue/receipts/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/my-packages",
+      "page": "ContractorPackages",
+      "source": "frontend/src/pages/ContractorPackages.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "previewPdf"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/billing/contractor-packages/",
+        "/billing/package-requests/${id}/document/"
+      ],
+      "apiWrites": [
+        "POST /billing/contractor-packages/",
+        "POST /billing/package-requests/${payment.id}/payment/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_contractor_tools_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Plan registration/payment, exports and colour sharing variants"
+      ]
+    },
+    {
+      "path": "/activity-log",
+      "page": "ActivityLog",
+      "source": "frontend/src/pages/ActivityLog.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "CUSTOMER",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "StatCard"
+      ],
+      "styles": [
+        "./admin-portal.css",
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/activity-logs/",
+        "/quotations/activity-logs/summary/",
+        "/quotations/activity-logs/export/"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/activity-logs/${log.id}/review/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header/cards; tablet clipping fixed",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application-ui-migration",
+        "qa/application_crm_lists_check.py"
+      ],
+      "remaining": [
+        "Admin review and export interactions",
+        "Localized/empty/error states"
+      ]
+    },
+    {
+      "path": "/measurement-trial",
+      "page": "MeasurementTrial",
+      "source": "frontend/src/pages/MeasurementTrial.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "SearchableSelect"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/areas/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/applicator-availability",
+      "page": "ApplicatorAvailability",
+      "source": "frontend/src/pages/ApplicatorAvailability.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader"
+      ],
+      "styles": [
+        "./painter-workspace-ui.css"
+      ],
+      "apiReads": [
+        "/jobs/applicator-availability/"
+      ],
+      "apiWrites": [
+        "POST /jobs/applicator-availability/blocks/",
+        "DELETE /jobs/applicator-availability/blocks/${blockId}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_painter_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated assignments/bookings/earnings variants",
+        "Freelance/in-house eligibility and localized states"
+      ]
+    },
+    {
+      "path": "/applicator-bookings",
+      "page": "ApplicatorBookings",
+      "source": "frontend/src/pages/ApplicatorBookings.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "MobilePageBack"
+      ],
+      "styles": [
+        "./painter-portal.css"
+      ],
+      "apiReads": [
+        "/jobs/applicator-bookings/"
+      ],
+      "apiWrites": [
+        "PATCH /jobs/applicator-bookings/${id}/action/",
+        "POST /jobs/applicator-bookings/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width layouts; availability failure/retry",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_painter_workspace_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated assignments/bookings/earnings variants",
+        "Freelance/in-house eligibility and localized states"
+      ]
+    },
+    {
+      "path": "/properties",
+      "page": "Properties",
+      "source": "frontend/src/pages/Properties.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "MobilePageBack",
+        "PropertyForm"
+      ],
+      "styles": [
+        "./crm-pages.css"
+      ],
+      "apiReads": [
+        "/quotations/properties/",
+        "/quotations/customers/"
+      ],
+      "apiWrites": [
+        "POST /quotations/properties/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared header; property/calculator layouts and save-error drawer",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_properties_projects_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Populated sorting/pagination variants",
+        "Successful create/detail navigation"
+      ]
+    },
+    {
+      "path": "/properties/:id",
+      "page": "PropertyDetail",
+      "source": "frontend/src/pages/PropertyDetail.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "Button",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        "PropertyForm",
+        "SharePropertyDialog",
+        "BackButton"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/properties/${id}/",
+        "/quotations/properties/${id}/rooms/",
+        "/quotations/properties/${id}/measurements/",
+        "/quotations/properties/${id}/measurement-records/",
+        "/quotations/customers/",
+        "/quotations/properties/${id}/measurements/pdf/"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/properties/${id}/",
+        "DELETE /quotations/properties/${id}/",
+        "DELETE /quotations/measurement-records/${record.id}/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/properties/:id/measurements",
+      "page": "MeasurementCalculator",
+      "source": "frontend/src/pages/MeasurementCalculator.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "previewPdf",
+        "ErrorState",
+        "LoadingState",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/properties/${id}/",
+        "/quotations/properties/${id}/rooms/",
+        "/quotations/properties/${id}/measurements/",
+        "/quotations/areas/",
+        "/quotations/measurement-surface-types/",
+        "/quotations/measurement-records/${measurementId}/",
+        "/quotations/properties/${id}/measurements/pdf/"
+      ],
+      "apiWrites": [
+        "POST /quotations/measurement-records/${recordId}/submit/",
+        "POST /quotations/areas/",
+        "PATCH /quotations/rooms/${editing.id}/",
+        "POST /quotations/properties/${id}/rooms/",
+        "DELETE /quotations/rooms/${area.id}/",
+        "PATCH /quotations/measurements/${editing.id}/",
+        "POST /quotations/properties/${id}/measurements/",
+        "POST /quotations/measurement-surface-types/",
+        "DELETE /quotations/measurements/${surface.id}/",
+        "PATCH /quotations/measurement-openings/${editing.id}/",
+        "DELETE /quotations/measurement-openings/${editing.id}/",
+        "POST /quotations/measurements/${anchor.id}/openings/",
+        "DELETE /quotations/measurement-openings/${opening.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/master-services",
+      "page": "MasterServices",
+      "source": "frontend/src/pages/MasterServices.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Dialog",
+        "Button",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [
+        "./admin-portal.css",
+        "./master-services.css"
+      ],
+      "apiReads": [
+        "/quotations/${group.endpoint}/",
+        "/quotations/${active.endpoint}/",
+        "/quotations/service-categories/",
+        "/accounts/contractor-profile/"
+      ],
+      "apiWrites": [
+        "PATCH /quotations/${active.endpoint}/${item.id}/",
+        "PATCH /quotations/${active.endpoint}/${editing}/",
+        "POST /quotations/${active.endpoint}/",
+        "DELETE /quotations/${active.endpoint}/${item.id}/",
+        "POST /quotations/master-data/import/${active.key === ",
+        "PATCH /accounts/contractor-profile/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "partial: shared presentation and targeted dialog behavior verified at eight widths",
+      "checklist": {
+        "structure": false,
+        "controls": true,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": true
+      },
+      "evidence": [
+        "qa/application_master_defaults_check.py",
+        "qa/application-ui-migration/master-defaults"
+      ],
+      "remaining": [
+        "Populated category editing/import/reordering variants",
+        "Full-page language/accessibility review"
+      ]
+    },
+    {
+      "path": "/contractor-network",
+      "page": "ContractorNetwork",
+      "source": "frontend/src/pages/ContractorNetwork.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ContractorContactLinks",
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "StatusBadge",
+        "ContractorModuleHeader",
+        "ContractorInvitation",
+        "ContractorProfileAdapter",
+        "ContractorNetworkProfile",
+        "WorkOrderNetworkTabs"
+      ],
+      "styles": [
+        "./contractor-network.css"
+      ],
+      "apiReads": [
+        "/accounts/contractors/",
+        "/outsourcing/work-orders/"
+      ],
+      "apiWrites": [
+        "POST /quotations/contractor-connections/${connection.id}/${action}/",
+        "POST /quotations/contractor-connections/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/subcontract-work-orders",
+      "page": "SubcontractWorkOrders",
+      "source": "frontend/src/pages/SubcontractWorkOrders.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "StatusBadge",
+        "CreateSubcontractOffer",
+        "WorkOrderNetworkTabs"
+      ],
+      "styles": [
+        "./mobile-workspace.css",
+        "./subcontract-work-orders-list.css"
+      ],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/subcontract-work-orders/:id",
+      "page": "SubcontractWorkOrderDetail",
+      "source": "frontend/src/pages/SubcontractWorkOrderDetail.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "SectionCard",
+        "StatusBadge",
+        "WorkOrderPricingPanel",
+        "SubcontractQuotePanel",
+        "SubcontractTeamPanel",
+        "SubcontractBillingPanel",
+        "SubcontractAdditionalWorkPanel"
+      ],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [
+        "POST /outsourcing/work-orders/${id}/transition/",
+        "POST /outsourcing/work-orders/${id}/corrections/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/settings",
+      "page": "Settings",
+      "source": "frontend/src/pages/Settings.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "ProviderProfileRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "PageHeader",
+        "LanguageSelector"
+      ],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/provider-profile",
+      "page": "ProviderProfileRoute",
+      "source": null,
+      "guards": [
+        "ProtectedRoute",
+        "ProviderProfileRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "redirect",
+      "redirects": [
+        "/settings?tab=trade"
+      ],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "redirect: verify destination",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/applicator-profile",
+      "page": "LegacyPersonalSettingsRedirect",
+      "source": null,
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/contractor-theme",
+      "page": "VerifiedContractorRoute",
+      "source": null,
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "redirect",
+      "redirects": [
+        "/settings?tab=appearance"
+      ],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "redirect: verify destination",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations",
+      "page": "Quotations",
+      "source": "frontend/src/pages/Quotations.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge",
+        "MobilePageBack"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/",
+        "/quotations/customers/",
+        "/quotations/properties/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations/new",
+      "page": "QuotationBuilder",
+      "source": "frontend/src/pages/QuotationBuilder.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "QuotationLineItemPopup",
+        "previewPdf",
+        "Button",
+        "PageHeader",
+        "StatusBadge",
+        "QuotationDocumentItems",
+        "QuotationDiscountControls",
+        "QuotationPricingRows",
+        "QuotationWorkItemSummary",
+        "SearchableSelect",
+        "CustomerConnectionFlow",
+        "PropertyForm",
+        "GroupedQuotationWorkspace",
+        "SpecialWallSheet"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/",
+        "/quotations/properties/",
+        "/quotations/service-categories/",
+        "/quotations/service-types/",
+        "/quotations/paint-types/",
+        "/quotations/work-descriptions/",
+        "/quotations/brands/",
+        "/quotations/colors/",
+        "/quotations/units/",
+        "/quotations/areas/",
+        "/accounts/contractor-profile/",
+        "/quotations/properties/${form.property}/measurement-records/",
+        "/quotations/properties/${form.property}/rooms/",
+        "/quotations/properties/${form.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/rooms/",
+        "/quotations/properties/${initialQuotation.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/measurement-records/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/",
+        "POST /quotations/properties/",
+        "POST /quotations/preview-pdf/",
+        "POST /quotations/properties/${form.property}/rooms/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations/new-measured",
+      "page": "QuotationBuilder",
+      "source": "frontend/src/pages/QuotationBuilder.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "QuotationLineItemPopup",
+        "previewPdf",
+        "Button",
+        "PageHeader",
+        "StatusBadge",
+        "QuotationDocumentItems",
+        "QuotationDiscountControls",
+        "QuotationPricingRows",
+        "QuotationWorkItemSummary",
+        "SearchableSelect",
+        "CustomerConnectionFlow",
+        "PropertyForm",
+        "GroupedQuotationWorkspace",
+        "SpecialWallSheet"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/",
+        "/quotations/properties/",
+        "/quotations/service-categories/",
+        "/quotations/service-types/",
+        "/quotations/paint-types/",
+        "/quotations/work-descriptions/",
+        "/quotations/brands/",
+        "/quotations/colors/",
+        "/quotations/units/",
+        "/quotations/areas/",
+        "/accounts/contractor-profile/",
+        "/quotations/properties/${form.property}/measurement-records/",
+        "/quotations/properties/${form.property}/rooms/",
+        "/quotations/properties/${form.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/rooms/",
+        "/quotations/properties/${initialQuotation.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/measurement-records/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/",
+        "POST /quotations/properties/",
+        "POST /quotations/preview-pdf/",
+        "POST /quotations/properties/${form.property}/rooms/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations/:id",
+      "page": "QuotationDetail",
+      "source": "frontend/src/pages/QuotationDetail.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "QuotationLineItemPopup",
+        "QuotationRevisionHistory",
+        "QuotationRevisionDetails",
+        "QuotationRevisionPriceChanges",
+        "previewPdf",
+        "Button",
+        "ErrorState",
+        "LoadingState",
+        "StatusBadge",
+        "QuotationLineDiscountSummary",
+        "BackButton"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/${data.customer}/",
+        "/quotations/properties/${data.property}/",
+        "/quotations/${id}/pdf/",
+        "/quotations/invoices/${data.id}/pdf/"
+      ],
+      "apiWrites": [
+        "DELETE /quotations/${id}/",
+        "POST /quotations/${id}/submit/",
+        "POST /quotations/invoices/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations/new-manual",
+      "page": "QuotationBuilder",
+      "source": "frontend/src/pages/QuotationBuilder.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "QuotationLineItemPopup",
+        "previewPdf",
+        "Button",
+        "PageHeader",
+        "StatusBadge",
+        "QuotationDocumentItems",
+        "QuotationDiscountControls",
+        "QuotationPricingRows",
+        "QuotationWorkItemSummary",
+        "SearchableSelect",
+        "CustomerConnectionFlow",
+        "PropertyForm",
+        "GroupedQuotationWorkspace",
+        "SpecialWallSheet"
+      ],
+      "styles": [
+        "./quotation-measurement.css"
+      ],
+      "apiReads": [
+        "/quotations/customers/",
+        "/quotations/properties/",
+        "/quotations/service-categories/",
+        "/quotations/service-types/",
+        "/quotations/paint-types/",
+        "/quotations/work-descriptions/",
+        "/quotations/brands/",
+        "/quotations/colors/",
+        "/quotations/units/",
+        "/quotations/areas/",
+        "/accounts/contractor-profile/",
+        "/quotations/properties/${form.property}/measurement-records/",
+        "/quotations/properties/${form.property}/rooms/",
+        "/quotations/properties/${form.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/rooms/",
+        "/quotations/properties/${initialQuotation.property}/measurements/",
+        "/quotations/properties/${initialQuotation.property}/measurement-records/"
+      ],
+      "apiWrites": [
+        "POST /quotations/customers/",
+        "POST /quotations/properties/",
+        "POST /quotations/preview-pdf/",
+        "POST /quotations/properties/${form.property}/rooms/"
+      ],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/quotations/:id/edit",
+      "page": "QuotationEdit",
+      "source": "frontend/src/pages/QuotationEdit.jsx",
+      "guards": [
+        "ProtectedRoute",
+        "VerifiedContractorRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "BackButton"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/quotations/${id}/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/work-photos",
+      "page": "WorkPhotos",
+      "source": "frontend/src/pages/WorkPhotos.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "PAINTER",
+        "CUSTOMER",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "EmptyState",
+        "ErrorState",
+        "LoadingState",
+        "PageHeader",
+        "SectionCard",
+        "StatusBadge"
+      ],
+      "styles": [],
+      "apiReads": [
+        "/jobs/work-photos/"
+      ],
+      "apiWrites": [
+        "POST /jobs/work-photos/",
+        "DELETE /jobs/work-photos/${item.id}/"
+      ],
+      "patterns": {
+        "forms": true,
+        "tables": false,
+        "dialogs": true,
+        "filters": true,
+        "translationHook": false
+      },
+      "status": "pending: shared theme present; full page review required",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    },
+    {
+      "path": "/reports",
+      "page": "Reports",
+      "source": "frontend/src/pages/Reports.jsx",
+      "guards": [
+        "ProtectedRoute"
+      ],
+      "navigationRoles": [
+        "CONTRACTOR",
+        "ADMIN"
+      ],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "authenticated",
+      "redirects": [],
+      "sharedComponents": [
+        "Button",
+        "PageHeader",
+        "StatCard",
+        "ReportAnalytics"
+      ],
+      "styles": [
+        "./admin-portal.css"
+      ],
+      "apiReads": [
+        "/quotations/admin-dashboard/",
+        "/jobs/reports/"
+      ],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": true,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "partial: shared headers/cards and eight-width review; current subscription card aligned",
+      "checklist": {
+        "structure": true,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": true,
+        "desktop": true,
+        "visualReview": false
+      },
+      "evidence": [
+        "qa/application_contractor_tools_check.py",
+        "qa/application-ui-migration"
+      ],
+      "remaining": [
+        "Plan registration/payment, exports and colour sharing variants"
+      ]
+    },
+    {
+      "path": "*",
+      "page": "Navigate",
+      "source": null,
+      "guards": [],
+      "navigationRoles": [],
+      "roleNote": "Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.",
+      "kind": "redirect",
+      "redirects": [
+        "/dashboard"
+      ],
+      "sharedComponents": [],
+      "styles": [],
+      "apiReads": [],
+      "apiWrites": [],
+      "patterns": {
+        "forms": false,
+        "tables": false,
+        "dialogs": false,
+        "filters": false,
+        "translationHook": false
+      },
+      "status": "redirect: verify destination",
+      "checklist": {
+        "structure": false,
+        "controls": false,
+        "states": false,
+        "permissions": false,
+        "translations": false,
+        "mobile": false,
+        "desktop": false,
+        "visualReview": false
+      },
+      "evidence": [],
+      "remaining": []
+    }
+  ]
+}

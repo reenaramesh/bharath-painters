@@ -1,5 +1,5 @@
-const SHELL_CACHE = "bharath-painters-shell-v2";
-const STATIC_CACHE = "bharath-painters-static-v2";
+const SHELL_CACHE = "bharath-painters-shell-v3";
+const STATIC_CACHE = "bharath-painters-static-v3";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/pwa-icon.svg", "/favicon.svg"];
 const LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
 
@@ -14,6 +14,22 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
+  const sharedUrl = new URL(request.url);
+  if (request.method === 'POST' && sharedUrl.origin === self.location.origin && sharedUrl.pathname === '/share-target') {
+    event.respondWith((async () => {
+      const params = new URLSearchParams();
+      try {
+        const form = await request.formData();
+        for (const key of ['title', 'text', 'url']) {
+          const value = form.get(key);
+          if (typeof value === 'string') params.set(key, value.slice(0, 8000));
+        }
+      } catch { params.set('share_error', '1'); }
+      // Fragments keep caller data out of HTTP requests and referrer headers.
+      return Response.redirect(new URL(`/share-contact#${params}`, self.location.origin).href, 303);
+    })());
+    return;
+  }
   if (LOCAL_DEV) return;
   if (request.method !== "GET") return;
   const url = new URL(request.url);

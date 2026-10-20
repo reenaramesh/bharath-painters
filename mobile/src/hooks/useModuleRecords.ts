@@ -17,7 +17,7 @@ export function useModuleRecords(id: ModuleId) {
   const pending = useRef(false);
 
   const load = useCallback(async (more = false) => {
-    if (!allowed || id === 'settings' || pending.current) return;
+    if (!allowed || id === 'settings' || (id === 'wage-register' && !demo) || pending.current) return;
     if (demo) {
       setRows(demoRecords[id].map(item => ({ ...item, location: item.subtitle, reference: '', phone: undefined, details: [{ label: 'Details', value: item.note || item.subtitle }] })));
       setError('');

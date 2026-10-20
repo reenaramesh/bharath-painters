@@ -1,6 +1,9 @@
+import ServiceCategoryGallery from "../components/ServiceCategoryGallery";
+import { SERVICE_CATEGORIES } from "../components/serviceCategories.js";
 import { ROOM_CATEGORIES, roomCategoryLabel } from "../utils/roomClassification.js";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Dialog } from "../components/ui/Dialog";
 import { createPortal } from "react-dom";
 import {
   BedDouble,
@@ -63,6 +66,7 @@ export default function MasterServices() {
   const [busyId, setBusyId] = useState(null);
   const [dragId, setDragId] = useState(null);
   const dragIdRef = useRef(null);
+  const gallerySearchRef = useRef("");
 
   // Chromium refuses to start an HTML5 drag unless dragstart sets some data,
   // so the id goes on the dataTransfer as well as into the ref.
@@ -128,7 +132,8 @@ const [orderBusy, setOrderBusy] = useState(false);
     loadCounts();
     setEditing(null);
     setForm(empty);
-    setSearch("");
+    setSearch(gallerySearchRef.current);
+    gallerySearchRef.current = "";
     setCategoryFilter("ALL");
     setStatusFilter("ALL");
     setShowAdd(false);
@@ -365,10 +370,22 @@ const [orderBusy, setOrderBusy] = useState(false);
     }
   }
 
+  const selectedService = active.key === "categories" ? SERVICE_CATEGORIES.find(service => service.search.toLowerCase() === search.trim().toLowerCase())?.id : undefined;
+  function selectGalleryService(service) {
+    if (active.key !== "categories") gallerySearchRef.current = service.search;
+    setActive(groups.find(group => group.key === "categories"));
+    setSearch(service.search);
+    setCategoryFilter("ALL"); setStatusFilter("ALL"); setRoomFilter("ALL");
+  }
+  function resetGalleryFilter() {
+    gallerySearchRef.current = "";
+    setSearch(""); setCategoryFilter("ALL"); setStatusFilter("ALL"); setRoomFilter("ALL");
+  }
   const ActiveIcon = active.icon;
   return (
     <div className="space-y-6 master-services-page">
-      <PageHeader eyebrow="Quotation configuration" title="Master Data"  />
+      <PageHeader eyebrow="Quotation configuration" title="Service Master" />
+      <ServiceCategoryGallery onSelect={selectGalleryService} selectedService={selectedService} onReset={resetGalleryFilter} />
 
       {error && !loadFailed && <p className="master-data-alert" role="alert">{error}</p>}
 
@@ -389,9 +406,9 @@ const [orderBusy, setOrderBusy] = useState(false);
           </select>
         </label>
 
-        <nav aria-label="Master data sections" className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+        <nav aria-label="Master data sections" className="master-sections-nav hidden lg:sticky lg:top-24 lg:block lg:self-start">
           <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Sections</p>
-          <ul className="flex flex-col gap-1">
+          <ul className="master-section-grid flex flex-col gap-1">
 
             {groups.map((group) => {
               const Icon = group.icon;
@@ -408,7 +425,6 @@ const [orderBusy, setOrderBusy] = useState(false);
               );
             })}
           </ul>
-          {user?.role === "CONTRACTOR" && <div className="mt-4 hidden lg:block"><QuotationDefaults /></div>}
         </nav>
 
         <div className="min-w-0 space-y-4">
@@ -444,8 +460,8 @@ const [orderBusy, setOrderBusy] = useState(false);
         </div>}
         {importSummary && <div className="border-b p-4 text-sm"><p className="font-semibold">{importSummary.created} added · {importSummary.updated} updated · {importSummary.skipped} skipped · {importSummary.error_count} errors</p>{importSummary.errors?.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">{importSummary.errors.map((item) => <li key={item.row}>Row {item.row}: {item.message}</li>)}</ul>}</div>}
 
-      <div className="flex flex-wrap items-center gap-2 border-b p-3 sm:p-4">
-        <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none bp-ui-control" /></label>
+      <div className="master-catalogue-filters flex flex-wrap items-center gap-2 border-b p-3 sm:p-4">
+        <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} aria-label={`Search ${active.label.toLowerCase()}`} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none bp-ui-control" /></label>
         <div className="flex flex-wrap gap-2">
           {[["ALL", "All", items.length], ["ACTIVE", "Active", activeCount], ["INACTIVE", "Inactive", inactiveCount]].map(([value, label, count]) => (
             <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={(`rounded-full border px-3 py-1.5 text-xs font-bold ${statusFilter === value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`) + " bp-ui-action"}>{label} · {count}</button>
@@ -462,6 +478,8 @@ const [orderBusy, setOrderBusy] = useState(false);
           return <button key={category.id} type="button" aria-pressed={categoryFilter === id} onClick={() => setCategoryFilter(id)} className={(`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === id ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`) + " bp-ui-action"}>{category.name} · {categoryCounts[id] || 0}</button>;
         })}
       </div>}
+
+      {(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || roomFilter !== "ALL") && <div className="master-filter-summary"><span role="status">{filteredItems.length} matching entries{search ? ` for "${search}"` : ""}</span><button type="button" onClick={resetGalleryFilter}>View all / Clear filters</button></div>}
 
       {loadFailed ? <ErrorState message={error} onRetry={load} className="master-data-state" /> : loading ? <LoadingState label={`Loading ${active.label.toLowerCase()}…`} className="master-data-state" /> : <>
           <div className="md:hidden">
@@ -534,7 +552,7 @@ const [orderBusy, setOrderBusy] = useState(false);
         </div>
       </div>
 
-      {user?.role === "CONTRACTOR" && <div className="lg:hidden"><QuotationDefaults /></div>}
+      {user?.role === "CONTRACTOR" && <div className="master-defaults-panel"><QuotationDefaults /></div>}
     </div>
   );
 }
@@ -589,12 +607,8 @@ function QuotationDefaults() {
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><FileText className="h-4 w-4" /></span>
         <span className="min-w-0 flex-1 text-sm font-bold text-slate-950">Terms and Conditions</span>
       </button>
-      {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-5" role="dialog" data-popup-saved-version={savedVersion} aria-modal="true" aria-labelledby="quotation-terms-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-        <form onSubmit={save} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-3xl sm:rounded-3xl">
-          <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-5 sm:px-6">
-            <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><FileText className="h-5 w-5" /></span><h2 id="quotation-terms-title" className="text-xl font-bold bp-ui-section-heading">Terms and Conditions</h2></div>
-            <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border bp-ui-icon-action" aria-label="Close"><X className="h-5 w-5" /></button>
-          </header>
+      {open && createPortal(<Dialog title="Terms and Conditions" icon={FileText} size="lg" closeOnBackdrop savedVersion={savedVersion} onClose={() => setOpen(false)}>
+        <form onSubmit={save}>
           <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
             {loading ? <p className="sm:col-span-2">Loading...</p> : <>
               <Field label="Prepared by"><input className="bp-ui-control" name="quotation_prepared_by" value={values.quotation_prepared_by} onChange={update} /></Field>
@@ -604,13 +618,13 @@ function QuotationDefaults() {
               <Field label="Product details"><textarea className="bp-ui-control" rows="3" name="quotation_product_details" value={values.quotation_product_details} onChange={update} /></Field>
               <Field label="Work procedures and safety"><textarea className="bp-ui-control" rows="4" name="quotation_work_procedures" value={values.quotation_work_procedures} onChange={update} /></Field>
               <div className="sm:col-span-2"><Field label="Terms and conditions"><textarea className="bp-ui-control" rows="5" name="quotation_terms_conditions" value={values.quotation_terms_conditions} onChange={update} /></Field></div>
-              {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
-              {message && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
+              {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+              {message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 sm:col-span-2">{message}</p>}
             </>}
           </div>
           {!loading && <footer className="sticky bottom-0 border-t bg-white p-4 sm:px-6"><button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white disabled:opacity-50 bp-ui-action"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save Terms and Conditions"}</button></footer>}
         </form>
-      </div>, document.body)}
+      </Dialog>, document.body)}
     </>
   );
 }

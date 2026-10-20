@@ -2,8 +2,30 @@
 
 from accounts.mobile import matching_mobile_users, normalize_mobile
 from accounts.models import BharathUser
+from django.db.models import Q
 
-from .models import Customer, CustomerShareLink, SavedCustomerContact
+from .models import ContractorCustomerConnection, Customer, CustomerShareLink, SavedCustomerContact
+
+
+def authorized_customers_for_contractor(contractor, *, include_pending=False):
+    """Return globally identified customers this contractor may work with.
+
+    Connected relationships are authoritative. For pre-connection legacy data,
+    retain access only when the contractor is the recorded owner and the
+    customer has no connection history at all.
+    """
+    scope = Q(
+        contractor_connections__contractor=contractor,
+        contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED,
+    ) | Q(contractor=contractor, contractor_connections__isnull=True)
+    if include_pending:
+        scope |= Q(
+            contractor_connections__contractor=contractor,
+            contractor_connections__status=ContractorCustomerConnection.Status.PENDING,
+        )
+    return Customer.objects.filter(scope).exclude(
+        status=Customer.Status.CANCELLED,
+    ).distinct()
 
 
 def release_deleted_customer_mobile(normalized_mobile):

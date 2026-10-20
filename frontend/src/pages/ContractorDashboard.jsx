@@ -31,7 +31,7 @@ import {
 import paintServiceIllustration from "../assets/services/painting.webp";
 import "../components/dashboard/premium-dashboard.css";
 
-const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const money = (value) => `Γé╣${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 function PanelLink({ to, children }) {
   return <Link className="contractor-panel-link" to={to}>{children}<ArrowRight size={15} aria-hidden="true" /></Link>;
@@ -95,7 +95,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
     { icon: Users, label: "Customers", value: counts.customers, hint: `${counts.active_leads ?? 0} active leads`, to: "/customers", tone: "blue" },
     { icon: Building2, label: "Properties", value: counts.properties, hint: "Connected customer sites", to: "/properties", tone: "sky" },
     { icon: FileText, label: "Quotations", value: counts.quotations, hint: `${money(counts.quotation_value)} total value`, to: "/quotations", tone: "purple" },
-    { icon: Banknote, label: "Payments", value: revenue ? money(revenue.total_collected) : revenueLoading ? "…" : "—", hint: revenue ? `${money(revenue.outstanding)} outstanding` : "Open payment register", to: "/contractor-revenue", tone: "green" },
+    { icon: Banknote, label: "Payments", value: revenue ? money(revenue.total_collected) : revenueLoading ? "ΓÇª" : "ΓÇö", hint: revenue ? `${money(revenue.outstanding)} outstanding` : "Open payment register", to: "/contractor-revenue", tone: "green" },
   ];
   const visibleMetrics = metrics.filter((metric) => visible(metric.to));
   const sortedTasks = mobile ? recentFirst(tasks, ["created_at", "next_follow_up"]) : tasks;
@@ -144,7 +144,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
           <PremiumDashboardPanel title="Recent quotations" action={<PanelLink to="/quotations">View all</PanelLink>}>
             {quotations.length ? quotations.map((item) => <Link className="premium-dashboard-quote" key={item.id} to={`/quotations/${item.id}`}>
               <PremiumDashboardIcon icon={FileText} tone="blue" />
-              <span className="premium-dashboard-quote__main"><strong>{item.property}</strong><span>{item.customer} · {item.number}</span></span>
+              <span className="premium-dashboard-quote__main"><strong>{item.property}</strong><span>{item.customer} ┬╖ {item.number}</span></span>
               <span className="premium-dashboard-quote__side"><StatusBadge status={item.status} /><strong>{money(item.amount)}</strong></span>
             </Link>) : <PremiumDashboardEmpty title="No quotations yet" description="Create a quotation to start a new painting project." />}
             {showCreateQuotation && <Link className="premium-dashboard-create" to="/quotations/new"><Plus size={16} aria-hidden="true" />Create quotation</Link>}
@@ -153,7 +153,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
           <PremiumDashboardPanel title="Recent customers" action={<PanelLink to="/customers">Customer directory</PanelLink>}>
             {customers.length ? <div className="premium-dashboard-customers">{customers.map((item) => <Link className="premium-dashboard-record" key={item.id} to={`/customers/${item.id}`}>
               <span className="premium-dashboard-customer-avatar" aria-hidden="true">{item.name?.charAt(0).toUpperCase() || "?"}</span>
-              <span className="premium-dashboard-record__content"><strong>{item.name}</strong><span>{[item.mobile, item.city].filter(Boolean).join(" · ")}</span></span>
+              <span className="premium-dashboard-record__content"><strong>{item.name}</strong><span>{[item.mobile, item.city].filter(Boolean).join(" ┬╖ ")}</span></span>
               <StatusBadge status={item.status} />
             </Link>)}</div> : <PremiumDashboardEmpty title="No customers yet" description="Your connected customers will appear here." />}
           </PremiumDashboardPanel>
@@ -182,7 +182,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
         </div>
 
         <div className="contractor-dashboard__column">
-          <PremiumDashboardPanel title="Today’s schedule" action={<PanelLink to="/site-visits">View calendar</PanelLink>}>
+          <PremiumDashboardPanel title="TodayΓÇÖs schedule" action={<PanelLink to="/site-visits">View calendar</PanelLink>}>
             {visits.length ? <div className="premium-dashboard-schedule">{visits.slice(0, 5).map((visit) => <Link className="premium-dashboard-record" key={visit.id} to={visit.customer_id ? `/customers/${visit.customer_id}` : "/site-visits"}>
               <PremiumDashboardIcon icon={CalendarDays} tone="amber" />
               <span className="premium-dashboard-record__content"><strong>{visit.customer_name}</strong><span>{visit.property_name || visit.opportunity_title || "Site visit"}</span></span>
@@ -199,8 +199,8 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
           </PremiumDashboardPanel>
 
           <PremiumDashboardPanel title="Revenue & payments" action={<PanelLink to="/contractor-revenue">Payment register</PanelLink>}>
-            {revenueLoading && !revenue ? <p className="premium-dashboard-loading" role="status">Loading payment summary…</p> : revenue ? <>
-              <div className="premium-dashboard-revenue-total"><span>Collected this year</span><strong>{money(revenue.total_collected)}</strong><span>{money(revenue.advance_received)} in advances · {money(revenue.invoice_payments)} against invoices</span></div>
+            {revenueLoading && !revenue ? <p className="premium-dashboard-loading" role="status">Loading payment summaryΓÇª</p> : revenue ? <>
+              <div className="premium-dashboard-revenue-total"><span>Collected this year</span><strong>{money(revenue.total_collected)}</strong><span>{money(revenue.advance_received)} in advances ┬╖ {money(revenue.invoice_payments)} against invoices</span></div>
               <div className="premium-dashboard-revenue-chart" role="img" aria-label={`Monthly receipts for ${revenue.year}: ${revenueByMonth.map((month) => `${month.label} ${money(month.amount)}`).join(", ")}`}>
                 {revenueByMonth.map((month) => <div className="premium-dashboard-revenue-month" key={month.month}>
                   <span className="premium-dashboard-revenue-bar-track"><span className="premium-dashboard-revenue-bar" style={{ height: `${maxMonthlyRevenue ? Math.max(3, (month.amount / maxMonthlyRevenue) * 100) : 3}%` }} /></span>

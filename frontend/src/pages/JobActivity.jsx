@@ -2,10 +2,12 @@ import useMobileView from "../hooks/useMobileView.js";
 import { recentFirst } from "../utils/workspaceLists.js";
 import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CalendarDays, Search } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import HiringWorkspaceNav from "../components/HiringWorkspaceNav";
 import "./jobs-schedules.css";
 import "./painter-portal.css";
 
@@ -19,14 +21,25 @@ const sections = [
 export default function JobActivity() {
   const mobile = useMobileView();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeSection = sections.some(([value]) => value === searchParams.get("section")) ? searchParams.get("section") : "ALL";
   const [rows, setRows] = useState([]);
-  const [section, setSection] = useState("ALL");
+  const [section, setSection] = useState(routeSection);
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState(null);
   const [transferTargets, setTransferTargets] = useState({});
+
+  useEffect(() => { setSection(routeSection); }, [routeSection]);
+
+  function selectSection(value) {
+    const next = new URLSearchParams(searchParams);
+    if (value === "ALL") next.delete("section");
+    else next.set("section", value);
+    setSearchParams(next);
+  }
 
   const load = useCallback(async () => {
     try {
@@ -170,7 +183,8 @@ export default function JobActivity() {
 
   return (
     <div className={`space-y-6 jobs-schedules-page bp-job-activity-page ${user?.role === "PAINTER" ? "painter-portal-page painter-job-activity-page" : ""}`}>
-      <PageHeader eyebrow="People and workforce" title="Job Activity"  />
+      <PageHeader eyebrow={user?.role === "CONTRACTOR" ? "Jobs & Applications" : "People and workforce"} title={user?.role === "CONTRACTOR" ? "Applications & Invitations" : "Job Activity"} description="Review applications, assignments and their latest activity."  />
+      <HiringWorkspaceNav />
       {user?.role === "PAINTER" && <section className="painter-activity-focus" aria-label="Painter job activity summary"><div><span>Accepted work</span><strong>{rows.filter((row) => row.status === "ACCEPTED").length}</strong><small>Jobs you have accepted</small></div><div className="is-action"><span>Waiting on action</span><strong>{rows.filter((row) => ["CANCELLATION_REQUESTED", "TRANSFER_REQUESTED"].includes(row.status)).length}</strong><small>Requests to review</small></div><div><span>History records</span><strong>{rows.filter((row) => row.section === "HISTORY").length}</strong><small>Past work activity</small></div></section>}
       {error && <ErrorState message={error} onRetry={load} className="min-h-0 rounded-2xl border border-red-100 bg-white p-5" />}
       <SectionCard title="Activity records" description={`${visible.length} matching activity ${visible.length === 1 ? "record" : "records"}`} className="job-activity-card" bodyClassName="p-0">
@@ -196,7 +210,7 @@ export default function JobActivity() {
           {sections.map(([value, label]) => (
             <button
               key={value}
-              onClick={() => setSection(value)}
+              onClick={() => selectSection(value)}
               aria-pressed={section === value}
               className={(`rounded-lg px-4 py-2 text-sm font-semibold ${section === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`) + " bp-ui-action"}
             >

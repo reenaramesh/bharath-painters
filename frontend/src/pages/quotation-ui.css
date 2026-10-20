@@ -119,12 +119,15 @@
 .quotation-identity-label span { font-size:12px; font-weight:400; color:var(--bp-muted); }
 @media(min-width:768px) {
   .quotation-party-header .quotation-contractor-details { text-align:right; }
-  .quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
+  .quotation-party-header .quotation-contractor-brand { justify-content:flex-start; flex-direction:row-reverse; }
   .quotation-party-header .quotation-contractor-contact { text-align:right; }
   .quotation-party-header .quotation-contractor-contact p { margin-left:auto; }
 }
 
-.quotation-party-header .quotation-contractor-details { text-align:right; }
-.quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
-.quotation-party-header .quotation-contractor-contact { text-align:right; }
-.quotation-party-header .quotation-contractor-contact p { margin-left:auto; }
+
+@media(max-width:767px) {
+  .bp-quotation-page .quotation-party-header .quotation-contractor-details { text-align:left; justify-self:start; width:100%; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-brand { justify-content:flex-start; flex-direction:row; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-contact { text-align:left; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-contact p { margin-left:0; }
+}

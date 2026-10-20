@@ -428,11 +428,15 @@ class ContractorRevenueView(APIView):
         manual_receipts = ProjectReceipt.objects.filter(contractor=request.user).select_related("quotation__customer", "quotation__property")
         invoice_payments = InvoicePayment.objects.filter(
             invoice__contractor=request.user,
-            invoice__quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+        ).filter(
+            Q(invoice__quotation__work_schedule__status=WorkSchedule.Status.COMPLETED)
+            | Q(invoice__quotation__isnull=True),
         ).exclude(Q(notes__startswith="Advance payment (schedule #") | Q(notes__startswith="Quotation receipt (")).select_related("invoice", "invoice__quotation__customer")
         invoices = Invoice.objects.filter(
             contractor=request.user,
-            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+        ).filter(
+            Q(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED)
+            | Q(quotation__isnull=True),
         ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation__customer")
         years = set(value.year for value in advances.filter(payment_confirmed_at__isnull=False).dates("payment_confirmed_at", "year"))
         years.update(value.year for value in manual_receipts.dates("received_date", "year"))
@@ -451,7 +455,7 @@ class ContractorRevenueView(APIView):
         manual_total = filtered_manual.aggregate(value=Sum("amount"))["value"] or Decimal("0")
         invoice_payment_total = filtered_payments.aggregate(value=Sum("amount"))["value"] or Decimal("0")
         invoice_total = filtered_invoices.aggregate(value=Sum("grand_total"))["value"] or Decimal("0")
-        outstanding = filtered_invoices.aggregate(value=Sum("grand_total") - Sum("amount_paid"))["value"] or Decimal("0")
+        outstanding = sum((item.balance_due for item in filtered_invoices), Decimal("0"))
         credit_total = filtered_advances.exclude(status=WorkSchedule.Status.COMPLETED).aggregate(value=Sum("advance_amount"))["value"] or Decimal("0")
         credit_total += filtered_manual.exclude(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED).aggregate(value=Sum("amount"))["value"] or Decimal("0")
         credit_advance_ids = set(filtered_advances.exclude(
@@ -496,7 +500,9 @@ class ContractorRevenueView(APIView):
         } for item in filtered_invoices.order_by("-invoice_date", "-id")]
         due_map = {}
         for item in filtered_invoices.filter(grand_total__gt=models.F("amount_paid")):
-            customer = item.quotation.customer
+            customer = item.quotation.customer if item.quotation_id else item.customer
+            if customer is None:
+                continue
             key = customer.id
             row = due_map.setdefault(key, {
                 "customer_id": customer.id, "customer": customer.name, "mobile": customer.mobile,
@@ -559,50 +565,57 @@ class ContractorProjectReceiptView(APIView):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
         document_type = str(request.data.get("document_type") or "QUOTATION").upper()
+        from quotations.payments import payment_request_key, lock_payment_request, payment_values, assert_replay_matches, PaymentConflict
+        idempotency_key = payment_request_key(request.data)
+        lock_payment_request(idempotency_key)
+        values = payment_values(request.data, require_reference=True)
         if document_type == "INVOICE":
-            invoice = Invoice.objects.select_for_update().select_related("quotation__customer").filter(
+            invoice = Invoice.objects.select_for_update(of=("self",)).select_related("quotation__customer").filter(
                 pk=request.data.get("invoice"), contractor=request.user,
-                quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+            ).filter(
+                Q(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED)
+                | Q(quotation__isnull=True),
             ).exclude(status=Invoice.Status.CANCELLED).first()
             if not invoice:
                 return Response({"invoice": "Select an active final invoice."}, status=status.HTTP_400_BAD_REQUEST)
-            return record_invoice_receipt(request, invoice)
-        quotation = Quotation.objects.select_for_update().select_related("customer", "property").filter(
+            return record_invoice_receipt(request, invoice, idempotency_key=idempotency_key)
+        quotation = Quotation.objects.select_for_update(of=("self",)).select_related("customer", "property").filter(
             pk=request.data.get("quotation"), contractor=request.user, deleted_at__isnull=True,
-            status__in=(Quotation.Status.DRAFT, Quotation.Status.SENT, Quotation.Status.VIEWED, Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED),
+            status__in=(Quotation.Status.DRAFT, Quotation.Status.SENT, Quotation.Status.VIEWED, Quotation.Status.ACCEPTED, Quotation.Status.SCHEDULED, Quotation.Status.IN_PROGRESS, Quotation.Status.COMPLETED, Quotation.Status.CONVERTED),
         ).first()
         if not quotation:
             return Response({"quotation": "Select an active quotation."}, status=status.HTTP_400_BAD_REQUEST)
+        if idempotency_key:
+            if InvoicePayment.objects.filter(idempotency_key=idempotency_key).exists():
+                raise PaymentConflict()
+            existing = ProjectReceipt.objects.filter(idempotency_key=idempotency_key).first()
+            if existing:
+                if existing.contractor_id != request.user.id or existing.quotation_id != quotation.id:
+                    return Response({"idempotency_key": "This request key was already used for another payment."}, status=status.HTTP_409_CONFLICT)
+                assert_replay_matches(existing, values, date_supplied=bool(request.data.get("received_date")))
+                return Response({"id": existing.id, "receipt_number": existing.receipt_number, "download_url": f"/billing/contractor-revenue/receipts/{existing.id}/pdf/", "quotation_id": quotation.id, "quotation_accepted": False, "replayed": True}, status=status.HTTP_200_OK)
+        if quotation.status == Quotation.Status.CONVERTED:
+            return Response({"quotation": "The final invoice already exists. Record this payment inside the invoice."}, status=status.HTTP_400_BAD_REQUEST)
         root_id = quotation.revision_of_id or quotation.id
         if Quotation.objects.filter(Q(pk=root_id) | Q(revision_of_id=root_id), version_number__gt=quotation.version_number).exists():
             return Response({"quotation": "Select the latest quotation version."}, status=status.HTTP_400_BAD_REQUEST)
         schedule = getattr(quotation, "work_schedule", None)
         if hasattr(quotation, "invoice") and schedule and schedule.status == WorkSchedule.Status.COMPLETED:
             return Response({"quotation": "The final invoice already exists. Record this payment inside the invoice."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            amount = Decimal(str(request.data.get("amount") or 0))
-        except Exception:
-            amount = Decimal("0")
-        if amount <= 0:
-            return Response({"amount": "Enter an amount greater than zero."}, status=status.HTTP_400_BAD_REQUEST)
+        amount = values["amount"]
         received = quotation.project_receipts.aggregate(total=Sum("amount"))["total"] or Decimal("0")
         if schedule and schedule.payment_status == WorkSchedule.PaymentStatus.CONFIRMED:
             received += schedule.advance_amount or Decimal("0")
         if received + amount > quotation.grand_total:
             return Response({"amount": f"Payment cannot exceed the quotation balance of {max(quotation.grand_total - received, Decimal('0'))}."}, status=status.HTTP_400_BAD_REQUEST)
-        mode = str(request.data.get("payment_mode") or "").upper()
-        if mode not in ProjectReceipt.PaymentMode.values:
-            return Response({"payment_mode": "Select a valid payment mode."}, status=status.HTTP_400_BAD_REQUEST)
-        reference = str(request.data.get("payment_reference") or "").strip()
-        if mode != ProjectReceipt.PaymentMode.CASH and not reference:
-            return Response({"payment_reference": "Enter the transaction, cheque or payment reference."}, status=status.HTTP_400_BAD_REQUEST)
-        received_date = parse_date(str(request.data.get("received_date") or "")) or timezone.localdate()
-        if received_date > timezone.localdate():
-            return Response({"received_date": "Payment date cannot be in the future."}, status=status.HTTP_400_BAD_REQUEST)
+        mode = values["payment_mode"]
+        reference = values["payment_reference"]
+        received_date = values["received_date"]
         receipt = ProjectReceipt.objects.create(
             contractor=request.user, quotation=quotation, receipt_number=f"TMP-{timezone.now().timestamp()}",
             received_date=received_date, amount=amount, payment_mode=mode,
             payment_reference=reference, notes=str(request.data.get("notes") or "").strip(),
+            idempotency_key=idempotency_key,
         )
         receipt.receipt_number = f"PR-{received_date:%Y%m%d}-{receipt.id:05d}"
         receipt.save(update_fields=("receipt_number", "updated_at"))
@@ -624,34 +637,25 @@ class ContractorProjectReceiptView(APIView):
         return Response({"id": receipt.id, "receipt_number": receipt.receipt_number, "download_url": f"/billing/contractor-revenue/receipts/{receipt.id}/pdf/", "quotation_id": quotation.id, "quotation_accepted": newly_accepted, "schedule_url": f"/work-schedules?quotation={quotation.id}" if quotation.status == Quotation.Status.ACCEPTED else None}, status=status.HTTP_201_CREATED)
 
 
-def record_invoice_receipt(request, invoice):
+def record_invoice_receipt(request, invoice, idempotency_key=None):
+    from quotations.payments import create_invoice_payment
+    from rest_framework.exceptions import APIException
+    data = request.data.copy()
+    if idempotency_key:
+        data["idempotency_key"] = idempotency_key
     try:
-        amount = Decimal(str(request.data.get("amount") or 0))
-    except Exception:
-        amount = Decimal("0")
-    if amount <= 0:
-        return Response({"amount": "Enter an amount greater than zero."}, status=status.HTTP_400_BAD_REQUEST)
-    if amount > invoice.balance_due:
-        return Response({"amount": f"Payment cannot exceed the invoice balance of {invoice.balance_due}."}, status=status.HTTP_400_BAD_REQUEST)
-    mode = str(request.data.get("payment_mode") or "").upper()
-    if mode not in Invoice.PaymentMode.values:
-        return Response({"payment_mode": "Select a valid payment mode."}, status=status.HTTP_400_BAD_REQUEST)
-    reference = str(request.data.get("payment_reference") or "").strip()
-    if mode != Invoice.PaymentMode.CASH and not reference:
-        return Response({"payment_reference": "Enter the transaction, cheque or payment reference."}, status=status.HTTP_400_BAD_REQUEST)
-    received_date = parse_date(str(request.data.get("received_date") or "")) or timezone.localdate()
-    if received_date > timezone.localdate():
-        return Response({"received_date": "Payment date cannot be in the future."}, status=status.HTTP_400_BAD_REQUEST)
-    InvoicePayment.objects.create(
-        invoice=invoice, received_date=received_date, amount=amount, payment_mode=mode,
-        payment_reference=reference, notes=str(request.data.get("notes") or "").strip(),
-    )
-    from quotations.views import sync_invoice_payments
-    sync_invoice_payments(invoice)
+        payment, replay = create_invoice_payment(request.user, invoice, data, require_reference=True)
+    except APIException as error:
+        return Response(error.detail if isinstance(error.detail, dict) else {"detail": error.detail}, status=error.status_code)
+    return invoice_payment_response(payment, replay=replay)
+
+
+def invoice_payment_response(payment, replay=False):
+    invoice = payment.invoice
     return Response({
-        "id": invoice.id, "receipt_number": invoice.receipt_number,
-        "download_url": f"/quotations/invoices/{invoice.id}/receipt/",
-    }, status=status.HTTP_201_CREATED)
+        "id": invoice.id, "payment_id": payment.id, "receipt_number": invoice.receipt_number,
+        "download_url": f"/quotations/invoices/{invoice.id}/receipt/", "replayed": replay,
+    }, status=status.HTTP_200_OK if replay else status.HTTP_201_CREATED)
 
 
 class ContractorProjectReceiptPdfView(APIView):
@@ -742,15 +746,19 @@ class CustomerProjectFinanceView(APIView):
         invoices = Invoice.objects.filter(
             Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
             | Q(quotation__property_id__in=invoice_property_ids)
-            | Q(site_property_id__in=invoice_property_ids),
-            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
+            | Q(site_property_id__in=invoice_property_ids)
+            | Q(quotation__isnull=True, site_property__isnull=True, customer__portal_user=request.user),
+        ).filter(
+            Q(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED) | Q(quotation__isnull=True),
         ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation", "contractor")
         payment_invoices = Invoice.objects.filter(
             Q(quotation__customer__portal_user=request.user, quotation__property__isnull=True)
             | Q(quotation__property_id__in=payment_property_ids)
-            | Q(site_property_id__in=payment_property_ids),
-            quotation__work_schedule__status=WorkSchedule.Status.COMPLETED,
-        ).exclude(status=Invoice.Status.CANCELLED).select_related("quotation", "contractor")
+            | Q(site_property_id__in=payment_property_ids)
+            | Q(quotation__isnull=True, site_property__isnull=True, customer__portal_user=request.user),
+        ).filter(
+            Q(quotation__work_schedule__status=WorkSchedule.Status.COMPLETED) | Q(quotation__isnull=True),
+        ).select_related("quotation", "contractor")
         if property_id:
             advances = advances.filter(quotation__property_id=property_id)
             quotation_receipts = quotation_receipts.filter(quotation__property_id=property_id)
@@ -758,8 +766,10 @@ class CustomerProjectFinanceView(APIView):
             payment_invoices = payment_invoices.filter(Q(quotation__property_id=property_id) | Q(site_property_id=property_id))
         can_view_invoices = invoice_properties.exists() or invoices.exists()
         can_view_payments = payment_properties.exists() or payment_invoices.exists() or advances.exists() or quotation_receipts.exists()
+        payment_history_invoices = payment_invoices
+        payment_invoices = payment_invoices.exclude(status=Invoice.Status.CANCELLED)
         invoice_payments = InvoicePayment.objects.filter(
-            invoice__in=payment_invoices,
+            invoice__in=payment_history_invoices,
         ).exclude(
             Q(notes__startswith="Advance payment (schedule #") |
             Q(notes__startswith="Quotation receipt (")
@@ -797,7 +807,11 @@ class CustomerProjectFinanceView(APIView):
                 "download_url": f"/billing/customer-finance/receipts/{item.id}/pdf/",
             })
         for item in invoice_payments.order_by("-received_date", "-id"):
-            can_download = invoices.filter(pk=item.invoice_id).exists()
+            invoice_property_id = item.invoice.quotation.property_id if item.invoice.quotation_id else item.invoice.site_property_id
+            invoice_customer_id = item.invoice.quotation.customer_id if item.invoice.quotation_id else item.invoice.customer_id
+            can_download = (invoice_properties.filter(pk=invoice_property_id).exists() if invoice_property_id
+                            else invoice_customer_id is not None and Customer.objects.filter(
+                                pk=invoice_customer_id, portal_user=request.user).exists())
             receipts.append({
                 "id": f"invoice-{item.id}", "date": item.received_date,
                 "receipt_number": item.invoice.receipt_number, "kind": "INVOICE PAYMENT",

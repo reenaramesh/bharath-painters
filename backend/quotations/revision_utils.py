@@ -23,8 +23,9 @@ def _base_number(quotation):
 
 def clone_quotation_revision(quotation, note, responded_at, *, customer_requested=True):
     """Preserve the supplied quotation and create the next editable version."""
-    root = quotation.revision_of or quotation
-    next_version = quotation.version_number + 1
+    root = Quotation.objects.select_for_update().get(pk=quotation.revision_of_id or quotation.pk)
+    family = Quotation.objects.filter(models.Q(pk=root.pk) | models.Q(revision_of=root))
+    next_version = (family.aggregate(value=models.Max("version_number"))["value"] or 1) + 1
     base_number = _base_number(quotation)
 
     if quotation.version_number == 1 and not re.search(r"-V1$", quotation.quotation_number, re.IGNORECASE):
@@ -81,18 +82,18 @@ def clone_quotation_revision(quotation, note, responded_at, *, customer_requeste
     return revised
 
 
-def previous_revision(quotation):
+def previous_revision(quotation, *, include_drafts=True):
     if quotation.version_number <= 1:
         return None
     root = quotation.revision_of or quotation
-    return (
-        Quotation.objects.filter(
-            models.Q(pk=root.pk) | models.Q(revision_of=root),
-            version_number=quotation.version_number - 1,
-        )
-        .prefetch_related("items__room", "items__service_type")
-        .first()
+    versions = Quotation.objects.filter(
+        models.Q(pk=root.pk) | models.Q(revision_of=root),
+        version_number__lt=quotation.version_number, deleted_at__isnull=True,
     )
+    if not include_drafts:
+        versions = versions.exclude(status=Quotation.Status.DRAFT)
+    return versions.order_by("-version_number", "-id").prefetch_related("items__room", "items__service_type").first()
+
 
 
 def quotation_revision_history(quotation, *, include_drafts=False):
@@ -111,8 +112,8 @@ def quotation_revision_history(quotation, *, include_drafts=False):
     ))
 
 
-def quotation_revision_changes(quotation):
-    previous = previous_revision(quotation)
+def quotation_revision_changes(quotation, *, include_drafts=True):
+    previous = previous_revision(quotation, include_drafts=include_drafts)
     if not previous:
         return None
 

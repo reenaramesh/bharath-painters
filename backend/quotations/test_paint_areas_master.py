@@ -1,4 +1,4 @@
-from copy import deepcopy
+﻿from copy import deepcopy
 from unittest.mock import patch
 
 from django.urls import reverse
@@ -38,6 +38,8 @@ class PaintAreasMasterTests(APITestCase):
         response = self.save(self.payload(True))
         self.assertEqual(response.status_code, 200, response.data)
         first = response.data["items"][0]
+        self.assertEqual(first["id"], original_ids[0])
+        self.assertEqual(self.quote.items.get(pk=original_ids[0]).custom_product_type, "Future Finish")
         self.assertEqual(first["rate"], "10.00")
         self.assertEqual(response.data["grand_total"], "4700.00")
         self.assertEqual(first["paint_type_name"], "Future Finish")

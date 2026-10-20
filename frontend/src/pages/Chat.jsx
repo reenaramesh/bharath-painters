@@ -1,10 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Moon, Palette, Paperclip, Phone, Plus, RotateCcw, Search, Send, ShieldBan, ShieldCheck, Sun, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Moon, Paperclip, Phone, Plus, RotateCcw, Search, Send, ShieldBan, ShieldCheck, Sun, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
-import { shouldSubmitChat } from "../utils/chatComposer.mjs";
+import { resizeChatComposer, shouldSubmitChat } from "../utils/chatComposer.mjs";
 import { contactRole, showMessageTime } from "../utils/chatPresentation.mjs";
+import ChatComposerActions from "../components/ChatComposerActions";
 import ChatColourPicker from "../components/ChatColourPicker";
 import ChatMessageOptions from "../components/ChatMessageOptions";
 import ContractorInboxRequests from "../components/ContractorInboxRequests";
@@ -55,6 +56,21 @@ export default function Chat() {
   const [viewingShade, setViewingShade] = useState(null);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
+  const composerRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const resize = () => resizeChatComposer(composerRef.current, window.visualViewport?.height || window.innerHeight);
+    resize();
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    const observer = typeof ResizeObserver === "function" && composerRef.current ? new ResizeObserver(resize) : null;
+    if (observer) observer.observe(composerRef.current.parentElement);
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+      observer?.disconnect();
+    };
+  }, [text, selected?.id, selected?.is_blocked]);
   const endRef = useRef(null);
   const messagesRef = useRef(null);
 
@@ -509,8 +525,6 @@ export default function Chat() {
           <div className="chat-conversation-filters mt-2 flex gap-1.5 overflow-x-auto" role="group" aria-label="Filter conversations">
             <button type="button" className="chat-filter-chip bp-ui-action" aria-pressed={conversationFilter === "all"} onClick={() => setConversationFilter("all")}>All</button>
             <button type="button" className="chat-filter-chip bp-ui-action" aria-pressed={conversationFilter === "unread"} onClick={() => setConversationFilter("unread")}>Unread <span>{unreadConversationCount}</span></button>
-            <button type="button" className="chat-filter-chip bp-ui-action" disabled title="Group conversations are not available yet">Groups</button>
-            <button type="button" className="chat-filter-chip bp-ui-action" disabled title="Conversation archiving is not available yet">Archived</button>
           </div>
         </div>
         {conversationsLoadError && !selected && <ErrorState message={conversationsLoadError} onRetry={() => { conversationsLoaded.current = false; loadConversations(); }} className="chat-list-error" />}
@@ -667,9 +681,8 @@ export default function Chat() {
               {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((file, index) => <span key={`${file.name}-${index}`} className="flex max-w-full items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs"><Paperclip className="h-3 w-3" /><span className="max-w-36 truncate">{file.name}</span><button className="bp-ui-icon-action" type="button" onClick={() => setFiles((current) => current.filter((_, position) => position !== index))} aria-label={`Remove ${file.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
               <div className="chat-compose-box flex items-center gap-2">
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.vcf,image/jpeg,image/png,image/webp,application/pdf,text/vcard" onChange={chooseFiles} className="hidden" aria-label="Choose message attachments" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="chat-composer-action grid h-11 w-11 shrink-0 place-items-center rounded-xl border bp-ui-icon-action" aria-label="Attach PDF, photo, catalogue or contact file" title="Attach PDF, photo, catalogue or contact file"><Paperclip className="h-5 w-5" /></button>
-                <button type="button" onClick={() => setColourPickerOpen(true)} className="chat-composer-action grid h-11 w-11 shrink-0 place-items-center rounded-xl border text-[#176b9b] bp-ui-icon-action" aria-label="Choose paint colour" title="Choose paint colour"><Palette className="h-5 w-5" /></button>
-                <textarea value={text} rows={1} aria-label="Write a message" onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (shouldSubmitChat(event.nativeEvent)) { event.preventDefault(); event.currentTarget.form.requestSubmit(); } }} placeholder="Write a message…" maxLength={4000} className="chat-compose-input min-w-0 flex-1 text-sm bp-ui-control" />
+                <ChatComposerActions onAttach={() => fileInputRef.current?.click()} onColour={() => setColourPickerOpen(true)} />
+                <textarea ref={composerRef} value={text} rows={1} aria-label="Write a message" onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (shouldSubmitChat(event.nativeEvent)) { event.preventDefault(); event.currentTarget.form.requestSubmit(); } }} placeholder="Write a message…" maxLength={4000} className="chat-compose-input min-w-0 flex-1 text-sm bp-ui-control" />
                 <Button type="submit" loading={sending} disabled={!text.trim() && !files.length} className="chat-send-action h-11 w-11 shrink-0 !p-0" aria-label="Send message"><Send className="h-5 w-5" aria-hidden="true" /></Button>
               </div>
               

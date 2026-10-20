@@ -47,7 +47,9 @@ class BusinessSettingsTests(APITestCase):
         public = self.client.get(reverse("profile-image", kwargs={"kind": "background", "object_id": self.company.pk}))
         self.assertEqual(public.status_code, 200)
         self.assertEqual(public["Content-Type"], "image/png")
-        public.close()
+        # Consume through Django's test-client streaming wrapper so response
+        # cleanup does not close the outer PostgreSQL TestCase transaction.
+        self.assertTrue(b"".join(public.streaming_content).startswith(b"\x89PNG"))
         response = self.client.patch(self.url, {"company": {"profile_background": None}}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.company.refresh_from_db()

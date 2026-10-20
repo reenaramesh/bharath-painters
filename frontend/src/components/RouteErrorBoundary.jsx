@@ -5,11 +5,16 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 // Route-level error boundary. A page that throws while rendering shows a
 // recoverable state here instead of blanking the whole application.
 // Must be rendered inside the router so the fallback can use Link.
-// Give it a `key` that changes with the route to clear a captured failure.
+// Pass resetKey to recover on navigation without remounting healthy children.
 export default class RouteErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, resetKey: props.resetKey };
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    if (props.resetKey !== state.resetKey) return { error: null, resetKey: props.resetKey };
+    return null;
   }
 
   static getDerivedStateFromError(error) {

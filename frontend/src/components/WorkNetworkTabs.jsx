@@ -1,3 +1,4 @@
+import useWorkspaceTabs from "./useWorkspaceTabs.js";
 import { BriefcaseBusiness, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -22,14 +23,15 @@ export default function WorkNetworkTabs({ pathname, contractor, requirementsCoun
   const tabs = tabsFor(contractor);
   const counts = { requirements: requirementsCount, availability: availabilityCount };
 
+  const navigationRef = useWorkspaceTabs(pathname);
   return (
-    <nav
+    <nav ref={navigationRef}
       aria-label="Work network"
-      className="flex w-full gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 sm:inline-flex sm:w-auto"
+      className="bp-workspace-tabs flex w-full gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 sm:inline-flex sm:w-auto"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
-        const active = pathname === tab.to;
+        const active = pathname === tab.to || pathname.startsWith(`${tab.to}/`);
         const count = counts[tab.countKey];
         return (
           <Link
@@ -42,7 +44,7 @@ export default function WorkNetworkTabs({ pathname, contractor, requirementsCoun
                 : "font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-900"
             }`}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{t(tab.label)}</span>
             {typeof count === "number" && (
               <span

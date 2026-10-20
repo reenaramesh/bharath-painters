@@ -38,6 +38,7 @@ class CallInboxEvent(models.Model):
     idempotency_key = models.CharField(max_length=128)
     matched_customer = models.ForeignKey("quotations.Customer", on_delete=models.SET_NULL, null=True, blank=True, related_name="call_events")
     created_lead = models.ForeignKey("quotations.Lead", on_delete=models.SET_NULL, null=True, blank=True, related_name="source_call_events")
+    booked_follow_up = models.OneToOneField("quotations.CustomerFollowUp", on_delete=models.SET_NULL, null=True, blank=True, related_name="source_call_event")
     review_status = models.CharField(max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
 

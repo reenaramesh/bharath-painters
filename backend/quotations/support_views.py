@@ -133,6 +133,8 @@ class SupportActionView(APIView):
                 return Response({"ticket_id": "Support staff must link this action to the account holder's ticket."}, status=status.HTTP_400_BAD_REQUEST)
             if ticket and (ticket.requester_id != user.pk or ticket.status in (SupportTicket.Status.RESOLVED, SupportTicket.Status.CLOSED)):
                 return Response({"ticket_id": "Choose an open ticket raised by this account holder."}, status=status.HTTP_400_BAD_REQUEST)
+            if ticket and not ticket.actions.filter(actor=user, action="TICKET_CREATED_AUTHENTICATED").exists():
+                return Response({"ticket_id": "This ticket does not prove account ownership. Use a ticket submitted by the signed-in account holder."}, status=status.HTTP_400_BAD_REQUEST)
             if not user.is_active and action == "SUSPEND_ACCOUNT":
                 return Response({"detail": "This account is already suspended."}, status=status.HTTP_400_BAD_REQUEST)
             before = {"is_active": user.is_active, "verification_status": user.verification_status, "role": user.role}

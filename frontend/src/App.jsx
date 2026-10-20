@@ -18,12 +18,16 @@ const Login = page("Login");
 const Register = page("Register");
 const CustomerRegister = page("CustomerRegister");
 const CustomerShareLink = page("CustomerShareLink");
+const InHouseEmployeeActivation = page("InHouseEmployeeActivation");
 const JoinProperty = page("JoinProperty");
 const ForgotPassword = page("ForgotPassword");
 const RecoveryEmailSettings = page("RecoveryEmailSettings");
 const Dashboard = page("Dashboard");
 const Customers = page("Customers");
 const CallInbox = page("CallInbox");
+const ShareContact = page("ShareContact");
+const PainterContactDetail = page("PainterContactDetail");
+const PainterContacts = page("PainterContacts");
 const CustomerDetail = page("CustomerDetail");
 const CustomerProjectAccount = page("CustomerProjectAccount");
 const CustomerQuotationHistory = page("CustomerQuotationHistory");
@@ -125,14 +129,13 @@ function App() {
 }
 
 // The boundary sits outside Suspense so a failed lazy import is caught too.
-// Keying it on the pathname remounts it on navigation, which clears a
-// captured failure without an extra render pass.
+// Reset captured failures on navigation without remounting the healthy shell.
 function AppRoutes() {
   const location = useLocation();
-  const publicLanguagePage = ["/login", "/register", "/customer-register", "/forgot-password"].includes(location.pathname) || location.pathname.startsWith("/contractor-profile/");
+  const publicLanguagePage = ["/register", "/customer-register", "/forgot-password"].includes(location.pathname) || location.pathname.startsWith("/contractor-profile/") || location.pathname.startsWith("/employee-activation/");
 
   return (
-    <RouteErrorBoundary key={location.pathname}>
+    <RouteErrorBoundary resetKey={location.pathname}>
       {publicLanguagePage && <div className="flex justify-end bg-white px-4 py-3"><LanguageSelector /></div>}
       <Suspense
         fallback={
@@ -153,9 +156,11 @@ function AppRoutes() {
           )}
           <Route path="/contractor-profile/:bharathId" element={<PublicContractorProfile />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/share-contact" element={<ShareContact />} />
           <Route path="/register" element={<Register />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
           <Route path="/customer-link/:token" element={<CustomerShareLink />} />
+          <Route path="/employee-activation/:token" element={<InHouseEmployeeActivation />} />
           <Route path="/join/property/:token" element={<JoinProperty />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
@@ -185,6 +190,9 @@ function AppRoutes() {
             <Route path="/appearance" element={<AppearanceSettings />} />
             <Route path="/contractors" element={<Contractors />} />
             <Route path="/painters" element={<Painters />} />
+            <Route path="/painter-contacts" element={<PainterContacts />} />
+            <Route path="/painters/contacts/:id" element={<PainterContactDetail />} />
+            <Route path="/painters/contacts" element={<Navigate to="/painter-contacts" replace />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/call-inbox" element={<CallInbox />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />

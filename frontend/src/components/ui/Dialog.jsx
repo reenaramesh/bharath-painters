@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { lockBodyScroll } from "../../utils/bodyScrollLock";
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export function Dialog({
   title,
@@ -9,10 +10,18 @@ export function Dialog({
   className = "",
   size = "md",
   showClose = true,
+  description,
+  icon: Icon,
+  closeLabel = 'Close dialog',
+  bodyClassName = '',
+  closeOnBackdrop = false,
+  savedVersion,
 }) {
+  const { t } = useLanguage();
   const ref = useRef(null);
   const titleId = useRef(null);
   const headingId = useId();
+  const descriptionId = `${headingId}-description`;
   const previousFocus = useRef(null);
 
   useEffect(() => {
@@ -60,27 +69,38 @@ export function Dialog({
       ref={ref}
       className={`bp-dialog ${sizeClasses[size] || sizeClasses.md} ${className}`.trim()}
       aria-labelledby={headingId}
+      aria-describedby={description ? descriptionId : undefined}
+      data-popup-saved-version={savedVersion}
       onKeyDown={handleKeyDown}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
+      onMouseDown={(event) => {
+        if (!closeOnBackdrop || event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
+      }}
     >
       <header className="bp-dialog-header">
+        <div className="bp-dialog-heading">
+        {Icon && <span className="bp-dialog-icon" aria-hidden="true"><Icon size={24} strokeWidth={1.8} /></span>}
         <div className="bp-dialog-title-wrapper">
           <h2 ref={titleId} id={headingId} tabIndex={-1} className="bp-dialog-title">
             {title}
           </h2>
+          {description && <p id={descriptionId} className="bp-dialog-description">{typeof description === 'string' ? t(description) : description}</p>}
+        </div>
         </div>
         {showClose && (
           <button
             type="button"
             className="bp-dialog-close"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t(closeLabel)}
           >
             <X size={20} aria-hidden="true" />
           </button>
         )}
       </header>
-      <div className="bp-dialog-body">{children}</div>
+      <div className={`bp-dialog-body ${bodyClassName}`.trim()}>{children}</div>
     </dialog>
   );
 }

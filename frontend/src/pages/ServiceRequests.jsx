@@ -8,9 +8,9 @@ import {
   Plus,
   Search,
   UserPlus,
-  X,
 } from "lucide-react";
 import api from "../api/client";
+import { Dialog } from "../components/ui/Dialog";
 import useAuth from "../context/useAuth";
 import {useSearchParams} from 'react-router-dom';
 import {
@@ -201,6 +201,7 @@ export default function ServiceRequests() {
       <PageHeader
         eyebrow="Painting services"
         title="Service requests"
+        description="Create service enquiries and follow their progress with your contractor."
         
         actions={
           isCustomer && (
@@ -377,26 +378,8 @@ export default function ServiceRequests() {
       </SectionCard>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-3 sm:p-4">
-          <form
-            onSubmit={createRequest}
-            className="communication-dialog max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="bp-eyebrow">Customer request</p>
-                <h2 className="mt-1 text-xl font-bold bp-ui-section-heading">{isAppointment ? 'Book Appointment' : 'New service request'}</h2>
-                
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="communication-icon-action bp-ui-icon-action"
-                aria-label="Close new service request"
-              >
-                <X aria-hidden="true" />
-              </button>
-            </div>
+        <Dialog title={isAppointment ? 'Book Appointment' : 'New service request'} icon={ClipboardList} size="lg" closeLabel="Close new service request" onClose={() => setShowForm(false)}>
+          <form onSubmit={createRequest}>
             {error && !loadFailed && (
               <p className="communication-alert mt-4" role="alert">
                 {error}
@@ -484,32 +467,12 @@ export default function ServiceRequests() {
               {saving ? "Submitting…" : "Submit request"}
             </Button>
           </form>
-        </div>
+        </Dialog>
       )}
 
       {schedule && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-3 sm:p-4">
-          <form
-            onSubmit={saveSchedule}
-            className="communication-dialog max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="bp-eyebrow">Request follow-up</p>
-                <h2 className="mt-1 text-xl font-bold bp-ui-section-heading">Schedule customer follow-up</h2>
-                <p className="mt-1 break-words text-sm text-slate-600">
-                  {schedule.customer_name} · {schedule.title}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSchedule(null)}
-                className="communication-icon-action bp-ui-icon-action"
-                aria-label="Close follow-up form"
-              >
-                <X aria-hidden="true" />
-              </button>
-            </div>
+        <Dialog title="Schedule customer follow-up" description={`${schedule.customer_name}: ${schedule.title}`} icon={CalendarDays} size="md" closeLabel="Close follow-up form" onClose={() => setSchedule(null)}>
+          <form onSubmit={saveSchedule}>
             {error && !loadFailed && (
               <p className="communication-alert mt-4" role="alert">
                 {error}
@@ -563,7 +526,7 @@ export default function ServiceRequests() {
               {saving ? "Scheduling…" : "Create scheduled task"}
             </Button>
           </form>
-        </div>
+        </Dialog>
       )}
     </div>
   );

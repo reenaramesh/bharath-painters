@@ -24,7 +24,7 @@ export default function MeasurementAccess() {
   async function viewMeasurement(item){try{const{data}=await api.get(`/quotations/measurement-access/${item.id}/measurements/`);setView(data);}catch{setError("Approved Area Calculations could not be loaded.");}}
   async function createQuotation(item){try{const{data}=await api.post(`/quotations/measurement-access/${item.id}/prepare-quotation/`);navigate(`/quotations/new?customer=${data.customer}&property=${data.property}`);}catch(e){setError(e.response?.data?.detail||"Quotation could not be prepared from this Area Calculation.");}}
   if (customerMode) return <div className="customer-measurement-access-page space-y-6">
-     <PageHeader eyebrow="Your property permissions" title="Shared measurements"  />
+     <PageHeader eyebrow="Your property permissions" title="Shared measurements" description="Control which contractors can view your saved property dimensions."  />
      <section className="customer-measurement-pulse" aria-label="Measurement sharing summary">
        <div><span>Measured properties</span><strong>{properties.length}</strong><small>Available to share</small></div>
        <div className="is-waiting"><span>Waiting for you</span><strong>{requests.filter(item=>item.status === "PENDING").length}</strong><small>Requests needing a decision</small></div>

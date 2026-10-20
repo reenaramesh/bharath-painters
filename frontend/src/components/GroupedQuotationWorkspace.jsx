@@ -38,7 +38,7 @@ function Dialog({ title, onClose, children, footer, className = "", dismissOnBac
     return () => { dialog.close(); releaseScrollLock(); document.removeEventListener("keydown", handle); if (before?.isConnected) before.focus(); };
   }, []);
   return <div className="special-wall-backdrop gq-dialog-backdrop" onClick={(event) => { if (dismissOnBackdrop && event.target === event.currentTarget) onClose(); }}>
-    <dialog ref={element} onClick={event => {
+    <dialog ref={element} role="dialog" onClick={event => {
       if (!dismissOnBackdrop || event.target !== event.currentTarget) return;
       const rect = event.currentTarget.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
@@ -276,6 +276,7 @@ export default function GroupedQuotationWorkspace({ measurement, masters, state,
   return <AssignmentContext.Provider value={{ measurement, masters, defaultSpec, squareFeetUnit, initialRoomIds }}><div className={`gq-workspace gq-workspace-${phase}`}>
     <p role="status" aria-live="polite" className="gq-notice">{notice}</p>
     {(phase === "measurements" || (phase === "assignments" && showMeasurements)) && <section className="gq-panel">
+      <h2 className="bp-ui-section-heading">Measurements</h2>
       <MeasurementTables measurement={displayMeasurement || measurement} onView={setRecordRoom} />
     </section>}
     {phase === "assignments" && <>

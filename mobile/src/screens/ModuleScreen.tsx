@@ -10,6 +10,11 @@ import { SettingsScreen } from './SettingsScreen';
 import { useModuleRecords } from '../hooks/useModuleRecords';
 import { NativeRecordCard } from '../components/ModuleUI';
 import { filterWorkOrders } from '../core/moduleRecords';
+import { OfflineQueuePanel } from '../components/OfflineQueuePanel';
+import { EmployeeAttendanceScreen } from './EmployeeAttendanceScreen';
+import { ScheduleProgressScreen } from './ScheduleProgressScreen';
+import { MeasurementsScreen } from './MeasurementsScreen';
+import { WageRegisterScreen } from './WageRegisterScreen';
 
 const workOrderFilters = [
   { value: 'ALL', label: 'All' }, { value: 'SENT', label: 'Awaiting response' },
@@ -32,6 +37,10 @@ export function ModuleScreen({ id }: { id: string }) {
   if (id === 'settings' && user?.role === 'CONTRACTOR') return <SettingsScreen />;
   if (!menuReady) return <Screen><State title="Checking available tools" description={menuError || 'Loading your workspace permissions…'} action={menuError ? 'Retry' : undefined} onAction={() => void loadMenus()} /></Screen>;
   if (!user || !canOpenModule(user, id, disabledMenus)) return <Screen><State title="Access unavailable" description="This feature is disabled or requires a verified contractor account." /></Screen>;
+  if (id === 'employees' && user.role === 'CONTRACTOR' && !demo) return <EmployeeAttendanceScreen />;
+  if (id === 'schedules' && user.role === 'CONTRACTOR' && !demo) return <ScheduleProgressScreen />;
+  if (id === 'measurements' && user.role === 'CONTRACTOR' && !demo) return <MeasurementsScreen />;
+  if (id === 'wage-register' && user.role === 'CONTRACTOR' && !demo) return <WageRegisterScreen />;
 
   if (!demo && live.busy && live.rows.length === 0 && !live.error) return <Screen><DemoLabel /><Heading title={entry.label} subtitle={entry.description} /><DashboardSkeleton /></Screen>;
 
@@ -48,8 +57,13 @@ export function ModuleScreen({ id }: { id: string }) {
       ListHeaderComponent={<View style={{ gap: tokens.space.md }}>
         <DemoLabel />
         <Heading title={entry.label} subtitle={entry.description} />
+        {!demo && <OfflineQueuePanel actorId={user?.id} />}
         {entry.id === 'customers' && !demo && <Button mode="contained" icon="account-plus-outline" contentStyle={{ minHeight: 48 }} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'customers', id: 'new' } })}>Add customer</Button>}
         {entry.id === 'properties' && !demo && <Button mode="contained" icon="home-plus-outline" contentStyle={{ minHeight: 48 }} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'properties', id: 'new' } })}>Add property</Button>}
+        {entry.id === 'quotations' && !demo && user?.role === 'CONTRACTOR' && <>
+          <Button mode="contained" icon="file-document-edit-outline" contentStyle={{ minHeight: 48 }} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'quotations', id: 'new' } })}>New manual quotation</Button>
+          <Button mode="outlined" icon="ruler-square" contentStyle={{ minHeight: 48 }} onPress={() => router.push({ pathname: '/record/[module]/[id]', params: { module: 'quotations', id: 'measurement-new' } })}>New measurement quotation</Button>
+        </>}
         <Searchbar placeholder={`Search ${entry.label.toLowerCase()}`} accessibilityLabel={`Search ${entry.label.toLowerCase()}`} value={query} onChangeText={setQuery} />
         {entry.id === 'subcontracts' && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: tokens.space.xs }} accessibilityLabel="Filter work orders">
           {workOrderFilters.map(filter => <Button key={filter.value} mode={workOrderFilter === filter.value ? 'contained-tonal' : 'outlined'} onPress={() => setWorkOrderFilter(filter.value)} contentStyle={{ minHeight: 48 }} compact>{filter.label}</Button>)}

@@ -50,6 +50,31 @@ class CustomerShareLinkTests(APITestCase):
         self.assertTrue(customer.portal_user.check_password("BetterPass123!"))
         self.assertEqual(self.client.get(reverse("customer-share-link", args=[new_token])).status_code, 404)
 
+    @override_settings(DEBUG=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_suspension_after_otp_request_prevents_activation(self):
+        created = self.create_customer()
+        customer = Customer.objects.get(pk=created.data["id"])
+        token = created.data["share_link"].split("/")[-1]
+        self.client.force_authenticate(None)
+        requested = self.client.post(reverse("customer-share-link", args=[token]), {
+            "action": "request_email_otp", "email": "maya.activation@example.com",
+        }, format="json")
+        self.assertEqual(requested.status_code, 200, requested.data)
+        BharathUser.objects.filter(pk=customer.portal_user_id).update(is_active=False)
+        response = self.client.post(reverse("customer-share-link", args=[token]), {
+            "challenge_id": requested.data["challenge_id"], "otp": requested.data["test_otp"],
+            "password": "BetterPass123!", "policy_version": POLICY_VERSION,
+            "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True,
+        }, format="json")
+        self.assertEqual(response.status_code, 409, response.data)
+        customer.portal_user.refresh_from_db()
+        self.assertFalse(customer.portal_user.is_active)
+        self.assertFalse(customer.portal_user.has_usable_password())
+        repeated = self.client.post(reverse("customer-share-link", args=[token]), {
+            "action": "request_email_otp", "email": "maya.activation@example.com",
+        }, format="json")
+        self.assertEqual(repeated.status_code, 409, repeated.data)
+
     def test_connection_link_requires_matching_customer_and_expires(self):
         created = self.create_customer()
         customer = Customer.objects.get(pk=created.data["id"])

@@ -1,5 +1,5 @@
 import { contractorProfileLink } from "../utils/contractorProfileLink.js";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Check,
@@ -7,10 +7,11 @@ import {
   MessageCircle,
   Share2,
   Star,
-  X,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { Dialog } from "../components/ui/Dialog";
+import "../styles/contractor-people-ui.css";
 import ContractorConnectSearch from "../components/ContractorConnectSearch";
 import {
   Button,
@@ -159,6 +160,7 @@ export default function CustomerConnections() {
       <PageHeader
         eyebrow="Your network"
         title="Your contractors"
+        description="Manage contractor connections, shared work and conversations."
         
       />
 
@@ -224,6 +226,7 @@ export default function CustomerConnections() {
       {selected && (
         <ContractorDialog
           item={selected}
+          error={error}
           onClose={closeDialog}
           onAct={act}
           onShare={shareProfile}
@@ -319,86 +322,18 @@ function ConnectionCard({ item, onView, onAct, onMessage, busy }) {
   );
 }
 
-function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessage, busy }) {
+function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessage, busy, error }) {
   const contractor = item.contractor || {};
   const profileUrl = contractorProfileUrl(contractor.contractor_id);
-  const dialogRef = useRef(null);
-  const closeButtonRef = useRef(null);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    closeButtonRef.current?.focus();
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocus?.focus?.();
-    };
-  }, [onClose]);
-
   return (
-    <div
-      className="contractor-dialog-backdrop fixed inset-0 z-50 grid place-items-end bg-slate-950/55 sm:place-items-center sm:p-4"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="customer-contractor-dialog-title"
-        tabIndex={-1}
-        className="contractor-profile-dialog max-h-[calc(100dvh-0.5rem)] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:my-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-3xl"
-      >
-        <header className="contractor-profile-header rounded-t-3xl bg-gradient-to-r from-[#14374a] to-[#508398] p-5 text-white sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-widest text-white/75">Contractor profile</p>
-              <h2 id="customer-contractor-dialog-title" className="mt-2 break-words text-2xl font-extrabold bp-ui-section-heading">
-                {contractor.business_name || "Contractor"}
-              </h2>
-              <p className="mt-1 break-words text-sm text-white/85">{contractor.name}</p>
-            </div>
-            <button
-              ref={closeButtonRef}
-              type="button"
-              onClick={onClose}
-              aria-label="Close contractor profile"
-              className="contractor-dialog-close bp-ui-icon-action"
-            >
-              <X aria-hidden="true" />
-            </button>
-          </div>
-
+    <Dialog title={contractor.business_name || "Contractor"} description={contractor.name} icon={Building2} onClose={onClose} size="md" closeLabel="Close contractor profile" closeOnBackdrop className="contractor-dialog customer-connection-dialog">
+      {error && <p role="alert" className="connections-alert">{error}</p>}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {contractor.contractor_id && <span className="contractor-identity-id">{contractor.contractor_id}</span>}
             <StatusBadge status={item.status} label={connectionStatusLabel(item.status)} tone="neutral" className="contractor-dialog-connection-status" />
             {contractor.is_verified && <StatusBadge status="VERIFIED" label="Verified contractor" tone="success" />}
             {!contractor.is_verified && contractor.verification_status && <StatusBadge status={contractor.verification_status} label={verificationLabel(contractor.verification_status)} tone={verificationTone(contractor.verification_status)} />}
           </div>
-        </header>
 
         <div className="contractor-profile-body p-5 sm:p-6">
           <div className="contractor-profile-stats">
@@ -484,8 +419,7 @@ function ContractorDialog({ item, onClose, onAct, onShare, onMessage, shareMessa
             </div>
           )}
         </div>
-      </section>
-    </div>
+    </Dialog>
   );
 }
 

@@ -22,5 +22,7 @@ export const demoRecords: Record<ModuleId, RecordItem[]> = {
   payments: [{ id: '1', title: 'Whitefield invoice', subtitle: 'INV-2026-018 · Ananya Rao', status: 'PENDING', amount: '48500', note: 'Sample invoice amount. No payment can be collected in this prototype.' }],
   messages: [{ id: '1', title: 'Ananya Rao', subtitle: 'Can we discuss the exterior colours?', status: 'UNREAD' }, { id: '2', title: 'Vikram Shah', subtitle: 'Thank you, see you at the site visit.', status: 'READ' }],
   subcontracts: [{ id: '1', title: 'Prestige Lakeside Habitat', subtitle: 'You received this work · Sample contractor', status: 'SENT', note: 'Sample subcontract work order. Financial and workflow actions are not enabled.' }],
+  employees: [],
+  'wage-register': [],
   settings: [],
 };

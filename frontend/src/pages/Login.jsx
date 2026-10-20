@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff, Palette, LifeBuoy, X } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Palette, LifeBuoy } from "lucide-react";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
+import "../styles/auth-reference.css";
+import { Dialog } from "../components/ui/Dialog";
+import ServiceIllustration from "../components/ServiceIllustration";
+import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Login() {
@@ -102,14 +106,15 @@ export default function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 grid lg:grid-cols-2">
-      <section className="hidden lg:flex p-14 flex-col justify-between text-white bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950">
+    <main className="auth-reference-page min-h-screen bg-slate-950 grid lg:grid-cols-2">
+      <section className="auth-brand-panel hidden lg:flex p-14 flex-col justify-between text-white bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-400 text-slate-950"><Palette /></span>
           <span className="text-xl font-bold">Bharath Apps</span>
         </div>
         <div className="max-w-xl">
-          <p className="text-amber-400 font-semibold tracking-wide uppercase text-sm">Business workspace</p>
+          <p className="auth-brand-eyebrow text-amber-400 font-semibold tracking-wide uppercase text-sm">Business workspace</p>
+          <ServiceIllustration service="painting" className="auth-service-art" />
           <h1 className="text-5xl font-bold leading-tight mt-4 bp-ui-page-title">Manage every service project from lead to finish.</h1>
           
         </div>
@@ -117,7 +122,7 @@ export default function Login() {
       </section>
 
       <section className="bg-slate-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
+        <div className="auth-form-card w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-white"><Palette className="w-5 h-5" /></span>
             <span className="font-bold text-slate-900">Bharath Apps</span>
@@ -155,10 +160,11 @@ export default function Login() {
           </form>
           <p className="mt-6 text-center text-sm text-slate-500">New to Bharath Apps? <Link to="/register" className="font-semibold text-slate-950">Create an account</Link></p>
           <p className="mt-3 text-center text-sm text-slate-500">Are you a customer? <Link to="/customer-register" className="font-semibold text-slate-950">Create customer login</Link></p>
+          <div className="signin-language mt-6 flex justify-center border-t border-slate-200 pt-4"><LanguageSelector /></div>
           <button type="button" onClick={() => { setSupportOpen(true); setSupportMessage(""); }} className="mx-auto mt-6 flex items-center gap-2 text-sm font-semibold text-[#176b9b] bp-ui-action"><LifeBuoy className="h-4 w-4" />Support Desk</button>
         </div>
       </section>
-      {supportOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"><section role="dialog" data-popup-saved-version={supportSavedVersion} aria-modal="true" aria-labelledby="support-title" className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"><header className="mb-5 flex items-center justify-between"><div><p className="text-sm font-semibold text-[#176b9b]">Bharath Painters</p><h2 id="support-title" className="text-2xl font-bold bp-ui-section-heading">Support Desk</h2></div><button type="button" onClick={() => setSupportOpen(false)} aria-label="Close support form" className="rounded-lg p-2 hover:bg-slate-100 bp-ui-icon-action"><X /></button></header>{supportMessage && <p role="status" className="mb-4 rounded-xl bg-slate-50 p-3 text-sm">{supportMessage}</p>}<form onSubmit={submitSupport} className="space-y-4"><label className="block text-sm font-semibold">Registered mobile number<input required inputMode="tel" value={supportForm.mobile} onChange={e => setSupportForm({...supportForm,mobile:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">Subject<input required maxLength={180} value={supportForm.subject} onChange={e => setSupportForm({...supportForm,subject:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">How can we help?<textarea required maxLength={4000} rows={4} value={supportForm.description} onChange={e => setSupportForm({...supportForm,description:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">Attach an image or video (up to 10 MB)<input type="file" accept="image/*,video/*" onChange={e => setSupportForm({...supportForm,attachment:e.target.files?.[0] || null})} className="mt-1.5 block w-full text-sm" /></label><button disabled={loading} className="w-full rounded-xl bg-slate-950 p-3 font-semibold text-white disabled:opacity-60 bp-ui-action">{loading ? "Submitting..." : "Submit ticket"}</button></form></section></div>}
+      {supportOpen && <Dialog title="Support Desk" description="Bharath Apps account support" icon={LifeBuoy} savedVersion={supportSavedVersion} onClose={() => setSupportOpen(false)} closeLabel="Close support form" size="md">{supportMessage && <p role="status" className="mb-4 rounded-xl bg-slate-50 p-3 text-sm">{supportMessage}</p>}<form onSubmit={submitSupport} className="space-y-4"><label className="block text-sm font-semibold">Registered mobile number<input required inputMode="tel" value={supportForm.mobile} onChange={e => setSupportForm({...supportForm,mobile:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">Subject<input required maxLength={180} value={supportForm.subject} onChange={e => setSupportForm({...supportForm,subject:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">How can we help?<textarea required maxLength={4000} rows={4} value={supportForm.description} onChange={e => setSupportForm({...supportForm,description:e.target.value})} className="mt-1.5 w-full rounded-xl border p-3 bp-ui-control" /></label><label className="block text-sm font-semibold">Attach an image or video (up to 10 MB)<input type="file" accept="image/*,video/*" onChange={e => setSupportForm({...supportForm,attachment:e.target.files?.[0] || null})} className="mt-1.5 block w-full text-sm" /></label><button disabled={loading} className="w-full rounded-xl bg-slate-950 p-3 font-semibold text-white disabled:opacity-60 bp-ui-action">{loading ? "Submitting..." : "Submit ticket"}</button></form></Dialog>}
     </main>
   );
 }

@@ -6,10 +6,31 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "android": { "package": "com.bharathapps.mobile", "softwareKeyboardLayoutMode": "resize" },
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.bharathapps.mobile" },
-    "web": { "bundler": "metro", "output": "single" },
-    "plugins": ["expo-router", "expo-secure-store"],
-    "experiments": { "typedRoutes": true }
+    "android": {
+      "package": "com.bharathapps.mobile",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bharathapps.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Bharath Apps to choose work progress photos to share with your project team."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

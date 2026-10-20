@@ -319,7 +319,11 @@ class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSeriali
 # PROPERTY
 # ---------------------------------------------------------
 
+from .measurement_storage import measurement_editing_available, readable_surfaces
+
+
 class PropertySerializer(serializers.ModelSerializer):
+    measurement_editing_available = serializers.SerializerMethodField()
     has_measurements = serializers.SerializerMethodField()
     linear_unit_label = serializers.CharField(read_only=True)
     input_area_unit_label = serializers.CharField(read_only=True)
@@ -365,12 +369,16 @@ class PropertySerializer(serializers.ModelSerializer):
     def get_has_measurements(self, obj):
         return obj.measurement_surfaces.exists()
 
+    def get_measurement_editing_available(self, obj):
+        return measurement_editing_available(self.context.get("request"))
+
 
 class PropertyMeasurementSerializer(serializers.ModelSerializer):
+    edit_revision = serializers.SerializerMethodField()
     contractor_name = serializers.SerializerMethodField()
     contractor_id = serializers.CharField(source="contractor.bharath_id", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    total_sqft = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    total_sqft = serializers.SerializerMethodField()
     room_count = serializers.IntegerField(source="rooms.count", read_only=True)
     surface_count = serializers.IntegerField(source="surfaces.count", read_only=True)
     interior_sqft = serializers.SerializerMethodField()
@@ -383,12 +391,12 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
             "id", "property", "reference_no", "measured_on", "contractor",
             "contractor_name", "contractor_id", "status", "status_display", "submitted_at",
             "total_sqft", "interior_sqft", "exterior_sqft", "can_combine", "room_count", "surface_count", "notes",
-            "version", "created_by", "connection", "created_at", "updated_at",
+            "version", "edit_revision", "created_by", "connection", "created_at", "updated_at",
         )
         read_only_fields = (
             "property", "reference_no", "contractor", "contractor_name",
             "contractor_id", "total_sqft", "room_count", "surface_count", "submitted_at",
-            "version", "created_by", "connection", "created_at", "updated_at",
+            "version", "edit_revision", "created_by", "connection", "created_at", "updated_at",
         )
 
     def get_contractor_name(self, obj):
@@ -398,8 +406,16 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
         return getattr(profile, "company_name", "") or obj.contractor.get_full_name() or obj.contractor.mobile
 
     def area_total(self, obj, work_area):
-        total = sum((surface.net_area for surface in obj.surfaces.all() if surface.work_area == work_area), Decimal("0"))
+        surfaces = readable_surfaces(obj.surfaces.all(), self.context.get("request"))
+        total = sum((surface.net_area for surface in surfaces if surface.work_area == work_area), Decimal("0"))
         return format(total.quantize(Decimal("0.01")), ".2f")
+
+    def get_edit_revision(self, obj):
+        return None if "edit_revision" in obj.get_deferred_fields() else obj.edit_revision
+
+    def get_total_sqft(self, obj):
+        surfaces = readable_surfaces(obj.surfaces.all(), self.context.get("request"))
+        return format(sum((surface.net_area for surface in surfaces), Decimal("0")).quantize(Decimal("0.01")), ".2f")
 
     def get_interior_sqft(self, obj):
         return self.area_total(obj, "INTERIOR")
@@ -409,6 +425,8 @@ class PropertyMeasurementSerializer(serializers.ModelSerializer):
 
     def get_can_combine(self, obj):
         request = self.context.get("request")
+        if not measurement_editing_available(request):
+            return False
         return bool(request and request.user.pk == obj.contractor_id
                     and obj.status in {"DRAFT", "IN_PROGRESS"} and not obj.submitted_at
                     and not obj.quotations.exists() and not obj.project_scopes.exists())
@@ -1327,6 +1345,7 @@ class QuotationSerializer(serializers.ModelSerializer):
     revision_draft = serializers.SerializerMethodField()
     consolidated_product_details = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
+    can_create_version = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
 
     rooms = QuotationRoomSerializer(
@@ -1394,6 +1413,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             "product_details",
             "consolidated_product_details",
             "can_edit",
+            "can_create_version",
             "can_delete",
             "show_product_key_features",
             "work_duration",
@@ -1440,6 +1460,10 @@ class QuotationSerializer(serializers.ModelSerializer):
     def get_can_delete(self, obj):
         request = self.context.get("request")
         return bool(request and request.user.pk == obj.contractor_id and obj.status == Quotation.Status.DRAFT and obj.deleted_at is None)
+
+    def get_can_create_version(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.pk == obj.contractor_id and obj.deleted_at is None and ContractorCustomerConnection.objects.filter(customer_id=obj.customer_id, contractor_id=obj.contractor_id, status=ContractorCustomerConnection.Status.CONNECTED).exists())
 
     def get_can_edit(self, obj):
         return self.get_can_delete(obj) and ContractorCustomerConnection.objects.filter(
@@ -1842,11 +1866,33 @@ class QuotationSerializer(serializers.ModelSerializer):
     # CREATE
     # =====================================================
 
+    def lock_measurement_source(self, validated_data, instance=None):
+        from .specification_validation import validate_grouped_specifications
+        measurement = validated_data.get("measurement_record", getattr(instance, "measurement_record", None))
+        if measurement:
+            # Validation precedes save(), so fetch and validate source content
+            # again after taking the same parent lock used by content writers.
+            measurement = PropertyMeasurement.objects.select_for_update().get(pk=measurement.pk)
+            validated_data["measurement_record"] = measurement
+        items = validated_data.get("items")
+        if items is None:
+            items = list(instance.items.values("service_type", "quantity", "specification_details", "is_additional_service")) if instance else []
+        validate_grouped_specifications(items, measurement)
+        return measurement
+
+    def freeze_measurement_source(self, measurement):
+        if measurement and measurement.status != PropertyMeasurement.Status.LOCKED:
+            measurement.status = PropertyMeasurement.Status.LOCKED
+            measurement.edit_revision += 1
+            measurement.save(update_fields=("status", "edit_revision", "updated_at"))
+
     @transaction.atomic
     def create(
         self,
         validated_data
     ):
+
+        measurement = self.lock_measurement_source(validated_data)
 
         rooms_data = validated_data.pop(
             "rooms",
@@ -1970,10 +2016,7 @@ class QuotationSerializer(serializers.ModelSerializer):
             quotation
         )
 
-        if quotation.measurement_record_id:
-            PropertyMeasurement.objects.filter(pk=quotation.measurement_record_id).update(
-                status=PropertyMeasurement.Status.LOCKED
-            )
+        self.freeze_measurement_source(measurement)
 
         return quotation
 
@@ -1987,6 +2030,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         instance,
         validated_data
     ):
+
+        measurement = self.lock_measurement_source(validated_data, instance)
 
         rooms_data = validated_data.pop(
             "rooms",
@@ -2250,6 +2295,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         self.calculate_totals(
             instance
         )
+
+        self.freeze_measurement_source(measurement)
 
         return instance
 
@@ -2614,13 +2661,16 @@ class WorkPhotoListCreateView(
 
 class PropertyRoomSerializer(serializers.ModelSerializer):
 
+    idempotency_key = serializers.CharField(required=False, write_only=True, allow_blank=True, max_length=100)
+    measurement_revision = serializers.SerializerMethodField()
+
     measurement_totals = serializers.SerializerMethodField()
     room_type_name = serializers.CharField(source="room_type.name", read_only=True)
 
     class Meta:
         model = PropertyRoom
 
-        fields = "__all__"
+        exclude = ("idempotency_revision", "idempotency_fingerprint")
 
         read_only_fields = (
             "property",
@@ -2635,7 +2685,7 @@ class PropertyRoomSerializer(serializers.ModelSerializer):
         )
 
     def get_measurement_totals(self, room):
-        surfaces = list(room.measurement_surfaces.prefetch_related("openings"))
+        surfaces = list(readable_surfaces(room.measurement_surfaces.all(), self.context.get("request")))
         walls = [surface for surface in surfaces if surface.surface_type == "WALL"]
         ceilings = [surface for surface in surfaces if surface.surface_type == "CEILING"]
         openings = [opening for surface in surfaces for opening in surface.openings.all()]
@@ -2659,6 +2709,16 @@ class PropertyRoomSerializer(serializers.ModelSerializer):
             "wardrobe": value(sum((item.area for item in openings if item.opening_type == "WARDROBE"), Decimal("0"))),
         }
 
+    def get_measurement_revision(self, obj):
+        if not measurement_editing_available(self.context.get("request")):
+            return None
+        return measurement_content_revision(obj.measurement_record, self.context)
+
+    def validate_idempotency_key(self, value):
+        if self.instance is not None and value != self.instance.idempotency_key:
+            raise serializers.ValidationError("The original creation request key cannot be changed.")
+        return value
+
     def validate_room_type(self, room_type):
         request = self.context.get("request")
         owner = room_type.created_by if room_type else None
@@ -2671,7 +2731,15 @@ class PropertyRoomSerializer(serializers.ModelSerializer):
 from .models import MeasurementOpening, MeasurementSurface
 
 
+def measurement_content_revision(record, context):
+    if record is None:
+        return None
+    locked = getattr(context.get("request"), "_locked_measurement_record", None)
+    return locked.edit_revision if locked and locked.pk == record.pk else record.edit_revision
+
+
 class MeasurementOpeningSerializer(serializers.ModelSerializer):
+    measurement_revision = serializers.SerializerMethodField()
     area = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     effective_deduction = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     separate_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -2681,8 +2749,20 @@ class MeasurementOpeningSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ("surface",)
 
+    def get_measurement_revision(self, obj):
+        if not measurement_editing_available(self.context.get("request")):
+            return None
+        return measurement_content_revision(obj.surface.measurement_record, self.context)
+
     def validate(self, attrs):
         surface = self.context.get("surface") or getattr(self.instance, "surface", None)
+        linked = attrs.get("linked_surface", getattr(self.instance, "linked_surface", None))
+        if linked and surface and (
+            linked.property_id != surface.property_id
+            or linked.measurement_record_id != surface.measurement_record_id
+            or linked.work_area != MeasurementSurface.WorkArea.EXTERIOR
+        ):
+            raise serializers.ValidationError({"linked_surface": "Select an exterior component from this measurement and property."})
         target_type = attrs.get(
             "deduct_from_surface_type",
             getattr(self.instance, "deduct_from_surface_type", ""),
@@ -2703,6 +2783,8 @@ class MeasurementOpeningSerializer(serializers.ModelSerializer):
 
 
 class MeasurementSurfaceSerializer(serializers.ModelSerializer):
+    measurement_revision = serializers.SerializerMethodField()
+    idempotency_key = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True, write_only=True)
     openings = MeasurementOpeningSerializer(many=True, read_only=True)
     is_adjustment_anchor = serializers.SerializerMethodField()
     gross_area = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -2713,11 +2795,21 @@ class MeasurementSurfaceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MeasurementSurface
-        fields = "__all__"
+        exclude = ("idempotency_revision", "idempotency_fingerprint")
         read_only_fields = ("property", "measurement_record", "created_at", "updated_at")
 
     def get_is_adjustment_anchor(self, obj):
         return obj.name == "__ROOM_ADJUSTMENTS__"
+
+    def validate_idempotency_key(self, value):
+        if self.instance is not None and value != self.instance.idempotency_key:
+            raise serializers.ValidationError("The original creation request key cannot be changed.")
+        return value
+
+    def get_measurement_revision(self, obj):
+        if not measurement_editing_available(self.context.get("request")):
+            return None
+        return measurement_content_revision(obj.measurement_record, self.context)
 
     def validate(self, attrs):
         property_obj = self.context["property_obj"]
@@ -2725,6 +2817,10 @@ class MeasurementSurfaceSerializer(serializers.ModelSerializer):
         work_area = attrs.get("work_area", getattr(self.instance, "work_area", None))
         if room and room.property_id != property_obj.id:
             raise serializers.ValidationError({"room": "Room must belong to this property."})
+        request = self.context.get("request")
+        record = getattr(request, "_locked_measurement_record", None) or getattr(self.instance, "measurement_record", None)
+        if room and record and room.measurement_record_id != record.pk:
+            raise serializers.ValidationError({"room": "Room must belong to this measurement."})
         if work_area == MeasurementSurface.WorkArea.INTERIOR and not room:
             raise serializers.ValidationError({"room": "Interior surfaces require a room."})
         return attrs
@@ -2736,6 +2832,7 @@ class ProjectScopeSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default="")
     work_description_name = serializers.CharField(source="work_description.name", read_only=True, default="")
     unit_name = serializers.CharField(source="unit.name", read_only=True, default="")
+    source_key = serializers.CharField(read_only=True)
     shared_work_orders = serializers.SerializerMethodField()
 
     class Meta:
@@ -2753,6 +2850,9 @@ class ProjectScopeSerializer(serializers.ModelSerializer):
             "unit_name",
             "measurement_record",
             "measurement_version",
+            "source_quotation_item",
+            "source_work_change_item",
+            "source_key",
             "quantity",
             "unit_rate",
             "amount",
@@ -2769,7 +2869,7 @@ class ProjectScopeSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "reference", "amount", "created_at", "updated_at"]
+        read_only_fields = ["id", "reference", "amount", "completed_quantity", "source_quotation_item", "source_work_change_item", "source_key", "created_at", "updated_at"]
 
     def validate_quotation(self, value):
         # The quotation is chosen once on create; a scope must never migrate to

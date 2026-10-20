@@ -399,3 +399,35 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Match the shared reference surfaces without changing semantic status colours. */
+.master-services-page :is(.border, .border-t, .border-b, .divide-y > :not(:last-child)):not([class*="border-red"]):not([class*="border-amber"]):not([class*="border-indigo"]):not([class*="border-violet"]) {
+  border-color: var(--bp-border);
+}
+
+/* Compact catalogue section cards keep the catalogue within one clear column. */
+.master-services-page { display:flex; flex-direction:column; gap:16px; }
+.master-services-page > * { margin-block:0; }
+.master-services-page .bp-page-header { padding:16px; }
+.master-services-page .master-data-layout { grid-template-columns:minmax(0,1fr); gap:14px; }
+.master-services-page .master-sections-nav { position:static; padding:12px; border:1px solid var(--bp-line); border-radius:14px; background:var(--bp-card); box-shadow:var(--bp-reference-shadow,var(--bp-shadow)); }
+.master-services-page .master-section-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.master-services-page .master-section-grid button { min-height:58px; padding:9px 10px; border-color:var(--bp-line); background:var(--bp-color-surface-muted); color:var(--bp-ink); gap:8px; }
+.master-services-page .master-section-grid button > span:first-of-type { font-size:12px; }
+.master-services-page .master-section-grid button > svg { color:var(--bp-brand); }
+.master-services-page .master-section-grid button[aria-current="true"] { border-color:var(--bp-brand); background:color-mix(in srgb,var(--bp-brand) 9%,var(--bp-card)); color:var(--bp-brand-dark); box-shadow:inset 0 -2px var(--bp-brand); }
+.master-services-page .master-section-grid button[aria-current="true"] > span:last-child { color:var(--bp-brand-dark); background:color-mix(in srgb,var(--bp-brand) 14%,var(--bp-card)); }
+.master-services-page .master-section-grid button:is(:hover,:focus-visible) { box-shadow:0 3px 10px color-mix(in srgb,var(--bp-brand) 13%,transparent); }
+.master-services-page .master-filter-summary { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 12px; border-bottom:1px solid var(--bp-line); color:var(--bp-muted); font-size:12px; }
+.master-services-page .master-filter-summary button { min-height:44px; padding:6px 10px; border:1px solid var(--bp-line); border-radius:8px; color:var(--bp-brand-dark); background:var(--bp-card); font-weight:650; }
+@media(max-width:767px) {
+ .master-services-page .master-data-card > header { flex-direction:column; align-items:stretch; gap:10px; }
+ .master-services-page .master-data-actions { width:100%; }
+ .master-services-page .master-data-actions > .bp-button { flex:1 1 130px; padding:8px 10px; font-size:12px; }
+ .master-services-page .master-entry-inline { flex-wrap:wrap; gap:8px; }
+ .master-services-page .master-entry-inline .master-entry-content { flex:1 1 calc(100% - 44px); }
+ .master-services-page .master-entry-inline .master-entry-toolbar { width:100%; justify-content:flex-end; flex-wrap:wrap; }
+ .master-services-page .master-entry-toolbar button,.master-services-page .master-drag-handle { width:44px; min-width:44px; height:44px; min-height:44px; }
+ .master-services-page .master-entry-radios label { min-height:44px; font-size:11px; gap:4px; padding-inline:4px; }
+ .master-services-page :is(input,select,textarea) { font-size:16px; }
+}

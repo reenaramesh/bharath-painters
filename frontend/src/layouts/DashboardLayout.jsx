@@ -1,8 +1,9 @@
-import useAuth from "../context/useAuth";
+﻿import useAuth from "../context/useAuth";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { Outlet, useLocation } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import RouteErrorBoundary from "../components/RouteErrorBoundary";
 import api from "../api/client";
 import GlobalTableSorting from "../components/GlobalTableSorting";
 import MobileTableDialogs from "../components/MobileTableDialogs";
@@ -43,7 +44,7 @@ export default function DashboardLayout() {
       });
     };
     const fallbackColors = { app_primary_color: user?.app_primary_color, app_accent_color: user?.app_accent_color };
-    if (contractorWorkspace) api.get("/accounts/contractor-profile/").then(({ data }) => updateColors(data)).catch(() => {});
+    if (contractorWorkspace) api.get("/accounts/contractor-profile/").then(({ data }) => updateColors(data)).catch(() => updateColors(fallbackColors));
     else api.get("/accounts/me/").then(({ data }) => updateColors(data)).catch(() => updateColors(fallbackColors));
     const onThemeChange = (event) => updateColors(event.detail);
     window.addEventListener("bp-app-theme-changed", onThemeChange);
@@ -83,7 +84,11 @@ export default function DashboardLayout() {
         />
 
         <main className={`bp-page-container w-full pb-28 pt-4 md:py-6 xl:py-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
-          <Outlet context={{ employmentStatus }} />
+          <RouteErrorBoundary resetKey={pathname}>
+            <Suspense fallback={<div className="bp-state" role="status"><span className="bp-spinner" /><p>Loading page…</p></div>}>
+              <Outlet context={{ employmentStatus }} />
+            </Suspense>
+          </RouteErrorBoundary>
         </main>
         <MobileBottomNav employmentStatus={employmentStatus} />
         <FloatingQuickActions key={pathname} employmentStatus={employmentStatus} pathname={pathname} />

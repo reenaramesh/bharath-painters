@@ -1,4 +1,4 @@
-import QuotationDocumentItems, { QuotationDocumentItemDetails } from "../components/QuotationDocumentItems.jsx";
+﻿import QuotationDocumentItems, { QuotationDocumentItemDetails } from "../components/QuotationDocumentItems.jsx";
 import { quotationItemHeaders } from "../utils/quotationItemPresentation.js";
 import { QuotationLineItemPopup } from "../components/QuotationLineItemPopup.jsx";
 import QuotationLineDiscountSummary from "../components/QuotationLineDiscountSummary.jsx";
@@ -26,6 +26,7 @@ import { profileImageStyle } from "../utils/profileImagePosition";
 import { Button, ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
 import { consumeQuotationSubmission, quotationSubmissionError } from "../utils/quotationSubmission.js";
+import useAuth from '../context/useAuth';
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -55,6 +56,7 @@ export default function QuotationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const customerPath = location.state?.customerPath;
   const backPath = customerPath || "/quotations";
   const [quotation, setQuotation] = useState(null);
@@ -79,6 +81,16 @@ export default function QuotationDetail() {
   }, [id]);
   const [mobileItem, setMobileItem] = useState(null);
   const [invoiceSetup, setInvoiceSetup] = useState(null);
+  const invoicePromptSeen = useRef('');
+  useEffect(() => {
+    const action = new URLSearchParams(location.search).get('action');
+    const key = `${id}:${location.key}`;
+    if (action === 'invoice' && user?.role === 'CONTRACTOR' && quotation?.status === 'COMPLETED'
+        && String(quotation.id) === String(id) && invoicePromptSeen.current !== key) {
+      invoicePromptSeen.current = key;
+      setInvoiceSetup((quotation.items || []).map(() => ''));
+    }
+  }, [id, location.key, location.search, quotation, user?.role]);
   const [columnWidths, setColumnWidths] = useState(savedQuotationColumnWidths);
   const quotationTableRef = useRef(null);
   const columnWidthsRef = useRef(columnWidths);
@@ -281,6 +293,7 @@ export default function QuotationDetail() {
   }
   return (
     <div className="bp-quotation-page quotation-measurement-page bp-quotation-detail space-y-6">
+      {location.state?.submissionError && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">This version was saved. Sending could not be confirmed. Use Submit to Customer to retry sending this saved version.</p>}
       {location.state?.draftSaved && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Quotation draft saved.</p>}
       {pendingCustomerConnection && quotation.status === "DRAFT" && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">This quotation is a private draft. It can be sent after the customer accepts your connection request.</p>}
       <div className="quotation-toolbar flex flex-wrap items-center justify-between gap-3">
@@ -345,13 +358,13 @@ export default function QuotationDetail() {
               </>
             )}
           </button>
-          {quotation.status === "DRAFT" && quotation.can_edit && (
+          {quotation.can_create_version && (
             <Link
               to={`/quotations/${id}/edit`}
               className="flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-semibold sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
             >
               <Edit3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              Edit Draft
+              Edit quotation
             </Link>
           )}
           {["SENT", "VIEWED", "REVISION_REQUESTED", "REJECTED", "EXPIRED"].includes(quotation.status) && (

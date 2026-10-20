@@ -8,9 +8,11 @@ different endpoint. The two rules that matter most:
 """
 
 from decimal import Decimal
+from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.core.validators import DecimalValidator
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from accounts.models import BharathUser
@@ -26,8 +28,10 @@ from .models import (
     SubcontractWorkOrderScope,
     WageRecord,
     WorkOrderCompletion,
+    WorkOrderCompletionScope,
     WorkOrderEvent,
 )
+from quotations.models import ProjectScope
 
 MAIN = "MAIN"
 RECEIVING = "RECEIVING"
@@ -119,10 +123,9 @@ def can_transition(user, work_order, target_status):
 
 
 @transaction.atomic
-def transition(user, work_order, target_status, note=""):
-    if work_order.material_mode:
-        SubcontractWorkOrder.objects.select_for_update().get(pk=work_order.pk)
-        work_order.refresh_from_db()
+def transition(user, work_order, target_status, note="", scope_progress=None):
+    SubcontractWorkOrder.objects.select_for_update(of=("self",)).get(pk=work_order.pk)
+    work_order.refresh_from_db()
     # Corrections must go through request_correction so the note and the
     # correction record can never be skipped by the generic status endpoint.
     if target_status == SubcontractWorkOrder.Status.CORRECTION_REQUESTED:
@@ -142,6 +145,27 @@ def transition(user, work_order, target_status, note=""):
         status="COMPLETED"
     ).exists():
         raise ValidationError({"status": "Every active employee assignment must be completed before sending work for review."})
+
+    progress_rows = None
+    if target_status == SubcontractWorkOrder.Status.SUBMITTED_FOR_REVIEW and scope_progress is not None:
+        if not isinstance(scope_progress, list):
+            raise ValidationError({"scope_progress": "Provide a list of scope quantities."})
+        shared = {row.pk: row for row in work_order.scopes.filter(is_included=True)}
+        parsed = {}
+        for item in scope_progress:
+            try:
+                scope_id = int(item.get("scope_id"))
+                quantity = Decimal(str(item.get("quantity")))
+            except (AttributeError, TypeError, ValueError, ArithmeticError):
+                raise ValidationError({"scope_progress": "Each scope needs a valid ID and quantity."})
+            if scope_id not in shared or not quantity.is_finite() or quantity < 0 or quantity > shared[scope_id].quantity:
+                raise ValidationError({"scope_progress": "Reported quantity must be within the shared work order scope."})
+            if scope_id in parsed:
+                raise ValidationError({"scope_progress": "A scope can be reported only once per submission."})
+            parsed[scope_id] = quantity
+        if set(parsed) != set(shared):
+            raise ValidationError({"scope_progress": "Report a quantity for every included scope."})
+        progress_rows = [(shared[scope_id], quantity) for scope_id, quantity in parsed.items()]
 
     previous = work_order.status
     now = timezone.now()
@@ -194,6 +218,11 @@ def transition(user, work_order, target_status, note=""):
             summary=note,
             is_current=True,
         )
+        if progress_rows is not None:
+            WorkOrderCompletionScope.objects.bulk_create([
+                WorkOrderCompletionScope(completion=completion, work_order_scope=scope, reported_quantity=quantity)
+                for scope, quantity in progress_rows
+            ])
         # Resubmitting clears every open correction the main contractor raised.
         resolved = CorrectionRequest.objects.filter(
             completion__work_order=work_order,
@@ -207,11 +236,58 @@ def transition(user, work_order, target_status, note=""):
                 current.open_correction_count = 0
                 current.save(update_fields=["open_correction_count"])
 
+    if target_status == SubcontractWorkOrder.Status.COMPLETED:
+        completion = WorkOrderCompletion.objects.select_for_update().filter(work_order=work_order, is_current=True).first()
+        if completion and completion.approved_at is None:
+            completion.approved_by = user
+            completion.approved_at = now
+            completion.save(update_fields=("approved_by", "approved_at"))
+            rows = list(completion.scope_progress.select_related("work_order_scope__project_scope"))
+            unresolved_sources = [
+                row.work_order_scope for row in rows
+                if row.work_order_scope.project_scope_id is None and row.work_order_scope.source_quotation_item_id
+            ]
+            if unresolved_sources:
+                from quotations.project_scope_sync import sync_project_scopes
+                sync_project_scopes(work_order.quotation)
+                for shared_scope in unresolved_sources:
+                    if shared_scope.source_quotation_item.quotation_id != work_order.quotation_id:
+                        raise ValidationError({"scope_progress": "A subcontract scope points to a different customer quotation."})
+                    linked = ProjectScope.objects.select_for_update().filter(
+                        quotation=work_order.quotation,
+                        source_quotation_item=shared_scope.source_quotation_item,
+                    ).first()
+                    if linked is None:
+                        raise ValidationError({"scope_progress": "The subcontract scope could not be linked to effective project work."})
+                    shared_scope.project_scope = linked
+                    shared_scope.save(update_fields=("project_scope",))
+            project_scope_ids = sorted({row.work_order_scope.project_scope_id for row in rows if row.work_order_scope.project_scope_id})
+            locked_scopes = {scope.pk: scope for scope in ProjectScope.objects.select_for_update().filter(pk__in=project_scope_ids)}
+            for row in rows:
+                project_scope = locked_scopes.get(row.work_order_scope.project_scope_id)
+                if not project_scope:
+                    continue
+                previously_accepted = WorkOrderCompletionScope.objects.filter(
+                    work_order_scope__project_scope=project_scope,
+                    completion__approved_at__isnull=False,
+                ).exclude(pk=row.pk).aggregate(total=models.Sum("accepted_quantity"))["total"] or Decimal("0")
+                accepted = row.reported_quantity
+                if previously_accepted + accepted > project_scope.quantity:
+                    raise ValidationError({"scope_progress": f"Accepted work would exceed the remaining quantity for {project_scope.title}."})
+                row.accepted_quantity = accepted
+                row.save(update_fields=("accepted_quantity",))
+                project_scope.completed_quantity = previously_accepted + accepted
+                if project_scope.completed_quantity > 0 and project_scope.status not in (ProjectScope.Status.COMPLETED, ProjectScope.Status.CANCELLED):
+                    project_scope.status = ProjectScope.Status.COMPLETED if project_scope.completed_quantity >= project_scope.quantity else ProjectScope.Status.IN_PROGRESS
+                project_scope.save(update_fields=("completed_quantity", "status", "updated_at"))
+
     return work_order
 
 
 @transaction.atomic
 def request_correction(user, work_order, note):
+    SubcontractWorkOrder.objects.select_for_update(of=("self",)).get(pk=work_order.pk)
+    work_order.refresh_from_db()
     reason = can_transition(
         user, work_order, SubcontractWorkOrder.Status.CORRECTION_REQUESTED
     )
@@ -249,30 +325,71 @@ def request_correction(user, work_order, note):
     return correction
 
 
+class PaymentConflict(ValidationError):
+    """An optional request key was already used for different payment data."""
+
+
 @transaction.atomic
-def record_payment(user, invoice, amount, payment_mode, reference="", notes=""):
+def record_payment(user, invoice, amount, payment_mode, reference="", notes="", received_date=None, idempotency_key=None):
+    invoice = SubcontractInvoice.objects.select_for_update(of=("self",)).select_related("work_order").get(pk=invoice.pk)
     if invoice.work_order.main_contractor_id != user.id:
         raise ValidationError({"payment": "Only the main contractor can record this payment."})
     if invoice.status == SubcontractInvoice.Status.VOID:
         raise ValidationError({"payment": "This invoice is void."})
     try:
+        amount = Decimal(str(amount))
+        if not amount.is_finite():
+            raise ValueError
         amount = amount.quantize(TWO_PLACES)
-    except AttributeError:
+    except (ArithmeticError, ValueError, TypeError):
         raise ValidationError({"amount": "Enter a valid amount."})
-    if amount <= 0:
-        raise ValidationError({"amount": "Enter an amount above zero."})
-    if amount > invoice.balance:
-        raise ValidationError({"amount": "That is more than the outstanding balance."})
+    if amount <= 0 or amount >= Decimal("1000000000000"):
+        raise ValidationError({"amount": "Enter a positive amount within the supported range."})
+    if payment_mode not in SubcontractInvoice.PaymentMode.values:
+        raise ValidationError({"payment_mode": "Select a valid payment mode."})
+    supplied_date = received_date is not None
+    received_date = received_date or timezone.localdate()
+    if type(received_date) is not date or received_date > timezone.localdate():
+        raise ValidationError({"received_date": "Enter a valid payment date that is not in the future."})
+    reference = str(reference or "").strip()
+    notes = str(notes or "").strip()
+    if len(reference) > 120 or len(notes) > 250:
+        raise ValidationError({"payment": "Payment reference or notes are too long."})
+    key = str(idempotency_key or "").strip() or None
+    if key and len(key) > 100:
+        raise ValidationError({"idempotency_key": "Use a request key of at most 100 characters."})
 
-    SubcontractInvoicePayment.objects.create(
-        invoice=invoice,
-        amount=amount,
-        payment_mode=payment_mode,
-        payment_reference=reference,
-        notes=notes,
-        recorded_by=user,
-    )
-    invoice.amount_paid = (invoice.amount_paid + amount).quantize(TWO_PLACES)
+    def replay(existing):
+        if (existing.invoice_id != invoice.pk or existing.recorded_by_id != user.pk or
+                existing.amount != amount or existing.payment_mode != payment_mode or
+                existing.payment_reference != reference or existing.notes != notes or
+                (supplied_date and existing.received_date != received_date)):
+            raise PaymentConflict({"idempotency_key": "This request key was already used for a different payment."})
+        return invoice
+
+    if key:
+        existing = SubcontractInvoicePayment.objects.filter(idempotency_key=key).first()
+        if existing:
+            return replay(existing)
+
+    paid = invoice.payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+    if amount > invoice.total - paid:
+        raise ValidationError({"amount": "That is more than the outstanding balance."})
+    try:
+        # A distinct invoice can concurrently use the same globally unique key.
+        # Keep its uniqueness failure inside a savepoint before inspecting it.
+        with transaction.atomic():
+            SubcontractInvoicePayment.objects.create(
+                invoice=invoice, amount=amount, received_date=received_date,
+                payment_mode=payment_mode, payment_reference=reference,
+                notes=notes, recorded_by=user, idempotency_key=key,
+            )
+    except IntegrityError:
+        existing = SubcontractInvoicePayment.objects.filter(idempotency_key=key).first() if key else None
+        if existing is None:
+            raise
+        return replay(existing)
+    invoice.amount_paid = (paid + amount).quantize(TWO_PLACES)
     invoice.balance = (invoice.total - invoice.amount_paid).quantize(TWO_PLACES)
     invoice.status = (
         SubcontractInvoice.Status.PAID
@@ -338,6 +455,9 @@ def share_quotation_items(work_order, items):
 @transaction.atomic
 def decide_quote(user, quote, decision, note=""):
     """Accept or reject a receiving contractor's quote. Main contractor only."""
+    SubcontractWorkOrder.objects.select_for_update(of=("self",)).get(pk=quote.work_order_id)
+    SubcontractQuote.objects.select_for_update(of=("self",)).get(pk=quote.pk)
+    quote.refresh_from_db()
     work_order = quote.work_order
     if work_order.main_contractor_id != user.id:
         raise ValidationError({"quote": "Only the main contractor can decide this quote."})
@@ -367,11 +487,24 @@ def decide_quote(user, quote, decision, note=""):
 
 @transaction.atomic
 def decide_additional_work(user, request_, decision, approved_amount=None, note=""):
+    AdditionalWorkRequest.objects.select_for_update().get(pk=request_.pk)
+    request_.refresh_from_db()
     work_order = request_.work_order
     if work_order.main_contractor_id != user.id:
         raise ValidationError({"request": "Only the main contractor can decide this."})
     if request_.status != AdditionalWorkRequest.Status.PENDING:
         raise ValidationError({"request": "This request was already decided."})
+    if decision not in {AdditionalWorkRequest.Status.APPROVED, AdditionalWorkRequest.Status.DECLINED}:
+        raise ValidationError({"decision": "Choose APPROVED or DECLINED."})
+    if approved_amount is not None or decision == AdditionalWorkRequest.Status.APPROVED:
+        try:
+            amount = Decimal(str(approved_amount if approved_amount is not None else request_.estimated_amount))
+            if not amount.is_finite() or amount < 0:
+                raise ValueError
+            DecimalValidator(max_digits=14, decimal_places=2)(amount)
+        except (ArithmeticError, TypeError, ValueError, ValidationError):
+            raise ValidationError({"approved_amount": "Enter a nonnegative amount with at most 12 whole digits and 2 decimal places."})
+        approved_amount = amount
 
     request_.status = decision
     request_.decided_by = user

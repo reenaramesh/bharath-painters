@@ -24,7 +24,8 @@ import CustomerActivationShare from "../components/CustomerActivationShare";
 import { customerAccountStatus } from "../utils/customerActivation";
 import CustomerForm from "../components/CustomerForm";
 import BackButton from "../components/BackButton";
-import { ErrorState, LoadingState, PageHeader, StatusBadge } from "../components/ui";
+import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
+import PageHeader from '../components/ContractorModuleHeader';
 import "./crm-pages.css";
 
 export default function CustomerDetail() {
@@ -241,11 +242,11 @@ export default function CustomerDetail() {
     return (
       <div className="crm-page crm-customer-detail"><ErrorState message={error} onRetry={load} /></div>
     );
-  if (customer.is_saved_contact) return <div className="space-y-6 crm-page crm-customer-detail">
+  if (customer.is_saved_contact) return <div className="space-y-6 crm-page crm-customer-detail contractor-people-page">
     <BackButton fallback="/customers" label="Back to customers" />
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
-    <section className="rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} />
+    <section className="people-customer-hero rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} />
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
       <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold bp-ui-action">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
     </section>
@@ -287,7 +288,7 @@ export default function CustomerDetail() {
   const whatsappUrl = getWhatsAppUrl(customer.whatsapp || customer.mobile);
 
   return (
-    <div className="space-y-6 crm-page crm-customer-detail">
+    <div className="space-y-6 crm-page crm-customer-detail contractor-people-page">
       <BackButton fallback="/customers" label="Back to customers" />
       {error && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -300,12 +301,12 @@ export default function CustomerDetail() {
           {success}
         </div>
       )}
-      <section className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-6 md:flex-row md:items-start">
-        <div className="grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-2xl font-bold text-white">
+      <section className="people-customer-hero people-customer-hero-connected flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-6 md:flex-row md:items-start">
+        <div className="people-customer-avatar grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-2xl font-bold text-white">
           {customer.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1">
-          <PageHeader eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
+          <PageHeader icon={null} eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
           <CustomerAccountStatus customer={customer} />
           {customerAccountStatus(customer)?.canResend && <button type="button" disabled={linkLoading} onClick={shareActivation} className="mt-3 min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 disabled:opacity-50 bp-ui-action">{linkLoading ? "Preparing link..." : "Resend activation link"}</button>}
           {activationLink && <CustomerActivationShare error={error} key={activationLink.share_link} customer={activationLink} contractor={user} busy={linkLoading} onRegenerate={shareActivation} onClose={() => { setActivationLink(null); load(); }} />}

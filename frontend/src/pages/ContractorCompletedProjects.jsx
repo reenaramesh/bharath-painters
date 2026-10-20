@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import api from "../api/client";
+import { PageHeader } from "../components/ui";
+import "./crm-pages.css";
 
 const emptyDraft = { title: "", apartment_community: "", location: "", address: "", pincode: "", description: "", work_completed: "", completed_on: "", photo: null };
 const input = "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-[#176b9b]";
@@ -84,11 +86,8 @@ export default function ContractorCompletedProjects() {
     document.getElementById("project-editor")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  return <div className="mx-auto max-w-4xl space-y-6 pb-8">
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Digital profile</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl bp-ui-page-title">Completed projects</h1></div>
-      <Link to="/profile" className="rounded-xl border border-[#b9d1dc] px-4 py-2.5 text-sm font-bold text-[#1d5e7b]">View digital profile</Link>
-    </div>
+  return <div className="mx-auto max-w-4xl space-y-6 pb-8 crm-page crm-completed-projects">
+    <PageHeader eyebrow="Digital profile" title="Completed projects" description="Keep a portfolio of your completed work, locations and project photos." actions={<Link to="/profile" className="bp-button bp-button-secondary bp-button-md">View digital profile</Link>} />
 
     <section className="rounded-2xl border bg-white p-5 sm:p-6">
       <h2 className="text-lg font-bold bp-ui-section-heading">Your projects</h2>

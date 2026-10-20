@@ -1,0 +1,9 @@
+.work-changes-page :is(.border-b, .border-t) { border-color: var(--bp-line); }
+.work-changes-page .contractor-dialog-content footer { padding-inline: 0; }
+.work-changes-page .contractor-dialog-content footer button { min-height: 44px; }
+.work-changes-page .contractor-dialog-content .flex.justify-between { gap: 12px; }
+@media (max-width: 428px) {
+  .work-changes-page .contractor-dialog-content footer { gap: 8px; }
+  .work-changes-page .contractor-dialog-content footer button { flex: 1 1 auto; padding-inline: 12px; }
+  .work-changes-page .contractor-dialog-content > .space-y-5 { padding-inline: 0; }
+}

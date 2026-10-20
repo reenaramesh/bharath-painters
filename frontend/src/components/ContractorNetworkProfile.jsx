@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Handshake, X } from 'lucide-react';
+import '../styles/contractor-people-ui.css';
 import api from '../api/client';
 import ContractorProfileAdapter from './ContractorProfileAdapter';
 import { connectionCounterparty } from '../utils/subcontract';
@@ -22,7 +23,7 @@ export default function ContractorNetworkProfile({row,profile:cachedProfile,init
     return ()=>{active=false;};
   },[other.id,cachedProfile]);
   return <dialog ref={dialogRef} onCancel={onClose} className="network-profile-dialog network-portfolio-dialog" aria-labelledby="network-profile-title">
-    <header className="flex shrink-0 items-center justify-between gap-3 border-b p-4"><h2 id="network-profile-title" className="text-lg font-bold bp-ui-section-heading">Contractor profile</h2><button type="button" onClick={onClose} aria-label="Close contractor profile" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border bp-ui-icon-action"><X className="h-4 w-4" /></button></header>
+    <header className="flex shrink-0 items-center justify-between gap-3 border-b p-4"><div className="contractor-dialog-heading"><span className="contractor-module-icon" aria-hidden="true"><Handshake size={24} strokeWidth={1.8} /></span><h2 id="network-profile-title" className="text-lg font-bold bp-ui-section-heading">Contractor profile</h2></div><button type="button" onClick={onClose} aria-label="Close contractor profile" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border bp-ui-icon-action"><X className="h-4 w-4" /></button></header>
     <div className="min-h-0 overflow-y-auto p-4">
       {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {loading && !profile && <p role="status">Loading profile details…</p>}

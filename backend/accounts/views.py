@@ -54,7 +54,13 @@ def _truthy(value):
 def _registration_consent_error(request):
     if str(request.data.get("policy_version") or "") != POLICY_VERSION:
         return {"policy_version": "Please review the current Terms and Privacy Notice."}
-    if not _truthy(request.data.get("document_scrolled")):
+    method = request.data.get("acceptance_method", "REGISTRATION_CHECKBOX")
+    if not isinstance(method, str):
+        return {"acceptance_method": "Unsupported registration acceptance method."}
+    method = method or "REGISTRATION_CHECKBOX"
+    if method not in {"REGISTRATION_CHECKBOX", "REGISTRATION_SUBMIT"}:
+        return {"acceptance_method": "Unsupported registration acceptance method."}
+    if method == "REGISTRATION_CHECKBOX" and not _truthy(request.data.get("document_scrolled")):
         return {"document_scrolled": "Scroll through the complete Terms and Privacy Notice before registering."}
     if not _truthy(request.data.get("terms_accepted")):
         return {"terms_accepted": "You must accept the Terms of Use to register."}
@@ -76,8 +82,8 @@ def _record_registration_consent(user, request, role):
             "privacy_hash": privacy_hash,
             "terms_accepted": True,
             "privacy_notice_acknowledged": True,
-            "document_scrolled": True,
-            "acceptance_method": "REGISTRATION_CHECKBOX",
+            "document_scrolled": _truthy(request.data.get("document_scrolled")) if request.data.get("acceptance_method") != "REGISTRATION_SUBMIT" else False,
+            "acceptance_method": request.data.get("acceptance_method") or "REGISTRATION_CHECKBOX",
             "ip_address": ip_address,
             "user_agent": str(request.META.get("HTTP_USER_AGENT") or "")[:1000],
         },
@@ -379,7 +385,7 @@ class CustomerRegistrationView(APIView):
             from quotations.models import PropertyInvitation
             from quotations.views import property_invitation_digest
 
-            invitation = PropertyInvitation.objects.select_for_update().select_related(
+            invitation = PropertyInvitation.objects.select_for_update(of=("self",)).select_related(
                 "property", "invitee_customer",
             ).filter(
                 token_hash=property_invitation_digest(invitation_token),
@@ -412,6 +418,10 @@ class CustomerRegistrationView(APIView):
             return Response({"mobile": "This mobile belongs to another account type."}, status=status.HTTP_400_BAD_REQUEST)
         if existing_user and existing_user.has_usable_password():
             return Response({"mobile": "A customer account already exists. Please sign in."}, status=status.HTTP_400_BAD_REQUEST)
+        if not invitation and (
+            existing_user or Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized_mobile).exists()
+        ):
+            return Response({"mobile": "An existing customer profile uses this mobile number. Use the private activation link from your contractor, or sign in to your account."}, status=status.HTTP_409_CONFLICT)
 
         from quotations.customer_identity import release_deleted_customer_mobile
         release_deleted_customer_mobile(normalized_mobile)

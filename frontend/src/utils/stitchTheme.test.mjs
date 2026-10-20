@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +12,9 @@ const contrast = (a, b) => { const values = [luminance(a), luminance(b)].sort((x
 
 test('Stitch theme exposes the approved semantic palette and keeps readable text contrast', () => {
   const expected = {
-    canvas: '#f8fafc', surface: '#ffffff', 'surface-muted': '#faf8ff', ink: '#0f172a',
-    text: '#334155', muted: '#475569', brand: '#2563eb', 'brand-strong': '#1e3a8a',
-    accent: '#f59e0b', paint: '#ea580c', success: '#047857', warning: '#b45309',
+    canvas: '#f5f7fc', surface: '#ffffff', 'surface-muted': '#f8f8ff', ink: '#0f172a',
+    text: '#334155', muted: '#475569', brand: '#5740ec', 'brand-strong': '#3928a4',
+    accent: '#fb4b8b', paint: '#ea580c', success: '#047857', warning: '#b45309',
   };
   for (const [name, value] of Object.entries(expected)) assert.equal(token(name)?.toLowerCase(), value, `--bp-color-${name}`);
   assert.ok(contrast(token('ink'), token('canvas')) >= 4.5, 'body text on canvas must meet WCAG AA');

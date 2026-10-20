@@ -1,5 +1,6 @@
 from .profile_images import profile_image
 from .menu_visibility import MenuVisibilityView
+from .painter_contacts import PainterContactView
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -38,6 +39,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path('painter-contacts/', PainterContactView.as_view(), name='painter-contact-list'),
+    path('painter-contacts/<int:pk>/', PainterContactView.as_view(), name='painter-contact-detail'),
     path("menu-visibility/", MenuVisibilityView.as_view(), name="menu-visibility"),
     path("profile-images/<str:kind>/<int:object_id>/", profile_image, name="profile-image"),
     path("legal/registration/", RegistrationLegalDocumentView.as_view(), name="registration-legal-document"),

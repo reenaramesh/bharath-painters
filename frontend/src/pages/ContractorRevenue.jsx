@@ -48,6 +48,7 @@ const registerViews = {
 };
 
 export default function ContractorRevenue() {
+  const receiptRequestKey = useRef(crypto.randomUUID());
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const registerKey = registerViews[searchParams.get("register")] ? searchParams.get("register") : "collected";
@@ -167,6 +168,7 @@ export default function ContractorRevenue() {
     try {
       const { data: created } = await api.post("/billing/contractor-revenue/receipts/", {
         ...receiptForm,
+        idempotency_key: receiptRequestKey.current,
         quotation:
           receiptForm.document_type === "QUOTATION"
             ? Number(receiptForm.quotation)
@@ -177,6 +179,7 @@ export default function ContractorRevenue() {
             : undefined,
       });
       setCreatedReceipt(created);
+      receiptRequestKey.current = crypto.randomUUID();
       setReceiptForm({
         document_type: "QUOTATION",
         quotation: "",

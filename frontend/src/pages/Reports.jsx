@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import api from "../api/client";
+import { Button, PageHeader, StatCard } from "../components/ui";
 import useAuth from "../context/useAuth";
 import ReportAnalytics from "../components/ReportAnalytics";
 import "./admin-portal.css";
@@ -71,35 +72,8 @@ export default function Reports() {
     return <Navigate to="/dashboard" replace />;
   const summary = data?.summary || {};
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
-        <div>
-          <p className="text-sm font-semibold text-amber-600">
-            {user.role === "ADMIN"
-              ? "Platform operations"
-              : "Business performance"}
-          </p>
-          <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">Reports</h1>
-          
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => { load(); loadUsers(); }}
-            className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-3 font-semibold bp-ui-action"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <button
-            disabled={busy}
-            onClick={exportCsv}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white bp-ui-action"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
-      </header>
+    <div className="space-y-6 reports-reference-page">
+      <PageHeader eyebrow={user.role === "ADMIN" ? "Platform operations" : "Business performance"} title="Reports" description="Review business activity, project progress and financial summaries." actions={<><Button variant="secondary" onClick={() => { load(); loadUsers(); }}><RefreshCw className="h-4 w-4" aria-hidden="true"/>Refresh</Button><Button disabled={busy} onClick={exportCsv}><Download className="h-4 w-4" aria-hidden="true"/>Export CSV</Button></>} />
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>
       )}
@@ -259,13 +233,5 @@ function ImageIcon(props) {
   return <BarChart3 {...props} />;
 }
 function Metric({ icon: Icon, name, value, dark, green, amber }) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${dark ? "border-sky-200 bg-sky-50 text-slate-900" : green ? "border-emerald-200 bg-emerald-50" : amber ? "border-orange-200 bg-orange-50" : "bg-white"}`}
-    >
-      <Icon className="h-5 w-5" />
-      <p className="mt-3 text-xs opacity-70">{name}</p>
-      <p className="mt-1 break-words text-xl font-bold">{value}</p>
-    </div>
-  );
+  return <StatCard icon={Icon} label={name} value={value} tone={green ? "success" : amber ? "warning" : dark ? "info" : "brand"} />;
 }

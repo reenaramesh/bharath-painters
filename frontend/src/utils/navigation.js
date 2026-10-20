@@ -3,6 +3,7 @@
 // so a directly-opened URL always has a sensible place to return to.
 
 export const MODULE_FALLBACKS = {
+  "/painters/contacts/:id": "/painter-contacts",
   // Customers module
   "/customers/:id": "/customers",
   "/customers/:id/quotations": "/customers",

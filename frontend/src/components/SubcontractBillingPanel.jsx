@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ReceiptIndianRupee } from "lucide-react";
 import api from "../api/client";
+import { createPaymentSender } from "../utils/paymentRequest.js";
 import { StatusBadge } from "./ui";
 import { apiErrorMessage, PAYMENT_MODES, prettyDate, rupees } from "../utils/subcontract";
 
@@ -8,6 +9,7 @@ import { apiErrorMessage, PAYMENT_MODES, prettyDate, rupees } from "../utils/sub
 // contractor. It is deliberately separate from the customer invoice on the
 // quotation and from the receiving contractor's own wage ledger.
 export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }) {
+  const paymentSender = useRef(createPaymentSender((url, payload) => api.post(url, payload)));
   const invoice = (workOrder.invoices || [])[0] || null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -179,7 +181,7 @@ export default function SubcontractBillingPanel({ workOrder, isMain, onChanged }
               onSubmit={(event) => {
                 event.preventDefault();
                 run(() =>
-                  api.post(`/outsourcing/work-orders/${workOrder.id}/payments/`, {
+                  paymentSender.current(`/outsourcing/work-orders/${workOrder.id}/payments/`, {
                     invoice: invoice.id,
                     amount: payment.amount,
                     payment_mode: payment.payment_mode,

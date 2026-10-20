@@ -230,7 +230,10 @@ class WorkOrderTransitionView(APIView):
         if target not in valid:
             raise ValidationError({"status": "Unknown status."})
         try:
-            workflow.transition(request.user, work_order, target, note=request.data.get("note", ""))
+            workflow.transition(
+                request.user, work_order, target, note=request.data.get("note", ""),
+                scope_progress=request.data.get("scope_progress") if target == SubcontractWorkOrder.Status.SUBMITTED_FOR_REVIEW else None,
+            )
         except DjangoValidationError as exc:
             raise ValidationError(getattr(exc, "message_dict", None) or list(exc.messages))
         work_order.refresh_from_db()
@@ -608,8 +611,10 @@ class WorkOrderInvoiceView(generics.ListCreateAPIView):
         context["viewer"] = self.request.user
         return context
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         work_order = self.get_work_order()
+        work_order = SubcontractWorkOrder.objects.select_for_update(of=("self",)).get(pk=work_order.pk)
         if work_order.main_contractor_id != request.user.id:
             raise ValidationError("Only the main contractor can bill a receiving contractor.")
         if work_order.status != SubcontractWorkOrder.Status.COMPLETED:
@@ -643,7 +648,11 @@ class WorkOrderPaymentView(APIView):
                 serializer.validated_data["payment_mode"],
                 reference=serializer.validated_data.get("payment_reference", ""),
                 notes=serializer.validated_data.get("notes", ""),
+                received_date=serializer.validated_data.get("received_date"),
+                idempotency_key=serializer.validated_data.get("idempotency_key"),
             )
+        except workflow.PaymentConflict as exc:
+            return Response(getattr(exc, "message_dict", None) or list(exc.messages), status=status.HTTP_409_CONFLICT)
         except DjangoValidationError as exc:
             raise ValidationError(getattr(exc, "message_dict", None) or list(exc.messages))
         invoice.refresh_from_db()
@@ -690,7 +699,7 @@ class AdditionalWorkDecisionView(APIView):
                 request.user,
                 row,
                 decision,
-                approved_amount=Decimal(approved) if approved not in (None, "") else None,
+                approved_amount=approved if approved not in (None, "") else None,
                 note=request.data.get("note", ""),
             )
         except DjangoValidationError as exc:

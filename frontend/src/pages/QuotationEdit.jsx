@@ -9,6 +9,6 @@ export default function QuotationEdit(){
  useEffect(()=>{let active=true;setQuotation(null);setError('');api.get(`/quotations/${id}/`).then(({data})=>{if(active)setQuotation(data);}).catch(()=>{if(active)setError('Quotation could not be loaded.');});return()=>{active=false;};},[id]);
  if(error)return <ErrorState message={error}/>;
  if(!quotation)return <LoadingState/>;
- if(quotation.status!=='DRAFT' || !quotation.can_edit)return <div className="space-y-4"><BackButton fallback={`/quotations/${id}`}/><PageHeader eyebrow="Read-only quotation" title={quotation.status==='DRAFT' ? 'Draft editing is unavailable' : 'This version is preserved'} /></div>;
+ if(!quotation.can_create_version)return <div className="space-y-4"><BackButton fallback={`/quotations/${id}`}/><PageHeader eyebrow="Read-only quotation" title={quotation.status==='DRAFT' ? 'Draft editing is unavailable' : 'This version is preserved'} /></div>;
  return <QuotationBuilder key={id} initialQuotation={quotation}/>;
 }

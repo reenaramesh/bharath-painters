@@ -1,4 +1,4 @@
-import { lockBodyScroll } from "../utils/bodyScrollLock.js";
+﻿import { lockBodyScroll } from "../utils/bodyScrollLock.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Building2, Check, FileText, ImagePlus, Layers, Palette, Plus, QrCode, RotateCcw, Save, Trash2, Upload, X, Globe, MapPin, MessageCircle } from "lucide-react";

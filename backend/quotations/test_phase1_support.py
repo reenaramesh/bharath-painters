@@ -1,4 +1,4 @@
-"""Focused Recovery Center search coverage for global customer identities."""
+﻿"""Focused Recovery Center search coverage for global customer identities."""
 
 from django.urls import reverse
 from rest_framework import status

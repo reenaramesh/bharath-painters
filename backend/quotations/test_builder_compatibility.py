@@ -1,4 +1,4 @@
-from django.test import TestCase
+﻿from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework.exceptions import ValidationError
 from . import test_grouped_specifications as fixture

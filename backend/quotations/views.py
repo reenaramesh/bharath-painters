@@ -5763,6 +5763,46 @@ class QuotationSubmitView(APIView):
         return Response(response_data)
 
 
+class QuotationRevisionDraftView(APIView):
+    """Create a private editable revision while preserving a submitted version."""
+    permission_classes = [IsAuthenticated, IsVerifiedContractor]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        quotation = Quotation.objects.select_for_update().filter(
+            pk=pk, contractor=request.user, deleted_at__isnull=True,
+        ).first()
+        if not quotation:
+            return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
+        if quotation.status not in {
+            Quotation.Status.SENT, Quotation.Status.VIEWED,
+            Quotation.Status.REVISION_REQUESTED, Quotation.Status.REJECTED,
+            Quotation.Status.EXPIRED,
+        }:
+            return Response(
+                {"detail": "Only a submitted quotation that has not been accepted can be revised."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        connected = ContractorCustomerConnection.objects.filter(
+            customer_id=quotation.customer_id, contractor_id=request.user.pk,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).exists()
+        if not connected:
+            return Response(
+                {"detail": "The customer connection must be active to prepare a quotation revision."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        existing = Quotation.objects.select_for_update().filter(
+            revision_of=quotation.revision_of or quotation,
+            status=Quotation.Status.DRAFT, deleted_at__isnull=True,
+        ).order_by("-version_number", "-id").first()
+        if existing:
+            return Response({"id": existing.id, "quotation_number": existing.quotation_number, "version_number": existing.version_number})
+
+        revised = clone_quotation_revision(quotation, "", None, customer_requested=False)
+        return Response({"id": revised.id, "quotation_number": revised.quotation_number, "version_number": revised.version_number}, status=status.HTTP_201_CREATED)
+
+
 # ============================================================
 # QUOTATIONS
 # ============================================================

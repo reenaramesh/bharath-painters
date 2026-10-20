@@ -1,4 +1,4 @@
-const defaults = { primary: "#5740EC", accent: "#FB4B8B" };
+﻿const defaults = { primary: "#5740EC", accent: "#FB4B8B" };
 const legacyDefaults = [["#176B9B", "#508398"], ["#2563EB", "#F59E0B"]];
 const isHexColor = (value) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
 

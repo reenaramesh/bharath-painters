@@ -21,7 +21,7 @@ def _base_number(quotation):
     return re.sub(r"-V\d+$", "", root.quotation_number, flags=re.IGNORECASE)
 
 
-def clone_quotation_revision(quotation, note, responded_at):
+def clone_quotation_revision(quotation, note, responded_at, *, customer_requested=True):
     """Preserve the supplied quotation and create the next editable version."""
     root = Quotation.objects.select_for_update().get(pk=quotation.revision_of_id or quotation.pk)
     family = Quotation.objects.filter(models.Q(pk=root.pk) | models.Q(revision_of=root))
@@ -31,18 +31,13 @@ def clone_quotation_revision(quotation, note, responded_at):
     if quotation.version_number == 1 and not re.search(r"-V1$", quotation.quotation_number, re.IGNORECASE):
         quotation.quotation_number = f"{base_number}-V1"
 
-    quotation.status = Quotation.Status.REVISION_REQUESTED
-    quotation.customer_response_note = note
-    quotation.customer_responded_at = responded_at
-    quotation.save(
-        update_fields=(
-            "quotation_number",
-            "status",
-            "customer_response_note",
-            "customer_responded_at",
-            "updated_at",
-        )
-    )
+    update_fields = ["quotation_number", "updated_at"]
+    if customer_requested:
+        quotation.status = Quotation.Status.REVISION_REQUESTED
+        quotation.customer_response_note = note
+        quotation.customer_responded_at = responded_at
+        update_fields.extend(("status", "customer_response_note", "customer_responded_at"))
+    quotation.save(update_fields=update_fields)
 
     quotation_values = _copy_concrete_fields(
         quotation,
@@ -64,8 +59,8 @@ def clone_quotation_revision(quotation, note, responded_at):
         version_number=next_version,
         status=Quotation.Status.DRAFT,
         sent_at=None,
-        customer_response_note=note,
-        customer_responded_at=responded_at,
+        customer_response_note=note if customer_requested else "",
+        customer_responded_at=responded_at if customer_requested else None,
     )
 
     room_map = {}

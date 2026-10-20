@@ -1,4 +1,4 @@
-/* Shared presentation only. Business flows and specialized measurement/pricing layouts stay in their components. */
+﻿/* Shared presentation only. Business flows and specialized measurement/pricing layouts stay in their components. */
 .bp-ui { color:var(--bp-ink); font-family:inherit; }
 .bp-ui .bp-page-container { padding-inline:clamp(16px,2.4vw,32px); }
 .bp-ui .bp-page-container > * { min-width:0; }

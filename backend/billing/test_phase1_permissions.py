@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework.test import APITestCase

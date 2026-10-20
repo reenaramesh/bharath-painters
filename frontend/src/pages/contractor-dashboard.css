@@ -1,4 +1,4 @@
-.contractor-shell.minimia-shell { --bp-canvas: var(--bp-color-canvas); --bp-ink: var(--bp-color-ink); background: var(--bp-canvas); }
+﻿.contractor-shell.minimia-shell { --bp-canvas: var(--bp-color-canvas); --bp-ink: var(--bp-color-ink); background: var(--bp-canvas); }
 .contractor-shell .bp-sidebar { background: var(--bp-color-surface-container); border-color: var(--app-soft); }
 .contractor-shell .bp-sidebar nav a[aria-current="page"] { background: var(--app-primary); color: white; }
 .contractor-shell .bp-sidebar nav a[aria-current="page"]::before { display: none; }

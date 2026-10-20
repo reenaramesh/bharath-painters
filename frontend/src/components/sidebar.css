@@ -1,4 +1,4 @@
-.bp-navigation-surface { --ws-card: var(--bp-color-navigation); --ws-text: #ffffff; --ws-muted: #c7d1e6; --ws-line: #293453; --ws-brand: #c4b5fd; --ws-focus: #c4b5fd; --ws-active: color-mix(in srgb, #ffffff 9%, var(--ws-card)); background: var(--ws-card); color: var(--ws-text); }
+﻿.bp-navigation-surface { --ws-card: var(--bp-color-navigation); --ws-text: #ffffff; --ws-muted: #c7d1e6; --ws-line: #293453; --ws-brand: #c4b5fd; --ws-focus: #c4b5fd; --ws-active: color-mix(in srgb, #ffffff 9%, var(--ws-card)); background: var(--ws-card); color: var(--ws-text); }
 .bp-workspace-nav { position: sticky; top: 0; width: 250px; flex-shrink: 0; height: 100dvh; display: flex; flex-direction: column; border-right: 1px solid var(--ws-line); z-index: 50; font-size: 14px; }
 .bp-workspace-nav.is-rail { width: 72px; }
 .bp-navigation-surface :is(a, button, input):focus-visible { outline: 3px solid var(--ws-focus); outline-offset: 2px; }

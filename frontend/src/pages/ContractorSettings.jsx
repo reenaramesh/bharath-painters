@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Award, Check, Eye, EyeOff, FileText, Plus, QrCode, Save, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../api/client";

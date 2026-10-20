@@ -1,4 +1,4 @@
-import useAuth from "../context/useAuth";
+﻿import useAuth from "../context/useAuth";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { Outlet, useLocation } from "react-router-dom";
@@ -21,6 +21,8 @@ export default function DashboardLayout() {
   const pathname = useLocation().pathname;
   const messagesPage = pathname === "/messages";
   const contractorWorkspace = user?.role === "CONTRACTOR";
+  const premiumContractorDashboard = contractorWorkspace && pathname === "/dashboard";
+  const premiumContractorQuotationWorkspace = contractorWorkspace && (pathname === "/quotations" || pathname.startsWith("/quotations/"));
   const themedWorkspace = ["CONTRACTOR", "PAINTER", "CUSTOMER", "ADMIN", "SUPPORT"].includes(user?.role);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigationOpenerRef = useRef(null);
@@ -58,7 +60,7 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${premiumContractorDashboard ? "bp-contractor-mosaic" : ""} ${premiumContractorQuotationWorkspace ? "bp-contractor-quotation" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}

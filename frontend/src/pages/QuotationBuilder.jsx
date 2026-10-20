@@ -1,4 +1,4 @@
-import QuotationDocumentItems from "../components/QuotationDocumentItems.jsx";
+﻿import QuotationDocumentItems from "../components/QuotationDocumentItems.jsx";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
 import { openRecovery, writeRecovery, clearRecovery } from "../utils/quotationRecovery.js";
@@ -1746,7 +1746,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
   const requiredControl = (missing) => `${control} ${missing ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-100" : ""}`;
   const Frame = QuotationLineItemPopup;
   const currentMissing = missingLumpSumItemFields(item, masters);
-  const fieldError = (name) => itemError && currentMissing.includes(name) ? <p className="quotation-inline-error" role="alert">{name === 'Rate' ? 'Enter a valid rate of zero or more.' : `Complete ${name.toLowerCase()}.`}</p> : null;
+  const fieldError = (name) => itemError && currentMissing.includes(name) ? <p className={`quotation-inline-error ${lumpsum ? "lsq-item-form__full" : ""}`} role="alert">{name === 'Rate' ? 'Enter a valid rate of zero or more.' : `Complete ${name.toLowerCase()}.`}</p> : null;
   const saveItem = () => {
     if (!lumpsum) { close(); return; }
     if (currentMissing.length) { setItemError("invalid"); return; }
@@ -1757,8 +1757,8 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
   return (
     <Frame popupProtection={lumpsum ? "handled" : null} index={index} description={roomName} titleText={item.lumpsum_item_pending ? "Add Item" : "Edit Item"} editable footer={footer} onClose={close}>
         {itemError && currentMissing.length > 0 && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">Complete: {currentMissing.join(", ")}.</p>}
-        <div className="lsq-item-form space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className={`lsq-item-form ${lumpsum ? "is-lumpsum" : "space-y-4"}`}>
+          <div className={`grid gap-3 sm:grid-cols-2 ${lumpsum ? "lsq-item-form__full" : ""}`}>
             <div><SearchableProductType required label={SERVICE_MASTER_LABELS.category} placeholder="Select or type a service" value={item.service_category} customValue={item.custom_service_category} options={masters.categories} allowCustom onChange={(value, customName) => updateMasterChoice(index, "service_category", "custom_service_category", "save_service_category_to_master", value, customName)} controlClass={requiredControl(!item.service_category && !String(item.custom_service_category || "").trim())} />{fieldError(SERVICE_MASTER_LABELS.category)}
               {String(item.custom_service_category || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.category} checked={item.save_service_category_to_master} onChange={(value) => updateItem(index, "save_service_category_to_master", value)} />}</div>
             <label className="block text-sm font-semibold">Room / Area *
@@ -1768,7 +1768,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
             </label>
           </div>
           {lumpsum && <label className="block text-sm font-semibold">Surface Category<select aria-label="Lumpsum Surface Category" value={item.specification_details?.surface || ""} onChange={event => updateItem(index,"specification_details",{...item.specification_details,surface:event.target.value || null})} className={(control) + " bp-ui-control"}><option value="">General / Not surface-specific</option>{[["WALL","Walls"],["CEILING","Ceilings"],["OTHER:Texture Walls","Texture Walls"],...Object.entries(SURFACE_LABELS),["OTHER","Other"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
-          {!item.field_id && <div className="rounded-xl border border-dashed border-[#9cc4d6] bg-[#e8f3f8] p-3">
+          {!item.field_id && <div className={`rounded-xl border border-dashed border-[#9cc4d6] bg-[#e8f3f8] p-3 ${lumpsum ? "lsq-item-form__full" : ""}`}>
             {!addingRoom ? <button type="button" onClick={() => setAddingRoom(true)} className="inline-flex items-center gap-2 text-sm font-bold text-[#176b9b] bp-ui-action"><Plus className="h-4 w-4" />Add room</button> : <div className="flex flex-col gap-2 sm:flex-row"><label className="min-w-0 flex-1 text-sm font-semibold">New room name<input autoFocus value={newRoomName} onChange={(event) => setNewRoomName(event.target.value)} aria-label="New room name" placeholder="Enter room name" className={(control) + " bp-ui-control"} /></label><button type="button" disabled={roomSaving || !newRoomName.trim()} onClick={async () => { setRoomSaving(true); setRoomError(""); try { const room = await saveRoom(newRoomName); updateItem(index, "property_room_id", room.id); updateItem(index, "room_name", room.name); setAddingRoom(false); setNewRoomName(""); } catch (error) { setRoomError(error.response?.data?.name?.[0] || error.response?.data?.detail || error.message || "Room could not be saved."); } finally { setRoomSaving(false); } }} className="rounded-xl bg-[#176b9b] px-4 py-3 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">{roomSaving ? "Saving..." : "Save room"}</button></div>}
             {roomError && <p className="mt-2 text-xs font-semibold text-red-600">{roomError}</p>}
           </div>}
@@ -1783,14 +1783,14 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
             onChange={(value, customName) => updateProductType(index, value, customName)}
             controlClass={control}
           />
-          {String(item.custom_product_type || "").trim() && <SaveMasterOption label={SERVICE_MASTER_LABELS.productType} checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} />}
+          {String(item.custom_product_type || "").trim() && <div className={lumpsum ? "lsq-item-form__full" : ""}><SaveMasterOption label={SERVICE_MASTER_LABELS.productType} checked={item.save_product_type_to_master} onChange={(value) => updateItem(index, "save_product_type_to_master", value)} /></div>}
           <SearchableDescription label={item.field_id ? SERVICE_MASTER_LABELS.description : SERVICE_MASTER_LABELS.description} value={item.description} options={descriptionOptions} invalid={!String(item.description || "").trim()} onChange={(value, fromMaster) => { updateItem(index, "description", value); if (fromMaster) updateItem(index, "promote_to_master", false); }} controlClass={requiredControl(!String(item.description || "").trim())} />{fieldError(SERVICE_MASTER_LABELS.description)}
           {String(item.description || "").trim() && (descriptionSaved
-            ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Saved Description selected</p>
-            : <label className="flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750]"><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Description for future quotations</label>)}
+            ? <p className={`rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 ${lumpsum ? "lsq-item-form__full" : ""}`}>Saved Description selected</p>
+            : <label className={`flex items-center gap-3 rounded-xl border border-[#cbdce6] bg-[#e8f3f8] p-4 text-sm font-semibold text-[#193750] ${lumpsum ? "lsq-item-form__full" : ""}`}><input type="checkbox" checked={Boolean(item.promote_to_master)} onChange={(event) => updateItem(index, "promote_to_master", event.target.checked)} className="h-4 w-4" />Save this Description for future quotations</label>)}
           <SearchableProductType label="Brand (optional)" placeholder="Select or enter brand" value={item.paint_brand} customValue={item.custom_brand} options={masters.brands} allowCustom onChange={(value, customName) => updateMasterChoice(index, "paint_brand", "custom_brand", "save_brand_to_master", value, customName)} controlClass={control} />
-          {String(item.custom_brand || "").trim() && <SaveMasterOption label="Brand" checked={item.save_brand_to_master} onChange={(value) => updateItem(index, "save_brand_to_master", value)} />}
-          <div className="grid grid-cols-2 gap-3">
+          {String(item.custom_brand || "").trim() && <div className={lumpsum ? "lsq-item-form__full" : ""}><SaveMasterOption label="Brand" checked={item.save_brand_to_master} onChange={(value) => updateItem(index, "save_brand_to_master", value)} /></div>}
+          <div className={`grid grid-cols-2 gap-3 ${lumpsum ? "lsq-item-form__full" : ""}`}>
             <label className="block text-sm font-semibold">Quantity *
               <input placeholder="Enter quantity" inputMode="decimal" type="number" min="0.01" step="0.01" value={item.quantity} readOnly={Boolean(item.calculation_method && item.calculation_method!=="MANUAL") || Boolean(item.field_id)} aria-invalid={Number(item.quantity || 0) <= 0} onChange={(event) => updateItem(index, "quantity", event.target.value)} className={(requiredControl(Number(item.quantity || 0) <= 0)) + " bp-ui-control"} />{fieldError("Quantity")}
             </label>
@@ -1798,7 +1798,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
               {lumpsum ? <select aria-label="MOU" value={item.unit || (item.custom_unit ? `custom:${item.custom_unit}` : item.unit_name ? "saved-unit" : "")} aria-invalid={!item.unit && !item.custom_unit && !item.unit_name} onChange={event=>{const value=event.target.value;if(value==='saved-unit')return;updateItem(index,"unit",value.startsWith('custom:')?'':value);updateItem(index,"custom_unit",value.startsWith('custom:')?value.slice(7):'');}} className={(requiredControl(!item.unit && !item.custom_unit && !item.unit_name)) + " bp-ui-control"}><option value="">Select MOU</option>{!item.unit && !item.custom_unit && item.unit_name && <option value="saved-unit">{item.unit_name} (saved)</option>}{quotationUnitOptions(masters.units,item).map(unit=><option key={unit.value} value={unit.value}>{unit.name}</option>)}</select> : <select value={item.unit} aria-invalid={!item.unit} onChange={(event) => updateItem(index, "unit", event.target.value)} className={(requiredControl(!item.unit)) + " bp-ui-control"}><option value="">Select MOU</option>{masters.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</select>}
             </label>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${lumpsum ? "lsq-item-form__full" : ""}`}>
             {!item.field_id && paintingApplicable ? <label className="block text-sm font-semibold">{lumpsum ? "No. of coats (optional)" : "No. of coats"}
               <select value={item.coats || 1} onChange={(event) => updateItem(index, "coats", event.target.value)} className={(control) + " bp-ui-control"}>{[1,2,3,4,5,6].map((coat) => <option key={coat} value={coat}>{coat}</option>)}</select>
             </label> : <label className="block text-sm font-semibold">No. of coats<div className={control + " bg-slate-100 text-slate-700"}>{item.field_id && paintingApplicable ? `${item.coats || 1} coat${Number(item.coats || 1) === 1 ? "" : "s"}` : "—"}</div></label>}
@@ -1806,7 +1806,7 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
               <input placeholder="Enter rate in ₹" inputMode="decimal" type="number" min="0" step="0.01" value={item.rate} aria-invalid={item.rate === "" || item.rate === null || item.rate === undefined} onChange={(event) => updateItem(index, "rate", event.target.value)} className={(requiredControl(item.rate === "" || item.rate === null || item.rate === undefined)) + " bp-ui-control"} />{fieldError("Rate")}
             </label>
           </div>
-          <div className="rounded-2xl bg-[#245b75] p-4 text-center text-white"><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
+          <div className={`rounded-2xl bg-[#245b75] p-4 text-center text-white ${lumpsum ? "lsq-item-form__full" : ""}`}><b className="text-2xl text-emerald-300">{money(amount)}</b></div>
         </div>
     </Frame>
   );

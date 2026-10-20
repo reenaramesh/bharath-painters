@@ -72,6 +72,7 @@ from .views import (
     CustomerQuotationView,
     CustomerQuotationListView,
     QuotationSubmitView,
+    QuotationRevisionDraftView,
     CustomerQuotationActionView,
     CustomerQuotationPdfView,
     CustomerPropertyListView,
@@ -250,6 +251,7 @@ path("master-data/<str:section>/reorder/", MasterDataReorderView.as_view(), name
     path("customer-portal/properties/<int:pk>/", CustomerPropertyDetailView.as_view(), name="customer-property-detail"),
     path("customer-portal/properties/<int:pk>/measurements/pdf/", CustomerPropertyMeasurementPdfView.as_view(), name="customer-property-measurement-pdf"),
     path("<int:pk>/submit/", QuotationSubmitView.as_view(), name="quotation-submit"),
+    path("<int:pk>/revision-draft/", QuotationRevisionDraftView.as_view(), name="quotation-revision-draft"),
 
     path(
         "areas/",

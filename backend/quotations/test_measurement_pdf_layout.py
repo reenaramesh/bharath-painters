@@ -1,4 +1,4 @@
-from django.test import TestCase
+﻿from django.test import TestCase
 from pypdf import PdfReader
 from accounts.models import BharathUser
 from .models import Customer, Property, PropertyRoom, MeasurementSurface, MeasurementOpening

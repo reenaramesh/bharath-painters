@@ -20,6 +20,8 @@ import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
 import MobilePageBack from "../components/MobilePageBack";
 import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import HiringWorkspaceNav from "../components/HiringWorkspaceNav";
+import AssignHiringOutcomeDialog from "../components/AssignHiringOutcomeDialog";
 import { EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./jobs-schedules.css";
 import {
@@ -69,6 +71,7 @@ export default function Jobs() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [availabilityCount, setAvailabilityCount] = useState(null);
+  const [assignmentSourceId, setAssignmentSourceId] = useState(null);
 
   useEffect(() => {
     if (contractor) {
@@ -335,7 +338,7 @@ export default function Jobs() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-jobs-page">
       <MobilePageBack />
-      <PageHeader eyebrow="Work network" title={t(contractor ? "Job requirements" : "Available Jobs")} description="Review job requirements, applications and available work." actions={<div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow="Work network" title={t(contractor ? "Jobs & Applications" : "Available Jobs")} description="Review job requirements, applications and available work." actions={<div className="flex flex-wrap gap-2">
           <Link
             to={APPLICATOR_AVAILABILITY_PATH}
             className="bp-button bp-button-secondary inline-flex items-center gap-2"
@@ -353,6 +356,7 @@ export default function Jobs() {
             </button>
           )}
       </div>} />
+      <HiringWorkspaceNav />
       <WorkNetworkTabs
         pathname={pathname}
         contractor={contractor}
@@ -522,14 +526,16 @@ export default function Jobs() {
           onRate={(id) => rateApplication(detailJob.id, id)}
           onTransferResponse={(transferId, action) => respondToTransfer(detailJob.id, transferId, action)}
           onReassign={(applicationId, targetJobId) => requestReassign(detailJob.id, applicationId, targetJobId)}
+          onAssignToProject={(applicationId) => { setDetailJob(null); setAssignmentSourceId(applicationId); }}
           transferTargets={transferTargets}
         />
       )}
+      {assignmentSourceId && <AssignHiringOutcomeDialog sourceType="application" sourceId={assignmentSourceId} onClose={() => setAssignmentSourceId(null)} />}
     </div>
   );
 }
 
-function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate, onTransferResponse, onReassign, transferTargets, error }) {
+function JobDetailModal({ job, contractor, saving, applications, onClose, onApply, onCall, onMessage, onDecide, onCancel, onKeep, onPainterMessage, onRate, onTransferResponse, onReassign, onAssignToProject, transferTargets, error }) {
   const wage = job.job_type === "DAILY" ? job.daily_wage : job.weekly_wage;
   return (
     <Dialog title={job.title} description={contractor ? `${job.applications_count} applications` : job.contractor_name} icon={BriefcaseBusiness} size="xl" closeLabel="Close job details" closeOnBackdrop onClose={onClose}>
@@ -552,7 +558,7 @@ function JobDetailModal({ job, contractor, saving, applications, onClose, onAppl
             {job.description && <p className="mt-3 text-sm leading-6 text-slate-600">{job.description}</p>}
           </div>
           {contractor ? (
-            <ApplicationList items={applications} saving={saving} onDecide={onDecide} onCancel={onCancel} onKeep={onKeep} onMessage={onPainterMessage} onRate={onRate} onTransferResponse={onTransferResponse} onReassign={onReassign} transferTargets={transferTargets} />
+            <ApplicationList items={applications} saving={saving} onDecide={onDecide} onCancel={onCancel} onKeep={onKeep} onMessage={onPainterMessage} onRate={onRate} onTransferResponse={onTransferResponse} onReassign={onReassign} onAssignToProject={onAssignToProject} transferTargets={transferTargets} />
           ) : (
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <button type="button" onClick={onCall} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold bp-ui-action"><Phone className="h-4 w-4" /> Call</button>
@@ -569,7 +575,7 @@ function Detail({ label, value }) {
   return <div className="rounded-2xl border bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-bold text-slate-800">{value}</p></div>;
 }
 
-function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage, onRate, onTransferResponse, onReassign, transferTargets }) {
+function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage, onRate, onTransferResponse, onReassign, onAssignToProject, transferTargets }) {
   const [targets, setTargets] = useState({});
   const selectableTargets = transferTargets || [];
   return (
@@ -623,6 +629,7 @@ function ApplicationList({ items, saving, onDecide, onCancel, onKeep, onMessage,
               )}
               {item.status === "ACCEPTED" && !item.transfer_request && (
                 <div className="flex flex-wrap items-center gap-2">
+                  <button disabled={saving} onClick={() => onAssignToProject(item.application_id)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white bp-ui-action">Assign to project</button>
                   {selectableTargets.length > 0 && <>
                     <select value={targets[item.application_id] || ""} onChange={(event) => setTargets((old) => ({ ...old, [item.application_id]: event.target.value }))} className="rounded-lg border bg-white px-3 py-2 text-sm bp-ui-control">
                       <option value="">Request transfer to job</option>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import ContractorDialog from './ContractorDialog';
 
 const emptyCustomer = { name: "", mobile: "", email: "", gst_number: "", whatsapp: "", address: "", city: "", pincode: "", status: "NEW", notes: "" };
 
@@ -29,12 +29,7 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
   const inputClass = "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-100";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true">
-      <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
-          <div className="min-w-0"><h2 className="text-base font-bold text-slate-900 bp-ui-section-heading">{editing ? "Edit customer" : "Add customer"}</h2></div>
-          <button onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 bp-ui-icon-action" aria-label="Close"><X className="h-5 w-5" /></button>
-        </div>
+    <ContractorDialog title={editing ? 'Edit customer' : 'Add customer'} description="Contact details and customer information." onClose={onClose}>
         <form onSubmit={submit} className="min-h-0 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
           <div className="grid gap-5 sm:grid-cols-2">
@@ -51,7 +46,6 @@ export default function CustomerForm({ initialValue, onSubmit, onClose, saving, 
           </div>
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-5"><button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 bp-ui-action">Cancel</button><button disabled={saving} className="rounded-xl bg-slate-950 px-5 py-2.5 font-semibold text-white disabled:opacity-60 bp-ui-action">{saving ? "Saving..." : editing ? "Save changes" : "Add customer"}</button></div>
         </form>
-      </div>
-    </div>
+    </ContractorDialog>
   );
 }

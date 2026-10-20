@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Ban, Clock3, Eye, FilePlus2, Phone, Plus, Search, UserRoundPlus, X } from "lucide-react";
 import api from "../api/client";
 import CustomerForm from "../components/CustomerForm";
 import ContractorDialog from "../components/ContractorDialog";
+import CallVisitConversionDialog from "../components/CallVisitConversionDialog";
+import { bookedVisitUrl, callBookingIntent } from "../utils/callBooking";
 import { Button, PageHeader } from "../components/ui";
 import "./call-inbox.css";
 
@@ -15,6 +17,10 @@ const statusLabel = { ANSWERED: "Answered", MISSED: "Missed", REJECTED: "Rejecte
 
 export default function CallInbox() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const handledIntent = useRef('');
+  const [conversionEvent, setConversionEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState([]);
@@ -41,7 +47,23 @@ export default function CallInbox() {
 
   useEffect(() => { const timer = window.setTimeout(load, search ? 250 : 0); return () => window.clearTimeout(timer); }, [load, search]);
 
+  useEffect(() => {
+    const intent = callBookingIntent(location.search);
+    if (!intent || handledIntent.current === location.search) return;
+    let active = true;
+    api.get(`/call-inbox/events/${intent.id}/`).then(({ data }) => {
+      if (!active) return;
+      handledIntent.current = location.search;
+      setSelectedEvent(data);
+      if (intent.book && !data.booked_follow_up) setConversionEvent(data);
+      else if (intent.book) navigate(bookedVisitUrl(data));
+      else setDetails(data);
+    }).catch((requestError) => { if (active) setError(requestError.response?.data?.detail || 'The selected call could not be opened. Refresh to try again.'); });
+    return () => { active = false; };
+  }, [location.search, navigate]);
+
   const counts = useMemo(() => events.reduce((out, item) => { out[item.review_status] = (out[item.review_status] || 0) + 1; return out; }, {}), [events]);
+  const displayedEvents = selectedEvent && !events.some((event) => event.id === selectedEvent.id) ? [selectedEvent, ...events] : events;
 
   async function action(event, name, body = {}) {
     setError("");
@@ -99,7 +121,7 @@ export default function CallInbox() {
     <section className="call-inbox-panel">
       <div className="call-inbox-toolbar"><label className="call-inbox-search"><Search size={18}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or phone number" aria-label="Search by name or phone number"/></label></div>
       <div className="call-inbox-tabs" role="tablist" aria-label="Call filters">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => setTab(key)} key={key}>{label}</button>)}</div>
-      {loading ? <div className="call-inbox-state" role="status">Loading call history…</div> : events.length ? <div className="call-inbox-list">{events.map((event) => <article className="call-inbox-event" key={event.id}>
+      {loading ? <div className="call-inbox-state" role="status">Loading call history…</div> : displayedEvents.length ? <div className="call-inbox-list">{displayedEvents.map((event) => <article className="call-inbox-event" key={event.id} aria-label={selectedEvent?.id === event.id ? 'Selected call' : undefined}>
         <div className="call-inbox-avatar"><Phone size={19}/></div>
         <div className="call-inbox-event-main"><div className="call-inbox-title-line"><h2>{event.display_name}</h2><span className={`call-inbox-badge ${event.matched_customer ? "matched" : event.review_status.toLowerCase()}`}>{event.matched_customer ? "Existing customer" : event.review_status === "PENDING" ? "Needs review" : event.review_status.replaceAll("_", " ")}</span></div>
           <a className="call-inbox-phone" href={`tel:${event.phone_number}`}>{event.phone_number}</a>
@@ -107,6 +129,7 @@ export default function CallInbox() {
           {event.matched_customer && <p className="call-inbox-crm-name">CRM customer: {event.customer_name}</p>}
         </div>
         <div className="call-inbox-actions">
+          {event.booked_follow_up ? <Link to={bookedVisitUrl(event)} className="call-inbox-action primary">Open booked visit</Link> : !['BLOCKED', 'DISMISSED'].includes(event.review_status) && <button type="button" className="call-inbox-action primary" onClick={() => setConversionEvent(event)}>Convert & book site visit</button>}
           {event.matched_customer ? <>
             <Link to={`/customers/${event.matched_customer}`} className="call-inbox-action"><Eye size={17}/>Customer</Link>
             <Link to={`/properties?customer=${event.matched_customer}`} className="call-inbox-action">Properties</Link>
@@ -124,6 +147,7 @@ export default function CallInbox() {
     </section>
 
     {manualOpen && <ManualCallModal onClose={() => setManualOpen(false)} onSave={saveManual} saving={saving} error={error}/>}
+    {conversionEvent && <CallVisitConversionDialog key={conversionEvent.id} event={conversionEvent} onClose={() => setConversionEvent(null)} onBooked={(event) => { setSelectedEvent(event); load(); }}/>}
     {customerDraft && <CustomerForm initialValue={customerDraft} onSubmit={saveCustomer} onClose={() => { setCustomerDraft(null); setCustomerEvent(null); setLeadEvent(null); }} saving={saving} error={error}/>}
     {details && <DetailsModal event={details} onClose={() => setDetails(null)}/>}
     {leadEvent && leadEvent.matched_customer && <LeadModal event={leadEvent} onClose={() => setLeadEvent(null)} error={error} onSubmit={(values) => action(leadEvent, "create-lead", values)}/>}

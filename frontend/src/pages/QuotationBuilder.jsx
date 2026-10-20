@@ -8,8 +8,9 @@ import QuotationWorkItemSummary from "../components/QuotationWorkItemSummary.jsx
 import { QuotationLineItemPopup } from "../components/QuotationLineItemPopup.jsx";
 import { quotationUnitOptions } from "../utils/quotationUnits.js";
 import { missingQuotationFields, missingLumpSumItemFields, isUnfinishedLumpSumItem, retainedItemValidationMessage, clearItemValidationMessage } from "../utils/quotationItemValidation.js";
-import { builderDraftPayload, draftForm, persistQuotation, restoredGroupedItems } from "../utils/unifiedQuotation.js";
-import { hasAssignment, isGroupedDraft, restoreDraftAssignments } from "../utils/groupedQuotationDraft.js";
+import { persistVersionedQuotation } from "../utils/versionedQuotation.js";
+import { builderDraftPayload, draftForm, restoredGroupedItems } from "../utils/unifiedQuotation.js";
+import { hasAssignment, isGroupedQuotation, restoreDraftAssignments } from "../utils/groupedQuotationDraft.js";
 import { quotationTotals } from "../utils/quotationPricing.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -28,6 +29,7 @@ import { assignmentQuotationItems, deleteAssignment, groupedQuotationRoom, quota
 import SpecialWallSheet from "../components/SpecialWallSheet";
 import useAuth from "../context/useAuth";
 import { continueMeasurementPath } from "../utils/measurementRecords.js";
+import { quotationCustomerDisplay } from "../utils/salesHandoffs.js";
 
 const emptyItem = {
   room_index: "",
@@ -107,7 +109,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   const savedDraft = useRef(initialQuotation);
   const editing = Boolean(initialQuotation);
   const sourceLocked = Boolean(savedQuotation);
-  const lumpEditable = !savedQuotation || (savedQuotation.status === "DRAFT" && savedQuotation.can_edit !== false);
+  const lumpEditable = !savedQuotation || savedQuotation.can_create_version === true;
   const [dataReady,setDataReady] = useState(false);
   const [sourceReady,setSourceReady] = useState(!initialQuotation || Boolean(recovered?.savedRooms?.length));
   const [notice,setNotice] = useState(location.state?.submissionError ? "Draft saved. Sending could not be confirmed. Retry Save & Send to submit this same Draft." : "");
@@ -687,7 +689,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
       ];
     });
   }, [measurementFields, exteriorMode, specialWalls.length, initialQuotation, useMeasurements]);
-  const groupedMode = useMeasurements && Boolean(selectedMeasurementId) && (!editing || isGroupedDraft(savedQuotation || initialQuotation));
+  const groupedMode = useMeasurements && Boolean(selectedMeasurementId) && (!editing || isGroupedQuotation(savedQuotation || initialQuotation));
   const assignmentMeasurement = useMemo(() => ({
     id: Number(selectedMeasurementId),
     version: measurementRecords.find((record) => String(record.id) === String(selectedMeasurementId))?.version ?? savedQuotation?.items.find(item=>item.specification_details?.measurement_version)?.specification_details.measurement_version ?? 1,
@@ -796,7 +798,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   };
   function removeWorkItem(item) {
     if (!lumpEditable) return false;
-    if (!window.confirm(`Delete ${item.description || "this work item"} from the quotation? Save Draft to persist this change.`)) return false;
+    if (!window.confirm(`Delete ${item.description || "this work item"} from the quotation? Save the quotation to persist this change.`)) return false;
     const assignmentId = item.specification_details?.assignment_id;
     if (assignmentId) setGroupAssignments(current => deleteAssignment(current, assignmentId, item.specification_details.kind));
     else if (item.field_id) setSelectedFieldIds(current => current.filter(id => id !== item.field_id));
@@ -1083,7 +1085,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         }
         previewPdf(response.data, "quotation-preview.pdf");
       } else {
-        const data = await persistQuotation(api,savedDraft,payload,editPayload,send);
+        const data = await persistVersionedQuotation(api,savedDraft,payload,editPayload,send);
         initialSnapshot.current=builderSnapshot;
         clearBrowserRecovery();
         markBuilderSaved();
@@ -1098,9 +1100,9 @@ export default function QuotationBuilder({ initialQuotation = null }) {
       }
       if (pdfPreviewOnly) setShowPreview(false);
       const requestMessage = await formatRequestError(requestError);
-      if(requestError.savedDraft && !editing){
+      if(requestError.savedDraft){
         markBuilderSaved();
-        navigate(`/quotations/${requestError.savedDraft.id}/edit`,{replace:true,state:{resumeReview:true,submissionError:requestMessage || "Sending could not be confirmed."}});
+        navigate(`/quotations/${requestError.savedDraft.id}`,{replace:true,state:{draftSaved:true,submissionError:requestMessage || "Sending could not be confirmed."}});
       }
       setError(
         requestMessage ||
@@ -1253,7 +1255,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         }}>Discard Draft</button>
       )}
       {specialWallEditor?.parent && <SpecialWallSheet recovery={specialWallRecovery} onRecovery={setSpecialWallRecovery} parent={specialWallEditor.parent} wall={specialWallEditor.wall} walls={specialWalls} masters={masters} onClose={() => setSpecialWallEditor(null)} onSave={saveSpecialWall} onDelete={deleteSpecialWall} />}
-      <PageHeader eyebrow={editing ? "Draft quotation" : "New quotation"} title={editing ? "Edit Draft" : "Create quotation"} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
+      <PageHeader eyebrow={editing ? "New quotation version" : "New quotation"} title={editing ? "Edit quotation" : "Create quotation"} actions={<StatusBadge status="IN_PROGRESS" label={`Step ${step + 1} of ${steps.length}`} />} />
       <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[#dce7ed] bg-white p-3 sm:p-4">
         {displaySteps.map((title, index) => (
           <div key={title}>
@@ -1280,7 +1282,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
               <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-customer-search">Customer *</label><button disabled={sourceLocked} type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] bp-ui-action"><UserRoundPlus className="h-4 w-4" aria-hidden="true" />New Customer</button></span>
               <span className="quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
-                <input id="quotation-customer-search" aria-label="Customer" readOnly={sourceLocked} value={sourceLocked ? selectedCustomer?.name || customerSearch : customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search customers" className="w-full bg-transparent font-normal outline-none bp-ui-control" />
+                <input id="quotation-customer-search" aria-label="Customer" readOnly={sourceLocked} value={quotationCustomerDisplay(customerSearch, selectedCustomer, form.customer)} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search customers" className="w-full bg-transparent font-normal outline-none bp-ui-control" />
               </span>
               {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 bp-ui-action">{item.name}</button>)}</span></span>}
               {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100 bp-ui-action"><b>{item.name}</b></button>)}</span>}
@@ -1406,7 +1408,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
 </div>
         )}
        </section>
-        <div className="flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
+        <div className="quotation-builder-actions flex flex-wrap justify-end gap-3 rounded-2xl border border-[#dce7ed] bg-white p-3 shadow-sm sm:p-4">
         {step < 2 ? (
           <Button type="button"
             onClick={next}
@@ -1417,14 +1419,14 @@ export default function QuotationBuilder({ initialQuotation = null }) {
             <ArrowRight className="h-4 w-4" />
           </Button>
         ) : (<>
-          <Button variant="secondary" type="button" onClick={() => submit(false)} disabled={!dataReady || !sourceReady} loading={saving} className="flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none">
-            <Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}
+          <Button variant="secondary" type="button" onClick={() => submit(false)} disabled={!dataReady || !sourceReady} loading={saving} className="quotation-save-draft flex min-h-12 min-w-0 items-center justify-center gap-2">
+            <Check className="h-4 w-4" />{saving ? "Saving..." : editing ? "Save new version" : "Save draft"}
           </Button>
-          <Button variant="secondary" type="button" disabled={saving || !dataReady} onClick={()=>submit(false,true)}>Save &amp; Send</Button>
+          <Button variant="secondary" type="button" disabled={saving || !dataReady} onClick={()=>submit(false,true)} className="quotation-save-send min-h-12 min-w-0">Save &amp; Send</Button>
           <Button type="button"
             onClick={openQuotationPreview}
             disabled={saving}
-            className="quotation-primary-action flex min-h-12 flex-1 items-center justify-center gap-2 sm:flex-none"
+            className="quotation-primary-action quotation-preview-action flex min-h-12 min-w-0 items-center justify-center gap-2"
           >
             <Eye className="h-4 w-4" />
             Preview quotation
@@ -1460,6 +1462,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
        {showPropertyForm && <PropertyForm quotationTheme customers={customers} initialCustomer={form.customer} onSubmit={createProperty} onClose={() => setShowPropertyForm(false)} saving={savingProperty} />}
        {showPreview && (
         <QuotationPreviewDialog
+          editing={editing}
           customer={selectedCustomer}
           property={selectedProperty}
           items={activeItems}
@@ -1482,6 +1485,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   );
 }
 function QuotationPreviewDialog({
+  editing = false,
   customer,
   property,
   items,
@@ -1621,7 +1625,7 @@ function QuotationPreviewDialog({
         <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-white p-3 sm:flex sm:justify-end sm:px-6 sm:py-4">
           <button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-bold bp-ui-action">Back to edit</button>
           <button type="button" onClick={previewPdfAction} disabled={previewingPdf || saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-950 disabled:opacity-60 bp-ui-action"><Eye className="h-4 w-4" />{previewingPdf ? "Preparing PDF..." : "View PDF"}</button>
-          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60 bp-ui-action"><Check className="h-4 w-4" />{saving ? "Saving..." : "Save draft"}</button>
+          <button type="button" onClick={create} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#176b9b] px-5 py-3 font-bold text-white disabled:opacity-60 bp-ui-action"><Check className="h-4 w-4" />{saving ? "Saving..." : editing ? "Save new version" : "Save draft"}</button>
         </footer>
       </section>
     </dialog>
@@ -1672,7 +1676,7 @@ function SearchableProductType({ value, customValue = "", options, onChange, con
           onKeyDown={(event) => { if (event.key === "Enter") { const match = exactMatch(); if (match) { event.preventDefault(); choose(match); } else if (allowCustom) { event.preventDefault(); setOpen(false); } else if (filtered.length) { event.preventDefault(); choose(filtered[0]); } } }}
           placeholder={placeholder}
           autoComplete="off"
-          className={(`${controlClass} pl-10`) + " bp-ui-control"}
+          className={(`${controlClass} pl-10 bp-control-leading-icon`) + " bp-ui-control"}
         />
         {open && <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
           {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)} className={(`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[#e8f3f8] ${String(entry.id) === String(value) ? "bg-[#e8f3f8] text-[#176b9b]" : ""}`) + " bp-ui-action"}><span className="block text-sm font-bold">{entry.name}</span></button>)}
@@ -1701,7 +1705,7 @@ function SearchableDescription({ value, options, onChange, controlClass, invalid
           onChange={(event) => { onChange(event.target.value, false); setOpen(true); }}
           placeholder="Enter work description or select a saved description"
           autoComplete="off"
-          className={(`${controlClass} pl-10 resize-y`) + " bp-ui-control"}
+          className={(`${controlClass} pl-10 bp-control-leading-icon resize-y`) + " bp-ui-control"}
         />
         {open && <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
           {filtered.map((entry) => <button key={entry.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(entry.name, true); setOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-[#e8f3f8] bp-ui-action">{entry.name}</button>)}

@@ -5,16 +5,23 @@ import AdminDirectoryModal from "../components/AdminDirectoryModal";
 import DirectoryPagination, { paginate } from "../components/DirectoryPagination";
 import "./admin-directory.css";
 import { profileImageStyle } from "../utils/profileImagePosition";
+import { useSearchParams } from 'react-router-dom';
 
 const availabilityColors = { AVAILABLE: "bg-emerald-50 text-emerald-700", BUSY: "bg-amber-50 text-amber-700", OFFLINE: "bg-slate-100 text-slate-600" };
 
 export default function Painters() {
+  const [params, setParams] = useSearchParams();
   const [painters, setPainters] = useState([]);
   const [search, setSearch] = useState("");
   const [availability, setAvailability] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
+  useEffect(() => {
+    const profile = params.get('profile');
+    const painter = painters.find(item => String(item.id) === profile);
+    if (painter) setSelected({ item: painter, mode: 'view' });
+  }, [painters, params]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
    const load = useCallback(async () => { setLoading(true); try { const { data } = await api.get("/accounts/painters/"); setPainters(data.results || data); setError(""); } catch { setError("Employees could not be loaded."); } finally { setLoading(false); } }, []);
@@ -32,7 +39,7 @@ export default function Painters() {
        {loading ? <p className="p-12 text-center text-slate-500">Loading employees...</p> : <PainterTable rows={pageRows} select={setSelected} />}
       {!loading && <DirectoryPagination total={filtered.length} page={safePage} totalPages={totalPages} pageSize={pageSize} setPage={setPage} setPageSize={setPageSize} />}
     </section>
-    {selected && <AdminDirectoryModal type="applicators" item={selected.item} mode={selected.mode} close={() => setSelected(null)} saved={load} />}
+    {selected && <AdminDirectoryModal type="applicators" item={selected.item} mode={selected.mode} close={() => { setSelected(null); if (params.has('profile')) { const next = new URLSearchParams(params); next.delete('profile'); setParams(next, { replace: true }); } }} saved={load} />}
   </div>;
 }
 

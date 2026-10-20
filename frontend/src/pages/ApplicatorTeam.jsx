@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import Person from "../components/ApplicatorPerson";
 import useAuth from "../context/useAuth";
 import { buildPainterWelcomeMessage, whatsappNumber } from "../utils/welcomeMessages";
+import HiringWorkspaceNav from "../components/HiringWorkspaceNav";
 
 export default function ApplicatorTeam() {
   const { user } = useAuth();
@@ -34,7 +35,7 @@ export default function ApplicatorTeam() {
     finally { setSaving(null); }
   }
 
-  return <div className="space-y-6"><PageHeader eyebrow="Painter network" title="Refer Painter" description="Review referred painter profiles and your existing team connections." actions={<Button onClick={() => setShowCreate(true)}><UserPlus className="h-4 w-4" aria-hidden="true"/>Refer Painter</Button>}/>
+  return <div className="space-y-6"><PageHeader eyebrow="Jobs & Applications" title="Contacts & Referrals" description="Review referred painter profiles and your existing team connections." actions={<Button onClick={() => setShowCreate(true)}><UserPlus className="h-4 w-4" aria-hidden="true"/>Refer Painter</Button>}/><HiringWorkspaceNav />
     {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     <Link to="/applicator-bookings" className="flex items-center gap-2 rounded-2xl border bg-white p-5 font-semibold"><Search className="h-5 w-5" />Book Applicator</Link>
     <section className="overflow-hidden rounded-2xl border bg-white"><header className="flex items-center justify-between border-b p-5"><div><h2 className="font-bold bp-ui-section-heading">Referred Painters</h2></div><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold">{team.length}</span></header>{team.length ? <div className="divide-y">{team.map((item) => <Person key={item.membership_id} item={item} showAvailability={false} />)}</div> : <div className="p-14 text-center text-slate-400"><Users className="mx-auto h-10 w-10" /><p className="mt-3">No painters referred yet.</p></div>}</section>

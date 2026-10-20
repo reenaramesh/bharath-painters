@@ -1,5 +1,5 @@
 .admin-shell main {
-  --admin-accent: var(--app-primary, #176b9b);
+  --admin-accent: var(--app-primary, #2563eb);
   --admin-line: var(--bp-line, #dce3eb);
   --admin-soft: color-mix(in srgb, var(--admin-accent) 6%, white);
   min-width: 0;
@@ -185,3 +185,13 @@
   .admin-shell main table td,
   .admin-shell main table th { white-space: normal; }
 }
+/* Shared reference theme for operational screens. */
+.admin-ui-page :is(.border-b, .border-t, .border-y) { border-color: var(--bp-line); }
+.admin-ui-page > .border:not(.border-amber-300) { border-color: var(--bp-line); }
+.admin-ui-page :is(button, select, input:not([type="checkbox"]), textarea) { min-height: 44px; }
+.admin-ui-page :is(button, input, select, textarea):focus-visible { outline: 3px solid var(--bp-focus-ring); outline-offset: 2px; }
+.reports-reference-page .bp-stat-card { min-width: 0; flex-direction: column; align-items: flex-start; gap: 12px; }
+.reports-reference-page .bp-stat-card > div { min-width: 0; width: 100%; }
+.reports-reference-page .bp-stat-card strong { font-size: 22px; }
+.admin-ui-page .package-assignment-roles button { font-size: 13px; padding-inline: 12px; }
+.reports-reference-page :is(details, .border-b) { border-color: var(--bp-line); }

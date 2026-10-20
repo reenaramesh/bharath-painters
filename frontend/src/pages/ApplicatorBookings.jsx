@@ -4,6 +4,8 @@ import api from "../api/client";
 import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
+import AssignHiringOutcomeDialog from "../components/AssignHiringOutcomeDialog";
+import HiringWorkspaceNav from "../components/HiringWorkspaceNav";
 import "./painter-portal.css";
 
 const statusStyle = {
@@ -35,6 +37,7 @@ export default function ApplicatorBookings() {
   const [matches, setMatches] = useState([]);
   const [selected, setSelected] = useState(null);
   const [booking, setBooking] = useState(emptyBooking);
+  const [assignmentSourceId, setAssignmentSourceId] = useState(null);
   const painter = user?.role === "PAINTER";
 
   const load = useCallback(async () => {
@@ -130,7 +133,8 @@ export default function ApplicatorBookings() {
   return (
     <div className={`painter-portal-page painter-bookings-page space-y-6 ${painter ? "is-painter" : ""}`}>
       <MobilePageBack />
-      <PageHeader eyebrow="Work bookings" title={painter ? "Booking Requests" : "Book Applicator"} description={painter ? "Review booking requests and manage your upcoming work." : "Find an available applicator and send a booking request."} />
+      <PageHeader eyebrow={painter ? "Work bookings" : "Jobs & Applications"} title={painter ? "Booking Requests" : "Bookings & Requests"} description={painter ? "Review booking requests and manage your upcoming work." : "Find an available applicator and send a booking request."} />
+      <HiringWorkspaceNav />
 
       {!painter && (
         <details open className="group overflow-visible rounded-2xl border bg-white">
@@ -383,6 +387,8 @@ export default function ApplicatorBookings() {
                     )}
                     {!painter &&
                       ["PENDING", "CONFIRMED"].includes(item.status) && (
+                        <>
+                        {item.status === "CONFIRMED" && <button type="button" onClick={() => setAssignmentSourceId(item.id)} className="rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white bp-ui-action">Assign to project</button>}
                         <button
                           disabled={saving}
                           onClick={() => action(item.id, "CANCEL")}
@@ -390,6 +396,7 @@ export default function ApplicatorBookings() {
                         >
                           Cancel
                         </button>
+                        </>
                       )}
                     <a
                       href={`tel:${painter ? item.contractor_mobile : item.applicator_mobile}`}
@@ -410,6 +417,7 @@ export default function ApplicatorBookings() {
         )}
       </section>
       </details>
+      {assignmentSourceId && <AssignHiringOutcomeDialog sourceType="booking" sourceId={assignmentSourceId} onClose={() => setAssignmentSourceId(null)} />}
     </div>
   );
 }

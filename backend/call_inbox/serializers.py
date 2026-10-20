@@ -1,7 +1,18 @@
 from rest_framework import serializers
+from django.utils import timezone
 
 from accounts.mobile import normalize_mobile
 from .models import CallInboxEvent
+
+
+class CallVisitBookingSerializer(serializers.Serializer):
+    next_follow_up = serializers.DateTimeField()
+    comment = serializers.CharField(required=False, allow_blank=True, max_length=10000, default="")
+
+    def validate_next_follow_up(self, value):
+        if value <= timezone.now():
+            raise serializers.ValidationError("Choose a future visit date and time.")
+        return value
 
 
 class CallEventCreateSerializer(serializers.ModelSerializer):

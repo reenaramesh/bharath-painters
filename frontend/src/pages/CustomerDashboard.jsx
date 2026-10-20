@@ -16,11 +16,14 @@ import "./mobile-workspace.css";
 import api from "../api/client";
 import CustomerAds from "../components/CustomerAds";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
+import DashboardWelcomeBanner from '../components/DashboardWelcomeBanner';
+import useAuth from '../context/useAuth';
+import { menuRouteEnabled } from '../utils/menuVisibility';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
-  PageHeader,
   SectionCard,
   StatCard,
   StatusBadge,
@@ -29,6 +32,8 @@ import "./customer-dashboard.css";
 
 
 export default function CustomerDashboard() {
+  const { user, menuVisibility } = useAuth();
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [quotations, setQuotations] = useState([]);
   const [finance, setFinance] = useState(null);
@@ -164,12 +169,12 @@ export default function CustomerDashboard() {
 
   return (
     <div className="customer-dashboard-page space-y-4">
-      <PageHeader
+      <DashboardWelcomeBanner icon={Building2} label="Customer workspace"
         eyebrow="Your home projects"
-        title={`Welcome back, ${data.customer_name || "there"}`}
-        description={customerContext}
+        title={<>{t('Welcome back')}, {data.customer_name || t('there')}</>}
+        description={<>{customerContext}</>}
         actions={
-          <div className="customer-dashboard-header-actions"><Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
+          <div className="customer-dashboard-header-actions">{menuRouteEnabled(user?.role, menuVisibility, '/customer-quotations') && <Link to="/customer-quotations" className="bp-button bp-button-primary"><FileText size={17} aria-hidden="true" />View quotations</Link>}<Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             <span className="customer-profile-action-label">Profile settings</span>
           </Link><button type="button" onClick={load} aria-label="Refresh customer dashboard" className="bp-button bp-button-secondary customer-dashboard-refresh md:hidden bp-ui-icon-action"><RefreshCw size={17} /></button></div>

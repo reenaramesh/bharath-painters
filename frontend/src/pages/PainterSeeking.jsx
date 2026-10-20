@@ -19,6 +19,7 @@ import useAuth from "../context/useAuth";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
 import { getMobileLocation } from "../utils/indiaLocation";
 import WorkNetworkTabs from "../components/WorkNetworkTabs";
+import HiringWorkspaceNav from "../components/HiringWorkspaceNav";
 import "./painter-portal.css";
 import {
   paintingSkillOptions as skillOptions,
@@ -213,7 +214,7 @@ export default function PainterSeeking() {
   }
   return (
     <div className={`painter-portal-page painter-work-network-page space-y-6 ${isPainter ? "is-painter" : ""}`}>
-      <PageHeader eyebrow="Work network" title={isPainter ? "My job-seeking posts" : "Paint Applicators seeking work"} description="Review availability posts and connect around upcoming work." actions={<div className="flex flex-wrap gap-2">
+      <PageHeader eyebrow={isPainter ? "Work network" : "Jobs & Applications"} title={isPainter ? "My job-seeking posts" : "Paint Applicators seeking work"} description="Review availability posts and connect around upcoming work." actions={<div className="flex flex-wrap gap-2">
           <Link
             to={WORK_REQUIREMENTS_PATH}
             className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold"
@@ -231,6 +232,7 @@ export default function PainterSeeking() {
             </button>
           )}
         </div>} />
+      {!isPainter && <HiringWorkspaceNav />}
       <WorkNetworkTabs
         pathname={pathname}
         contractor={!isPainter}

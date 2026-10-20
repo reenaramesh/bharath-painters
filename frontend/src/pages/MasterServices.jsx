@@ -1,3 +1,5 @@
+import ServiceCategoryGallery from "../components/ServiceCategoryGallery";
+import { SERVICE_CATEGORIES } from "../components/serviceCategories.js";
 import { ROOM_CATEGORIES, roomCategoryLabel } from "../utils/roomClassification.js";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -64,6 +66,7 @@ export default function MasterServices() {
   const [busyId, setBusyId] = useState(null);
   const [dragId, setDragId] = useState(null);
   const dragIdRef = useRef(null);
+  const gallerySearchRef = useRef("");
 
   // Chromium refuses to start an HTML5 drag unless dragstart sets some data,
   // so the id goes on the dataTransfer as well as into the ref.
@@ -129,7 +132,8 @@ const [orderBusy, setOrderBusy] = useState(false);
     loadCounts();
     setEditing(null);
     setForm(empty);
-    setSearch("");
+    setSearch(gallerySearchRef.current);
+    gallerySearchRef.current = "";
     setCategoryFilter("ALL");
     setStatusFilter("ALL");
     setShowAdd(false);
@@ -366,10 +370,22 @@ const [orderBusy, setOrderBusy] = useState(false);
     }
   }
 
+  const selectedService = active.key === "categories" ? SERVICE_CATEGORIES.find(service => service.search.toLowerCase() === search.trim().toLowerCase())?.id : undefined;
+  function selectGalleryService(service) {
+    if (active.key !== "categories") gallerySearchRef.current = service.search;
+    setActive(groups.find(group => group.key === "categories"));
+    setSearch(service.search);
+    setCategoryFilter("ALL"); setStatusFilter("ALL"); setRoomFilter("ALL");
+  }
+  function resetGalleryFilter() {
+    gallerySearchRef.current = "";
+    setSearch(""); setCategoryFilter("ALL"); setStatusFilter("ALL"); setRoomFilter("ALL");
+  }
   const ActiveIcon = active.icon;
   return (
     <div className="space-y-6 master-services-page">
-      <PageHeader eyebrow="Quotation configuration" title="Master Data"  />
+      <PageHeader eyebrow="Quotation configuration" title="Service Master" />
+      <ServiceCategoryGallery onSelect={selectGalleryService} selectedService={selectedService} onReset={resetGalleryFilter} />
 
       {error && !loadFailed && <p className="master-data-alert" role="alert">{error}</p>}
 
@@ -390,9 +406,9 @@ const [orderBusy, setOrderBusy] = useState(false);
           </select>
         </label>
 
-        <nav aria-label="Master data sections" className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+        <nav aria-label="Master data sections" className="master-sections-nav hidden lg:sticky lg:top-24 lg:block lg:self-start">
           <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">Sections</p>
-          <ul className="flex flex-col gap-1">
+          <ul className="master-section-grid flex flex-col gap-1">
 
             {groups.map((group) => {
               const Icon = group.icon;
@@ -409,7 +425,6 @@ const [orderBusy, setOrderBusy] = useState(false);
               );
             })}
           </ul>
-          {user?.role === "CONTRACTOR" && <div className="mt-4 hidden lg:block"><QuotationDefaults /></div>}
         </nav>
 
         <div className="min-w-0 space-y-4">
@@ -445,8 +460,8 @@ const [orderBusy, setOrderBusy] = useState(false);
         </div>}
         {importSummary && <div className="border-b p-4 text-sm"><p className="font-semibold">{importSummary.created} added · {importSummary.updated} updated · {importSummary.skipped} skipped · {importSummary.error_count} errors</p>{importSummary.errors?.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">{importSummary.errors.map((item) => <li key={item.row}>Row {item.row}: {item.message}</li>)}</ul>}</div>}
 
-      <div className="flex flex-wrap items-center gap-2 border-b p-3 sm:p-4">
-        <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none bp-ui-control" /></label>
+      <div className="master-catalogue-filters flex flex-wrap items-center gap-2 border-b p-3 sm:p-4">
+        <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} aria-label={`Search ${active.label.toLowerCase()}`} placeholder={`Search ${active.label.toLowerCase()}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none bp-ui-control" /></label>
         <div className="flex flex-wrap gap-2">
           {[["ALL", "All", items.length], ["ACTIVE", "Active", activeCount], ["INACTIVE", "Inactive", inactiveCount]].map(([value, label, count]) => (
             <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={(`rounded-full border px-3 py-1.5 text-xs font-bold ${statusFilter === value ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`) + " bp-ui-action"}>{label} · {count}</button>
@@ -463,6 +478,8 @@ const [orderBusy, setOrderBusy] = useState(false);
           return <button key={category.id} type="button" aria-pressed={categoryFilter === id} onClick={() => setCategoryFilter(id)} className={(`rounded-full border px-3 py-1.5 text-xs font-bold ${categoryFilter === id ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`) + " bp-ui-action"}>{category.name} · {categoryCounts[id] || 0}</button>;
         })}
       </div>}
+
+      {(search || categoryFilter !== "ALL" || statusFilter !== "ALL" || roomFilter !== "ALL") && <div className="master-filter-summary"><span role="status">{filteredItems.length} matching entries{search ? ` for "${search}"` : ""}</span><button type="button" onClick={resetGalleryFilter}>View all / Clear filters</button></div>}
 
       {loadFailed ? <ErrorState message={error} onRetry={load} className="master-data-state" /> : loading ? <LoadingState label={`Loading ${active.label.toLowerCase()}…`} className="master-data-state" /> : <>
           <div className="md:hidden">
@@ -535,7 +552,7 @@ const [orderBusy, setOrderBusy] = useState(false);
         </div>
       </div>
 
-      {user?.role === "CONTRACTOR" && <div className="lg:hidden"><QuotationDefaults /></div>}
+      {user?.role === "CONTRACTOR" && <div className="master-defaults-panel"><QuotationDefaults /></div>}
     </div>
   );
 }

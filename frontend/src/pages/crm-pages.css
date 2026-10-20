@@ -438,6 +438,25 @@
   .crm-customers-page .crm-customer-status-tabs button { font-size: 12px; line-height: 1.4; padding: 10px 12px; min-height: 44px; width: auto; }
 }
 
+@media (max-width: 767px) {
+  .crm-site-visits-page .crm-visit-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .crm-site-visits-page .crm-visit-details,
+  .crm-site-visits-page .crm-visit-actions {
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .crm-site-visits-page .crm-visit-actions {
+    align-items: stretch;
+  }
+  .crm-site-visits-page .crm-visit-actions > div {
+    flex-wrap: wrap;
+  }
+}
+
 /* Match the compact activation action to its read-only Active indicator. */
 .crm-customers-page .crm-customer-activation-action {
   font-size: 11px;

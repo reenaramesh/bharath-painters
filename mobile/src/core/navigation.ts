@@ -1,6 +1,6 @@
 export type Role = 'CONTRACTOR' | 'CUSTOMER' | 'PAINTER' | 'ADMIN' | 'SUPPORT';
 export type User = { id: number; role: Role; first_name?: string; display_name?: string; mobile?: string; is_verified: boolean; verification_status: string; preferred_language?: string };
-export type ModuleId = 'customers' | 'properties' | 'leads' | 'quotations' | 'measurements' | 'projects' | 'schedules' | 'payments' | 'messages' | 'settings';
+export type ModuleId = 'customers' | 'properties' | 'leads' | 'quotations' | 'measurements' | 'projects' | 'schedules' | 'payments' | 'messages' | 'subcontracts' | 'employees' | 'wage-register' | 'settings';
 export type RecordItem = { id: string; title: string; subtitle: string; status: string; amount?: string; note?: string };
 export const modules: { id: ModuleId; label: string; icon: string; description: string; menu: string; verified?: boolean }[] = [
   { id: 'customers', label: 'Customers', icon: 'account-group-outline', description: 'People and connections', menu: 'customers' },
@@ -12,6 +12,9 @@ export const modules: { id: ModuleId; label: string; icon: string; description: 
   { id: 'schedules', label: 'Schedules', icon: 'calendar-outline', description: 'Upcoming commitments', menu: 'schedules' },
   { id: 'payments', label: 'Payments', icon: 'wallet-outline', description: 'Invoices and receipts', menu: 'receipts', verified: true },
   { id: 'messages', label: 'Messages', icon: 'message-text-outline', description: 'Customer conversations', menu: 'messages' },
+  { id: 'subcontracts', label: 'Outsourced & Received Work', icon: 'handshake-outline', description: 'Work orders sent to or received from connected contractors', menu: 'subcontracts', verified: true },
+  { id: 'employees', label: 'Employees & Attendance', icon: 'account-hard-hat-outline', description: 'Review attendance and employee records', menu: 'employees', verified: true },
+  { id: 'wage-register', label: 'Wage Register', icon: 'calculator-variant', description: 'Monthly wage register with overtime', menu: 'employees', verified: true },
   { id: 'settings', label: 'Settings', icon: 'cog-outline', description: 'Business and appearance', menu: 'settings' },
 ];
 export function roleDestination(role: string): '/(contractor)' | '/role' { return role === 'CONTRACTOR' ? '/(contractor)' : '/role'; }

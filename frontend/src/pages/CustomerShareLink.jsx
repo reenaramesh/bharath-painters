@@ -14,7 +14,7 @@ export default function CustomerShareLink() {
   const [emailChallenge, setEmailChallenge] = useState(null);
   const [otp, setOtp] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
+  const [consent, setConsent] = useState({ ready: false, accepted: false, policyVersion: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +31,10 @@ export default function CustomerShareLink() {
 
   async function submit(action) {
     if (busy) return;
+    if (action === "activate" && !consent.ready) {
+      setError("Wait for the Terms of Use and Privacy Notice to load before activating your account.");
+      return;
+    }
     if (action === "activate" && (!emailChallenge?.challenge_id || (otp.length < 6 || otp.length > 10))) {
       setError("Verify your email with the verification code before activating your account.");
       return;
@@ -44,7 +48,7 @@ export default function CustomerShareLink() {
     try {
       const payload = action === "activate" ? {
         password, challenge_id: emailChallenge.challenge_id, otp,
-        policy_version: consent.policyVersion, document_scrolled: consent.scrolled,
+        policy_version: consent.policyVersion, acceptance_method: "REGISTRATION_SUBMIT",
         terms_accepted: true, privacy_notice_acknowledged: true,
       } : { action };
       const { data } = await api.post(`/quotations/customer-link/${token}/`, payload);
@@ -87,7 +91,7 @@ export default function CustomerShareLink() {
         <label className="block text-sm font-semibold">Create password<input required minLength={8} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border px-4 py-3 bp-ui-control" /></label>
         <label className="block text-sm font-semibold">Confirm password<input required minLength={8} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="mt-2 w-full rounded-xl border px-4 py-3 bp-ui-control" /></label>
         <RegistrationConsent role="CUSTOMER" onConsentChange={setConsent} />
-        <button disabled={busy || !consent.accepted || !emailChallenge || (otp.length < 6 || otp.length > 10)} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50 bp-ui-action">{busy ? "Activating..." : "Activate account"}</button>
+        <button disabled={busy || !consent.ready || !emailChallenge || (otp.length < 6 || otp.length > 10)} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50 bp-ui-action">{busy ? "Activating..." : "Activate account"}</button>
       </form>}
       {!success && details?.purpose === "CONNECTION" && <div className="mt-6">
         {!details.account_ready ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Create your customer password first, then sign in to respond. <Link to="/customer-register" state={{ returnTo: location.pathname }} className="font-bold underline">Create password</Link></p> : user?.role !== "CUSTOMER" ? <p className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">Sign in as the customer named above to respond. <Link to="/login" state={{ from: { pathname: location.pathname } }} className="font-bold underline">Sign in</Link></p> : <div className="grid gap-3 sm:grid-cols-3">

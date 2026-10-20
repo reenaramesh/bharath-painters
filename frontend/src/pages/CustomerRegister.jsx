@@ -14,7 +14,7 @@ export default function CustomerRegister() {
   const [form, setForm] = useState({ name: "", mobile: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
+  const [consent, setConsent] = useState({ ready: false, accepted: false, policyVersion: "" });
   const update = (event) => setForm({ ...form, [event.target.name]: event.target.value });
 
   useEffect(() => {
@@ -30,8 +30,8 @@ export default function CustomerRegister() {
 
   async function submit(event) {
     event.preventDefault();
-    if (!consent.accepted) {
-      setError("Read and accept the Terms of Use and Privacy Notice before registering.");
+    if (!consent.ready) {
+      setError("Wait for the Terms of Use and Privacy Notice to load before registering.");
       return;
     }
     setSaving(true);
@@ -41,7 +41,7 @@ export default function CustomerRegister() {
         ...form,
         ...(invitationToken ? { property_invitation_token: invitationToken } : {}),
         policy_version: consent.policyVersion,
-        document_scrolled: consent.scrolled,
+        acceptance_method: "REGISTRATION_SUBMIT",
         terms_accepted: true,
         privacy_notice_acknowledged: true,
       });
@@ -70,7 +70,7 @@ export default function CustomerRegister() {
         <Field label="Create password" name="password" type="password" minLength="8" value={form.password} onChange={update} />
         <RegistrationConsent role="CUSTOMER" onConsentChange={setConsent} />
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
-        <button disabled={saving || !consent.accepted} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:col-span-2 bp-ui-action">{saving ? "Creating account..." : "Create customer account"}</button>
+        <button disabled={saving || !consent.ready} className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:col-span-2 bp-ui-action">{saving ? "Creating account..." : "Create customer account"}</button>
       </form>
        <p className="mt-5 text-center text-sm text-slate-500">Already registered? <Link to="/login" state={invitationToken ? { from: { pathname: `/join/property/${invitationToken}` } } : undefined} className="font-semibold text-slate-950">Sign in</Link></p>
     </div>

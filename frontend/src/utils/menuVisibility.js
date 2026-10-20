@@ -4,6 +4,9 @@ export function menuEnabled(role, visibility, id) {
   return PROTECTED_MENUS.has(id) || !(visibility?.[role] || []).includes(id);
 }
 export function menuRouteEnabled(role, visibility, href) {
+  if (href.startsWith("/properties?") && new URLSearchParams(href.split("?")[1] || "").get("calculator") === "1") {
+    return !((visibility?.[role] || []).includes("calculator"));
+  }
   const exact = NAVIGATION.find((entry) => entry.roles.includes(role) && entry.route === href);
   if (exact) return menuEnabled(role, visibility, exact.id);
   const path = href.split("?")[0];

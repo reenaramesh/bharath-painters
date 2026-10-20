@@ -19,15 +19,15 @@ export default function Register() {
   const [verification, setVerification] = useState(null);
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [consent, setConsent] = useState({ accepted: false, policyVersion: "", scrolled: false });
+  const [consent, setConsent] = useState({ ready: false, accepted: false, policyVersion: "" });
   const update = (event) =>
     setForm((value) => ({ ...value, [event.target.name]: event.target.value }));
   const input =
     "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
   async function submit(event) {
     event.preventDefault();
-    if (!consent.accepted) {
-      setError("Read and accept the Terms of Use and Privacy Notice before registering.");
+    if (!consent.ready) {
+      setError("Wait for the Terms of Use and Privacy Notice to load before registering.");
       return;
     }
     setSaving(true);
@@ -41,7 +41,7 @@ export default function Register() {
         "name",
       ].forEach((field) => contractor.append(field, form[field]));
       contractor.append("policy_version", consent.policyVersion);
-      contractor.append("document_scrolled", String(consent.scrolled));
+      contractor.append("acceptance_method", "REGISTRATION_SUBMIT");
       contractor.append("terms_accepted", "true");
       contractor.append("privacy_notice_acknowledged", "true");
       const painter = {
@@ -50,7 +50,7 @@ export default function Register() {
         password: form.password,
         name: form.name.trim(),
         policy_version: consent.policyVersion,
-        document_scrolled: consent.scrolled,
+        acceptance_method: "REGISTRATION_SUBMIT",
         terms_accepted: true,
         privacy_notice_acknowledged: true,
       };
@@ -178,7 +178,7 @@ export default function Register() {
             
             <RegistrationConsent role={role} onConsentChange={setConsent} />
             <button
-              disabled={saving || !consent.accepted}
+              disabled={saving || !consent.ready}
               className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white sm:col-span-2 disabled:opacity-60 bp-ui-action"
             >
               {saving ? "Creating account..." : "Register"}

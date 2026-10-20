@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
+import ScheduleWorkspaceNav from "../components/ScheduleWorkspaceNav";
 import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 
 export default function CompletedWork() {
@@ -39,6 +40,7 @@ export default function CompletedWork() {
   return (
     <div className={`${customerView ? "customer-completed-work-page" : ""} space-y-6`}>
       <PageHeader eyebrow={customerView ? "Your projects" : "Project planning"} title={customerView ? "Completed projects" : "Completed work"} description="Review completed work, project details and recorded progress." />
+      <ScheduleWorkspaceNav />
       {customerView && <section className="customer-completed-pulse" aria-label="Completed project summary">
         <div><span>Completed projects</span><strong>{items.length}</strong><small>Marked complete by your contractor</small></div>
         <div><span>Latest completion</span><strong>{formatWorkDate(items[0]?.work_completed_at || items[0]?.end_date)}</strong><small>Most recent finished work</small></div>

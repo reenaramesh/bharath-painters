@@ -1,12 +1,13 @@
 """Run against an Expo web preview; screenshots are ignored by git."""
 from pathlib import Path
 import json
+import os
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 from playwright.sync_api import sync_playwright, expect
 from browser_support import launch_chromium
 
-URL = 'http://127.0.0.1:8091'
+URL = os.environ.get('MOBILE_PREVIEW_URL', 'http://127.0.0.1:8091')
 OUT = Path(__file__).parent / 'screenshots'
 OUT.mkdir(exist_ok=True)
 results = []

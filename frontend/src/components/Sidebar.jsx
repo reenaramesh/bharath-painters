@@ -1,5 +1,5 @@
 import { lockBodyScroll } from "../utils/bodyScrollLock.js";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { menuEnabled } from "../utils/menuVisibility";
@@ -7,6 +7,7 @@ import useAuth from "../context/useAuth";
 import api from "../api/client";
 import { useLanguage } from "../i18n/LanguageContext";
 import { GROUPS, activeNavigation, visibleNavigation } from "../config/navigation";
+import { consolidateHiringNavigation, consolidateScheduleNavigation } from "../utils/hiringNavigation.js";
 import ShareAppButton from "./ShareAppButton";
 import "./sidebar.css";
 
@@ -24,21 +25,35 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
   const [menuSearch, setMenuSearch] = useState("");
   const searchRef = useRef(null), focusSearchRef = useRef(false);
   const drawerRef = useRef(null), flyoutRef = useRef(null);
+  const navigationRef = useRef(null);
   const preferenceKey = `bp-sidebar-groups-${user?.id || "guest"}-${user?.role || "unknown"}`;
   const [groupPreferences, setGroupPreferences] = useState(() => ({ key: preferenceKey, closed: readGroups(preferenceKey) }));
   const closed = groupPreferences.key === preferenceKey ? groupPreferences.closed : readGroups(preferenceKey);
-  const entries = visibleNavigation(user?.role, employmentStatus).filter((entry) => menuEnabled(user?.role, menuVisibility, entry.id));
-  const canReadBookings = entries.some((entry) => entry.id === "bookings");
+  const enabledEntries = visibleNavigation(user?.role, employmentStatus).filter((entry) => menuEnabled(user?.role, menuVisibility, entry.id));
+  const entries = consolidateScheduleNavigation(consolidateHiringNavigation(enabledEntries, user?.role), user?.role);
+  const canReadBookings = enabledEntries.some((entry) => entry.id === "bookings");
   const active = activeNavigation(entries, `${location.pathname}${location.search}`);
   const searchWords = menuSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const searching = searchWords.length > 0;
   const matchingEntries = entries.filter((entry) => {
-    const text = `${entry.label} ${t(`navigation:${entry.id}`, { defaultValue: entry.label })} ${entry.group} ${t(entry.group)}`.toLocaleLowerCase();
+    const sectionLabels = (entry.sections || []).map(section => t(`navigation:${section.id}`, { defaultValue: section.label })).join(" ");
+    const text = `${entry.label} ${t(`navigation:${entry.id}`, { defaultValue: entry.label })} ${entry.group} ${t(entry.group)} ${entry.searchTerms || ""} ${sectionLabels}`.toLocaleLowerCase();
     return searchWords.every((word) => text.includes(word));
   });
   const groups = GROUPS.filter((group) => matchingEntries.some((entry) => entry.group === group));
   const account = matchingEntries.filter((entry) => entry.group === "Account");
   const rail = collapsed && !mobileOpen;
+
+  useLayoutEffect(() => {
+    if (rail) return;
+    const navigation = navigationRef.current;
+    const selected = navigation?.querySelector('[aria-current="page"]');
+    if (!selected) return;
+    const viewport = navigation.getBoundingClientRect();
+    const item = selected.getBoundingClientRect();
+    if (item.top < viewport.top) navigation.scrollTop += item.top - viewport.top;
+    else if (item.bottom > viewport.bottom) navigation.scrollTop += item.bottom - viewport.bottom;
+  }, [active?.id, rail, mobileOpen]);
 
   useEffect(() => {
     if (!rail && focusSearchRef.current) {
@@ -67,7 +82,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
     window.addEventListener("focus", loadCounts);
     window.addEventListener("portal-counts-changed", loadCounts);
     return () => { current = false; window.clearInterval(timer); window.removeEventListener("focus", loadCounts); window.removeEventListener("portal-counts-changed", loadCounts); };
-  }, [user?.id, user?.role, employmentStatus, canReadBookings, location.pathname]);
+  }, [user?.id, user?.role, employmentStatus, canReadBookings]);
 
   // Close after navigation commits, rather than cancelling an unsaved-change blocker.
   useEffect(() => { closeMobile(); setFlyout(null); }, [location.key, closeMobile]);
@@ -144,7 +159,7 @@ export default function Sidebar({ collapsed = false, onToggle = () => {}, mobile
         <input className="bp-ui-control" ref={searchRef} type="search" value={menuSearch} onChange={(event) => { setMenuSearch(event.target.value); setFlyout(null); }} onKeyDown={(event) => { if (event.key === "Escape" && menuSearch) { event.stopPropagation(); setMenuSearch(""); } }} placeholder={t("Search menu")} aria-label={t("Search menu")} aria-controls="workspace-menu-results" autoComplete="off" />
         {menuSearch && <button className="bp-ui-icon-action" type="button" aria-label={t("Clear menu search")} onClick={() => { setMenuSearch(""); searchRef.current?.focus(); }}><X size={16} /></button>}
       </div>}
-      <nav id="workspace-menu-results" className="ws-nav-scroll minimia-scroll" aria-label={t("Main navigation")}>
+      <nav ref={navigationRef} id="workspace-menu-results" className="ws-nav-scroll minimia-scroll" aria-label={t("Main navigation")}>
         {employmentStatus === "loading" && <p className="ws-nav-status" role="status">{rail ? <span className="ws-nav-loading" aria-label={t("Loading employment")} /> : t("Loading employment…")}</p>}
         {employmentStatus === "unavailable" && !rail && <p className="ws-nav-status" role="status">{t("Employment unavailable. Reconnect to refresh work options.")}</p>}
         {!entries.length && <p className="ws-nav-status" role="status">{rail ? "—" : t("No modules available.")}</p>}

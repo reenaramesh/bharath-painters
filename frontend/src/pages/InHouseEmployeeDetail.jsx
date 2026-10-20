@@ -10,11 +10,16 @@ import EmployeeQuickActions from "../components/EmployeeQuickActions";
 import AttendanceDateSelection from "../components/AttendanceDateSelection";
 import { attendancePayload } from "../utils/employeeAttendance.js";
 import { profileImageStyle } from "../utils/profileImagePosition";
+import OfflineQueueStatus from "../components/OfflineQueueStatus";
+import { enqueueOfflineOperation } from "../utils/offlineOperationQueue";
+import EmployeeActivationAction, { EmployeeRegistrationBadge } from "../components/EmployeeActivationAction";
+import { employeeRegistration } from "../utils/employeeAccount";
 
 const currentMonth = new Date().toLocaleDateString("en-CA").slice(0, 7),
   today = new Date().toLocaleDateString("en-CA");
-export default function InHouseEmployeeDetail() {
-  const { id } = useParams();
+export default function InHouseEmployeeDetail({ employeeId: embeddedId, embedded = false, selectedMonth, onMonthChange } = {}) {
+  const { id: routeId } = useParams();
+  const id = embeddedId ?? routeId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const canManage = user?.role === "CONTRACTOR";
@@ -27,29 +32,37 @@ export default function InHouseEmployeeDetail() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [data, setData] = useState(null),
-    [month, setMonth] = useState(currentMonth),
+    [month, setMonth] = useState(selectedMonth || params.get("month") || currentMonth),
     [editing, setEditing] = useState(false),
     [error, setError] = useState("");
+  const [history, setHistory] = useState({ profile_changes: [], salary_changes: [] });
   const [attendance, setAttendance] = useState({
     date: today,
     status: "PRESENT",
     overtime_hours: "0",
     note: "",
+    expected_marked_at: "",
   });
   const [bonus, setBonus] = useState({ date: today, amount: "", note: "" });
+  useEffect(() => { if (selectedMonth && selectedMonth !== month) setMonth(selectedMonth); }, [selectedMonth, month]);
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
     try {
-      const response = await api.get(`/jobs/in-house-applicators/${id}/?month=${month}`);
-      if (sequence === requestSequence.current) { setData(response.data); setError(""); }
+      const [response, historyResponse] = await Promise.all([api.get(`/jobs/in-house-applicators/${id}/?month=${month}`), api.get(`/jobs/in-house-applicators/${id}/history/`)]);
+      if (sequence === requestSequence.current) { setData(response.data); setHistory(historyResponse.data); setError(""); }
     } catch (e) {
       if (sequence === requestSequence.current) setError(e.response?.data?.detail || "Employee could not be loaded.");
     }
   }, [id, month]);
   useEffect(() => { setData(null); setEditing(false); }, [id]);
+  useEffect(() => { if (params.get("edit") === "1") setEditing(true); }, [id, params]);
   useEffect(() => { setSelectedDates([]); }, [id, month]);
   useEffect(() => {
     load();
+  }, [load]);
+  useEffect(() => {
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
   }, [load]);
   const membershipId = data?.membership_id;
   useEffect(() => {
@@ -75,15 +88,31 @@ export default function InHouseEmployeeDetail() {
     e.preventDefault();
     if (saving) return;
     setSaving(true); setError(""); setSuccess("");
+    const payload = attendancePayload(attendance, multiple, selectedDates);
+    if (multiple) payload.expected_versions = Object.fromEntries(selectedDates.flatMap(day => {
+      const row = data?.attendance?.find(item => item.date === day);
+      return row?.marked_at ? [[day, row.marked_at]] : [];
+    }));
+    else if (attendance.expected_marked_at) payload.expected_marked_at = attendance.expected_marked_at;
+    const endpoint = `/jobs/in-house-applicators/${id}/attendance/`;
     try {
-      await api.post(
-        `/jobs/in-house-applicators/${id}/attendance/`,
-        attendancePayload(attendance, multiple, selectedDates),
-      );
+      if (navigator.onLine === false) throw Object.assign(new Error("offline"), { offlineQueue: true });
+      await api.post(endpoint, payload);
       setSuccess(`Attendance saved for ${multiple ? selectedDates.length : 1} day${multiple && selectedDates.length !== 1 ? "s" : ""}.`);
       setSelectedDates([]);
       await load();
     } catch (err) {
+      if (err.offlineQueue || !err.response) {
+        try {
+          const dates = multiple ? selectedDates : [attendance.date];
+          await enqueueOfflineOperation({ actorId: user.id, kind: "attendance", endpoint, payload, reviewPath: `/in-house-applicators/${id}`, dedupeKey: `${id}:${dates.slice().sort().join(",")}` });
+          setSuccess("Attendance saved on this device. It will sync when the app is online; contractor approval is still required.");
+          return;
+        } catch (queueError) {
+          setError(queueError.message || "Attendance could not be saved offline.");
+          return;
+        }
+      }
       setError(
         err.response?.data?.detail ||
           Object.values(err.response?.data || {})
@@ -91,6 +120,17 @@ export default function InHouseEmployeeDetail() {
             .join(" ") ||
           err.message || "Attendance could not be updated.",
       );
+    } finally { setSaving(false); }
+  }
+  async function reviewAttendance(row, decision) {
+    if (saving) return;
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      await api.post(`/jobs/in-house-applicators/${id}/attendance/${row.id}/review/`, { decision });
+      setSuccess(`Attendance ${decision.toLowerCase()}.`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Attendance review could not be saved.");
     } finally { setSaving(false); }
   }
   async function removeEmployee() {
@@ -118,23 +158,28 @@ export default function InHouseEmployeeDetail() {
     } finally { setSaving(false); }
   }
   if (!data) return <p className="p-12 text-center">{error || "Loading..."}</p>;
+  const attendanceView = embedded || (canManage && ["attendance", "leaves"].includes(section));
+  const wagesView = canManage && section === "wages";
+  const profileView = !embedded && (!section || section === "profile");
   return (
     <div className="employee-page space-y-6">
-      <Link to="/in-house-applicators" className="inline-flex min-h-11 items-center text-sm text-slate-500">Back to employees</Link>
-      <PageHeader eyebrow={data.employee_code} title={data.name} description={<span>{data.mobile} / Joined {data.joined_on}</span>} actions={<>{canManage && <div className="flex flex-wrap gap-2"><button
+      {!embedded && <Link to="/in-house-applicators" className="inline-flex min-h-11 items-center text-sm text-slate-500">Back to employees</Link>}
+      {!embedded && <PageHeader eyebrow={data.employee_code} title={data.name} description={<span>{data.mobile} / Joined {data.joined_on}</span>} actions={<>{canManage && profileView && <div className="flex flex-wrap gap-2"><button
           disabled={saving}
           onClick={() => setEditing(!editing)}
           className="rounded-xl border px-5 py-3 font-semibold bp-ui-action"
         >
           {editing ? "Cancel edit" : "Edit profile"}
-        </button>{data.is_active !== false && <button type="button" disabled={saving} onClick={removeEmployee} className="min-h-11 rounded-xl border border-red-200 px-4 py-2.5 text-sm text-red-700 bp-ui-action">Delete employee</button>}</div>}</>} />
-      <EmployeeQuickActions employeeId={id} />
+        </button>{data.is_active !== false && <button type="button" disabled={saving} onClick={removeEmployee} className="min-h-11 rounded-xl border border-red-200 px-4 py-2.5 text-sm text-red-700 bp-ui-action">Delete employee</button>}</div>}</>} />}
+      {!embedded && <EmployeeQuickActions employeeId={id} />}
+      {(!section || attendanceView) && <OfflineQueueStatus actorId={user?.id} />}
       {error && (
         <p className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>
       )}
       {success && <p className="employee-success" role="status">{success}</p>}
-      {editing ? <Edit data={data} onSave={save} saving={saving} /> : <Profile data={data} />}
-      <details id="employee-attendance" ref={attendanceRef} className="group scroll-mt-20 overflow-hidden rounded-2xl border bg-white">
+      {profileView && (editing ? <Edit data={data} onSave={save} saving={saving} /> : <Profile data={data} activationAction={canManage && data.can_resend_activation ? <EmployeeActivationAction employee={data} onUpdated={load} /> : null} />)}
+      {profileView && <ChangeHistory history={history} />}
+      {(!section || attendanceView) && <details id="employee-attendance" ref={attendanceRef} open={attendanceView} className="group scroll-mt-20 overflow-hidden rounded-2xl border bg-white">
         <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-bold hover:bg-slate-50">
           <span>Attendance entry and monthly summary</span>
           <span className="text-xl text-slate-400 transition-transform group-open:rotate-180">
@@ -215,16 +260,17 @@ export default function InHouseEmployeeDetail() {
               type="month"
               max={currentMonth}
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => { setMonth(e.target.value); onMonthChange?.(e.target.value); }}
               className="rounded-xl border px-4 py-3 bp-ui-control"
             />
           </div>
           <Summary data={data.attendance_summary} />
+          {canManage && data.attendance.some(row => row.approval_status === "PENDING") && <section className="mt-5 space-y-2" aria-label="Attendance awaiting approval"><h3 className="font-bold">Painter submissions awaiting approval</h3>{data.attendance.filter(row => row.approval_status === "PENDING").map(row => <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-sm">{row.date} · {row.status.replaceAll("_", " ")}{row.note ? ` · ${row.note}` : ""}</p><div className="flex gap-2"><button type="button" disabled={saving} onClick={() => reviewAttendance(row, "REJECTED")} className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold">Reject</button><button type="button" disabled={saving} onClick={() => reviewAttendance(row, "APPROVED")} className="min-h-10 rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white">Approve earning</button></div></div>)}</section>}
           {section === "leaves" && <section className="mt-4 rounded-xl border p-3"><h3 className="text-sm font-semibold">Leave records for {month}</h3>{data.attendance.filter(row => row.status === "LEAVE").map(row => <p key={row.id} className="border-b py-3 text-sm">{row.date} · {row.note || "Leave"}</p>)}{!data.attendance.some(row => row.status === "LEAVE") && <p className="mt-2 text-xs text-slate-500">No leave recorded for this month. Select Leave and choose the days above to record leave.</p>}</section>}
         </div>
-      </details>
-      <EmployeeWages data={data} onSaved={load} />
-      {canManage && <BonusForm
+      </details>}
+      {(!section || wagesView) && <EmployeeWages data={data} onSaved={load} month={month} setMonth={setMonth} />}
+      {canManage && (!section || section === "bonus") && <BonusForm
         saving={saving}
         value={bonus}
         setValue={setBonus}
@@ -233,7 +279,7 @@ export default function InHouseEmployeeDetail() {
         month={month}
         setMonth={setMonth}
       />}
-      <Attendance
+      {(!section || attendanceView) && <Attendance
         rows={data.attendance}
         month={month}
         onSelect={canManage && data.is_active !== false ? (row) => {
@@ -244,62 +290,77 @@ export default function InHouseEmployeeDetail() {
             status: row.status,
             overtime_hours: String(row.overtime_hours || 0),
             note: row.note || "",
+                    expected_marked_at: row.marked_at || "",
           });
           attendanceRef.current?.scrollIntoView({ block: "start" });
         } : undefined}
-      />
+      />}
     </div>
   );
 }
-function Profile({ data }) {
+function Profile({ data, activationAction }) {
+  const initials = String(data.name || "Employee").split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+  const money = `₹${Number(data.salary_amount || 0).toLocaleString("en-IN")}`;
   return (
-    <details open className="group overflow-hidden rounded-2xl border bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-bold hover:bg-slate-50">
-        <span>Employee details</span>
-        <span className="text-xl text-slate-400 transition-transform group-open:rotate-180">
-          ⌄
-        </span>
-      </summary>
-      {data.profile_photo && <img src={data.profile_photo} alt={data.name} className="m-5 h-20 w-20 rounded-xl object-cover" style={profileImageStyle(data.profile_photo_position)} />}
-      <div className="employee-profile-fields grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ["Employee ID", data.employee_code],
-          ["Bharath ID", data.bharath_id],
-          ["Mobile", data.mobile],
-          ["Email", data.email],
-          ["Joining date", data.joined_on],
-          ["Employee status", data.is_active === false ? "Removed" : "Active"],
-          ["Date of birth", data.date_of_birth],
-          ["Blood group", data.blood_group],
-          ["Experience", `${data.experience_years} years`],
-          ["Skills", data.skills],
-          ["Preferred locations", data.preferred_locations],
-          ["Willing to travel", data.willing_to_travel ? "Yes" : "No"],
-          ["Availability", data.availability],
-          ["Verification", data.is_verified ? "Verified" : "Not verified"],
-          ["Salary type", data.salary_basis],
-          [
-            "Salary / wage",
-            `₹${Number(data.salary_amount || 0).toLocaleString("en-IN")}`,
-          ],
-          [
-            "ESI / PF",
-            `${data.esi_applicable ? "ESI Yes" : "ESI No"} · ${data.pf_applicable ? "PF Yes" : "PF No"}`,
-          ],
-        ].map(([a, b]) => (
-          <div key={a} className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">{a}</p>
-            <p className="mt-1 font-bold">{b || "—"}</p>
-          </div>
-        ))}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="employee-profile-heading">
+      <div className="flex flex-wrap items-center gap-4 border-b border-slate-200 bg-slate-50/80 p-5 sm:p-7">
+        {data.profile_photo ? <img src={data.profile_photo} alt={`${data.name} profile`} className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white" style={profileImageStyle(data.profile_photo_position)} /> : <div aria-hidden="true" className="grid h-20 w-20 place-items-center rounded-2xl bg-blue-100 text-2xl font-bold text-blue-800 ring-4 ring-white">{initials}</div>}
+        <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Employee profile</p><h2 id="employee-profile-heading" className="mt-1 text-2xl font-bold text-slate-950 bp-ui-section-heading">{data.name}</h2><p className="mt-1 text-sm text-slate-600">{[data.trade, data.job_title].filter(Boolean).join(" · ") || "Work details not added"}</p></div>
+        <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${data.is_active === false ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{data.is_active === false ? "Removed" : "Active employee"}</span><EmployeeRegistrationBadge employee={data} /><span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">ID · {data.employee_code || "Not assigned"}</span></div>
       </div>
-    </details>
+      <div className="grid gap-x-10 gap-y-8 p-5 sm:grid-cols-2 sm:p-7">
+        <ProfileGroup title="Work details">
+          <ProfileValue label="Trade" value={data.trade} />
+          <ProfileValue label="Job title" value={data.job_title} />
+          <ProfileValue label="Employee ID" value={data.employee_code} />
+          <ProfileValue label="Bharath ID" value={data.bharath_id} />
+          <ProfileValue label="Date of joining" value={data.joined_on} />
+        </ProfileGroup>
+        <ProfileGroup title="Contact information">
+          <ProfileValue label="Mobile number" value={data.mobile} href={data.mobile ? `tel:${data.mobile}` : undefined} />
+          <ProfileValue label="Emergency contact" value={data.emergency_contact_number} href={data.emergency_contact_number ? `tel:${data.emergency_contact_number}` : undefined} />
+          <ProfileValue label="Email" value={data.email} href={data.email ? `mailto:${data.email}` : undefined} />
+        </ProfileGroup>
+        <ProfileGroup title="Personal details">
+          <ProfileValue label="Date of birth" value={data.date_of_birth} />
+          <ProfileValue label="Blood group" value={data.blood_group} />
+        </ProfileGroup>
+        <ProfileGroup title="Skills and availability">
+          <ProfileValue label="Experience" value={`${data.experience_years || 0} years`} />
+          <ProfileValue label="Skills" value={data.skills} />
+          <ProfileValue label="Preferred locations" value={data.preferred_locations} />
+          <ProfileValue label="Willing to travel" value={data.willing_to_travel ? "Yes" : "No"} />
+          <ProfileValue label="Availability" value={String(data.availability || "Not set").replaceAll("_", " ")} />
+        </ProfileGroup>
+        <ProfileGroup title="Compensation and statutory details">
+          <ProfileValue label="Salary / wage" value={money} />
+          <ProfileValue label="Salary type" value={String(data.salary_basis || "Not set").replaceAll("_", " ")} />
+          <ProfileValue label="ESI" value={data.esi_applicable ? "Applicable" : "Not applicable"} />
+          <ProfileValue label="PF" value={data.pf_applicable ? "Applicable" : "Not applicable"} />
+        </ProfileGroup>
+        <ProfileGroup title="Account status">
+          <ProfileValue label="App registration" value={employeeRegistration(data)?.label || 'Unavailable'} />
+          <ProfileValue label="Account access" value={data.account_is_active === true ? 'Active' : data.account_is_active === false ? 'Disabled' : 'Unavailable'} />
+          <ProfileValue label="Identity verification" value={data.is_verified ? "Verified" : "Not verified"} />
+          <ProfileValue label="Employment status" value={data.is_active === false ? "Removed from active workforce" : "Active"} />
+          {activationAction && <ProfileValue label="Activation link" value={activationAction} />}
+        </ProfileGroup>
+        {data.custom_field_definitions?.filter(field => data.custom_fields?.[String(field.id)] !== undefined).length > 0 && <ProfileGroup title="Additional employee details">
+          {data.custom_field_definitions.filter(field => data.custom_fields?.[String(field.id)] !== undefined).map(field => <ProfileValue key={field.id} label={field.label} value={String(data.custom_fields[String(field.id)])} />)}
+        </ProfileGroup>}
+      </div>
+    </section>
   );
 }
+function ProfileGroup({title,children}){return <section className="min-w-0"><h3 className="border-b border-slate-200 pb-2 text-sm font-bold text-slate-900">{title}</h3><dl className="mt-3 grid gap-3">{children}</dl></section>}
+function ProfileValue({label,value,href}){return <div className="grid gap-1 sm:grid-cols-[minmax(8rem,0.75fr)_minmax(0,1.25fr)] sm:items-start"><dt className="text-xs font-medium text-slate-500">{label}</dt><dd className="min-w-0 break-words text-sm font-semibold text-slate-900">{value ? href ? <a className="text-blue-800 underline-offset-2 hover:underline" href={href}>{value}</a> : value : <span className="font-normal text-slate-400">Not provided</span>}</dd></div>}
 function Edit({ data, onSave, saving }) {
   const [form, setForm] = useState({
     name: data.name,
     employee_code: data.employee_code,
+    trade: data.trade || "",
+    job_title: data.job_title || "",
+    emergency_contact_number: data.emergency_contact_number || "",
     date_of_birth: data.date_of_birth || "",
     blood_group: data.blood_group || "",
     joined_on: data.joined_on || "",
@@ -310,6 +371,8 @@ function Edit({ data, onSave, saving }) {
     esi_applicable: data.esi_applicable,
     pf_applicable: data.pf_applicable,
     is_active: data.is_active,
+    custom_fields: { ...(data.custom_fields || {}) },
+    effective_from: today,
   });
   const bind = (n) => ({
     value: form[n],
@@ -327,6 +390,9 @@ function Edit({ data, onSave, saving }) {
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active !== false} onChange={event => setForm({ ...form, is_active: event.target.checked })} />Active employee</label>
         {[
           "name",
+          "trade",
+          "job_title",
+          "emergency_contact_number",
           "date_of_birth",
           "blood_group",
           "joined_on",
@@ -343,6 +409,8 @@ function Edit({ data, onSave, saving }) {
           </label>
         ))}
         <label className="text-sm font-semibold">Salary basis<select {...bind("salary_basis")} className="mt-2 block min-h-11 w-full rounded-xl border px-3 bp-ui-control"><option value="MONTHLY">Monthly</option><option value="WEEKLY">Weekly</option><option value="DAILY">Daily</option></select></label>
+        <label className="text-sm font-semibold">Salary effective from<input type="date" max={today} {...bind("effective_from")} className="mt-2 block min-h-11 w-full rounded-xl border px-3 bp-ui-control" /></label>
+        {data.custom_field_definitions?.filter(field=>field.is_active).map(field => <label key={field.id} className="text-sm font-semibold">{field.label}{field.required?" *":""}{field.field_type==="CHOICE"?<select required={field.required} value={form.custom_fields[String(field.id)]??""} onChange={event=>setForm({...form,custom_fields:{...form.custom_fields,[String(field.id)]:event.target.value}})} className="mt-2 block min-h-11 w-full rounded-xl border px-3 bp-ui-control"><option value="">Select</option>{field.options.map(option=><option key={option}>{option}</option>)}</select>:field.field_type==="BOOLEAN"?<select required={field.required} value={form.custom_fields[String(field.id)]==null?"":String(form.custom_fields[String(field.id)])} onChange={event=>setForm({...form,custom_fields:{...form.custom_fields,[String(field.id)]:event.target.value==="true"}})} className="mt-2 block min-h-11 w-full rounded-xl border px-3 bp-ui-control"><option value="">Select</option><option value="true">Yes</option><option value="false">No</option></select>:<input required={field.required} type={{TEXT:"text",NUMBER:"number",DATE:"date"}[field.field_type]||"text"} value={form.custom_fields[String(field.id)]??""} onChange={event=>setForm({...form,custom_fields:{...form.custom_fields,[String(field.id)]:event.target.value}})} className="mt-2 block min-h-11 w-full rounded-xl border px-3 bp-ui-control"/>}</label>)}
         <label>
           <input
             type="checkbox"
@@ -369,6 +437,11 @@ function Edit({ data, onSave, saving }) {
       </button>
     </form>
   );
+}
+
+function ChangeHistory({ history }) {
+  const profile = history.profile_changes || [], salary = history.salary_changes || [];
+  return <section className="rounded-2xl border bg-white p-5 sm:p-6" aria-labelledby="employee-history-heading"><h2 id="employee-history-heading" className="text-xl font-bold bp-ui-section-heading">Profile and salary history</h2>{!profile.length&&!salary.length?<p className="mt-3 text-sm text-slate-500">No changes have been recorded since history tracking began.</p>:<ol className="mt-4 space-y-3">{salary.map(row=><li key={`salary-${row.id}`} className="rounded-xl border p-4"><p className="font-semibold">Salary changed from {row.previous_salary_amount??"—"} ({row.previous_salary_basis}) to {row.salary_amount??"—"} ({row.salary_basis})</p><p className="mt-1 text-sm text-slate-500">Effective {row.effective_from} · recorded {new Date(row.recorded_at).toLocaleString()} by {row.changed_by}</p></li>)}{profile.map(row=><li key={`profile-${row.id}`} className="rounded-xl border p-4"><p className="text-sm font-semibold">{row.changes.map(change=>`${change.label}: ${change.old_value??"—"} → ${change.new_value??"—"}`).join("; ")}</p><p className="mt-1 text-sm text-slate-500">Recorded {new Date(row.recorded_at).toLocaleString()} by {row.changed_by}</p></li>)}</ol>}</section>;
 }
 
 function BonusForm({ value, setValue, onSubmit, bonuses, month, setMonth, saving }) {

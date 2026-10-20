@@ -1,9 +1,10 @@
 import useMobileView from "../hooks/useMobileView.js";
 import { recentFirst } from "../utils/workspaceLists.js";
 import "./mobile-workspace.css";
+import "./tasks.css";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, Check, ChevronDown, Pencil, Phone, Plus, Search } from "lucide-react";
+import { CalendarClock, Check, Pencil, Phone, Plus, Search } from "lucide-react";
 import api from "../api/client";
 import MobilePageBack from "../components/MobilePageBack";
 import ContractorDialog from "../components/ContractorDialog";
@@ -64,6 +65,10 @@ export default function Tasks() {
     });
     return result;
   }, [tasks, mobile]);
+
+  const mobileTasks = taskView === "ALL"
+    ? recentFirst(tasks, ["created_at", "follow_up_date", "next_follow_up"])
+    : groups[taskView];
 
   async function complete(task) {
     setCompleting(task.id);
@@ -155,14 +160,11 @@ export default function Tasks() {
       <section className="mobile-task-summary mobile-square-summary md:hidden" aria-label="Task status filters">
         {[['ALL','All tasks',tasks.length,'slate'],['overdue','Overdue',groups.overdue.length,'red'],['today','Due today',groups.today.length,'amber'],['upcoming','Upcoming',groups.upcoming.length,'blue']].map(([key,label,count,tone]) => <button key={key} type="button" className={(`mobile-square-stat tone-${tone}`) + " bp-ui-action"} aria-pressed={taskView === key} onClick={() => setTaskView(key)}><span>{label}</span><strong>{count}</strong></button>)}
       </section>
-      {!loading && <section className="mobile-task-list md:hidden" aria-label="Follow-up tasks">
-        {(taskView === 'ALL' ? recentFirst(tasks,["created_at","follow_up_date","next_follow_up"]) : groups[taskView]).map(task => <article className="mobile-task-card" key={task.id}>
-          <div className="mobile-task-top"><Link to={`/customers/${task.customer}`}>{task.customer_name}</Link><span>{task.follow_up_type.replaceAll('_',' ')}</span></div>
-          <time dateTime={task.next_follow_up}>{new Date(task.next_follow_up).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time>
-          <p>{task.comment || 'No task note'}</p>
-          <div className="mobile-task-actions"><a href={`tel:${task.customer_mobile}`} aria-label={`Call ${task.customer_name}`}><Phone size={15} />{task.customer_mobile || "Call"}</a><button className="bp-ui-action" type="button" onClick={() => startEditing(task)}><Pencil size={15} />Reschedule</button><button className="bp-ui-action" type="button" disabled={completing === task.id} onClick={() => complete(task)}><Check size={15} />{completing === task.id ? 'Saving...' : 'Complete'}</button></div>
-        </article>)}
-        {(taskView === 'ALL' ? tasks : groups[taskView]).length === 0 && <p className="mobile-list-empty">No follow-up tasks in this view.</p>}
+      {!loading && <section className="follow-up-mobile-results md:hidden" aria-label="Follow-up tasks">
+        <div className="follow-up-card-grid">
+          {mobileTasks.map((task) => <FollowUpCard key={task.id} task={task} dueGroup={taskDueGroup(task)} completing={completing} onComplete={complete} onEdit={startEditing} />)}
+        </div>
+        {mobileTasks.length === 0 && <p className="mobile-list-empty">No follow-up tasks in this view.</p>}
       </section>}
       <div className="hidden gap-4 md:grid md:grid-cols-3">
         <CountCard label="Overdue" value={groups.overdue.length} tone="red" />
@@ -172,9 +174,9 @@ export default function Tasks() {
 
       {loading ? <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">Loading tasks...</p> : (
         <div className="hidden space-y-5 md:block">
-          <TaskGroup title="Overdue" tasks={groups.overdue} completing={completing} onComplete={complete} onEdit={startEditing} empty="No overdue follow-ups." />
-          <TaskGroup title="Today" tasks={groups.today} completing={completing} onComplete={complete} onEdit={startEditing} empty="No follow-ups scheduled for today." />
-          <TaskGroup title="Upcoming" tasks={groups.upcoming} completing={completing} onComplete={complete} onEdit={startEditing} empty="No upcoming follow-ups." />
+          <TaskGroup title="Overdue" tone="overdue" tasks={groups.overdue} completing={completing} onComplete={complete} onEdit={startEditing} empty="No overdue follow-ups." />
+          <TaskGroup title="Today" tone="today" tasks={groups.today} completing={completing} onComplete={complete} onEdit={startEditing} empty="No follow-ups scheduled for today." />
+          <TaskGroup title="Upcoming" tone="upcoming" tasks={groups.upcoming} completing={completing} onComplete={complete} onEdit={startEditing} empty="No upcoming follow-ups." />
         </div>
       )}
       {editing && <ContractorDialog title="Reschedule follow-up" icon={CalendarClock} size="md" onClose={() => setEditing(null)} description={<>{editing.customer_name}</>}><form onSubmit={saveSchedule}>
@@ -187,15 +189,57 @@ export default function Tasks() {
   );
 }
 
-function TaskGroup({ title, tasks, completing, onComplete, onEdit, empty }) {
-  const [open, setOpen] = useState(false);
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between px-5 py-4 text-left bp-ui-action">
-      <span className="font-bold text-slate-900">{title}</span>
-      <span className="flex items-center gap-3"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold">{tasks.length}</span><ChevronDown className={`h-5 w-5 transition ${open ? "rotate-180" : ""}`} /></span>
-    </button>
-    {open && (tasks.length ? <div className="overflow-x-auto border-t"><table className="w-full min-w-[920px] text-left text-sm bp-ui-table"><thead className="bg-slate-100 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Follow-up</th><th className="px-4 py-3">Date and time</th><th className="px-4 py-3">Mobile</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y">{tasks.map((task) => <tr key={task.id} className="odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/60"><td className="px-4 py-4"><Link to={`/customers/${task.customer}`} className="font-semibold text-slate-900 hover:text-amber-700">{task.customer_name}</Link></td><td className="px-4 py-4 text-slate-600">{task.comment || task.follow_up_type.replaceAll("_", " ")}</td><td data-sort-value={task.next_follow_up} className="px-4 py-4 whitespace-nowrap">{new Date(task.next_follow_up).toLocaleString()}</td><td className="px-4 py-4"><a href={`tel:${task.customer_mobile}`} className="inline-flex items-center gap-1 hover:text-emerald-700"><Phone className="h-3.5 w-3.5" />{task.customer_mobile}</a></td><td className="px-4 py-4"><div className="flex justify-end gap-2"><button onClick={() => onEdit(task)} className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold bp-ui-action"><Pencil className="h-3.5 w-3.5" />Reschedule</button><button disabled={completing === task.id} onClick={() => onComplete(task)} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 bp-ui-action"><Check className="h-3.5 w-3.5" />Complete</button></div></td></tr>)}</tbody></table></div> : <p className="border-t p-7 text-center text-sm text-slate-400">{empty}</p>)}
+function TaskGroup({ title, tone, tasks, completing, onComplete, onEdit, empty }) {
+  return <section className="follow-up-group" aria-label={`${title} follow-ups`}>
+    <header className={`follow-up-group-heading is-${tone}`}>
+      <h2>{title}</h2>
+      <span>{tasks.length}</span>
+    </header>
+    {tasks.length ? <div className="follow-up-card-grid">
+      {tasks.map((task) => <FollowUpCard key={task.id} task={task} dueGroup={tone} completing={completing} onComplete={onComplete} onEdit={onEdit} />)}
+    </div> : <p className="follow-up-empty">{empty}</p>}
   </section>;
+}
+
+function FollowUpCard({ task, dueGroup, completing, onComplete, onEdit }) {
+  const dueLabel = { overdue: "Overdue", today: "Due today", upcoming: "Upcoming" }[dueGroup];
+  const followUpType = task.follow_up_type.replaceAll("_", " ");
+  const fullNote = String(task.comment || "").trim();
+  const hasLongNote = fullNote.length > 55;
+  const notePreview = hasLongNote ? `${fullNote.slice(0, 52).trimEnd()}…` : fullNote || "No task note";
+  const busy = completing === task.id;
+  return <article className={`follow-up-card is-${dueGroup}`}>
+    <div className="follow-up-card-top">
+      <span className="follow-up-type">{followUpType}</span>
+      <span className={`follow-up-due is-${dueGroup}`}>{dueLabel}</span>
+    </div>
+    <Link to={`/customers/${task.customer}`} className="follow-up-customer">{task.customer_name}</Link>
+    <time className="follow-up-date" dateTime={task.next_follow_up}>
+      {new Date(task.next_follow_up).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+    </time>
+    <p className={`follow-up-note${hasLongNote ? " is-preview" : ""}`}>{notePreview}</p>
+    {hasLongNote && <details className="follow-up-full-note">
+      <summary>Read full note</summary>
+      <p>{fullNote}</p>
+    </details>}
+    <div className="follow-up-card-actions" aria-label={`Actions for ${task.customer_name}`}>
+      <a className="follow-up-icon-action" href={task.customer_mobile ? `tel:${task.customer_mobile}` : undefined} aria-label={task.customer_mobile ? `Call ${task.customer_name}` : `No phone number for ${task.customer_name}`} aria-disabled={!task.customer_mobile} title="Call customer">
+        <Phone size={17} aria-hidden="true" /><span>Call</span>
+      </a>
+      <button className="follow-up-icon-action bp-ui-action" type="button" onClick={() => onEdit(task)} aria-label={`Reschedule ${task.customer_name}`} title="Reschedule follow-up">
+        <Pencil size={17} aria-hidden="true" /><span>Move</span>
+      </button>
+      <button className="follow-up-icon-action is-complete bp-ui-action" type="button" disabled={busy} onClick={() => onComplete(task)} aria-label={`Complete follow-up for ${task.customer_name}`} title="Complete follow-up">
+        <Check size={17} aria-hidden="true" /><span>{busy ? "Saving" : "Done"}</span>
+      </button>
+    </div>
+  </article>;
+}
+
+function taskDueGroup(task) {
+  const key = dayKey(new Date(task.next_follow_up));
+  const today = dayKey(new Date());
+  return key < today ? "overdue" : key === today ? "today" : "upcoming";
 }
 
 function CountCard({ label, value, tone }) {

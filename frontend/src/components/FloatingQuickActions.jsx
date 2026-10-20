@@ -6,8 +6,9 @@ import { visibleNavigation } from "../config/navigation";
 import { menuRouteEnabled } from "../utils/menuVisibility";
 import "./floating-quick-actions.css";
 
-export default function FloatingQuickActions({ employmentStatus }) {
+export default function FloatingQuickActions({ employmentStatus, pathname = "" }) {
   const { user, menuVisibility } = useAuth();
+  const quotationRoute = /^\/quotations\/(?:new(?:-|\/|$)|\d+\/edit$)/.test(pathname);
   const [open, setOpen] = useState(false);
   const root = useRef(null);
   const toggle = useRef(null);
@@ -28,7 +29,7 @@ export default function FloatingQuickActions({ employmentStatus }) {
     return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", dismiss); };
   }, [open]);
   if (!items.length) return null;
-  return <div ref={root} className="bp-floating-actions">
+  return <div ref={root} className={`bp-floating-actions ${quotationRoute ? "bp-floating-actions-quotation" : ""}`}>
     {open && <nav id={id} aria-label="Floating quick actions" className="bp-floating-actions-list">
       {items.map(([label,path,Icon]) => <Link key={path} to={path} onClick={() => setOpen(false)} aria-label={label} title={label}><span className="bp-floating-action-label">{label}</span><span className="bp-floating-action-icon"><Icon size={17} aria-hidden="true" /></span></Link>)}
     </nav>}

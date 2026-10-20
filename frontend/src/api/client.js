@@ -1,5 +1,6 @@
 import axios from "axios";
 import { installTransientReadRecovery } from "./transientReadRecovery.js";
+import { persistRefreshedSession } from "./refreshedSession.js";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
@@ -57,8 +58,8 @@ api.interceptors.response.use(
           `${api.defaults.baseURL}/accounts/token/refresh/`,
           { refresh },
         );
-        localStorage.setItem("bharath_access", data.access);
-        request.headers.Authorization = `Bearer ${data.access}`;
+        const access = persistRefreshedSession(localStorage, data);
+        request.headers.Authorization = `Bearer ${access}`;
         return api(request);
       } catch {
         localStorage.removeItem("bharath_access");

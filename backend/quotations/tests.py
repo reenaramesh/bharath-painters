@@ -7,8 +7,9 @@ from decimal import Decimal
 
 from accounts.models import BharathUser, ContractorProfile
 from accounts.legal import POLICY_VERSION
-from .models import Area, ChatConversation, ChatMessage, Customer, CustomerFollowUp, MeasurementOpening, MeasurementSurface, PaintBrand, PaintType, PortalNotification, Property, PropertyMeasurement, PropertyRoom, Quotation, QuotationItem, QuotationRoom, ServiceCategory, ServiceRequest, ServiceType, SupportTicket, Unit, WorkChange
+from .models import Area, ChatConversation, ChatMessage, Customer, CustomerFollowUp, MeasurementOpening, MeasurementSurface, PaintBrand, PaintType, PortalNotification, Property, PropertyMeasurement, PropertyRoom, ProjectScope, Quotation, QuotationItem, QuotationRoom, ServiceCategory, ServiceRequest, ServiceType, SupportTicket, Unit, WorkChange
 from .serializers import QuotationItemSerializer, QuotationSerializer
+from .models import ContractorCustomerConnection
 from .work_changes import current_scope, work_change_summary
 
 
@@ -55,6 +56,9 @@ class WorkChangeWorkflowTests(APITestCase):
         self.assertEqual({row["material"]: Decimal(str(row["quantity"])) for row in scope}, {"Tractor Emulsion": Decimal("100"), "Premium Emulsion": Decimal("300")})
         self.item.refresh_from_db()
         self.assertEqual(self.item.quantity, Decimal("400"))
+        effective_scopes = {scope.source_key: scope for scope in ProjectScope.objects.filter(quotation=self.quotation)}
+        self.assertEqual(effective_scopes[f"quotation-{self.item.id}"].quantity, Decimal("100.00"))
+        self.assertEqual(effective_scopes[f"change-{self.quotation.work_changes.get().lines.get().id}"].quantity, Decimal("300.00"))
         summary = work_change_summary(self.quotation)
         self.assertEqual(summary["net_work_changes"], Decimal("3000"))
         self.assertEqual(summary["revised_contract_value"], Decimal("7000"))
@@ -215,7 +219,9 @@ class CustomerApiTests(APITestCase):
         self.client.force_authenticate(self.contractor)
         removed = self.client.delete(reverse("chat-message-detail", kwargs={"pk": message_id}))
         self.assertEqual(removed.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(ChatMessage.objects.filter(pk=message_id).exists())
+        self.assertIsNotNone(ChatMessage.objects.get(pk=message_id).deleted_at)
+        visible = self.client.get(reverse("chat-messages", kwargs={"pk": opened.data["id"]}))
+        self.assertTrue(all(item.get("text") != "Updated customer message." for item in visible.data))
 
     def test_unsafe_chat_is_blocked_and_admin_is_notified(self):
         admin = BharathUser.objects.create_user(
@@ -287,7 +293,13 @@ class CustomerApiTests(APITestCase):
         )
         self.assertEqual(sent.status_code, status.HTTP_201_CREATED, sent.data)
 
+        self.client.force_authenticate(painter)
+        painter_search = self.client.get(reverse("chat-conversations"), {"search": "confirm your availability"})
+        self.assertEqual([row["id"] for row in painter_search.data], [opened.data["id"]])
+
         self.client.force_authenticate(self.other_contractor)
+        unauthorized_search = self.client.get(reverse("chat-conversations"), {"search": "confirm your availability"})
+        self.assertEqual(unauthorized_search.data, [])
         unauthorized = self.client.post(
             reverse("chat-conversations"), {"painter": painter.id}, format="json",
         )
@@ -469,7 +481,7 @@ class CustomerApiTests(APITestCase):
         self.assertTrue(
             Customer.objects.filter(
                 contractor=self.contractor,
-                mobile="9444444444",
+                normalized_mobile="+919444444444",
                 email="new@example.com",
             ).exists()
         )
@@ -491,8 +503,22 @@ class CustomerApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["created"], 1)
-        customer = Customer.objects.get(mobile="9555555555")
+        customer = Customer.objects.get(normalized_mobile="+919555555555")
         self.assertEqual(customer.source, Customer.Source.PHONE)
+
+    def provision_activated_customer_fixture(self, customer):
+        # These tests exercise chat/service handoffs. Public signup may not
+        # claim a preexisting profile merely by knowing its mobile number.
+        from .views import activate_customer_account
+        user, _ = activate_customer_account(customer)
+        user.set_password("customer-pass")
+        user.save(update_fields=("password",))
+        connection = ContractorCustomerConnection.objects.create(
+            customer=customer, contractor=self.contractor,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        )
+        ChatConversation.objects.get_or_create(customer=customer, contractor=self.contractor, defaults={"connection": connection})
+        customer.refresh_from_db()
 
     def test_customer_self_registers_and_exchanges_messages(self):
         customer = Customer.objects.create(
@@ -501,12 +527,7 @@ class CustomerApiTests(APITestCase):
             mobile="9888877777",
             email="chat.customer@example.com",
         )
-        registration = self.client.post(
-            reverse("register-customer"),
-            {"name": "Chat customer", "mobile": "9888877777", "email": "chat.customer@example.com", "password": "customer-pass", "policy_version": POLICY_VERSION, "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True},
-            format="json",
-        )
-        self.assertEqual(registration.status_code, status.HTTP_201_CREATED)
+        self.provision_activated_customer_fixture(customer)
         customer.refresh_from_db()
         self.assertEqual(customer.portal_user.role, BharathUser.Roles.CUSTOMER)
         conversation = ChatConversation.objects.get(customer=customer)
@@ -519,6 +540,8 @@ class CustomerApiTests(APITestCase):
         self.assertEqual(contractor_message.status_code, status.HTTP_201_CREATED)
         search_result = self.client.get(reverse("chat-conversations"), {"search": "988887"})
         self.assertEqual(len(search_result.data), 1)
+        message_search_result = self.client.get(reverse("chat-conversations"), {"search": "site visit is confirmed"})
+        self.assertEqual([row["id"] for row in message_search_result.data], [conversation.id])
         no_match = self.client.get(reverse("chat-conversations"), {"search": "not-a-customer"})
         self.assertEqual(len(no_match.data), 0)
 
@@ -526,6 +549,8 @@ class CustomerApiTests(APITestCase):
         listing = self.client.get(reverse("chat-conversations"))
         self.assertEqual(listing.status_code, status.HTTP_200_OK)
         self.assertEqual(listing.data[0]["customer_name"], "Chat customer")
+        customer_message_search = self.client.get(reverse("chat-conversations"), {"search": "site visit is confirmed"})
+        self.assertEqual([row["id"] for row in customer_message_search.data], [conversation.id])
         messages = self.client.get(reverse("chat-messages", kwargs={"pk": conversation.id}))
         self.assertEqual(messages.data[0]["text"], "Your site visit is confirmed.")
         reply = self.client.post(
@@ -541,12 +566,7 @@ class CustomerApiTests(APITestCase):
             address="Customer work address",
         )
         service = ServiceType.objects.create(name="Interior painting", created_by=self.contractor)
-        registration = self.client.post(
-            reverse("register-customer"),
-            {"name": customer.name, "mobile": customer.mobile, "password": "customer-pass", "policy_version": POLICY_VERSION, "document_scrolled": True, "terms_accepted": True, "privacy_notice_acknowledged": True},
-            format="json",
-        )
-        self.assertEqual(registration.status_code, status.HTTP_201_CREATED)
+        self.provision_activated_customer_fixture(customer)
         customer.refresh_from_db()
         self.client.force_authenticate(customer.portal_user)
         options = self.client.get(reverse("service-request-options"))
@@ -603,6 +623,20 @@ class CustomerApiTests(APITestCase):
 
 
 class PropertyApiTests(APITestCase):
+    def test_offline_surface_update_uses_version_conflicts_and_idempotent_retries(self):
+        property_obj = Property.objects.create(customer=self.customer, contractor=self.owner, name="Offline version site")
+        room = PropertyRoom.objects.create(property=property_obj, name="Bedroom")
+        surface = MeasurementSurface.objects.create(property=property_obj, room=room, work_area="INTERIOR", surface_type="WALL", name="North wall", length=10, breadth=10)
+        original_version = surface.updated_at.isoformat()
+        url = reverse("measurement-surface-detail", kwargs={"pk": surface.pk})
+        payload = {"name": "North wall revised", "length": "12", "breadth": "10", "expected_updated_at": original_version}
+        first = self.client.patch(url, payload, format="json")
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
+        retry = self.client.patch(url, payload, format="json")
+        self.assertEqual(retry.status_code, status.HTTP_200_OK, retry.data)
+        conflict = self.client.patch(url, {**payload, "name": "Different edit"}, format="json")
+        self.assertEqual(conflict.status_code, status.HTTP_409_CONFLICT, conflict.data)
+
 
     def setUp(self):
         self.owner = BharathUser.objects.create_user(
@@ -619,6 +653,8 @@ class PropertyApiTests(APITestCase):
         self.other_customer = Customer.objects.create(
             contractor=self.other, name="Other Customer", mobile="9777777777",
         )
+        ContractorCustomerConnection.objects.create(customer=self.customer, contractor=self.owner, status="CONNECTED")
+        ContractorCustomerConnection.objects.create(customer=self.other_customer, contractor=self.other, status="CONNECTED")
         self.client.force_authenticate(self.owner)
 
     def test_property_create_update_and_delete(self):
@@ -646,6 +682,14 @@ class PropertyApiTests(APITestCase):
             {"customer": self.other_customer.id, "name": "Forbidden"}, format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_room_reference_is_rejected_without_creating_measurements(self):
+        property_obj=Property.objects.create(customer=self.customer,contractor=self.owner,name="Valid site")
+        invalid_refs=["not-a-room",None,True,1.5,"²",10**30]
+        for property_id,room_id in [(property_obj.id,value) for value in invalid_refs]+[(999999,"exterior")]:
+            response=self.client.post(reverse("room-measurement-save",kwargs={"property_id":property_id}),{"room_id":room_id,"walls":[]},format="json")
+            self.assertEqual(response.status_code,400,response.data)
+        self.assertFalse(PropertyMeasurement.objects.filter(property=property_obj).exists())
 
     def test_property_supports_independent_measurement_records(self):
         property_obj = Property.objects.create(customer=self.customer, name="Repeated Measurement Home")
@@ -1226,6 +1270,10 @@ class QuotationApiTests(APITestCase):
         self.property = Property.objects.create(
             customer=self.customer, name="Quotation Home", property_type="2BHK",
         )
+        self.connection = ContractorCustomerConnection.objects.create(
+            contractor=self.contractor, customer=self.customer,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        )
         self.room = PropertyRoom.objects.create(
             property=self.property, name="Living Room", length=10, width=12,
             height=10, door_count=1, door_width=3, door_height=7,
@@ -1385,6 +1433,10 @@ class QuotationApiTests(APITestCase):
         second_customer = Customer.objects.create(
             contractor=self.contractor, name="Second Customer", mobile="9999999999",
         )
+        ContractorCustomerConnection.objects.create(
+            contractor=self.contractor, customer=second_customer,
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        )
         response = self.client.post(
             reverse("quotation-create"),
             {"customer": second_customer.id, "property": self.property.id},
@@ -1474,7 +1526,8 @@ class QuotationApiTests(APITestCase):
             reverse("quotation-detail", kwargs={"pk": quotation.id})
         )
         self.assertEqual(delete.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Quotation.objects.filter(pk=quotation.id).exists())
+        quotation.refresh_from_db()
+        self.assertIsNotNone(quotation.deleted_at)
 
     def test_edit_preserves_existing_and_new_services_for_same_room(self):
         quotation = Quotation.objects.create(

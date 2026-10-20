@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import AdminPackageRequestView, AdminRevenueView, ContractorRevenueView, ContractorProjectReceiptView, ContractorProjectReceiptPdfView, CustomerProjectFinanceView, CustomerProjectReceiptPdfView, AdvertisementListView, BillingDocumentView, BillingNotificationView, ContractorPackageView, MyBillingView, PackageAssignmentView, PackagePaymentView, PlanDetailView, PlanListView
+from .views import AdminPackageRequestView, AdminRevenueView, ContractorRevenueView, ContractorProjectReceiptView, ContractorProjectReceiptPdfView, CustomerProjectFinanceView, CustomerProjectReceiptPdfView, ContractorCustomerProjectFinanceView, AdvertisementListView, BillingDocumentView, BillingNotificationView, ContractorPackageView, MyBillingView, PackageAssignmentView, PackagePaymentView, PlanDetailView, PlanListView
 
 urlpatterns = [
     path("me/", MyBillingView.as_view()),
@@ -17,6 +17,7 @@ urlpatterns = [
     path("contractor-revenue/receipts/", ContractorProjectReceiptView.as_view()),
     path("contractor-revenue/receipts/<int:pk>/pdf/", ContractorProjectReceiptPdfView.as_view()),
     path("customer-finance/", CustomerProjectFinanceView.as_view()),
+    path("customers/<int:customer_id>/project-finance/", ContractorCustomerProjectFinanceView.as_view()),
     path("customer-finance/receipts/<int:pk>/pdf/", CustomerProjectReceiptPdfView.as_view()),
     path("advertisements/", AdvertisementListView.as_view()),
 ]

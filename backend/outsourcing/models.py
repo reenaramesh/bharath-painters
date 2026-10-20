@@ -390,6 +390,8 @@ class WorkOrderCompletion(models.Model):
     evidence = models.JSONField(default=list, blank=True)
     is_current = models.BooleanField(default=True)
     open_correction_count = models.PositiveSmallIntegerField(default=0)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_work_order_completions")
+    approved_at = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -403,6 +405,23 @@ class WorkOrderCompletion(models.Model):
 
     def __str__(self):
         return f"{self.work_order_id} submission {self.submission_number}"
+
+
+class WorkOrderCompletionScope(models.Model):
+    """Reported quantity for one immutable shared scope in a completion submission."""
+
+    completion = models.ForeignKey(WorkOrderCompletion, on_delete=models.CASCADE, related_name="scope_progress")
+    work_order_scope = models.ForeignKey(SubcontractWorkOrderScope, on_delete=models.PROTECT, related_name="completion_progress")
+    reported_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    accepted_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("completion", "work_order_scope"), name="unique_completion_scope_progress"),
+            models.CheckConstraint(condition=models.Q(reported_quantity__gte=0), name="completion_scope_reported_nonnegative"),
+            models.CheckConstraint(condition=models.Q(accepted_quantity__gte=0), name="completion_scope_accepted_nonnegative"),
+            models.CheckConstraint(condition=models.Q(accepted_quantity__lte=models.F("reported_quantity")), name="completion_scope_accepted_lte_reported"),
+        ]
 
 
 class CorrectionRequest(models.Model):
@@ -562,6 +581,7 @@ class SubcontractInvoicePayment(models.Model):
     )
     payment_reference = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=250, blank=True)
+    idempotency_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

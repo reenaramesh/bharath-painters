@@ -1,6 +1,8 @@
 from .views import QuotationDraftSaveView
+from .version_views import QuotationVersionSaveView
 from django.urls import path
 from .push_views import WebPushSubscriptionView
+from .workflow_dashboard import ContractorWorkflowAttentionView
 from .support_views import SupportSearchView, SupportActionView, SupportAuditView
 from .integration_views import AdminGoogleMapsKeyView
 
@@ -127,6 +129,7 @@ from .views import ClientSearchView, SiteVisitListCreateView, SiteVisitDetailVie
 
 
 urlpatterns = [
+    path("<int:pk>/versions/", QuotationVersionSaveView.as_view(), name="quotation-version-save"),
     path("<int:pk>/draft/", QuotationDraftSaveView.as_view(), name="quotation-draft-save"),
     path("push-subscription/", WebPushSubscriptionView.as_view(), name="push-subscription"),
     path("project-scopes/", ProjectScopeViewSet.as_view({"get": "list", "post": "create"}), name="project-scope-list-create"),
@@ -230,6 +233,7 @@ path("master-data/<str:section>/reorder/", MasterDataReorderView.as_view(), name
     path("support-tickets/<int:pk>/", SupportTicketDetailView.as_view(), name="support-ticket-detail"),
     path("customer-portal/dashboard/", CustomerPortalDashboardView.as_view(), name="customer-portal-dashboard"),
     path("contractor-crm/dashboard/", ContractorCrmDashboardView.as_view(), name="contractor-crm-dashboard"),
+    path("contractor-crm/workflow-attention/", ContractorWorkflowAttentionView.as_view(), name="contractor-workflow-attention"),
     path("measurement-access/availability/", MeasurementAccessAvailabilityView.as_view(), name="measurement-access-availability"),
     path("measurement-access/contractors/", MeasurementAccessContractorSearchView.as_view(), name="measurement-access-contractors"),
     path("measurement-access/", MeasurementAccessListCreateView.as_view(), name="measurement-access-list"),

@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import React from 'react';
+import { act,create } from 'react-test-renderer';
+import { transformWithOxc } from 'vite';
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+const dataUrl=source=>`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
+const stubs=dataUrl(`import React from ${JSON.stringify(import.meta.resolve('react'))};
+export const Link=({children,...props})=>React.createElement('a',props,children);
+export const SectionCard=({title,action,children})=>React.createElement('section',null,title,action,children);
+export const Button=({children,variant,...props})=>React.createElement('button',props,children);
+export const formatINRAmount=value=>typeof value==='string' ? value : null;
+export default {get:(...args)=>globalThis.chartGet(...args)};`);
+const url=new URL('./DashboardRevenueChart.jsx',import.meta.url);
+const source=(await readFile(url,'utf8')).replace(/^import ['"][^'"]+\.css['"];$/gm,'');
+const compiled=await transformWithOxc(source,'DashboardRevenueChart.jsx',{jsx:{runtime:'automatic'}});
+const code=compiled.code.replace(/from\s+(['"])([^'"]+)\1/g,(_m,_q,path)=>`from ${JSON.stringify(path==='react-router-dom' || (path.startsWith('.') && !path.endsWith('monthlyCollections.js')) ? stubs : path.startsWith('.') ? new URL(path,url).href : import.meta.resolve(path))}`);
+const Chart=(await import(dataUrl(code))).default;
+const text=node=>typeof node==='string' ? node : (node?.children || []).map(text).join('');
+
+test('chart loads current year real receipts, exposes twelve monthly values and recovers after failure',async()=>{
+  let request;let fail=false;
+  const year=new Date().getFullYear();
+  globalThis.chartGet=async(...args)=>{request=args;if(fail)throw Error('offline');return {data:{total_collected:30,advance_received:20,invoice_payments:10,receipts:[{date:`${year}-02-03`,amount:'30.00'}]}};};
+  let view;await act(async()=>{view=create(React.createElement(Chart,{refreshKey:1}));});
+  assert.deepEqual(request,['/billing/contractor-revenue/',{params:{year}}]);
+  assert.equal(text(view.root.findByProps({className:'dashboard-revenue-total'})),'30');
+  assert.equal(view.root.findAllByProps({role:'listitem'}).length,12);
+  assert.equal(view.root.findByProps({'aria-label':'Feb: ₹30.00'}).props.tabIndex,0);
+  assert.equal(view.root.findByType('a').props.to,'/contractor-revenue?register=collected');
+  fail=true;await act(async()=>view.update(React.createElement(Chart,{refreshKey:2})));
+  assert.match(text(view.root.findByProps({role:'alert'})),/last loaded/);
+  assert.equal(view.root.findAllByProps({role:'listitem'}).length,12);
+  fail=false;await act(async()=>view.root.findByType('button').props.onClick());
+  assert.equal(view.root.findAllByProps({role:'alert'}).length,0);
+  await act(async()=>view.unmount());delete globalThis.chartGet;
+});

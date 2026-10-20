@@ -300,3 +300,23 @@
     animation-iteration-count: 1 !important;
   }
 }
+.bp-work-schedules-page .schedule-summary-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; min-width:0; }
+.bp-work-schedules-page .schedule-summary-head { display:none; }
+.bp-work-schedules-page .schedule-summary-row { padding:18px; align-items:start; }
+.bp-work-schedules-page .schedule-summary-row > :first-child { grid-column:1/-1; }
+.bp-work-schedules-page .schedule-summary-row > * { min-width:0; overflow-wrap:anywhere; }
+.bp-work-schedules-page .schedule-summary-row button.bp-ui-action { min-height:44px; }
+.bp-work-schedules-page .schedule-painters { grid-column:1/-1; }
+.bp-work-schedules-page .schedule-mobile-label { margin-bottom:5px; font-size:12px; font-weight:600; color:#64748b; }
+.bp-work-schedules-page .schedule-details-toggle { justify-self:start; white-space:nowrap; }
+@media(min-width:1100px) {
+  .bp-work-schedules-page .schedule-summary-grid { grid-template-columns:minmax(0,1.5fr) minmax(110px,.85fr) minmax(0,.95fr) minmax(0,1fr) 132px; gap:16px; }
+  .bp-work-schedules-page .schedule-summary-head { display:grid; padding:12px 18px; background:#f8fafc; color:#64748b; font-size:12px; font-weight:600; }
+  .bp-work-schedules-page .schedule-summary-row > :first-child,.bp-work-schedules-page .schedule-painters { grid-column:auto; }
+  .bp-work-schedules-page .schedule-mobile-label { display:none; }
+}
+.bp-work-schedules-page .schedule-list-toolbar > label { min-width:0; }
+@media(max-width:1279px) {
+  .bp-work-schedules-page .schedule-list-toolbar { align-items:stretch; }
+  .bp-work-schedules-page .schedule-list-toolbar > :is(label,select) { width:100%; }
+}

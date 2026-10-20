@@ -151,6 +151,30 @@ class WorkSchedule(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class WorkScheduleAuthorization(models.Model):
+    """Current date authorization; customer acceptance remains on the schedule."""
+    class Mode(models.TextChoices):
+        PORTAL = "PORTAL", "Customer portal approval"
+        CONTRACTOR = "CONTRACTOR", "Contractor-authorized"
+
+    schedule = models.OneToOneField(WorkSchedule, on_delete=models.CASCADE, related_name="date_authorization")
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.PORTAL)
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="authorized_work_schedules")
+    authorized_at = models.DateTimeField(null=True, blank=True)
+
+
+class WorkScheduleRescheduleHistory(models.Model):
+    """Immutable date-change events; legacy previous_* fields remain for old clients."""
+    schedule = models.ForeignKey(WorkSchedule, on_delete=models.PROTECT, related_name="reschedule_history")
+    previous_start_date = models.DateField()
+    previous_end_date = models.DateField()
+    proposed_start_date = models.DateField()
+    proposed_end_date = models.DateField()
+    reason = models.TextField()
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="work_schedule_reschedules")
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+
 class WorkSchedulePainter(models.Model):
     class Status(models.TextChoices):
         ASSIGNED = "ASSIGNED", "Assigned"
@@ -166,6 +190,14 @@ class WorkSchedulePainter(models.Model):
 
     schedule = models.ForeignKey(WorkSchedule, on_delete=models.CASCADE, related_name="painter_assignments")
     painter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scheduled_work")
+    source_application = models.ForeignKey(
+        "JobApplication", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="schedule_assignments",
+    )
+    source_booking = models.ForeignKey(
+        "ApplicatorBooking", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="schedule_assignments",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ASSIGNED)
     wage_type = models.CharField(max_length=20, choices=WageType.choices, default=WageType.DAILY)
     agreed_wage = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -178,6 +210,16 @@ class WorkSchedulePainter(models.Model):
 
     class Meta:
         unique_together = ("schedule", "painter")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("source_application",), condition=models.Q(source_application__isnull=False),
+                name="unique_schedule_assignment_job_application",
+            ),
+            models.UniqueConstraint(
+                fields=("source_booking",), condition=models.Q(source_booking__isnull=False),
+                name="unique_schedule_assignment_booking",
+            ),
+        ]
 
 
 class WorkPhoto(models.Model):
@@ -235,11 +277,20 @@ class ContractorApplicatorTeam(models.Model):
     employment_type = models.CharField(max_length=20, choices=EmploymentType.choices, default=EmploymentType.FLEXIBLE)
     joined_on = models.DateField(null=True, blank=True)
     employee_code = models.CharField(max_length=40, blank=True)
+    trade = models.CharField(max_length=80, blank=True)
+    job_title = models.CharField(max_length=80, blank=True)
+    emergency_contact_number = models.CharField(max_length=32, blank=True)
     is_active = models.BooleanField(default=True)
     date_of_birth = models.DateField(null=True, blank=True)
     blood_group = models.CharField(max_length=5, blank=True)
     salary_basis = models.CharField(max_length=20, choices=SalaryBasis.choices, default=SalaryBasis.DAILY)
     salary_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    hourly_rate = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Explicit hourly rate for overtime. If blank, derived from salary_daily_rate/8."
+    )
+    overtime_day_wage = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    custom_fields = models.JSONField(default=dict, blank=True)
     esi_applicable = models.BooleanField(default=False)
     pf_applicable = models.BooleanField(default=False)
 
@@ -258,7 +309,101 @@ class ContractorApplicatorTeam(models.Model):
         ]
 
 
+class ContractorEmployeeFieldDefinition(models.Model):
+    class FieldType(models.TextChoices):
+        TEXT = "TEXT", "Text"
+        NUMBER = "NUMBER", "Number"
+        DATE = "DATE", "Date"
+        BOOLEAN = "BOOLEAN", "Yes / no"
+        CHOICE = "CHOICE", "Single choice"
+
+    contractor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="employee_field_definitions",
+    )
+    label = models.CharField(max_length=80)
+    field_type = models.CharField(max_length=12, choices=FieldType.choices)
+    options = models.JSONField(default=list, blank=True)
+    required = models.BooleanField(default=False)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+        constraints = [
+            models.UniqueConstraint(fields=("contractor", "label"), name="unique_employee_field_label_per_contractor"),
+        ]
+
+
+class EmployeeProfileChange(models.Model):
+    membership = models.ForeignKey(ContractorApplicatorTeam, on_delete=models.PROTECT, related_name="profile_changes")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="employee_profile_changes")
+    changes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Employee profile history is append-only.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Employee profile history is append-only.")
+
+
+class ApplicatorSalaryRevision(models.Model):
+    membership = models.ForeignKey(ContractorApplicatorTeam, on_delete=models.PROTECT, related_name="salary_revisions")
+    previous_salary_basis = models.CharField(max_length=20, choices=ContractorApplicatorTeam.SalaryBasis.choices)
+    previous_salary_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    salary_basis = models.CharField(max_length=20, choices=ContractorApplicatorTeam.SalaryBasis.choices)
+    salary_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    effective_from = models.DateField()
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="employee_salary_revisions")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("effective_from", "recorded_at", "id")
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("Employee salary history is append-only.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Employee salary history is append-only.")
+
+
+class ApplicatorOvertimeRateRevision(models.Model):
+    membership = models.ForeignKey(ContractorApplicatorTeam, on_delete=models.PROTECT, related_name='overtime_rate_revisions')
+    previous_day_wage = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    day_wage = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    legacy_hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    effective_from = models.DateField()
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='employee_overtime_rate_revisions')
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('effective_from', 'recorded_at', 'id')
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError('Employee overtime rate history is append-only.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError('Employee overtime rate history is append-only.')
+
+
 class ApplicatorAttendance(models.Model):
+    class ApprovalStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending contractor review"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
     class Status(models.TextChoices):
         PRESENT = "PRESENT", "Present"
         ABSENT = "ABSENT", "Absent"
@@ -266,22 +411,52 @@ class ApplicatorAttendance(models.Model):
         LEAVE = "LEAVE", "Leave"
 
     membership = models.ForeignKey(ContractorApplicatorTeam, on_delete=models.CASCADE, related_name="attendance_records")
+    assignment = models.ForeignKey("WorkSchedulePainter", on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_records")
     date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices)
+    approval_status = models.CharField(max_length=16, choices=ApprovalStatus.choices, default=ApprovalStatus.APPROVED)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_reviews")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     schedule = models.ForeignKey("WorkSchedule", on_delete=models.SET_NULL, null=True, blank=True, related_name="applicator_attendance")
     note = models.CharField(max_length=180, blank=True)
     overtime_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    overtime_hourly_rate_snapshot = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
     marked_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("-date",)
-        constraints = [models.UniqueConstraint(fields=("membership", "date"), name="unique_inhouse_attendance_day")]
+        constraints = [
+            models.UniqueConstraint(fields=("membership", "date"), name="unique_inhouse_attendance_day"),
+            models.UniqueConstraint(fields=("assignment", "date"), condition=models.Q(assignment__isnull=False), name="unique_assignment_attendance_day"),
+        ]
+
+
+class ApplicatorAttendanceDecision(models.Model):
+    """Append-only contractor approval and correction history for attendance."""
+
+    attendance = models.ForeignKey(ApplicatorAttendance, on_delete=models.PROTECT, related_name="decisions")
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="attendance_decisions_made")
+    decision = models.CharField(max_length=20)
+    previous_status = models.CharField(max_length=20, blank=True)
+    status = models.CharField(max_length=20)
+    previous_approval_status = models.CharField(max_length=16, blank=True)
+    approval_status = models.CharField(max_length=16)
+    previous_schedule_id = models.PositiveIntegerField(null=True, blank=True)
+    schedule_id = models.PositiveIntegerField(null=True, blank=True)
+    previous_assignment_id = models.PositiveIntegerField(null=True, blank=True)
+    assignment_id = models.PositiveIntegerField(null=True, blank=True)
+    note = models.CharField(max_length=180, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at", "id")
 
 
 class ApplicatorLedgerEntry(models.Model):
     class EntryType(models.TextChoices):
         EARNING = "EARNING", "Earning"
         BONUS = "BONUS", "Bonus"
+        OVERTIME = "OVERTIME", "Overtime Pay"
         PAYMENT = "PAYMENT", "Payment"
         ADVANCE = "ADVANCE", "Advance"
         DEBIT_ADJUSTMENT = "DEBIT_ADJUSTMENT", "Add to balance"
@@ -295,6 +470,19 @@ class ApplicatorLedgerEntry(models.Model):
     reference = models.CharField(max_length=100, blank=True)
     note = models.CharField(max_length=255, blank=True)
     schedule = models.ForeignKey("WorkSchedule", on_delete=models.SET_NULL, null=True, blank=True, related_name="applicator_ledger_entries")
+    assignment = models.ForeignKey("WorkSchedulePainter", on_delete=models.SET_NULL, null=True, blank=True, related_name="ledger_entries")
+    source_attendance = models.OneToOneField(
+        ApplicatorAttendance, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="earning_posting",
+    )
+    source_overtime_attendance = models.OneToOneField(
+        ApplicatorAttendance, on_delete=models.PROTECT, null=True, blank=True, related_name='overtime_posting',
+    )
+    attendance_component = models.CharField(max_length=8, choices=(('BASE', 'Base'), ('OVERTIME', 'Overtime')), default='BASE')
+    source_attendance_adjustment = models.ForeignKey(
+        ApplicatorAttendance, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="earning_adjustments",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,4 +1,6 @@
 from django.urls import path
+from .overtime import InHouseOvertimeSettingsView
+from .employee_accounts import EmployeeActivationLinkView, RegisteredEmployeeSearchView
 
 from .views import (
     JobCreateView, JobActivityView,
@@ -6,20 +8,25 @@ from .views import (
     JobApplyView,ContractorApplicationListView, AcceptJobApplicationView, RejectJobApplicationView,
     JobApplicationCancellationView, JobApplicationReassignView, JobApplicationRatingView, JobTransferResponseView,
     WorkScheduleListCreateView, WorkScheduleAcceptView, WorkSchedulePainterView, WorkSchedulePaymentView, WorkScheduleAdvanceReceiptView, WorkScheduleCancelView, WorkScheduleProgressView,
+    HiringOutcomeScheduleAssignmentView,
     PainterSeekingListCreateView, PainterSeekingDetailView,
     PainterAssignmentListView, PainterAssignmentProgressView, PainterDashboardView,
     ContractorApplicatorTeamView, ContractorApplicatorTeamDetailView,
     ContractorApplicatorCreateView, ApplicatorProfileView, ApplicatorAvailabilityView,
+    InHouseEmployeeActivationView,
     ApplicatorBookingListCreateView, ApplicatorBookingSearchView, ApplicatorBookingActionView,
     ApplicatorAvailabilityBlockView, ApplicatorAvailabilityBlockDetailView,
-    InHouseApplicatorListView, InHouseApplicatorDetailView, InHouseAttendanceView, InHouseLedgerView,
+    InHouseApplicatorListView, InHouseApplicatorDetailView, InHouseAttendanceView, InHouseAttendanceReviewView, InHouseLedgerView,
+    ContractorEmployeeFieldDefinitionView, InHouseEmployeeHistoryView,
     MyInHouseEmploymentView,
     MyInHouseEarningsView,
+    MonthlyWageRegisterView,
     WorkReviewListCreateView,
     WorkPhotoListCreateView, WorkPhotoDetailView, OperationsReportView,
 )
 
 urlpatterns = [
+    path("my-team/employee-activation/<str:token>/", InHouseEmployeeActivationView.as_view(), name="in-house-employee-activation"),
     path("activity/", JobActivityView.as_view(), name="job-activity"),
     path("seeking/", PainterSeekingListCreateView.as_view(), name="painter-seeking-list"),
     path("seeking/<int:pk>/", PainterSeekingDetailView.as_view(), name="painter-seeking-detail"),
@@ -30,11 +37,19 @@ urlpatterns = [
     path("my-team/<int:pk>/", ContractorApplicatorTeamDetailView.as_view(), name="contractor-applicator-team-detail"),
     path("my-team/create-applicator/", ContractorApplicatorCreateView.as_view(), name="contractor-create-applicator"),
     path("in-house-applicators/", InHouseApplicatorListView.as_view(), name="in-house-applicator-list"),
+    path("in-house-applicators/registered-search/", RegisteredEmployeeSearchView.as_view(), name="in-house-employee-registered-search"),
+    path("in-house-applicators/<int:pk>/activation-link/", EmployeeActivationLinkView.as_view(), name="in-house-employee-activation-link"),
+    path("in-house-employee-fields/", ContractorEmployeeFieldDefinitionView.as_view(), name="in-house-employee-field-list-create"),
+    path("in-house-employee-fields/<int:pk>/", ContractorEmployeeFieldDefinitionView.as_view(), name="in-house-employee-field-detail"),
     path("in-house-applicators/<int:pk>/", InHouseApplicatorDetailView.as_view(), name="in-house-applicator-detail"),
+    path("in-house-applicators/<int:pk>/history/", InHouseEmployeeHistoryView.as_view(), name="in-house-applicator-history"),
+    path("in-house-applicators/<int:pk>/overtime-settings/", InHouseOvertimeSettingsView.as_view(), name="in-house-overtime-settings"),
     path("in-house-applicators/<int:pk>/attendance/", InHouseAttendanceView.as_view(), name="in-house-attendance"),
+    path("in-house-applicators/<int:pk>/attendance/<int:attendance_id>/review/", InHouseAttendanceReviewView.as_view(), name="in-house-attendance-review"),
     path("in-house-applicators/<int:pk>/ledger/", InHouseLedgerView.as_view(), name="in-house-ledger"),
     path("my-in-house-employment/", MyInHouseEmploymentView.as_view(), name="my-in-house-employment"),
-    path("my-in-house-earnings/", MyInHouseEarningsView.as_view(), name="my-in-house-earnings"),
+path("my-in-house-earnings/", MyInHouseEarningsView.as_view(), name="my-in-house-earnings"),
+    path("wage-register/", MonthlyWageRegisterView.as_view(), name="monthly-wage-register"),
     path("work-reviews/", WorkReviewListCreateView.as_view(), name="work-review-list-create"),
     path("work-photos/", WorkPhotoListCreateView.as_view(), name="work-photo-list-create"),
     path("work-photos/<int:pk>/", WorkPhotoDetailView.as_view(), name="work-photo-detail"),
@@ -49,6 +64,7 @@ urlpatterns = [
     path("work-schedules/", WorkScheduleListCreateView.as_view(), name="work-schedule-list"),
     path("work-schedules/<int:pk>/accept/", WorkScheduleAcceptView.as_view(), name="work-schedule-accept"),
     path("work-schedules/<int:pk>/painters/", WorkSchedulePainterView.as_view(), name="work-schedule-painters"),
+    path("hiring-outcomes/<str:source_type>/<int:source_id>/assign/", HiringOutcomeScheduleAssignmentView.as_view(), name="hiring-outcome-schedule-assignment"),
     path("work-schedules/<int:pk>/payment/", WorkSchedulePaymentView.as_view(), name="work-schedule-payment"),
     path("work-schedules/<int:pk>/advance-receipt/", WorkScheduleAdvanceReceiptView.as_view(), name="work-schedule-advance-receipt"),
     path("work-schedules/<int:pk>/cancel/", WorkScheduleCancelView.as_view(), name="work-schedule-cancel"),

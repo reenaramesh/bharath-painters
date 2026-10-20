@@ -1,0 +1,24 @@
+.painter-contacts-page { --painter-accent: #1d4ed8; --painter-ink: #172033; color: var(--painter-ink); }
+.painter-contact-surface { border: 1px solid #cbd5e1; border-radius: 16px; background: white; padding: 20px; }
+.painter-contact-surface h2 { margin-bottom: 20px; font-size: 20px; font-weight: 700; }
+.painter-contact-primary, .painter-contact-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; text-align: center; }
+.painter-contact-primary { background: var(--painter-accent); color: white; }
+.painter-contact-secondary { border: 1px solid #94a3b8; background: white; color: var(--painter-ink); }
+.painter-contacts-page button:disabled { opacity: .6; cursor: wait; }
+.painter-contacts-page :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.painter-contact-surface form { max-width: 560px; }
+.painter-contact-surface fieldset { min-width: 0; border: 0; padding: 0; }
+.painter-contact-surface form label { display: block; margin-bottom: 16px; font-weight: 600; }
+.painter-contact-surface form label span { color: #475569; font-weight: 400; }
+.painter-contact-surface form input, .painter-contact-surface textarea { display: block; width: 100%; padding: 12px; margin-top: 8px; min-height: 48px; border: 1px solid #64748b; border-radius: 8px; font-size: 16px; color: var(--painter-ink); background: white; }
+.painter-contact-surface textarea { resize: vertical; }
+.painter-contact-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.painter-contact-search { display: flex; align-items: center; gap: 12px; min-width: 0; border: 1px solid #64748b; padding: 0 12px; border-radius: 10px; }
+.painter-contact-search input { min-width: 0; width: 100%; min-height: 48px; font-size: 16px; background: transparent; }
+.painter-contact-count { color: #475569; font-size: 14px; margin: 16px 0; }
+.painter-contacts-page .network-table-name { display: inline-flex; align-items: center; overflow-wrap: anywhere; }
+.painter-table-view { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 8px; font-size: 11px; border: 1px solid #dbe4eb; border-radius: 8px; }
+.painter-contact-status { display: inline-block; padding: 4px 6px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 11px; }
+.painter-contact-remarks { white-space: pre-wrap; overflow-wrap: anywhere; color: #475569; line-height: 1.6; }
+.painter-contact-error { color: #b91c1c; margin: 16px 0; overflow-wrap: anywhere; }
+@media (max-width: 430px) { .painter-contact-surface { padding: 16px; } .painter-table-view { padding: 5px; font-size: 10px; } }

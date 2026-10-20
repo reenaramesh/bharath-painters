@@ -135,7 +135,7 @@ export default function AdminRevenue() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search member, Bharath ID, package, receipt or reference"
-              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-ui-control"
+              className="w-full rounded-xl border py-3 pl-11 pr-4 bp-control-leading-icon bp-ui-control"
             />
           </label>
         </div>

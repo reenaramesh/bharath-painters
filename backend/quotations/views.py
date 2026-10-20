@@ -85,9 +85,15 @@ from .serializers import (
     ProjectScopeSerializer, ContractorConnectionSerializer,
 )
 from .work_changes import current_scope, work_change_summary
+from .project_scope_sync import sync_project_scopes
 from .master_import import MASTER_MODELS, import_master_rows
 from .property_access import PropertyPermission, accessible_properties, effective_property_permissions, ensure_legacy_primary_contact, has_property_access, property_permissions, require_property_access
 from .chat_colours import colour_catalogue, colour_by_id
+from .measurement_mutations import MeasurementMutationMixin, measurement_mutation, bump_revision, check_revision, expected_revision
+from .measurement_storage import (
+    readable_measurement_rows, readable_measurement_records, readable_surfaces,
+    readable_openings, require_measurement_editing,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +202,7 @@ class CustomerWorkChangeActionView(APIView):
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
         change = customer_work_change_scope(
             request.user, PropertyPermission.APPROVE_QUOTATIONS,
-        ).select_for_update().filter(pk=pk).first()
+        ).select_for_update(of=("self",)).filter(pk=pk).first()
         if not change or request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Work Change not found."}, status=status.HTTP_404_NOT_FOUND)
         if change.status != WorkChange.Status.SENT_TO_CUSTOMER:
@@ -216,6 +222,8 @@ class CustomerWorkChangeActionView(APIView):
             return Response({"action": "Select approve or reject."}, status=status.HTTP_400_BAD_REQUEST)
         change.customer_response_note = str(request.data.get("note") or "").strip()
         change.save()
+        if action == "APPROVE":
+            sync_project_scopes(change.quotation)
         create_notification(change.contractor, "WORK_CHANGE", f"Work Change {change.get_status_display()}", change.change_number, "/work-changes", request.user)
         return Response(WorkChangeSerializer(change, context={"request": request}).data)
 
@@ -541,7 +549,7 @@ class CustomerShareLinkCreateView(APIView):
     def post(self, request, pk):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
-        connection = ContractorCustomerConnection.objects.select_for_update().select_related("customer__portal_user").filter(
+        connection = ContractorCustomerConnection.objects.select_for_update(of=("self",)).select_related("customer__portal_user").filter(
             customer_id=pk, contractor=request.user,
         ).first()
         if not connection or connection.customer.status == Customer.Status.CANCELLED:
@@ -589,7 +597,7 @@ class CustomerShareLinkView(APIView):
     @transaction.atomic
     def post(self, request, token):
         digest = hashlib.sha256(token.encode("utf-8")).hexdigest() if len(token) <= 100 else ""
-        link = CustomerShareLink.objects.select_for_update().select_related("connection__customer__portal_user", "connection__contractor").filter(
+        link = CustomerShareLink.objects.select_for_update(of=("self",)).select_related("connection__customer__portal_user", "connection__contractor").filter(
             token_hash=digest, expires_at__gt=timezone.now(), used_at__isnull=True,
         ).first()
         if not link:
@@ -599,7 +607,9 @@ class CustomerShareLinkView(APIView):
         if link.purpose == CustomerShareLink.Purpose.ACTIVATION:
             if connection.status != ContractorCustomerConnection.Status.CONNECTED or not customer.portal_user_id:
                 return Response({"detail": "This activation is no longer available."}, status=status.HTTP_409_CONFLICT)
-            user = customer.portal_user
+            user = BharathUser.objects.select_for_update().get(pk=customer.portal_user_id)
+            if not user.is_active:
+                return Response({"detail": "This account is disabled. Contact support for assistance."}, status=status.HTTP_409_CONFLICT)
             if user.has_usable_password():
                 return Response({"detail": "This account is already active. Please sign in."}, status=status.HTTP_409_CONFLICT)
             if str(request.data.get("action") or "") == "request_email_otp":
@@ -862,7 +872,15 @@ class CustomerConnectionActionView(APIView):
     def post(self, request, pk):
         if request.user.role != BharathUser.Roles.CUSTOMER:
             return Response({"detail": "Customer access only."}, status=status.HTTP_403_FORBIDDEN)
-        connection = ContractorCustomerConnection.objects.select_for_update().select_related("customer", "contractor").filter(pk=pk, customer__portal_user=request.user).first()
+        customer_id = ContractorCustomerConnection.objects.filter(
+            pk=pk, customer__portal_user=request.user,
+        ).values_list("customer_id", flat=True).first()
+        customer = Customer.objects.select_for_update(no_key=True).filter(pk=customer_id, portal_user=request.user).first()
+        if not customer:
+            return Response({"detail": "Connection request not found."}, status=status.HTTP_404_NOT_FOUND)
+        connection = ContractorCustomerConnection.objects.select_for_update(of=("self",)).select_related(
+            "customer", "contractor",
+        ).filter(pk=pk, customer=customer).first()
         if not connection:
             return Response({"detail": "Connection request not found."}, status=status.HTTP_404_NOT_FOUND)
         now = timezone.now()
@@ -1583,6 +1601,9 @@ def saved_contact_connection_defaults(customer, contractor):
 
 @transaction.atomic
 def save_existing_customer_contact(request, customer, partial=False):
+    # Serialize identity activation before connection edits, while allowing
+    # concurrent foreign-key references to this existing customer.
+    customer = Customer.objects.select_for_update(no_key=True).get(pk=customer.pk)
     connection = ContractorCustomerConnection.objects.select_for_update().filter(customer=customer, contractor=request.user).first()
     if not customer.portal_user_id or not customer.bharath_id:
         activate_customer_account(customer)
@@ -1651,7 +1672,7 @@ class CustomerListCreateView(
         if self.request.query_params.get("include_saved") == "1":
             queryset = queryset | Customer.objects.filter(
                 saved_contacts__contractor=self.request.user,
-            ).exclude(status=Customer.Status.CANCELLED)
+            ).exclude(status=Customer.Status.CANCELLED).distinct()
         return queryset.distinct().order_by("-updated_at")
 
     @transaction.atomic
@@ -1661,6 +1682,9 @@ class CustomerListCreateView(
         normalized = normalize_indian_mobile(request.data.get("mobile"))
         if not normalized:
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
+        if request.data.get('contact_only') is True:
+            from .shared_contacts import save_shared_customer
+            return save_shared_customer(request, normalized)
         from .customer_identity import release_deleted_customer_mobile
         release_deleted_customer_mobile(normalized)
         existing = Customer.objects.select_for_update().exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
@@ -1874,7 +1898,7 @@ def create_property_share(request, property_obj):
     if not normalized_mobile:
         raise ValidationError({"mobile": "Enter a valid mobile number before searching or sharing."})
 
-    customer = Customer.objects.select_for_update().exclude(
+    customer = Customer.objects.select_for_update(of=("self",)).exclude(
         status=Customer.Status.CANCELLED,
     ).filter(normalized_mobile=normalized_mobile).select_related("portal_user").first()
     expected_customer_id = request.data.get("customer_id")
@@ -2251,7 +2275,7 @@ class PropertyInvitationAcceptView(APIView):
 
     @transaction.atomic
     def post(self, request, token):
-        invitation = PropertyInvitation.objects.select_for_update().select_related(
+        invitation = PropertyInvitation.objects.select_for_update(of=("self",)).select_related(
             "property", "invitee_customer__portal_user",
         ).filter(
             token_hash=property_invitation_digest(token),
@@ -2622,7 +2646,7 @@ class PropertyMeasurementPdfView(APIView):
         record_id = request.query_params.get("measurement")
         record = None
         if record_id:
-            record = PropertyMeasurement.objects.filter(id=record_id, property=property_obj).first()
+            record = readable_measurement_rows(PropertyMeasurement.objects.filter(id=record_id, property=property_obj), request).first()
             if not record:
                 return Response({"detail": "Area Calculation record not found."}, status=status.HTTP_404_NOT_FOUND)
         pdf = build_measurement_pdf(property_obj, record, language=document_language(request))
@@ -4202,9 +4226,9 @@ class PublicSupportTicketView(APIView):
 
     def post(self, request):
         mobile = canonical_mobile(str(request.data.get("mobile") or ""))
-        matches = matching_mobile_users(mobile, BharathUser.objects.filter(is_active=True)) if mobile else []
+        matches = matching_mobile_users(mobile, BharathUser.objects.all()) if mobile else []
         if len(matches) != 1 or matches[0].role not in (BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER):
-            return Response({"detail": "Enter the registered mobile number for an active account."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Enter the registered mobile number for your account."}, status=status.HTTP_400_BAD_REQUEST)
         subject = str(request.data.get("subject") or "").strip()
         description = str(request.data.get("description") or "").strip()
         if not subject or not description or len(subject) > 180 or len(description) > 4000:
@@ -4213,9 +4237,12 @@ class PublicSupportTicketView(APIView):
         if attachment and (attachment.size > 10 * 1024 * 1024 or not (attachment.content_type or "").startswith(("image/", "video/"))):
             return Response({"attachment": "Attach an image or video smaller than 10 MB."}, status=status.HTTP_400_BAD_REQUEST)
         user = matches[0]
-        ticket = SupportTicket.objects.create(requester=user, subject=subject, description=description, attachment=attachment, category=SupportTicket.Category.OTHER, requester_seen_at=timezone.now())
+        # Knowing a mobile number does not prove account ownership. Keep the
+        # claim available to support without granting requester permissions.
+        description = f"Unverified public request. Claimed registered mobile: {mobile}\n\n{description}"
+        ticket = SupportTicket.objects.create(requester=None, subject=subject, description=description, attachment=attachment, category=SupportTicket.Category.OTHER)
         for administrator in BharathUser.objects.filter(models.Q(role__in=(BharathUser.Roles.ADMIN, BharathUser.Roles.SUPPORT)) | models.Q(is_superuser=True), is_active=True).distinct():
-            create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"{user.mobile}: {subject}", "/support-tickets", user)
+            create_notification(administrator, "SUPPORT_TICKET", "New support ticket", f"Unverified mobile claim {mobile}: {subject}", "/support-tickets")
         return Response({"ticket_number": f"BP-TKT-{ticket.pk:06d}"}, status=status.HTTP_201_CREATED)
 
 
@@ -4681,7 +4708,9 @@ class AdminPeopleExportView(APIView):
         customer_sheet = workbook.create_sheet("Customers")
         customer_sheet.append(["Customer Bharath ID", "Name", "Mobile", "Email", "City", "Address", "Status", "Source", "Requirement", "Contractor", "Contractor Bharath ID", "Portal Enabled", "Created At"])
         for item in Customer.objects.select_related("contractor", "portal_user").order_by("created_at"):
-            customer_sheet.append([item.bharath_id, item.name, item.mobile, item.email, item.city, item.address, item.status, item.source, item.requirement, item.contractor.get_full_name() or item.contractor.mobile, item.contractor.bharath_id, bool(item.portal_user_id), item.created_at.replace(tzinfo=None)])
+            contractor = item.contractor
+            contractor_name = (contractor.get_full_name() or contractor.mobile) if contractor else ""
+            customer_sheet.append([item.bharath_id, item.name, item.mobile, item.email, item.city, item.address, item.status, item.source, item.requirement, contractor_name, contractor.bharath_id if contractor else "", bool(item.portal_user_id), item.created_at.replace(tzinfo=None)])
         for sheet in workbook.worksheets:
             sheet.freeze_panes = "A2"; sheet.auto_filter.ref = sheet.dimensions
             for cell in sheet[1]: cell.font = cell.font.copy(bold=True)
@@ -4839,6 +4868,7 @@ class ContractorCrmDashboardView(APIView):
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
 
         from jobs.models import WorkSchedule, WorkSchedulePainter
+        from .workflow_dashboard import workflow_attention
 
         customers = Customer.objects.filter(
             contractor_connections__contractor=request.user,
@@ -4877,6 +4907,7 @@ class ContractorCrmDashboardView(APIView):
         profile = request.user.contractor_profile if hasattr(request.user, "contractor_profile") else None
         return Response({
             "contractor_name": profile.company_name if profile and profile.company_name else request.user.get_full_name() or request.user.mobile,
+            "workflow_attention": workflow_attention(request.user),
             "profile_completion": contractor_profile_completion(profile) if profile else {"percent": 0, "missing": []},
             "counts": {
                 "customers": customers.count(),
@@ -5126,7 +5157,7 @@ class MeasurementAccessPrepareQuotationView(APIView):
     def post(self, request, pk):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Approved Area Calculation access was not found."}, status=status.HTTP_404_NOT_FOUND)
-        access = MeasurementAccessRequest.objects.select_for_update().select_related("customer", "source_property", "source_property__customer", "target_property").filter(
+        access = MeasurementAccessRequest.objects.select_for_update(of=("self",)).select_related("customer", "source_property", "source_property__customer", "target_property").filter(
             pk=pk, requesting_contractor=request.user, status=MeasurementAccessRequest.Status.APPROVED,
         ).first()
         if not access:
@@ -5313,7 +5344,7 @@ class CustomerQuotationView(APIView):
             "property_access": effective_property_permissions(request.user, quotation.property),
             "revision_of": quotation.revision_of_id,
             "version_number": quotation.version_number,
-            "revision_changes": quotation_revision_changes(quotation),
+            "revision_changes": quotation_revision_changes(quotation, include_drafts=False),
             "revision_history": quotation_revision_history(quotation),
             "customer_details": customer_details,
             "property_details": property_details,
@@ -5515,8 +5546,14 @@ class CustomerQuotationActionView(APIView):
         if action == "APPROVE" and quotation.version_number > 1:
             from jobs.models import WorkSchedule
 
-            previous = previous_revision(quotation)
-            schedule = WorkSchedule.objects.select_for_update().filter(quotation=previous).first() if previous else None
+            root_id = quotation.revision_of_id or quotation.pk
+            family = Quotation.objects.filter(
+                Q(pk=root_id) | Q(revision_of_id=root_id),
+                version_number__lt=quotation.version_number,
+            )
+            schedule = WorkSchedule.objects.select_for_update().filter(
+                quotation_id__in=family.values("pk"),
+            ).order_by("-quotation__version_number", "-id").first()
             if schedule:
                 schedule.quotation = quotation
                 schedule.save(update_fields=("quotation", "updated_at"))
@@ -5525,8 +5562,7 @@ class CustomerQuotationActionView(APIView):
                 elif schedule.status in (WorkSchedule.Status.PENDING, WorkSchedule.Status.CONFIRMED):
                     quotation.status = Quotation.Status.SCHEDULED
                 quotation.save(update_fields=("status", "updated_at"))
-            if previous:
-                previous.project_receipts.update(quotation=quotation)
+            ProjectReceipt.objects.filter(quotation_id__in=family.values("pk")).update(quotation=quotation)
         title = "Quotation accepted" if action == "APPROVE" else "Quotation rejected"
         notification_link = f"/work-schedules?quotation={quotation.id}" if action == "APPROVE" else f"/quotations/{quotation.id}"
         create_notification(quotation.contractor, "QUOTATION_RESPONSE", title, f"{quotation.quotation_number}: {quotation.get_status_display()}", notification_link, request.user)
@@ -5714,7 +5750,7 @@ class QuotationSubmitView(APIView):
         temporary_password = None
         if not quotation.customer.portal_user_id:
             _, temporary_password = activate_customer_account(quotation.customer)
-        is_revision = bool(quotation.customer_response_note or quotation.customer_responded_at)
+        is_revision = quotation.version_number > 1 or bool(quotation.customer_response_note or quotation.customer_responded_at)
         quotation.status = Quotation.Status.SENT
         quotation.sent_at = timezone.now()
         quotation.save(update_fields=("status", "sent_at", "updated_at"))
@@ -6252,9 +6288,12 @@ class WorkPhotoListCreateView(
 
 
 def measurement_record_for(request, property_obj, create=False):
+    locked = getattr(request, "_locked_measurement_record", None)
+    if locked and locked.property_id == property_obj.pk:
+        return locked
     record_id = request.query_params.get("measurement") or request.data.get("measurement_record")
     if record_id:
-        record = PropertyMeasurement.objects.filter(id=record_id, property=property_obj).first()
+        record = readable_measurement_rows(PropertyMeasurement.objects.filter(id=record_id, property=property_obj, contractor=request.user), request).first()
         if not record:
             raise ValidationError({"measurement": "Area Calculation record not found for this property."})
         return record
@@ -6264,7 +6303,7 @@ def measurement_record_for(request, property_obj, create=False):
                 property=property_obj, contractor=request.user
             )
         return None
-    record = property_obj.measurement_records.order_by("-measured_on", "-id").first()
+    record = readable_measurement_rows(property_obj.measurement_records.filter(contractor=request.user), request).order_by("-measured_on", "-id").first()
     if not record and create:
         record = PropertyMeasurement.objects.create(property=property_obj, contractor=request.user)
     return record
@@ -6283,16 +6322,18 @@ class PropertyMeasurementListCreateView(generics.ListCreateAPIView):
         return property_obj
 
     def get_queryset(self):
-        return PropertyMeasurement.objects.filter(
+        queryset = PropertyMeasurement.objects.filter(
             property=self.get_property()
         ).filter(
             surfaces__isnull=False
         ).distinct().select_related(
             "contractor", "contractor__contractor_profile"
-        ).prefetch_related("surfaces__openings", "rooms")
+        )
+        return readable_measurement_records(queryset, self.request)
 
     def perform_create(self, serializer):
         property_obj = self.get_property()
+        require_measurement_editing(self.request)
         next_version = (PropertyMeasurement.objects.filter(property=property_obj, contractor=self.request.user).aggregate(max_version=models.Max("version"))["max_version"] or 0) + 1
         serializer.save(
             property=property_obj, contractor=self.request.user,
@@ -6300,6 +6341,7 @@ class PropertyMeasurementListCreateView(generics.ListCreateAPIView):
             version=next_version,
         )
 
+    @transaction.atomic
     def perform_update(self, serializer):
         customer = serializer.validated_data.get("customer", serializer.instance.customer)
         connection = ContractorCustomerConnection.objects.filter(
@@ -6321,6 +6363,7 @@ class PropertyMeasurementCombineView(APIView):
         property_obj = Property.objects.filter(contractor_property_scope(request.user), pk=property_id).first()
         if not property_obj:
             return Response({"detail": "Property not found."}, status=404)
+        require_measurement_editing(request)
         ids = request.data.get("measurements") if isinstance(request.data, dict) else None
         if (not isinstance(ids, list) or not 2 <= len(ids) <= 50
                 or any(type(value) is not int or not 0 < value < 2**63 for value in ids)
@@ -6335,6 +6378,7 @@ class PropertyMeasurementCombineView(APIView):
                or record.quotations.exists() or record.project_scopes.exists() for record in records):
             raise ValidationError({"measurements": "Only unsubmitted measurements unused in quotations or project scopes can be combined."})
         target, sources = records[0], records[1:]
+        check_revision(target, expected_revision(request))
         source_ids = [record.pk for record in sources]
         PropertyRoom.objects.filter(measurement_record_id__in=source_ids).update(measurement_record=target)
         MeasurementSurface.objects.filter(measurement_record_id__in=source_ids).update(measurement_record=target)
@@ -6344,25 +6388,27 @@ class PropertyMeasurementCombineView(APIView):
         ]))
         target.status = PropertyMeasurement.Status.IN_PROGRESS
         target.save(update_fields=("notes", "status", "updated_at"))
+        bump_revision(target)
         PropertyMeasurement.objects.filter(pk__in=source_ids).delete()
         return Response(PropertyMeasurementSerializer(target, context={"request": request}).data)
 
 
-class PropertyMeasurementSubmitView(APIView):
+class PropertyMeasurementSubmitView(MeasurementMutationMixin, APIView):
     permission_classes = [IsAuthenticated]
+    measurement_allows_locked = True
+
+    def lock_measurement(self):
+        if self.request.user.role != BharathUser.Roles.CONTRACTOR:
+            raise PermissionDenied("Only the contractor can submit an Area Calculation.")
+        return super().lock_measurement()
 
     @transaction.atomic
+    @measurement_mutation
     def post(self, request, pk):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Only the contractor can submit an Area Calculation."}, status=status.HTTP_403_FORBIDDEN)
         try:
-            # This operation is idempotent. Avoid FOR UPDATE because the access
-            # scope joins an optional connection and PostgreSQL cannot lock the
-            # nullable side of that outer join. The UPDATE below serializes writes.
-            record = PropertyMeasurement.objects.filter(
-                contractor_property_scope(request.user, "property__"),
-                pk=pk, contractor=request.user,
-            ).first()
+            record = self.measurement_record
             if not record:
                 return Response({"detail": "Area Calculation not found."}, status=status.HTTP_404_NOT_FOUND)
             if not record.surfaces.exists():
@@ -6372,6 +6418,7 @@ class PropertyMeasurementSubmitView(APIView):
                 if record.status != PropertyMeasurement.Status.LOCKED:
                     record.status = PropertyMeasurement.Status.COMPLETED
                 record.save(update_fields=("submitted_at", "status", "updated_at"))
+                bump_revision(record)
             return Response(PropertyMeasurementSerializer(record, context={"request": request}).data)
         except Exception:
             logger.exception(
@@ -6380,21 +6427,29 @@ class PropertyMeasurementSubmitView(APIView):
             )
             raise
 
+    def get_object(self):
+        return get_object_or_404(PropertyMeasurement.objects.filter(
+            contractor_property_scope(self.request.user, "property__"),
+            contractor=self.request.user,
+        ), pk=self.kwargs["pk"])
 
-class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
+
+class PropertyMeasurementDetailView(MeasurementMutationMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PropertyMeasurementSerializer
 
     def get_queryset(self):
-        return PropertyMeasurement.objects.filter(
+        queryset = PropertyMeasurement.objects.filter(
+            contractor_property_scope(self.request.user, "property__"),
             contractor=self.request.user,
         ).filter(
             models.Q(connection__status=ContractorCustomerConnection.Status.CONNECTED)
             | models.Q(connection__isnull=True)
-        ).select_related("contractor", "contractor__contractor_profile").prefetch_related("surfaces__openings", "rooms")
+        ).select_related("contractor", "contractor__contractor_profile")
+        return readable_measurement_records(queryset, self.request)
 
     def perform_update(self, serializer):
-        serializer.save(submitted_at=None)
+        self.save_measurement(serializer, submitted_at=None)
 
     def perform_destroy(self, instance):
         if instance.status == PropertyMeasurement.Status.LOCKED:
@@ -6403,12 +6458,74 @@ class PropertyMeasurementDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PropertyRoomListCreateView(
-    generics.ListCreateAPIView
+    MeasurementMutationMixin, generics.ListCreateAPIView
 ):
 
     permission_classes = [IsAuthenticated]
 
     serializer_class = PropertyRoomSerializer
+    measurement_mutation_kind = "property"
+
+    @transaction.atomic
+    @measurement_mutation
+    def create(self, request, *args, **kwargs):
+        key = str(request.data.get("idempotency_key") or "").strip()
+        if key:
+            replay = self.idempotent_replay(key, request.data)
+            if replay is not None:
+                return replay
+        try:
+            with transaction.atomic():
+                return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            if key:
+                replay = self.idempotent_replay(key, request.data)
+                if replay is not None:
+                    return replay
+            raise
+
+    def idempotent_replay(self, key, payload):
+        existing = PropertyRoom.objects.select_related("measurement_record").filter(idempotency_key=key).first()
+        if not existing:
+            return None
+        property_obj = Property.objects.filter(
+            contractor_property_scope(self.request.user), id=self.kwargs["property_id"],
+        ).first()
+        if not property_obj:
+            return Response({"detail": "Property not found."}, status=status.HTTP_404_NOT_FOUND)
+        starts_new_record = str(self.request.query_params.get("new") or "").lower() in {"1", "true", "yes"}
+        record = existing.measurement_record if starts_new_record else measurement_record_for(self.request, property_obj)
+        if existing.property_id != property_obj.pk or not record or existing.measurement_record_id != record.pk or record.contractor_id != self.request.user.pk:
+            return Response({"detail": "This room request key is already used."}, status=status.HTTP_409_CONFLICT)
+        if existing.idempotency_fingerprint:
+            if not self.creation_request_matches(existing, payload):
+                return Response({"detail": "This room request key was already used for different data."}, status=status.HTTP_409_CONFLICT)
+            return Response(self.replay_response(existing), status=status.HTTP_200_OK)
+        decimal_fields = {"length", "width", "height", "window_width", "window_height", "door_width", "door_height"}
+        integer_fields = {"room_type", "window_count", "door_count"}
+        for field in (
+            "name", "room_type", "painting_area", "section", "description", "length", "width", "height",
+            "window_count", "window_width", "window_height", "door_count", "door_width", "door_height",
+        ):
+            if field not in payload:
+                continue
+            value = payload[field]
+            current = getattr(existing, f"{field}_id" if field == "room_type" else field)
+            try:
+                if field in decimal_fields:
+                    matches = Decimal(str(value or 0)) == Decimal(str(current or 0))
+                elif field in integer_fields:
+                    matches = int(value or 0) == int(current or 0)
+                else:
+                    matches = str(value or "") == str(current or "")
+            except (InvalidOperation, TypeError, ValueError):
+                matches = False
+            if not matches:
+                return Response({"detail": "This room request key was already used for different data."}, status=status.HTTP_409_CONFLICT)
+        return Response(self.replay_response(existing), status=status.HTTP_200_OK)
+
+    def get_property(self):
+        return get_object_or_404(Property.objects.filter(contractor_property_scope(self.request.user)), pk=self.kwargs["property_id"])
 
     def get_queryset(self):
         property_id = self.kwargs.get(
@@ -6420,7 +6537,7 @@ class PropertyRoomListCreateView(
         ).first()
         if not property_obj:
             return PropertyRoom.objects.none()
-        queryset = PropertyRoom.objects.filter(property=property_obj)
+        queryset = readable_measurement_rows(PropertyRoom.objects.filter(property=property_obj), self.request)
         record = measurement_record_for(self.request, property_obj)
         return queryset.filter(measurement_record=record).order_by("id") if record else queryset.none()
 
@@ -6441,15 +6558,16 @@ class PropertyRoomListCreateView(
             })
 
         serializer.save(property=property_obj, measurement_record=measurement_record_for(self.request, property_obj, create=True))
+        self.measurement_created(serializer)
 
 
-class PropertyRoomDetailView(generics.RetrieveUpdateDestroyAPIView):
+class PropertyRoomDetailView(MeasurementMutationMixin, generics.RetrieveUpdateDestroyAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = PropertyRoomSerializer
 
     def get_queryset(self):
-        return PropertyRoom.objects.filter(contractor_property_scope(self.request.user, "property__"))
+        return readable_measurement_rows(PropertyRoom.objects.filter(contractor_property_scope(self.request.user, "property__")), self.request)
 
     def perform_destroy(self, instance):
         if (
@@ -6459,12 +6577,13 @@ class PropertyRoomDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise ValidationError({
                 "room": "A room calculation used in a quotation cannot be deleted."
             })
-        instance.delete()
+        super().perform_destroy(instance)
 
 
-class MeasurementSurfaceListCreateView(generics.ListCreateAPIView):
+class MeasurementSurfaceListCreateView(MeasurementMutationMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MeasurementSurfaceSerializer
+    measurement_mutation_kind = "property"
 
     def get_property(self):
         property_obj = Property.objects.filter(
@@ -6479,9 +6598,67 @@ class MeasurementSurfaceListCreateView(generics.ListCreateAPIView):
         record = measurement_record_for(self.request, property_obj)
         if not record:
             return MeasurementSurface.objects.none()
-        return MeasurementSurface.objects.filter(
+        return readable_surfaces(MeasurementSurface.objects.filter(
             property=property_obj, measurement_record=record
-        ).prefetch_related("openings").order_by("work_area", "id")
+        ), self.request).order_by("work_area", "id")
+
+    @measurement_mutation
+    def create(self, request, *args, **kwargs):
+        key = str(request.data.get("idempotency_key") or "").strip()
+        if key:
+            replay = self.idempotent_replay(key, request.data)
+            if replay is not None:
+                return replay
+        try:
+            with transaction.atomic():
+                return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            if key:
+                replay = self.idempotent_replay(key, request.data)
+                if replay is not None:
+                    return replay
+            raise
+
+    def idempotent_replay(self, key, payload):
+        existing = MeasurementSurface.objects.select_related("measurement_record").filter(idempotency_key=key).first()
+        if not existing:
+            return None
+        property_obj = self.get_property()
+        starts_new_record = str(self.request.query_params.get("new") or "").lower() in {"1", "true", "yes"}
+        record = existing.measurement_record if starts_new_record else measurement_record_for(self.request, property_obj)
+        if (
+            existing.property_id != property_obj.pk
+            or not record
+            or existing.measurement_record_id != record.pk
+            or existing.measurement_record.contractor_id != self.request.user.pk
+        ):
+            return Response({"detail": "This measurement request key is already used."}, status=status.HTTP_409_CONFLICT)
+        if existing.idempotency_fingerprint:
+            if not self.creation_request_matches(existing, payload):
+                return Response({"detail": "This measurement request key was already used for different data."}, status=status.HTTP_409_CONFLICT)
+            return Response(self.replay_response(existing), status=status.HTTP_200_OK)
+        decimal_fields = {"length", "breadth", "manual_area", "rate"}
+        integer_fields = {"quantity", "paintable_sides", "room"}
+        for field in (
+            "work_area", "surface_type", "name", "area_group_name", "length", "breadth",
+            "manual_area", "quantity", "paintable_sides", "room", "finish", "rate", "notes",
+        ):
+            if field not in payload:
+                continue
+            value = payload[field]
+            current = getattr(existing, f"{field}_id" if field == "room" else field)
+            try:
+                if field in decimal_fields:
+                    matches = Decimal(str(value or 0)) == Decimal(str(current or 0))
+                elif field in integer_fields:
+                    matches = int(value or 0) == int(current or 0)
+                else:
+                    matches = str(value or "") == str(current or "")
+            except (InvalidOperation, TypeError, ValueError):
+                matches = False
+            if not matches:
+                return Response({"detail": "This measurement request key was already used for different data."}, status=status.HTTP_409_CONFLICT)
+        return Response(self.replay_response(existing), status=status.HTTP_200_OK)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -6495,16 +6672,17 @@ class MeasurementSurfaceListCreateView(generics.ListCreateAPIView):
         if record.status == PropertyMeasurement.Status.DRAFT:
             record.status = PropertyMeasurement.Status.IN_PROGRESS
             record.save(update_fields=("status", "updated_at"))
+        self.measurement_created(serializer)
 
 
-class MeasurementSurfaceDetailView(generics.RetrieveUpdateDestroyAPIView):
+class MeasurementSurfaceDetailView(MeasurementMutationMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MeasurementSurfaceSerializer
 
     def get_queryset(self):
-        return MeasurementSurface.objects.filter(
+        return readable_surfaces(MeasurementSurface.objects.filter(
             contractor_property_scope(self.request.user, "property__")
-        ).prefetch_related("openings")
+        ), self.request)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -6520,29 +6698,52 @@ class MeasurementSurfaceDetailView(generics.RetrieveUpdateDestroyAPIView):
                 "measurement": "An Area Calculation used in a quotation cannot be changed."
             })
 
+    @transaction.atomic
     def perform_update(self, serializer):
         self.ensure_editable(serializer.instance)
-        serializer.save()
+        expected = self.request.data.get("expected_updated_at")
+        if expected:
+            current = MeasurementSurface.objects.select_for_update().get(pk=serializer.instance.pk)
+            try:
+                expected_at = parse_datetime(str(expected))
+            except (TypeError, ValueError, OverflowError):
+                expected_at = None
+            if not expected_at or current.updated_at != expected_at:
+                identical = all(
+                    (getattr(current, serializer.fields[name].source.split(".")[0]) == value
+                     if not hasattr(value, "pk") else getattr(current, serializer.fields[name].source.split(".")[0] + "_id") == value.pk)
+                    for name, value in serializer.validated_data.items()
+                )
+                if not expected_at or not identical:
+                    from rest_framework.exceptions import APIException
+                    class MeasurementVersionConflict(APIException):
+                        status_code = status.HTTP_409_CONFLICT
+                        default_detail = "This room measurement changed on the server. Reload and resolve the conflict before saving."
+                        default_code = "measurement_version_conflict"
+                    raise MeasurementVersionConflict()
+            serializer.instance = current
+        self.save_measurement(serializer)
 
     def perform_destroy(self, instance):
         self.ensure_editable(instance)
-        instance.delete()
+        super().perform_destroy(instance)
 
 
-class MeasurementOpeningListCreateView(generics.ListCreateAPIView):
+class MeasurementOpeningListCreateView(MeasurementMutationMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MeasurementOpeningSerializer
+    measurement_mutation_kind = "opening_create"
 
     def get_surface(self):
-        surface = MeasurementSurface.objects.filter(
+        surface = readable_surfaces(MeasurementSurface.objects.filter(
             contractor_property_scope(self.request.user, "property__"), id=self.kwargs["surface_id"],
-        ).first()
+        ), self.request).first()
         if not surface:
             raise ValidationError({"surface": "Area surface not found."})
         return surface
 
     def get_queryset(self):
-        return MeasurementOpening.objects.filter(surface=self.get_surface()).order_by("id")
+        return readable_openings(MeasurementOpening.objects.filter(surface=self.get_surface()), self.request).order_by("id")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -6565,16 +6766,17 @@ class MeasurementOpeningListCreateView(generics.ListCreateAPIView):
                 or (wall.area_group_name if wall.surface_type == "OTHER" else "")
             ),
         )
+        self.measurement_created(serializer)
 
 
-class MeasurementOpeningDetailView(generics.RetrieveUpdateDestroyAPIView):
+class MeasurementOpeningDetailView(MeasurementMutationMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MeasurementOpeningSerializer
 
     def get_queryset(self):
-        return MeasurementOpening.objects.filter(
+        return readable_openings(MeasurementOpening.objects.filter(
             contractor_property_scope(self.request.user, "surface__property__")
-        )
+        ), self.request)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -6582,10 +6784,18 @@ class MeasurementOpeningDetailView(generics.RetrieveUpdateDestroyAPIView):
         return context
 
 
-class RoomMeasurementSaveView(APIView):
+class RoomMeasurementSaveView(MeasurementMutationMixin, APIView):
     permission_classes = [IsAuthenticated]
+    measurement_mutation_kind = "property"
+
+    def get_property(self):
+        property_obj = Property.objects.filter(contractor_property_scope(self.request.user), pk=self.kwargs["property_id"]).first()
+        if not property_obj:
+            raise ValidationError({"room_id": "Select a valid room for this property."})
+        return property_obj
 
     @transaction.atomic
+    @measurement_mutation
     def post(self, request, property_id):
         property_obj = Property.objects.filter(
             contractor_property_scope(request.user), id=property_id,
@@ -6736,6 +6946,7 @@ class RoomMeasurementSaveView(APIView):
         if record.status == PropertyMeasurement.Status.DRAFT:
             record.status = PropertyMeasurement.Status.IN_PROGRESS
             record.save(update_fields=("status", "updated_at"))
+        bump_revision(record)
         return Response(MeasurementSurfaceSerializer(result, many=True, context={"property_obj": property_obj, "request": request}).data)
 
 
@@ -6744,6 +6955,8 @@ def invoice_payload(invoice):
             "invoice_source": "QUOTATION" if invoice.quotation_id else "LUMP_SUM", "tax_mode": invoice.tax_mode,
             "customer": invoice.customer_id, "property": invoice.site_property_id,
             "invoice_number": invoice.invoice_number, "invoice_date": invoice.invoice_date, "due_date": invoice.due_date,
+            "is_overdue": bool(invoice.status != Invoice.Status.CANCELLED and invoice.due_date
+                               and invoice.due_date < timezone.localdate() and invoice.balance_due > 0),
             "status": invoice.status, "customer_name": invoice.customer_name, "customer_mobile": invoice.customer_mobile,
             "billing_address": invoice.billing_address, "property_name": invoice.property_name,
             "base_items": invoice.base_items or invoice.items, "measurement_adjustments": invoice.measurement_adjustments,
@@ -6771,7 +6984,7 @@ def customer_invoice_payload(user, invoice):
     if not can_view_payments:
         for field in (
             "amount_paid", "payment_mode", "payment_reference", "payment_received_at",
-            "receipt_number", "payments", "balance_due",
+            "receipt_number", "payments", "balance_due", "is_overdue",
         ):
             payload.pop(field, None)
     return payload
@@ -6800,9 +7013,54 @@ def contractor_invoice_scope(user):
     )
 
 
+def invoice_decimal(value, field, *, max_digits=14, computed=False):
+    from rest_framework import serializers as input_serializers
+    if computed:
+        from decimal import localcontext
+        with localcontext() as decimal_context:
+            decimal_context.prec = 60
+            value = value.quantize(Decimal("0.01"))
+    try:
+        return input_serializers.DecimalField(max_digits=max_digits, decimal_places=2,
+            min_value=Decimal("0")).run_validation(value)
+    except input_serializers.ValidationError as error:
+        raise ValidationError({field: error.detail})
+
+
+def validate_invoice_rows(rows, field, *, adjustments=False):
+    if not isinstance(rows, list) or len(rows) > 1000:
+        raise ValidationError({field: "Provide a list of at most 1000 lines."})
+    cleaned = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValidationError({field: f"Line {index + 1} must be an object."})
+        row = dict(row)
+        # Amount overrides are computed only for signed measurement adjustments.
+        # Browser-supplied line totals must never replace quantity times rate.
+        row.pop("amount_override", None)
+        fields = ("height", "length", "width", "quantity", "rate") if adjustments else ("quantity", "rate")
+        for name in fields:
+            row[name] = str(invoice_decimal(row.get(name) or (1 if adjustments and name == "quantity" else 0), f"{field}.{index}.{name}"))
+        if adjustments and (str(row.get("surface") or "").upper() not in {"WALL", "CEILING"}
+                            or str(row.get("action") or "ADD").upper() not in {"ADD", "REMOVE"}):
+            raise ValidationError({field: f"Line {index + 1} has an invalid surface or action."})
+        cleaned.append(row)
+    return cleaned
+
+
+def invoice_input_date(value, field, *, allow_null=False):
+    from rest_framework import serializers as input_serializers
+    try:
+        return input_serializers.DateField(allow_null=allow_null).run_validation(value)
+    except input_serializers.ValidationError as error:
+        raise ValidationError({field: error.detail})
+
+
 def recalculate_invoice(invoice, supplied_items=None, supplied_adjustments=None):
     items = supplied_items if supplied_items is not None else (invoice.base_items or invoice.items)
     adjustments = supplied_adjustments if supplied_adjustments is not None else invoice.measurement_adjustments
+    items = validate_invoice_rows(items, "items")
+    adjustments = validate_invoice_rows(adjustments or [], "measurement_adjustments", adjustments=True)
     invoice.base_items = items
     cleaned_adjustments = []
     for index, row in enumerate(adjustments or [], 1):
@@ -6813,7 +7071,7 @@ def recalculate_invoice(invoice, supplied_items=None, supplied_adjustments=None)
         first = Decimal(str(row.get("height") if surface == "WALL" else row.get("length") or 0))
         second = Decimal(str(row.get("length") if surface == "WALL" else row.get("width") or 0))
         quantity = max(Decimal(str(row.get("quantity") or 1)), Decimal("1"))
-        area = (first * second * quantity).quantize(Decimal("0.01"))
+        area = invoice_decimal(first * second * quantity, "measurement_adjustments.area", computed=True)
         if area <= 0:
             continue
         rate = max(Decimal(str(row.get("rate") or 0)), Decimal("0"))
@@ -6852,13 +7110,23 @@ def recalculate_invoice(invoice, supplied_items=None, supplied_adjustments=None)
     for index, row in enumerate(items, 1):
         quantity = Decimal(str(row.get("quantity") or 0)); rate = Decimal(str(row.get("rate") or 0))
         amount = Decimal(str(row["amount_override"])) if "amount_override" in row else quantity * rate
+        invoice_decimal(abs(amount), "items.amount", computed=True)
         cleaned.append({**row, "serial": index, "quantity": str(quantity.quantize(Decimal("0.01"))), "rate": str(rate.quantize(Decimal("0.01"))), "amount": str(amount.quantize(Decimal("0.01")))})
         subtotal += amount
     invoice.items = cleaned; invoice.subtotal = subtotal
     taxable = max(subtotal - invoice.discount, Decimal("0")); invoice.gst_amount = taxable * invoice.gst_percentage / Decimal("100")
     invoice.grand_total = taxable + invoice.gst_amount
+    # Validate computed amounts too: valid individual numbers can overflow the
+    # stored money precision when multiplied or accumulated.
+    invoice_decimal(invoice.subtotal, "subtotal", computed=True)
+    invoice_decimal(invoice.grand_total, "grand_total", computed=True)
+    if invoice.status == Invoice.Status.CANCELLED:
+        # Cancellation closes collection; existing receipts remain historical
+        # facts and do not imply a refund or an invoice reopening.
+        return
     if invoice.amount_paid >= invoice.grand_total and invoice.grand_total > 0:
-        invoice.amount_paid = invoice.grand_total
+        # Payments are historical facts. A revised invoice may be below the
+        # received sum; never erase that excess from the paid total.
         invoice.status = Invoice.Status.PAID
         invoice.payment_received_at = invoice.payment_received_at or timezone.now()
     if invoice.amount_paid > 0:
@@ -6901,17 +7169,17 @@ class InvoiceListCreateView(APIView):
             supplied_items = request.data.get("items") or request.data.get("base_items") or []
             if not supplied_items:
                 return Response({"items": "Add at least one invoice line."}, status=status.HTTP_400_BAD_REQUEST)
-            invoice_date = parse_date(str(request.data.get("invoice_date") or "")) or timezone.localdate()
+            invoice_date = invoice_input_date(request.data.get("invoice_date") or timezone.localdate(), "invoice_date")
             address = request.data.get("billing_address") or ", ".join(filter(None, [customer.address, customer.city, customer.pincode]))
             invoice = Invoice.objects.create(
                 contractor=request.user, customer=customer, site_property=property_obj,
                 quotation=None, invoice_number=next_invoice_number(tax_mode, invoice_date),
-                invoice_date=invoice_date, due_date=parse_date(str(request.data.get("due_date") or "")),
+                invoice_date=invoice_date, due_date=invoice_input_date(request.data.get("due_date") or None, "due_date", allow_null=True),
                 tax_mode=tax_mode, customer_name=customer.name, customer_mobile=customer.mobile,
                 billing_address=address, property_name=(property_obj.name or property_obj.property_type) if property_obj else request.data.get("property_name", ""),
                 quotation_number_snapshot="Lump sum", base_items=supplied_items, items=supplied_items,
-                discount=Decimal(str(request.data.get("discount") or 0)),
-                gst_percentage=Decimal(str(request.data.get("gst_percentage") or (18 if tax_mode == Invoice.TaxMode.GST else 0))) if tax_mode == Invoice.TaxMode.GST else Decimal("0"),
+                discount=invoice_decimal(request.data.get("discount") or 0, "discount"),
+                gst_percentage=invoice_decimal(request.data.get("gst_percentage") or 18, "gst_percentage", max_digits=5) if tax_mode == Invoice.TaxMode.GST else Decimal("0"),
                 notes=request.data.get("notes", ""), terms_conditions=request.data.get("terms_conditions", ""),
                 status=Invoice.Status.ISSUED,
             )
@@ -7002,39 +7270,57 @@ def ensure_invoice_for_quotation(quotation, contractor, hsn_codes=None):
     return invoice
 
 
+@transaction.atomic
 def record_advance_payment(invoice, schedule, contractor):
     """Record a confirmed schedule advance as an invoice payment entry."""
-    if invoice.payments.filter(notes__startswith=f"Advance payment (schedule #{schedule.id})").exists():
+    caller_invoice = invoice
+    invoice = Invoice.objects.select_for_update(of=("self",)).get(pk=invoice.pk)
+    if InvoicePayment.objects.filter(source_schedule=schedule).exists() or invoice.payments.filter(
+        notes__startswith=f"Advance payment (schedule #{schedule.id})"
+    ).exists():
         return False
     if not schedule.advance_amount or schedule.advance_amount <= 0:
         raise ValidationError({"amount": "The confirmed advance amount must be greater than zero."})
+    from .payments import require_reconciled_payment_history
+    paid = invoice.payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+    require_reconciled_payment_history(invoice, paid)
     mode_map = {"CASH": "CASH", "UPI": "UPI", "ONLINE": "BANK_TRANSFER"}
     InvoicePayment.objects.create(
         invoice=invoice, received_date=timezone.localdate(schedule.payment_confirmed_at or timezone.now()),
+        source_schedule=schedule,
         amount=schedule.advance_amount or Decimal("0"),
         payment_mode=mode_map.get(schedule.payment_mode, "OTHER"),
         payment_reference=schedule.payment_reference or "",
         notes=f"Advance payment (schedule #{schedule.id})",
     )
     sync_invoice_payments(invoice)
+    caller_invoice.refresh_from_db()
     return True
 
 
+@transaction.atomic
 def record_project_receipts(invoice, quotation):
     """Carry every pre-invoice quotation receipt into the final invoice ledger once."""
+    caller_invoice = invoice
+    invoice = Invoice.objects.select_for_update(of=("self",)).get(pk=invoice.pk)
     created = False
     for receipt in quotation.project_receipts.all():
         note = f"Quotation receipt ({receipt.receipt_number})"
-        if invoice.payments.filter(notes=note).exists():
+        if InvoicePayment.objects.filter(source_receipt=receipt).exists() or invoice.payments.filter(notes=note).exists():
             continue
+        from .payments import require_reconciled_payment_history
+        paid = invoice.payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        require_reconciled_payment_history(invoice, paid)
         InvoicePayment.objects.create(
             invoice=invoice, received_date=receipt.received_date, amount=receipt.amount,
+            source_receipt=receipt,
             payment_mode=receipt.payment_mode, payment_reference=receipt.payment_reference,
             notes=note,
         )
         created = True
     if created:
         sync_invoice_payments(invoice)
+        caller_invoice.refresh_from_db()
     return created
 
 
@@ -7071,13 +7357,17 @@ class CustomerInvoiceListView(APIView):
 
 class InvoiceDetailView(APIView):
     permission_classes = [IsAuthenticated]
-    def get_object(self, request, pk):
-        return contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property").filter(pk=pk).first()
+    def get_object(self, request, pk, *, locked=False):
+        queryset = contractor_invoice_scope(request.user).select_related("quotation", "customer", "site_property")
+        if locked:
+            queryset = queryset.select_for_update(of=("self",))
+        return queryset.filter(pk=pk).first()
     def get(self, request, pk):
         item=self.get_object(request,pk)
         return Response(invoice_payload(item)) if item else Response({"detail":"Invoice not found."},status=status.HTTP_404_NOT_FOUND)
+    @transaction.atomic
     def patch(self, request, pk):
-        item=self.get_object(request,pk)
+        item=self.get_object(request,pk,locked=True)
         if not item:return Response({"detail":"Invoice not found."},status=status.HTTP_404_NOT_FOUND)
         can_edit = timezone.localdate(item.created_at) == timezone.localdate() and item.status not in {Invoice.Status.PAID, Invoice.Status.CANCELLED}
         requested_fields = set(request.data.keys())
@@ -7091,9 +7381,25 @@ class InvoiceDetailView(APIView):
                 return Response(invoice_payload(item))
             return Response({"detail": "The edit window has closed. Cancel this invoice and create a new invoice."}, status=status.HTTP_400_BAD_REQUEST)
         for field in ["invoice_date","due_date","status","customer_name","customer_mobile","billing_address","property_name","notes","terms_conditions"]:
-            if field in request.data:setattr(item,field,request.data[field] or None if field=="due_date" else request.data[field])
-        for field in ["discount","gst_percentage","amount_paid"]:
-            if field in request.data:setattr(item,field,Decimal(str(request.data[field] or 0)))
+            if field in request.data:
+                value = request.data[field]
+                if field in {"invoice_date", "due_date"}:
+                    value = invoice_input_date(value or None, field, allow_null=field == "due_date")
+                setattr(item, field, value)
+        from rest_framework import serializers as input_serializers
+        requested_paid = item.amount_paid
+        for field in ["discount", "gst_percentage", "amount_paid"]:
+            if field not in request.data:
+                continue
+            try:
+                amount = input_serializers.DecimalField(max_digits=5 if field == "gst_percentage" else 14,
+                    decimal_places=2, min_value=Decimal("0")).run_validation(request.data[field] or "0")
+            except input_serializers.ValidationError as error:
+                raise ValidationError({field: error.detail})
+            if field == "amount_paid":
+                requested_paid = amount
+            else:
+                setattr(item, field, amount)
         for field in ["payment_mode", "payment_reference"]:
             if field in request.data:setattr(item,field,request.data[field] or "")
         # Ledger-backed payments have individual modes, not a summary mode.
@@ -7101,10 +7407,31 @@ class InvoiceDetailView(APIView):
         changes_payment = bool(requested_fields & {"amount_paid", "payment_mode", "payment_reference"})
         if changes_payment and item.amount_paid > 0 and not item.payment_mode:
             return Response({"payment_mode": "Select the payment mode when recording an amount received."}, status=status.HTTP_400_BAD_REQUEST)
-        recalculate_invoice(item,request.data.get("base_items",request.data.get("items",item.base_items or item.items)),request.data.get("measurement_adjustments",item.measurement_adjustments));item.save();return Response(invoice_payload(item))
+        if requested_paid < item.amount_paid:
+            return Response({"detail": "A paid summary cannot remove historical payments. Review the individual payment entries."}, status=status.HTTP_409_CONFLICT)
+        previous_paid = item.amount_paid
+        recalculate_invoice(item, request.data.get("base_items", request.data.get("items", item.base_items or item.items)), request.data.get("measurement_adjustments", item.measurement_adjustments))
+        if requested_paid > previous_paid:
+            if requested_paid > item.grand_total:
+                return Response({"amount_paid": "Payment cannot exceed the invoice balance."}, status=status.HTTP_400_BAD_REQUEST)
+            from .payments import create_invoice_payment
+            payment, _ = create_invoice_payment(request.user, item, {
+                "amount": str(requested_paid - previous_paid), "payment_mode": item.payment_mode,
+                "payment_reference": item.payment_reference,
+            })
+            item.amount_paid = payment.invoice.amount_paid
+            recalculate_invoice(item)
+        elif item.payments.exists():
+            item.amount_paid = item.payments.aggregate(total=models.Sum("amount"))["total"]
+            recalculate_invoice(item)
+        item.save()
+        return Response(invoice_payload(item))
+    @transaction.atomic
     def delete(self,request,pk):
-        item=self.get_object(request,pk)
+        item=self.get_object(request,pk,locked=True)
         if not item:return Response(status=status.HTTP_404_NOT_FOUND)
+        if item.amount_paid > 0 or item.payments.exists():
+            return Response({"detail": "An invoice with recorded payments cannot be deleted."}, status=status.HTTP_400_BAD_REQUEST)
         item.delete();return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -7156,38 +7483,25 @@ class InvoicePaymentListCreateView(APIView):
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         if invoice.status == Invoice.Status.CANCELLED:
             return Response({"detail": "Payments cannot be added to a cancelled invoice."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            amount = Decimal(str(request.data.get("amount") or 0))
-        except (InvalidOperation, ValueError):
-            amount = Decimal("0")
-        if amount <= 0:
-            return Response({"amount": "Enter an amount greater than zero."}, status=status.HTTP_400_BAD_REQUEST)
-        if amount > invoice.balance_due:
-            return Response({"amount": f"Payment cannot exceed the remaining balance of {invoice.balance_due}."}, status=status.HTTP_400_BAD_REQUEST)
-        payment_mode = str(request.data.get("payment_mode") or "")
-        if payment_mode not in Invoice.PaymentMode.values:
-            return Response({"payment_mode": "Select a valid payment mode."}, status=status.HTTP_400_BAD_REQUEST)
-        received_date = request.data.get("received_date") or timezone.localdate()
-        if str(received_date) > str(timezone.localdate()):
-            return Response({"received_date": "Payment date cannot be in the future."}, status=status.HTTP_400_BAD_REQUEST)
-        InvoicePayment.objects.create(
-            invoice=invoice, received_date=received_date, amount=amount, payment_mode=payment_mode,
-            payment_reference=request.data.get("payment_reference") or "", notes=request.data.get("notes") or "",
-        )
-        sync_invoice_payments(invoice)
-        return Response(invoice_payload(invoice), status=status.HTTP_201_CREATED)
+        from .payments import create_invoice_payment
+        payment, replay = create_invoice_payment(request.user, invoice, request.data)
+        return Response(invoice_payload(payment.invoice), status=status.HTTP_200_OK if replay else status.HTTP_201_CREATED)
 
 
 class InvoicePaymentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def delete(self, request, pk, payment_pk):
-        invoice = contractor_invoice_scope(request.user).filter(pk=pk).first()
+        invoice = contractor_invoice_scope(request.user).select_for_update(of=("self",)).filter(pk=pk).first()
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         payment = invoice.payments.filter(pk=payment_pk).first()
         if not payment:
             return Response({"detail": "Payment entry not found."}, status=status.HTTP_404_NOT_FOUND)
+        from .payments import is_source_allocation
+        if is_source_allocation(payment):
+            return Response({"detail": "This allocation belongs to a project receipt or advance. Review its source instead of deleting the allocation independently."}, status=status.HTTP_400_BAD_REQUEST)
         payment.delete()
         sync_invoice_payments(invoice)
         return Response(invoice_payload(invoice))
@@ -7258,8 +7572,9 @@ class ProjectScopeViewSet(viewsets.ModelViewSet):
         context["viewer"] = self.request.user
         return context
 
+    @transaction.atomic
     def perform_create(self, serializer):
-        quotation = serializer.validated_data["quotation"]
+        quotation = Quotation.objects.select_for_update().get(pk=serializer.validated_data["quotation"].pk)
         if quotation.contractor_id != self.request.user.id and self.request.user.role != BharathUser.Roles.ADMIN:
             raise ValidationError({"quotation": "That quotation is not yours."})
         if quotation.status == Quotation.Status.CANCELLED:

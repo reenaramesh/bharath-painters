@@ -90,6 +90,12 @@
   .bp-quotation-history > header h1 { font-size:24px; }
   .bp-quotation-dialog { max-width:100%; }
   .quotation-filter-field { width:100%; }
+  .bp-quotation-builder .quotation-builder-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; }
+  .bp-quotation-builder .quotation-builder-actions > button:only-child { grid-column:1 / -1; }
+  .bp-quotation-builder .quotation-builder-actions > button { width:100%; min-width:0; white-space:nowrap; padding-inline:10px; }
+  .bp-quotation-builder .quotation-builder-actions .quotation-preview-action { grid-column:1 / -1; }
+  .bp-quotation-builder .lsq-details { grid-template-columns:minmax(0,1fr); gap:10px; }
+  [data-quotation-preview] footer button { min-width:0; white-space:nowrap; padding-inline:10px; }
 }
 
 .bp-quotation-page .quotation-party-header { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:24px; }
@@ -113,12 +119,15 @@
 .quotation-identity-label span { font-size:12px; font-weight:400; color:var(--bp-muted); }
 @media(min-width:768px) {
   .quotation-party-header .quotation-contractor-details { text-align:right; }
-  .quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
+  .quotation-party-header .quotation-contractor-brand { justify-content:flex-start; flex-direction:row-reverse; }
   .quotation-party-header .quotation-contractor-contact { text-align:right; }
   .quotation-party-header .quotation-contractor-contact p { margin-left:auto; }
 }
 
-.quotation-party-header .quotation-contractor-details { text-align:right; }
-.quotation-party-header .quotation-contractor-brand { justify-content:flex-end; flex-direction:row-reverse; }
-.quotation-party-header .quotation-contractor-contact { text-align:right; }
-.quotation-party-header .quotation-contractor-contact p { margin-left:auto; }
+
+@media(max-width:767px) {
+  .bp-quotation-page .quotation-party-header .quotation-contractor-details { text-align:left; justify-self:start; width:100%; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-brand { justify-content:flex-start; flex-direction:row; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-contact { text-align:left; }
+  .bp-quotation-page .quotation-party-header .quotation-contractor-contact p { margin-left:0; }
+}

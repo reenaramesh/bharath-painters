@@ -6,6 +6,7 @@ import api from "../api/client";
 import "../styles/auth-reference.css";
 import { Dialog } from "../components/ui/Dialog";
 import ServiceIllustration from "../components/ServiceIllustration";
+import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Login() {
@@ -159,6 +160,7 @@ export default function Login() {
           </form>
           <p className="mt-6 text-center text-sm text-slate-500">New to Bharath Apps? <Link to="/register" className="font-semibold text-slate-950">Create an account</Link></p>
           <p className="mt-3 text-center text-sm text-slate-500">Are you a customer? <Link to="/customer-register" className="font-semibold text-slate-950">Create customer login</Link></p>
+          <div className="signin-language mt-6 flex justify-center border-t border-slate-200 pt-4"><LanguageSelector /></div>
           <button type="button" onClick={() => { setSupportOpen(true); setSupportMessage(""); }} className="mx-auto mt-6 flex items-center gap-2 text-sm font-semibold text-[#176b9b] bp-ui-action"><LifeBuoy className="h-4 w-4" />Support Desk</button>
         </div>
       </section>

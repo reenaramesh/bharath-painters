@@ -5,14 +5,26 @@
 .employee-page :is(a,button,input,select):focus-visible { outline: 2px solid #176b9b; outline-offset: 2px; }
 .employee-table-wrap { overflow-x: auto; border: 1px solid #dbe4eb; border-radius: 12px; background: #fff; scrollbar-width: thin; }
 .employee-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.employee-directory-table { min-width: 980px; table-layout: auto; }
+.employee-directory-table :is(th,td) { white-space: nowrap; }
+.employee-activation-dialog { white-space: normal; }
+.employee-table td .employee-activation-dialog a { display: inline-flex; }
+.employee-row-actions { position: relative; }
+.employee-row-actions summary { display: grid; place-items: center; min-width: 40px; min-height: 40px; border: 1px solid #dbe4eb; border-radius: 9px; cursor: pointer; list-style: none; }
+.employee-row-actions summary::-webkit-details-marker { display: none; }
+.employee-row-actions [role="menu"] { position: absolute; z-index: 10; right: 0; min-width: 140px; padding: 5px; border: 1px solid #dbe4eb; border-radius: 10px; background: white; box-shadow: 0 10px 24px #0f172a20; }
+.employee-row-actions [role="menu"] :is(a,button) { display: block; width: 100%; min-height: 40px; padding: 10px; text-align: left; border-radius: 7px; background: white; color: #0f172a; }
+.employee-row-actions [role="menu"] :is(a,button):hover { background: #f1f5f9; }
 .employee-table :is(th,td) { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; }
 .employee-table th { font-size: 11px; color: #64748b; background: #f8fafc; }
 .employee-table tbody tr:hover { background: #f8fafc; }
+.employee-table tbody tr[tabindex="0"]:focus-visible { outline: 2px solid #176b9b; outline-offset: -2px; }
 .employee-table td a { display: block; min-height: 44px; }
 .employee-table strong,.employee-table small { display: block; }
 .employee-table small { font-size: 11px; color: #64748b; }
 .employee-list-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .employee-list-tools input[type="search"] { min-height: 44px; flex: 1; min-width: 0; border: 1px solid #dbe4eb; border-radius: 10px; padding: 10px 12px; }
+.employee-list-tools input[type="search"]::placeholder { font-size: 12px; }
 .employee-status { display: inline-block; font-size: 11px; color: #047857; }
 .employee-status.is-inactive { color: #64748b; }
 .attendance-date-selection { min-width: 0; grid-column: 1/-1; border: 1px solid #dbe4eb; border-radius: 12px; padding: 12px; }
@@ -34,10 +46,35 @@
 .employee-wage-summary > div { min-width: 0; border: 1px solid #dbe4eb; border-radius: 10px; padding: 12px; }
 .employee-wage-summary dt { font-size: 11px; color: #64748b; }
 .employee-wage-summary dd { margin-top: 5px; font-weight: 600; overflow-wrap: anywhere; }
+.employee-payroll-summary table { min-width: 980px; }
+.employee-payroll-summary td { white-space: nowrap; }
+.employee-payroll-register { border: 0; border-radius: 0; }
+.employee-payroll-register table { min-width: 760px; }
+.employee-payroll-register :is(th,td) { white-space: nowrap; }
+.employee-payroll-register td:nth-child(n + 4),.employee-payroll-register th:nth-child(n + 4) { text-align: right; }
+.employee-profile-fields dt { overflow-wrap: anywhere; }
 @media(max-width:767px) {
   .employee-table { table-layout: fixed; font-size: 11px; }
+  .employee-directory-table { min-width: 640px; table-layout: auto; }
   .employee-table :is(th,td) { padding: 8px 6px; }
   .employee-table :is(th,td):first-child { width: 42%; }
+  .employee-directory-table :is(th,td):first-child { width: auto; }
+  .employee-payroll-register .employee-table { table-layout: auto; min-width: 980px; }
+  .employee-payroll-summary .employee-table { table-layout: auto; }
+  .employee-payroll-summary .employee-table :is(th,td) { min-width: 100px; white-space: nowrap; }
+  .employee-payroll-summary .employee-table :is(th,td):first-child { width: auto; }
+  .employee-payroll-summary table.bp-mobile-edit-table td:first-child { background: #fff; }
+  .employee-payroll-summary table.bp-mobile-edit-table th:first-child { background: #f8fafc; }
+  .employee-payroll-register .employee-table :is(th,td):first-child { width: 110px; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(2) { width: 145px; white-space: normal; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(3) { width: 110px; white-space: normal; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(4) { width: 75px; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(5) { width: 90px; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(6) { width: 85px; }
+  .employee-payroll-register .employee-table :is(th,td):nth-child(n + 4) { border-left: 1px solid #e2e8f0; }
+  .employee-payroll-register .employee-table th:nth-child(n + 4) { padding-inline: 4px; font-size: 10px; }
+  .employee-payroll-register table.bp-mobile-edit-table :is(th,td):first-child { background: #fff; box-shadow: 1px 0 0 #dbe4eb; }
+  .employee-payroll-register table.bp-mobile-edit-table th:first-child { background: #f8fafc; }
   .employee-table small { font-size: 10px; }
   .employee-page .attendance-calendar { padding: 12px; }
   .employee-page .attendance-calendar-grid { gap: 3px; }

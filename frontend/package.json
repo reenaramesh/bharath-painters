@@ -7,11 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "typecheck:contracts": "tsc --noEmit -p tsconfig.contracts.json",
+    "typecheck": "npm run typecheck:contracts",
+    "test:contracts": "node --experimental-strip-types --test --test-isolation=none src/types/apiValidation.test.ts src/types/calculationSafety.test.ts src/types/financialDisplay.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "axios": "^1.19.0",
+    "axios": "^1.20.0",
     "html-to-image": "^1.11.13",
     "i18next": "^26.4.2",
     "india-pincode": "^2.5.9",
@@ -30,6 +33,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
     "react-test-renderer": "19.2.8",
+    "typescript": "^7.0.2",
     "vite": "^8.2.0"
   }
 }

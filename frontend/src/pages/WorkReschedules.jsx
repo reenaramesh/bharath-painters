@@ -2,12 +2,13 @@ import useMobileView from "../hooks/useMobileView.js";
 import { recentFirst } from "../utils/workspaceLists.js";
 import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarClock, Search } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CalendarClock, Search } from "lucide-react";
 import api from "../api/client";
 import { Dialog } from "../components/ui/Dialog";
 import useAuth from "../context/useAuth";
 import { Button, EmptyState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
+import ScheduleApprovalMethod from "../components/ScheduleApprovalMethod";
+import ScheduleWorkspaceNav from "../components/ScheduleWorkspaceNav";
 import "./jobs-schedules.css";
 
 const dateKey = (date) =>
@@ -32,8 +33,10 @@ export default function WorkReschedules() {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const { data } = await api.get("/jobs/work-schedules/");
       setItems(
@@ -44,6 +47,8 @@ export default function WorkReschedules() {
       setError("");
     } catch {
       setError("Schedules could not be loaded.");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -64,6 +69,7 @@ export default function WorkReschedules() {
   function edit(item) {
     setEditing(item);
     setForm({
+      scheduling_mode: item.scheduling_mode || "PORTAL",
       start_date: item.needs_reschedule ? todayKey() : item.start_date,
       end_date: item.needs_reschedule ? tomorrowKey() : item.end_date,
       reason: item.needs_reschedule
@@ -111,23 +117,18 @@ export default function WorkReschedules() {
   return (
     <div className="space-y-6 jobs-schedules-page bp-work-reschedules-page">
       <div>
-        <Link
-          to="/work-schedules"
-          className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Work Schedules
-        </Link>
-        <PageHeader eyebrow="Schedule changes" title="Reschedule work" description="Propose revised dates for customer approval."  />
+        <PageHeader eyebrow="Schedule changes" title="Reschedule work" description="Request customer approval or authorize revised dates yourself."  />
       </div>
+      <ScheduleWorkspaceNav />
 
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          <p>{error}{error === "Schedules could not be loaded." && items.length > 0 ? " Showing the last loaded schedules." : ""}</p>
+          {error === "Schedules could not be loaded." && <Button variant="secondary" onClick={load} disabled={loading}>{loading ? "Retrying…" : "Retry loading schedules"}</Button>}
+        </div>
       )}
 
-      <SectionCard title="Schedules needing review" description={`${visible.length} schedules match your search.`} className="reschedule-list-card" bodyClassName="p-0">
+      <SectionCard title="Change work dates" description={loading ? "Loading schedules…" : `${visible.length} schedules available.`} className="reschedule-list-card" bodyClassName="p-0">
         <div className="border-b p-4">
           <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -223,6 +224,7 @@ export default function WorkReschedules() {
         <Dialog title={`Reschedule ${editing.quotation_number}`} description={`${editing.customer} / ${editing.property}`} icon={CalendarClock} size="md" onClose={() => setEditing(null)}>
           <form onSubmit={submit}>
             {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            <div className="mt-4"><ScheduleApprovalMethod value={form.scheduling_mode} disabled={saving} onChange={mode => setForm(current => ({ ...current, scheduling_mode: mode }))} /></div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <DateField
                 label="New start date"
@@ -263,7 +265,7 @@ export default function WorkReschedules() {
               disabled={saving}
               className="mt-5 w-full rounded-xl bg-slate-950 py-3 font-semibold text-white bp-ui-action"
             >
-              Send revised dates for customer approval
+              {form.scheduling_mode === "CONTRACTOR" ? "Authorize revised dates" : "Send revised dates for customer approval"}
             </button>
           </form>
         </Dialog>

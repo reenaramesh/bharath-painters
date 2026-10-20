@@ -19,6 +19,8 @@ function walk(node, visit) {
   }
 }
 const routes = [];
+const reviewPath = resolve(repo, 'docs/application-ui-migration/reviews.json');
+const reviews = existsSync(reviewPath) ? JSON.parse(readFileSync(reviewPath, 'utf8')) : {};
 const guards = ['ProtectedRoute', 'VerifiedContractorRoute', 'ProviderProfileRoute'];
 function inventoryRoute(node, inherited = []) {
   const element = attr(node, 'element');
@@ -37,6 +39,7 @@ function inventoryRoute(node, inherited = []) {
   }
 }
 function describeRoute(path, names, redirects, access) {
+  const review = reviews[path];
   const page = names.find(name => existsSync(resolve(repo, `frontend/src/pages/${name}.jsx`)));
   const sourcePath = page ? `frontend/src/pages/${page}.jsx` : null;
   const source = sourcePath ? read(sourcePath) : '';
@@ -49,7 +52,10 @@ function describeRoute(path, names, redirects, access) {
     roleNote: 'Navigation roles are discovery hints, not authorization proof; inspect page guards and backend permissions.',
     kind: path.startsWith('/preview/') ? 'development-only' : redirects.length || path === '*' ? 'redirect' : access.includes('ProtectedRoute') ? 'authenticated' : 'public',
     redirects,
-    sharedComponents: [...source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']*components[^"']*)["']/g)].flatMap(match => match[1].split(',').map(v => v.trim())),
+    sharedComponents: [...new Set([
+      ...[...source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']*components[^"']*)["']/g)].flatMap(match => match[1].split(',').map(v => v.trim())),
+      ...[...source.matchAll(/import\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']*components[^"']*)["']/g)].map(match => match[1]),
+    ])],
     styles: [...source.matchAll(/import\s*["']([^"']+\.css)["']/g)].map(match => match[1]),
     apiReads: [...new Set([...source.matchAll(/api\.get\(\s*["'`]([^"'`]+)["'`]/g)].map(match => match[1]))],
     apiWrites: [...new Set([...source.matchAll(/api\.(post|patch|put|delete)\(\s*["'`]([^"'`]+)["'`]/g)].map(match => `${match[1].toUpperCase()} ${match[2]}`))],
@@ -58,8 +64,9 @@ function describeRoute(path, names, redirects, access) {
       dialogs: /<dialog\b|Dialog|Modal|fixed inset-0/.test(source),
       filters: /search|filter/i.test(source), translationHook: /useLanguage|ScriptText/.test(source),
     },
-    status: path.startsWith('/preview/') ? 'excluded: development preview' : redirects.length || path === '*' ? 'redirect: verify destination' : 'pending: shared theme present; full page review required',
-    checklist: { structure: false, controls: false, states: false, permissions: false, translations: false, mobile: false, desktop: false, visualReview: false },
+    status: review?.status || (path.startsWith('/preview/') ? 'excluded: development preview' : redirects.length || path === '*' ? 'redirect: verify destination' : 'pending: shared theme present; full page review required'),
+    checklist: { structure: false, controls: false, states: false, permissions: false, translations: false, mobile: false, desktop: false, visualReview: false, ...(review?.checklist || {}) },
+    evidence: review?.evidence || [], remaining: review?.remaining || [],
   };
 }
 // Top-level routes only; nested routes are handled with inherited guards.

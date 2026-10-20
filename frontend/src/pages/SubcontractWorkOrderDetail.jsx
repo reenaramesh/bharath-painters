@@ -74,9 +74,9 @@ export default function SubcontractWorkOrderDetail() {
     }
   };
 
-  const changeStatus = (status, note = "") =>
+  const changeStatus = (status, note = "", scopeProgress = undefined) =>
     !editingPricing && run(() =>
-      api.post(`/outsourcing/work-orders/${id}/transition/`, { status, note }),
+      api.post(`/outsourcing/work-orders/${id}/transition/`, { status, note, ...(status === "SUBMITTED_FOR_REVIEW" && scopeProgress ? { scope_progress: scopeProgress } : {}) }),
     );
 
   const requestCorrection = (note) =>
@@ -157,7 +157,8 @@ export default function SubcontractWorkOrderDetail() {
                   key={status}
                   status={status}
                   busy={busy}
-                  onConfirm={(note) => changeStatus(status, note)}
+                  scopes={workOrder.scopes || []}
+                  onConfirm={(note, progress) => changeStatus(status, note, progress)}
                 />
               ) : (
                 <ConfirmAction
@@ -319,6 +320,7 @@ function CompletionList({ workOrder, isMain }) {
           {completion.summary && (
             <p className="mt-2 text-sm text-slate-600">{completion.summary}</p>
           )}
+          {completion.scope_progress?.length > 0 && <ul className="mt-2 space-y-1 text-sm text-slate-600">{completion.scope_progress.map(progress => <li key={progress.work_order_scope_id}>{progress.scope_title}: reported {progress.reported_quantity}{progress.accepted_quantity && Number(progress.accepted_quantity) > 0 ? ` · accepted ${progress.accepted_quantity}` : ""}</li>)}</ul>}
 
           {(completion.correction_requests || []).length > 0 && (
             <ul className="mt-3 space-y-2">
@@ -355,9 +357,10 @@ function CompletionList({ workOrder, isMain }) {
 }
 
 // The note is mandatory for these, so ask for it inline instead of confirming.
-function NoteAction({ status, busy, onConfirm }) {
+function NoteAction({ status, busy, onConfirm, scopes = [] }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [quantities, setQuantities] = useState({});
   const label = TRANSITION_LABELS[status] || humanise(status);
 
   if (!open) {
@@ -387,10 +390,11 @@ function NoteAction({ status, busy, onConfirm }) {
             : "Explain the change"
         }
       />
+      {status === "SUBMITTED_FOR_REVIEW" && scopes.filter(scope => scope.is_included).length > 0 && <fieldset className="mt-3 space-y-2"><legend className="text-sm font-semibold">Quantity completed in this submission</legend>{scopes.filter(scope => scope.is_included).map(scope => <label key={scope.id} className="grid grid-cols-[1fr_8rem] items-center gap-3 text-sm"><span>{scope.title_snapshot || scope.work_description_snapshot || scope.category_name_snapshot} · up to {scope.quantity} {scope.unit_name_snapshot}</span><input aria-label={`Completed quantity for ${scope.title_snapshot || scope.work_description_snapshot || scope.category_name_snapshot}`} type="number" min="0" max={scope.quantity} step="0.01" required value={quantities[scope.id] ?? "0"} onChange={event => setQuantities(current => ({ ...current, [scope.id]: event.target.value }))} className="w-full rounded-lg border px-3 py-2 bp-ui-control" /></label>)}</fieldset>}
       <div className="mt-2 flex gap-2">
         <button
           disabled={busy || !note.trim()}
-          onClick={() => onConfirm(note)}
+          onClick={() => onConfirm(note, status === "SUBMITTED_FOR_REVIEW" && scopes.filter(scope => scope.is_included).length ? scopes.filter(scope => scope.is_included).map(scope => ({ scope_id: scope.id, quantity: quantities[scope.id] ?? "0" })) : undefined)}
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 bp-ui-action"
         >
           {label}

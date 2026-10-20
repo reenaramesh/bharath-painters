@@ -1,5 +1,7 @@
 # Mobile audit and architecture — 9 October 2026
 
+Current integration update: the supplied starter's blue-and-white design supersedes the earlier navy/ivory/orange visual direction below. Endpoint and role inventory remain applicable. See STARTER_INTEGRATION.md for the latest implementation, caching and module coverage.
+
 ## Scope and evidence
 
 Read-only source audit of `frontend/src/App.jsx`, `frontend/src/config/navigation.js`, `frontend/src/context/AuthContext.jsx`, `frontend/src/api/client.js`, all five Django URL modules, account roles, ContractorCrmDashboardView, IsVerifiedContractor, and property_access.py. This is a source audit, not a production API probe. Existing backend, database, web pages and deployment are outside the change scope. Complete route and endpoint declarations are captured in `route-inventory.md`.

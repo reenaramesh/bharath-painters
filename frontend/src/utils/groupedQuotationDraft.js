@@ -3,9 +3,13 @@ import { assignmentQuotationItems } from "./groupedQuotation.js";
 const assignmentKinds = new Set(["group", "special", "service"]);
 export const hasAssignment = (item) => assignmentKinds.has(item.specification_details?.kind);
 
-export function isGroupedDraft(quotation) {
-  return quotation?.status === "DRAFT" && quotation.quotation_type === "MEASUREMENT"
+export function isGroupedQuotation(quotation) {
+  return quotation?.quotation_type === "MEASUREMENT"
     && Boolean(quotation.measurement_record) && quotation.items?.some(hasAssignment);
+}
+
+export function isGroupedDraft(quotation) {
+  return quotation?.status === "DRAFT" && isGroupedQuotation(quotation);
 }
 
 // Restore the UI from the existing saved specification; do not infer room groups

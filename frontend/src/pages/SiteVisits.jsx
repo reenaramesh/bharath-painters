@@ -1,7 +1,10 @@
 import useMobileView from "../hooks/useMobileView.js";
 import { recentFirst } from "../utils/workspaceLists.js";
 import "./mobile-workspace.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import useAuth from "../context/useAuth";
+import { completeVisitHandoff, visitCompletionRequest, visitMeasurementPath, visitQuotationPath } from "../utils/salesHandoffs.js";
 import { CalendarDays, MapPin, Phone, Plus, RefreshCw } from "lucide-react";
 import api from "../api/client";
 import ContractorDialog from "../components/ContractorDialog";
@@ -30,12 +33,17 @@ function todayISO() {
 
 export default function SiteVisits() {
   const mobile = useMobileView();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const requestedDate = params.get("date") || "";
+  const { user } = useAuth();
   const [visits, setVisits] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(requestedDate);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  const selectedVisitShown = useRef(false);
 
   async function load() {
     setError("");
@@ -59,25 +67,44 @@ export default function SiteVisits() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, dateFilter]);
 
-  async function updateStatus(visit, status) {
+  async function updateStatus(visit, status, keepBusy = false) {
     setBusyId(visit.id);
     setError("");
     try {
       if (visit.followup_id) {
         await api.patch(`/quotations/tasks/${visit.followup_id}/`, { is_completed: status === "COMPLETED" });
         await load();
-        return;
+        return { ...visit, status };
       }
-      const { data } = await api.patch(`/quotations/site-visits/${visit.id}/`, {
-        status,
-      });
+      const request = status === "COMPLETED" ? visitCompletionRequest(visit) : { url: `/quotations/site-visits/${visit.id}/`, payload: { status } };
+      const { data } = await api.patch(request.url, request.payload);
       setVisits((current) =>
         (current || []).map((item) => (item.id === visit.id ? data : item)),
       );
+      return data;
     } catch (requestError) {
       setError(
         requestError.response?.data?.detail || "Visit could not be updated.",
       );
+    } finally {
+      if (!keepBusy) setBusyId(null);
+    }
+  }
+
+  async function handoff(visit, kind) {
+    if (visit.status === "CANCELLED") return;
+    setBusyId(visit.id);
+    setError("");
+    try {
+      let destination = visitQuotationPath(visit);
+      if (kind === "measurement") {
+        if (!visit.property) return;
+        const { data } = await api.get(`/quotations/properties/${visit.property}/measurement-records/`);
+        destination = visitMeasurementPath(visit, data.results || data, user?.id);
+      }
+      await completeVisitHandoff(visit, destination, { complete: (item) => updateStatus(item, "COMPLETED", true), navigate });
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "The next step could not be opened. Please retry.");
     } finally {
       setBusyId(null);
     }
@@ -94,7 +121,13 @@ export default function SiteVisits() {
     };
   }, [visits]);
 
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState(() => requestedDate ? (requestedDate > todayISO() ? "upcoming" : requestedDate < todayISO() ? "overdue" : "today") : "today");
+  useEffect(() => {
+    if (visits === null || selectedVisitShown.current) return;
+    selectedVisitShown.current = true;
+    const selected = visits.find(visit => String(visit.followup_id) === params.get("followup"));
+    if (selected && ["COMPLETED", "CANCELLED", "NO_SHOW"].includes(selected.status)) setTab("past");
+  }, [visits, params]);
   const visible = mobile ? recentFirst(groups[tab] || []) : groups[tab] || [];
 
   return (
@@ -102,7 +135,7 @@ export default function SiteVisits() {
       <PageHeader eyebrow="Sales" title="Site Visits" description="Plan site visits and review upcoming, overdue and completed appointments." actions={<><Button variant="secondary" onClick={load} aria-label="Refresh site visits"><RefreshCw size={17} aria-hidden="true" />Refresh</Button><Button onClick={() => setShowSchedule(true)}><Plus size={17} aria-hidden="true" />Schedule Visit</Button></>} />
 
       {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
       {/* Filters */}
@@ -186,9 +219,10 @@ export default function SiteVisits() {
           {visible.map((visit) => (
             <article
               key={visit.id}
-              className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+              aria-current={String(visit.followup_id) === params.get("followup") ? "true" : undefined}
+              className={`crm-visit-card flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 ${String(visit.followup_id) === params.get("followup") ? "ring-2 ring-slate-900" : ""}`}
             >
-              <div className="min-w-[260px] flex-1">
+              <div className="crm-visit-details min-w-[260px] flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-bold text-slate-500">
                     {visit.reference_no}
@@ -223,7 +257,7 @@ export default function SiteVisits() {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="crm-visit-actions flex flex-col items-end gap-2">
                 <div className="flex gap-2">
                   {visit.customer_mobile && (
                     <a
@@ -234,6 +268,12 @@ export default function SiteVisits() {
                     </a>
                   )}
                 </div>
+                {visit.status !== "CANCELLED" && (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {visitQuotationPath(visit) && <Button variant="secondary" disabled={busyId === visit.id} onClick={() => handoff(visit, "quotation")}>{visit.status === "COMPLETED" ? "Create quotation" : "Complete & create quotation"}</Button>}
+                    {visit.property && <Button variant="secondary" disabled={busyId === visit.id} onClick={() => handoff(visit, "measurement")}>{visit.status === "COMPLETED" ? "Open measurement" : "Complete & open measurement"}</Button>}
+                  </div>
+                )}
                 {visit.status !== "COMPLETED" && visit.status !== "CANCELLED" && (
                   <select
                     disabled={busyId === visit.id}

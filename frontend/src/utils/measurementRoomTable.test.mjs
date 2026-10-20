@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { measurementRoomTable } from './measurementRoomTable.js';
+import { measurementRoomTable, roomMeasurementSurfaces } from './measurementRoomTable.js';
+
+test('room output retains interior ceiling and exterior walls on the same sheet', () => {
+  const surfaces = [{id:1,room:7,work_area:'INTERIOR',surface_type:'CEILING'}, {id:2,room:7,work_area:'EXTERIOR',surface_type:'WALL'}, {id:3,room:8,work_area:'INTERIOR',surface_type:'WALL'}];
+  assert.deepEqual(roomMeasurementSurfaces(surfaces,'7').map(surface=>surface.id),[1,2]);
+});
 test('balconies share the room table across wall, ceiling and custom surfaces', () => {
   const result = measurementRoomTable([{id:1,name:'Bedroom'},{id:2,name:'Balcony'}], new Map([
     ['1',{net:120,groups:[{key:'WALL',label:'Wall',gross:100,net:100},{key:'CEILING',label:'Ceiling',gross:20,net:20}]}],

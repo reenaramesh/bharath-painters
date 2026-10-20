@@ -305,6 +305,19 @@ class UserLegalConsent(models.Model):
         return f"{self.user_id} accepted {self.policy_version}"
 
 
+class PainterContact(models.Model):
+    """A contractor's unverified address-book entry, never a login or assignment."""
+    contractor = models.ForeignKey('BharathUser', on_delete=models.CASCADE, related_name='painter_contacts')
+    profile = models.ForeignKey('PainterProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='saved_contacts')
+    name = models.CharField(max_length=150)
+    mobile = models.CharField(max_length=16)
+    remarks = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('contractor', 'mobile'), name='painter_contact_owner_mobile')]
+
+
 class PainterProfile(models.Model):
 
     class Availability(models.TextChoices):

@@ -25,6 +25,8 @@ import AdminMenuVisibility from "../components/AdminMenuVisibility";
 import AdminConversations from "../components/AdminConversations";
 import { groupAdminConversations } from "../utils/adminConversations";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
+import DashboardWelcomeBanner from '../components/DashboardWelcomeBanner';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   ErrorState,
   LoadingState,
@@ -88,6 +90,7 @@ const columns = {
 };
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [searchParams] = useSearchParams();
   const requestedSection = searchParams.get("section");
@@ -378,6 +381,7 @@ export default function AdminDashboard() {
     ) : (
       <LoadingState label="Loading administration data..." />
     );
+  const OverviewHeader = focusedSection ? PageHeader : DashboardWelcomeBanner;
   return (
     <div className="admin-dashboard space-y-4">
       {focusedSection && (
@@ -386,10 +390,10 @@ export default function AdminDashboard() {
           Back to dashboard
         </Link>
       )}
-      <PageHeader
+      <OverviewHeader icon={Users} label="Administration workspace"
         eyebrow="Administration"
-        title={focusedSection ? focusedSection.label : "Operations dashboard"}
-        
+        title={t(focusedSection ? focusedSection.label : "Operations dashboard")}
+        description={focusedSection ? 'Review records and manage the actions available to your role.' : 'People, approvals and platform activity, together in one workspace.'}
         actions={
           <>
             <button

@@ -1,0 +1,17 @@
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Icon, Text, useTheme } from 'react-native-paper';
+import { router } from 'expo-router';
+import type { ModuleId } from '../core/navigation';
+import { formatINR } from '../core/navigation';
+import type { NativeRecord } from '../core/moduleRecords';
+import { HouseLogo } from '../assets/Illustrations';
+export const moduleStyles=StyleSheet.create({content:{padding:14,gap:10,paddingBottom:28},row:{flexDirection:'row',alignItems:'center',gap:8},flex:{flex:1,minWidth:0},title:{fontSize:21,fontFamily:'Manrope_700Bold',letterSpacing:-.4},card:{borderWidth:1,borderRadius:14,padding:12,gap:9},section:{fontSize:15,fontFamily:'Manrope_700Bold',marginTop:10},name:{fontSize:14,fontFamily:'Manrope_700Bold'},muted:{fontSize:11,lineHeight:17},button:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},avatar:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'#E4F0FF'},pill:{paddingHorizontal:8,paddingVertical:4,borderRadius:7},field:{gap:6,marginVertical:6}});
+export function StatusPill({status}:{status:string}){const theme=useTheme();const good=['ACTIVE','ACCEPTED','COMPLETED','PAID','CONNECTED','CONFIRMED'].includes(status);return <View style={[moduleStyles.pill,{backgroundColor:theme.dark?theme.colors.surfaceVariant:good?'#DDF5E6':'#EAF1FF'}]}><Text style={{fontSize:10,color:theme.dark?theme.colors.onSurface:good?'#13633E':'#075ABC'}}>{status.replaceAll('_',' ')}</Text></View>;}
+export function ContactButtons({phone}:{phone?:string}){
+  const theme=useTheme();const digits=phone?.replace(/\D/g,'')||'';if(digits.length<7)return null;
+  return <View style={moduleStyles.row}>{[['phone',`tel:${phone}`,'Call'],['whatsapp',`https://wa.me/${digits.length===10?'91'+digits:digits}`,'WhatsApp']].map(([icon,url,label])=><Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={()=>void Linking.openURL(url!).catch(()=>{})} style={moduleStyles.button}><Icon source={icon!} size={20} color={theme.colors.primary}/></Pressable>)}</View>;
+}
+export function NativeRecordCard({item,module}:{item:NativeRecord;module:ModuleId}){
+  const theme=useTheme();
+  return <View style={[moduleStyles.card,{backgroundColor:theme.colors.surface,borderColor:theme.colors.outlineVariant}]}><Pressable accessibilityRole="button" accessibilityLabel={`View ${item.title}`} onPress={()=>router.push({pathname:'/record/[module]/[id]',params:{module,id:item.id}})} style={[moduleStyles.row,{minHeight:48}]}>{item.image?<Image source={{uri:item.image}} style={moduleStyles.avatar}/>:<View style={moduleStyles.avatar}>{module==='customers'?<Text style={{fontFamily:'Manrope_700Bold',color:'#075ABC'}}>{item.title.slice(0,2).toUpperCase()}</Text>:<HouseLogo size={28}/>}</View>}<View style={moduleStyles.flex}><Text style={[moduleStyles.name,{color:theme.colors.onSurface}]}>{item.title}</Text><Text style={[moduleStyles.muted,{color:theme.colors.onSurfaceVariant}]}>{item.subtitle}</Text></View><Icon source="chevron-right" size={20} color={theme.colors.primary}/></Pressable><View style={[moduleStyles.row,{justifyContent:'space-between'}]}><StatusPill status={item.status}/>{item.amount!==undefined&&<Text style={{fontFamily:'Manrope_700Bold',color:theme.colors.onSurface}}>{formatINR(item.amount)}</Text>}<ContactButtons phone={item.phone}/></View></View>;
+}

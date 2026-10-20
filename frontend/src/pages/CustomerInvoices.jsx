@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   Download,
   FileText,
   ReceiptText,
+  WalletCards,
+  IndianRupee,
 } from "lucide-react";
 import api from "../api/client";
 import { useSearchParams } from "react-router-dom";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
 import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatCard, StatusBadge } from "../components/ui";
+import ProjectFinanceLedger from "../components/ProjectFinanceLedger.jsx";
 import "./finance-pages.css";
 const money = (value) =>
   Number(value || 0).toLocaleString("en-IN", {
@@ -18,8 +21,11 @@ const money = (value) =>
   });
 
 export default function CustomerInvoices() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const propertyId = searchParams.get("property_id") || "";
+  const requestedView = searchParams.get("details");
+  const ledgerView = ["projects", "payments", "balances", "credits"].includes(requestedView) ? requestedView : "projects";
+  const ledgerRef = useRef(null);
   const [invoices, setInvoices] = useState([]);
   const [finance, setFinance] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -115,6 +121,13 @@ export default function CustomerInvoices() {
   useEffect(() => {
     load();
   }, [load]);
+  function showLedger(view) {
+    const next = new URLSearchParams(searchParams);
+    next.set("details", view);
+    setSearchParams(next);
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    ledgerRef.current?.scrollIntoView({ behavior, block: "start" });
+  }
   async function download(invoice) {
     setDownloading(invoice.id);
     try {
@@ -130,40 +143,53 @@ export default function CustomerInvoices() {
     }
   }
   const totals = {
-    billed: finance?.total_billed == null ? null : Number(finance.total_billed),
-    paid: finance?.total_paid == null ? null : Number(finance.total_paid),
-    due: finance?.balance_due == null ? null : Number(finance.balance_due),
+    billed: (finance?.project_value ?? finance?.total_billed) == null ? null : Number(finance?.project_value ?? finance?.total_billed),
+    paid: (finance?.project_total_paid ?? finance?.total_paid) == null ? null : Number(finance?.project_total_paid ?? finance?.total_paid),
+    due: (finance?.project_balance_due ?? finance?.balance_due) == null ? null : Number(finance?.project_balance_due ?? finance?.balance_due),
     credit: finance?.advance_credit == null ? null : Number(finance.advance_credit),
   };
   return (
     <div className="space-y-6 finance-page customer-finance-page">
       <BackButton fallback="/customer-dashboard" label="Back to dashboard" />
-      <PageHeader eyebrow="Customer billing" title="Payments & invoices"  />
+      <PageHeader eyebrow="Customer billing" title="Approved projects & payments" description="Review approved project values, payments, balances and final invoices."  />
       {loading ? <LoadingState label="Loading invoices and payment history..." className="finance-loading" /> : loadFailed ? <ErrorState message={error} onRetry={load} className="finance-inline-error" /> : <>
       <section className="finance-summary-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Invoice and payment summary">
         <StatCard
-          label="Total billed"
+          label="Project value"
+          icon={FileText}
           value={totals.billed == null ? "Unavailable" : `₹${money(totals.billed)}`}
-          hint={`${invoices.filter((invoice) => invoice.status !== "CANCELLED").length} active invoice(s)`}
+          hint={`${finance?.projects?.length || 0} accepted project(s)`}
           tone="brand"
+          onClick={() => showLedger("projects")}
+          active={ledgerView === "projects"}
         />
         <StatCard
-          label="Total paid"
+          label="Payments received"
+          icon={ReceiptText}
           value={totals.paid == null ? "Unavailable" : `₹${money(totals.paid)}`}
 
+          hint={finance?.receipts_count == null ? "Unavailable" : `${finance.receipts_count} receipt(s)`}
           tone="success"
+          onClick={() => showLedger("payments")}
+          active={ledgerView === "payments"}
         />
         <StatCard
-          label="Balance due"
+          label="Balance remaining"
+          icon={IndianRupee}
           value={totals.due == null ? "Unavailable" : `₹${money(totals.due)}`}
 
           tone="warning"
+          onClick={() => showLedger("balances")}
+          active={ledgerView === "balances"}
         />
         <StatCard
           label="Advance credit"
+          icon={WalletCards}
           value={totals.credit == null ? "Unavailable" : `₹${money(totals.credit)}`}
-          hint={`${finance?.receipts_count || 0} payment receipt(s)`}
+          hint={`${finance?.projects?.filter((project) => project.status === "COMPLETED").length || 0} completed project(s)`}
           tone="info"
+          onClick={() => showLedger("credits")}
+          active={ledgerView === "credits"}
         />
       </section>
       {totals.due != null && totals.due > 0 && (
@@ -176,6 +202,19 @@ export default function CustomerInvoices() {
           <strong>₹{money(totals.due)}</strong>
         </section>
       )}
+      <div ref={ledgerRef} className="scroll-mt-24"><ProjectFinanceLedger
+        projects={finance?.projects || []}
+        receipts={finance?.receipts || []}
+        view={ledgerView}
+        canViewInvoices={Boolean(finance?.permissions?.view_invoices)}
+        canViewPayments={Boolean(finance?.permissions?.view_payments)}
+        quotationPath={(project) => `/customer-quotations/${project.quotation_id}`}
+        onOpenInvoice={(project) => {
+          const invoice = invoices.find((item) => item.id === project.invoice_id);
+          if (invoice) setSelected(invoice);
+        }}
+        onDownloadReceipt={downloadFinanceReceipt}
+      /></div>
       {error && (
         <p className="finance-alert finance-alert-warning" role="status">{error}</p>
       )}

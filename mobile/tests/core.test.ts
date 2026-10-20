@@ -77,3 +77,37 @@ test('default transport invokes fetch without an ApiClient receiver', async () =
   try { assert.deepEqual(await new ApiClient('https://example.com/api').get('/accounts/me/'), { ok: true }); }
   finally { globalThis.fetch = original; }
 });
+test('multipart uploads preserve authorization and let the runtime set the boundary', async () => {
+  let captured: RequestInit | undefined;
+  const client = new ApiClient('https://example.com/api', async (_url, init) => { captured = init; return Response.json({ id: 4 }); });
+  client.setTokens({ access: 'token', refresh: 'refresh' });
+  const form = new FormData();
+  form.append('schedule', '9');
+  assert.deepEqual(await client.upload('/jobs/work-photos/', form), { id: 4 });
+  const headers = new Headers(captured?.headers);
+  assert.equal(headers.get('Authorization'), 'Bearer token');
+  assert.equal(headers.has('Content-Type'), false);
+  assert.equal(captured?.body, form);
+});
+
+test('API conflict retains actionable server detail and machine-readable code', async () => {
+  const client = new ApiClient('https://example.com/api', async () => Response.json({ detail: 'Measurement changed while offline. Review the current record.', code: 'measurement_revision_conflict', current_revision: 8 }, { status: 409 }));
+  await assert.rejects(client.request('/quotations/properties/20/rooms/?measurement=90', { name: 'Room', expected_revision: 4 }), (error: unknown) => {
+    const conflict = error as { status: number; message: string; code?: string; detail?: unknown };
+    assert.equal(conflict.status, 409);
+    assert.match(conflict.message, /Measurement changed while offline/);
+    assert.equal(conflict.code, 'measurement_revision_conflict');
+    assert.equal((conflict.detail as { current_revision: number }).current_revision, 8);
+    return true;
+  });
+});
+
+test('account switch invalidates a queued sender even when old and new actors use the same screen', async () => {
+  const calls: string[] = [];
+  const client = new ApiClient('https://example.com/api', async (_url, init) => { calls.push(new Headers(init?.headers).get('Authorization') || ''); return Response.json({}); });
+  client.setTokens({ access: 'actor-one', refresh: 'refresh' });
+  const sender = client.createSessionSender();
+  client.setTokens({ access: 'actor-two', refresh: 'refresh' });
+  await assert.rejects(sender('/jobs/in-house-applicators/1/attendance/', {}), /Session changed/);
+  assert.deepEqual(calls, []);
+});

@@ -113,7 +113,19 @@ export function FormField({
   );
 }
 
-export function StatCard({ icon: Icon, label, value, hint, tone = "brand", className = "" }) {
+export function StatCard({ icon: Icon, label, value, hint, tone = "brand", className = "", onClick, active = false }) {
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} aria-pressed={active} className={`bp-stat-card bp-stat-card-action ${className}`.trim()}>
+        <span className={`bp-stat-icon bp-stat-${tone}`} aria-hidden="true">{Icon && <Icon />}</span>
+        <span className="bp-stat-card-content">
+          <span className="bp-stat-card-label">{label}</span>
+          <strong>{value ?? 0}</strong>
+          {hint && <small className="bp-stat-hint">{hint}</small>}
+        </span>
+      </button>
+    );
+  }
   return (
     <article className={`bp-stat-card ${className}`.trim()}>
       <span className={`bp-stat-icon bp-stat-${tone}`} aria-hidden={Icon ? "true" : undefined}>{Icon && <Icon />}</span>

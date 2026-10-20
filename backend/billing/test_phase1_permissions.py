@@ -25,6 +25,39 @@ class CustomerFinancePermissionTests(APITestCase):
         InvoicePayment.objects.create(invoice=self.invoice, amount=Decimal("30"), payment_mode="UPI", payment_reference="PRIVATE-REF")
         self.client.force_authenticate(self.viewer)
 
+    def test_payment_receipt_request_key_replays_without_creating_a_second_receipt(self):
+        from quotations.models import ProjectReceipt
+        self.client.force_authenticate(self.contractor)
+        quotation = Quotation.objects.create(
+            customer=self.customer, contractor=self.contractor, property=self.property,
+            quotation_number="IDEMPOTENT-RECEIPT", grand_total=Decimal("100.00"),
+        )
+        payload = {
+            "document_type": "QUOTATION", "quotation": quotation.pk,
+            "amount": "10.00", "payment_mode": "CASH", "received_date": timezone.localdate().isoformat(),
+            "idempotency_key": "test-receipt-request-1",
+        }
+        first = self.client.post("/api/billing/contractor-revenue/receipts/", payload, format="json")
+        second = self.client.post("/api/billing/contractor-revenue/receipts/", payload, format="json")
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertEqual(first.data["id"], second.data["id"])
+        self.assertEqual(ProjectReceipt.objects.filter(quotation=quotation).count(), 1)
+
+    def test_invoice_payment_request_key_replays_without_double_counting(self):
+        self.client.force_authenticate(self.contractor)
+        payload = {
+            "document_type": "INVOICE", "invoice": self.invoice.pk,
+            "amount": "10.00", "payment_mode": "CASH", "received_date": timezone.localdate().isoformat(),
+            "idempotency_key": "test-invoice-request-1",
+        }
+        first = self.client.post("/api/billing/contractor-revenue/receipts/", payload, format="json")
+        second = self.client.post("/api/billing/contractor-revenue/receipts/", payload, format="json")
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertEqual(first.data["payment_id"], second.data["payment_id"])
+        self.assertEqual(InvoicePayment.objects.filter(invoice=self.invoice).count(), 2)
+
     def grant(self, *permissions):
         PropertyContact.objects.update_or_create(property=self.property, customer=self.contact_customer,
             defaults={"access_level": "CUSTOM", "custom_permissions": list(permissions), "status": "ACTIVE"})

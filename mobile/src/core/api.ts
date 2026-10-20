@@ -1,7 +1,12 @@
 export type Tokens = { access: string; refresh: string };
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  detail: unknown;
+  code?: string;
+  constructor(status: number, message: string, detail?: unknown) {
+    super(message); this.status = status; this.detail = detail;
+    if (detail && typeof detail === 'object' && 'code' in detail && typeof detail.code === 'string') this.code = detail.code;
+  }
 }
 export class ApiClient {
   tokens: Tokens | null = null;
@@ -15,8 +20,16 @@ export class ApiClient {
     this.base = base.replace(/\/+$/, ''); this.transport = transport;
   }
   setTokens(tokens: Tokens | null) { this.generation++; this.tokens = tokens; this.refreshing = null; }
+  /** Bind offline sends before asynchronous storage/network work can change accounts. */
+  createSessionSender() {
+    const generation = this.generation;
+    return <T>(path: string, body: unknown) => {
+      if (generation !== this.generation || !this.tokens) return Promise.reject<T>(new ApiError(401, 'Session changed. Sign in to sync this account’s saved changes.'));
+      return this.request<T>(path, body);
+    };
+  }
   private url(path: string) {
-    if (!/^\/[a-zA-Z0-9/_-]*\/?$/.test(path) || path.startsWith('//')) throw new Error('Invalid API path');
+    if (!/^\/[a-zA-Z0-9/_-]*\/?(?:\?[a-zA-Z0-9_%=&+.-]*)?$/.test(path) || path.startsWith('//')) throw new Error('Invalid API path');
     if (!this.base) throw new Error('Configure EXPO_PUBLIC_API_URL to sign in.');
     const url = new URL(this.base);
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && /^(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(url.hostname))) throw new Error('Use HTTPS for the API URL.');
@@ -50,11 +63,11 @@ export class ApiClient {
       try { await pending; } finally { if (this.refreshing === pending) this.refreshing = null; }
     } else { await this.refreshing; }
   }
-  async request<T>(path: string, body?: unknown, authenticated = true): Promise<T> {
+  async request<T>(path: string, body?: unknown, authenticated = true, method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'): Promise<T> {
     this.url(path);
     const version = this.generation;
     const token = this.tokens?.access;
-    const execute = () => this.send(path, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', ...(authenticated && this.tokens ? { Authorization: `Bearer ${this.tokens.access}` } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+    const execute = () => this.send(path, { method: method || (body === undefined ? 'GET' : 'POST'), headers: { 'Content-Type': 'application/json', ...(authenticated && this.tokens ? { Authorization: `Bearer ${this.tokens.access}` } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
     let response = await execute();
     if (authenticated && response.status === 401 && this.tokens && version === this.generation) {
       if (this.tokens.access === token) await this.refresh();
@@ -64,9 +77,37 @@ export class ApiClient {
     if (authenticated && version !== this.generation) throw new ApiError(401, 'Session changed.');
     if (!response.ok) {
       if (authenticated && response.status === 401) { this.setTokens(null); this.onExpired(); await this.onTokens(null); }
-      throw new ApiError(response.status, response.status === 403 ? 'This account does not have access to this feature.' : response.status === 401 ? 'Check your login details and try again.' : response.status === 429 ? 'Too many attempts. Please wait and try again.' : 'Could not load this information. Please try again.');
+      const detail: unknown = response.status >= 400 && response.status < 500 ? await response.json().catch(() => null) : null;
+      const message = detail && typeof detail === 'object' && 'detail' in detail && typeof detail.detail === 'string' ? detail.detail : null;
+      throw new ApiError(response.status, message || (response.status === 403 ? 'This account does not have access to this feature.' : response.status === 401 ? 'Check your login details and try again.' : response.status === 429 ? 'Too many attempts. Please wait and try again.' : 'Could not load this information. Please try again.'), detail);
     }
     return await response.json() as T;
   }
-  get<T>(path: string) { return this.request<T>(path); }
+  async upload<T>(path: string, body: FormData): Promise<T> {
+    this.url(path);
+    const version = this.generation;
+    const token = this.tokens?.access;
+    const execute = () => this.send(path, {
+      method: 'POST',
+      headers: this.tokens ? { Authorization: `Bearer ${this.tokens.access}` } : {},
+      body,
+    });
+    let response = await execute();
+    if (response.status === 401 && this.tokens && version === this.generation) {
+      if (this.tokens.access === token) await this.refresh();
+      if (version !== this.generation) throw new ApiError(401, 'Session changed.');
+      response = await execute();
+    }
+    if (version !== this.generation) throw new ApiError(401, 'Session changed.');
+    if (!response.ok) {
+      if (response.status === 401) { this.setTokens(null); this.onExpired(); await this.onTokens(null); }
+      throw new ApiError(response.status, response.status === 403 ? 'This account does not have access to this feature.' : response.status === 401 ? 'Sign in again to upload this photo.' : response.status === 429 ? 'Too many attempts. Please wait and try again.' : 'Photo could not be uploaded. Please try again.');
+    }
+    return await response.json() as T;
+  }
+  get<T>(path: string, params?: Record<string, string | number>) {
+    const query = params ? new URLSearchParams(Object.entries(params).map(([key,value])=>[key,String(value)])).toString() : '';
+    return this.request<T>(path + (query ? `?${query}` : ''));
+  }
+  patch<T>(path: string, body: unknown) { return this.request<T>(path, body, true, 'PATCH'); }
 }

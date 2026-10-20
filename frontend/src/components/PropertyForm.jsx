@@ -6,7 +6,7 @@ import { lockBodyScroll } from "../utils/bodyScrollLock";
 const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", google_maps_url: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
 
-export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, quotationTheme = false }) {
+export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, error, quotationTheme = false }) {
   const dialogRef = useRef(null);
   const titleId = useId();
   const ownerId = useId();
@@ -155,11 +155,12 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   return <dialog ref={dialogRef} aria-labelledby={titleId} onKeyDown={containFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} className={`${quotationTheme ? "bp-quotation-property-dialog bp-quotation-dialog " : ""}fixed inset-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-xl overflow-y-auto border-0 bg-white p-0 text-slate-950 backdrop:bg-slate-950/40`}>
     <div className="flex items-center justify-between border-b p-6"><div><h2 id={titleId} className="text-xl font-bold bp-ui-section-heading">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button type="button" aria-label="Close property form" onClick={onClose} className="p-2 bp-ui-icon-action"><X aria-hidden="true" /></button></div>
     <form onSubmit={(event) => { event.preventDefault(); if (!form.customer) { setOwnerOpen(true); return; } onSubmit({ ...form, customer: Number(form.customer), approximate_area: form.approximate_area || null }); }} className="grid gap-5 p-6 sm:grid-cols-2">
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
       <div className="relative sm:col-span-2">
         <label htmlFor={ownerId} className="text-sm font-medium">Owner name *</label>
         <span className="relative mt-1.5 flex items-center">
           <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-          <input id={ownerId} required disabled={Boolean(initialValue)} value={ownerSearch} onFocus={() => setOwnerOpen(true)} onChange={(event) => { setOwnerSearch(event.target.value); setForm((value) => ({ ...value, customer: "" })); setOwnerOpen(true); }} placeholder="Search customer" className={(`${input} mt-0 pl-10 disabled:bg-slate-100`) + " bp-ui-control"} />
+          <input id={ownerId} required disabled={Boolean(initialValue)} value={ownerSearch} onFocus={() => setOwnerOpen(true)} onChange={(event) => { setOwnerSearch(event.target.value); setForm((value) => ({ ...value, customer: "" })); setOwnerOpen(true); }} placeholder="Search customer" className={(`${input} mt-0 pl-10 bp-control-leading-icon disabled:bg-slate-100`) + " bp-ui-control"} />
         </span>
         {!initialValue && recentCustomers.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-slate-400">Recent:</span>{recentCustomers.map((customer) => <button key={customer.id} type="button" onClick={() => selectOwner(customer)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-800 bp-ui-action">{customer.name}</button>)}</div>}
         {!initialValue && ownerOpen && <div className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">{ownerMatches.length ? ownerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOwner(customer)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-amber-50 bp-ui-action"><b className="block text-sm text-slate-950">{customer.name}</b></button>) : <p className="px-3 py-4 text-sm text-slate-500">No matching customers found.</p>}</div>}
@@ -169,7 +170,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         <label className="text-sm font-medium">Google Maps place or pin link <span className="font-normal text-slate-400">(optional)</span>
           <span className="relative mt-1.5 flex items-center">
             <MapPin className="pointer-events-none absolute left-3.5 h-4 w-4 text-[#4285f4]" />
-            <input type="url" name="google_maps_url" value={form.google_maps_url || ""} onChange={update} onPaste={(event) => { const pasted = event.clipboardData.getData("text").trim(); if (pasted) fetchMapAddress(pasted); }} onBlur={() => fetchMapAddress()} placeholder="Paste a Google Maps place or dropped pin link" className={(`${input} mt-0 pl-10`) + " bp-ui-control"} />
+            <input type="url" name="google_maps_url" value={form.google_maps_url || ""} onChange={update} onPaste={(event) => { const pasted = event.clipboardData.getData("text").trim(); if (pasted) fetchMapAddress(pasted); }} onBlur={() => fetchMapAddress()} placeholder="Paste a Google Maps place or dropped pin link" className={(`${input} mt-0 pl-10 bp-control-leading-icon`) + " bp-ui-control"} />
           </span>
         </label>
         <div className="mt-2 flex items-center gap-2">
@@ -183,7 +184,7 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         <label className="text-sm font-medium">Apartment / gated community <span className="font-normal text-slate-400">(optional)</span>
           <span className="relative mt-1.5 flex items-center">
             <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-            <input value={apartmentSearch} onChange={(event) => { setSelectedApartmentName(""); setApartmentSearch(event.target.value); }} placeholder="Search apartment name, locality or PIN code" className={(`${input} mt-0 pl-10`) + " bp-ui-control"} aria-label="Search apartment communities" />
+            <input value={apartmentSearch} onChange={(event) => { setSelectedApartmentName(""); setApartmentSearch(event.target.value); }} placeholder="Search apartment name, locality or PIN code" className={(`${input} mt-0 pl-10 bp-control-leading-icon`) + " bp-ui-control"} aria-label="Search apartment communities" />
           </span>
         </label>
         {apartmentMatches.length > 0 && (

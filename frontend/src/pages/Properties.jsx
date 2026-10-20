@@ -4,6 +4,8 @@ import { ArrowUpDown, Building2, ChevronDown, Eye, Plus, Search } from "lucide-r
 import api from "../api/client";
 import MobilePageBack from "../components/MobilePageBack";
 import PropertyForm from "../components/PropertyForm";
+import { Button, PageHeader } from "../components/ui";
+import "./crm-pages.css";
 
 export default function Properties() {
   const location = useLocation();
@@ -118,41 +120,10 @@ export default function Properties() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 crm-page crm-properties-page">
       <MobilePageBack />
-      {calculatorMode ? (
-        <header className="flex justify-end">
-          <button onClick={() => setShowForm(true)} className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 bp-ui-action">
-            <Plus className="h-4 w-4" />
-            Add property
-          </button>
-        </header>
-      ) : (
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bp-ui-page-header">
-          <div>
-            {selectedCustomerId && (
-              <Link
-                to={`/customers/${selectedCustomerId}`}
-                className="mb-3 inline-flex text-sm font-semibold text-slate-600 hover:text-slate-950"
-              >
-                ← Back to customer
-              </Link>
-            )}
-            <p className="text-sm font-semibold text-amber-600">Site management</p>
-            <h1 className="mt-1 text-3xl font-bold bp-ui-page-title">
-              {selectedCustomer ? `${selectedCustomer.name}'s properties` : "Properties"}
-            </h1>
-            {selectedCustomer && null}
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white bp-ui-action"
-          >
-            <Plus className="h-4 w-4" />
-            Add property
-          </button>
-        </header>
-      )}
+      {selectedCustomerId && <Link to={`/customers/${selectedCustomerId}`} className="inline-flex items-center text-sm font-semibold text-slate-600">Back to customer</Link>}
+      <PageHeader eyebrow="Site management" title={calculatorMode ? "Area calculations" : selectedCustomer ? `${selectedCustomer.name}'s properties` : "Properties"} description={calculatorMode ? "Choose a property to review or continue its saved measurements." : "Manage customer sites, property details and their connected work."} actions={<Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" aria-hidden="true" />Add property</Button>} />
 
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
@@ -163,13 +134,15 @@ export default function Properties() {
           <label className="flex flex-1 items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
             <Search className="h-4 w-4 text-slate-400" />
             <input
+              type="search"
+              aria-label="Search properties"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={calculatorMode ? "Search customer, property or location" : "Search owner, project, address or size"}
               className="w-full bg-transparent text-sm outline-none bp-ui-control"
             />
           </label>
-          {calculatorMode && <select value={calculationTypeFilter} onChange={(event) => setCalculationTypeFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 bp-ui-control"><option value="ALL">All calculation types</option><option value="INTERIOR">Interior</option><option value="EXTERIOR">Exterior</option></select>}
+          {calculatorMode && <select aria-label="Filter calculation type" value={calculationTypeFilter} onChange={(event) => setCalculationTypeFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 bp-ui-control"><option value="ALL">All calculation types</option><option value="INTERIOR">Interior</option><option value="EXTERIOR">Exterior</option></select>}
         </div>
         {loading ? (
           <p className="p-12 text-center text-slate-500">Loading properties...</p>
@@ -329,6 +302,7 @@ export default function Properties() {
           onSubmit={create}
           onClose={() => setShowForm(false)}
           saving={saving}
+          error={error}
         />
       )}
     </div>

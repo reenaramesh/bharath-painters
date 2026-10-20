@@ -224,7 +224,7 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
       </div>
 
       <div className="bp-topbar-right flex shrink-0 items-center gap-1 sm:gap-3 xl:gap-4">
-        <div className={compactMobileHeader ? "hidden md:block" : ""}><LanguageSelector compact /></div>
+        <LanguageSelector compact />
         <div className="relative shrink-0">
           <button
             type="button"
@@ -346,7 +346,6 @@ export default function Topbar({ openMenu, toggleSidebar, sidebarCollapsed = fal
                 )}
               </div>
               <div className="p-2">
-                {compactMobileHeader && <div className="compact-profile-language border-b px-3 py-3 md:hidden"><LanguageSelector /></div>}
                 {["CONTRACTOR", "PAINTER", "CUSTOMER"].includes(user?.role) && (
                   <button
                     type="button"

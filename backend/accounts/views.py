@@ -11,7 +11,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .email_setup import (otp_policy, send_configured_email, development_otp_visible,
-                          public_email_delivery_available, authentication_email_enabled)
+                          public_email_delivery_available, public_email_delivery_diagnostic,
+                          authentication_email_enabled)
 from .auth_email_security import (RECOVERY_MESSAGE, RecoveryIdentityCooldown, AuthScopedRateThrottle, AuthAPIView,
                                   positive_id, recovery_challenge, read_recovery_challenge, password_state)
 from django.core.validators import validate_email
@@ -22,6 +23,7 @@ from django.utils.crypto import constant_time_compare
 from datetime import timedelta
 from urllib.parse import quote, urlsplit
 import secrets
+import sys
 
 from .models import BharathUser, ContractorProfile, ContractorCompletedProject, ContractorCustomerReview, PainterProfile, PasswordResetOTP, UserLegalConsent, ProviderProfile
 from .legal import POLICY_VERSION, document_hashes, registration_legal_payload
@@ -252,6 +254,7 @@ def _registration_email_response(user):
 
 def _public_registration_error():
     if not settings.DEBUG and not public_email_delivery_available():
+        print(f"[registration-503] {public_email_delivery_diagnostic()}", file=sys.stderr, flush=True)
         return Response({"detail": "Registration email is temporarily unavailable. Please try again later."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     return None
 

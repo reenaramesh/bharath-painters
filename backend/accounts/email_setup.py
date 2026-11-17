@@ -144,6 +144,30 @@ def email_configuration_error(provider, config=None, production=None):
     return ""
 
 
+def public_email_delivery_diagnostic():
+    """Return a secret-free diagnostic string explaining public email readiness."""
+    try:
+        provider, config = email_transport_configuration()
+        error_code = email_configuration_error(provider, config) or "NONE"
+        sender = config.from_email if config else parseaddr(settings.DEFAULT_FROM_EMAIL)[1]
+        try:
+            validate_email(sender)
+            from_valid = True
+        except ValidationError:
+            from_valid = False
+        return (
+            f"auth_email_enabled={bool(settings.AUTH_EMAIL_ENABLED)} "
+            f"controlled_test={bool(settings.BREVO_CONTROLLED_TEST_ENABLED)} "
+            f"provider={provider} error_code={error_code} "
+            f"brevo_key_set={bool(settings.BREVO_API_KEY)} "
+            f"brevo_live={bool(settings.BREVO_LIVE_ENABLED)} "
+            f"brevo_sandbox={bool(settings.BREVO_SANDBOX)} "
+            f"from_valid={from_valid} frontend_valid={production_frontend_url_valid()}"
+        )
+    except Exception as exc:
+        return f"diagnostic_error={type(exc).__name__}"
+
+
 def public_email_delivery_available():
     """Configuration readiness only; provider acceptance still must be checked."""
     try:

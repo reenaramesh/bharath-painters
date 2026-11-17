@@ -114,3 +114,27 @@ class ProductionSecurityInfrastructureTests(SimpleTestCase):
     @override_settings(AUTH_EMAIL_ENABLED=False, EMAIL_PROVIDER="DJANGO", EMAIL_BACKEND="django.core.mail.backends.filebased.EmailBackend")
     def test_disabled_mode_does_not_approve_a_production_file_backend(self):
         self.assertIn("accounts.E001", [item.id for item in checks.production_recovery_email_delivery_check(None)])
+
+    @override_settings(
+        AUTH_EMAIL_ENABLED=True,
+        BREVO_CONTROLLED_TEST_ENABLED=False,
+        EMAIL_PROVIDER="BREVO",
+        BREVO_API_KEY="later-secret-key",
+        BREVO_LIVE_ENABLED=False,
+        BREVO_SANDBOX=False,
+        DEFAULT_FROM_EMAIL="Bharathapp <bharathapps26@gmail.com>",
+    )
+    def test_public_email_delivery_diagnostic_never_exposes_secrets(self):
+        summary = email_setup.public_email_delivery_diagnostic()
+        self.assertIn("error_code=LIVE_DELIVERY_DISABLED", summary)
+        self.assertIn("brevo_key_set=True", summary)
+        self.assertNotIn("later-secret-key", summary)
+        self.assertNotIn("bharathapps26@gmail.com", summary)
+
+    def test_strip_outer_quotes_handles_quoted_env_values(self):
+        from config.settings import _strip_outer_quotes
+        self.assertEqual(
+            _strip_outer_quotes('"Bharathapp <bharathapps26@gmail.com>"'),
+            "Bharathapp <bharathapps26@gmail.com>",
+        )
+        self.assertEqual(_strip_outer_quotes("'https://example.com/'"), "https://example.com/")

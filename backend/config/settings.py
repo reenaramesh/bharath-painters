@@ -153,8 +153,17 @@ if "CORS_ALLOWED_ORIGINS" in os.environ:
         value.strip() for value in os.environ["CORS_ALLOWED_ORIGINS"].split(",") if value.strip()
     ]
 
-FRONTEND_URL = os.environ.get(
-    "FRONTEND_URL", "http://localhost:5173" if DEBUG else "https://bharath-painters-chi.vercel.app"
+def _strip_outer_quotes(value):
+    text = value.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        return text[1:-1].strip()
+    return text
+
+
+FRONTEND_URL = _strip_outer_quotes(
+    os.environ.get(
+        "FRONTEND_URL", "http://localhost:5173" if DEBUG else "https://bharath-painters-chi.vercel.app"
+    )
 ).rstrip("/")
 
 REST_FRAMEWORK = {
@@ -360,8 +369,10 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
 EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", False)
 EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 15)
-DEFAULT_FROM_EMAIL = os.environ.get(
-    "DEFAULT_FROM_EMAIL", "Bharath Painters <no-reply@bharathpainters.in>"
+DEFAULT_FROM_EMAIL = _strip_outer_quotes(
+    os.environ.get(
+        "DEFAULT_FROM_EMAIL", "Bharath Painters <no-reply@bharathpainters.in>"
+    )
 )
 LEGAL_OPERATOR_NAME = os.environ.get("LEGAL_OPERATOR_NAME", "Bharath Painters")
 LEGAL_OPERATOR_ADDRESS = os.environ.get("LEGAL_OPERATOR_ADDRESS", "India")

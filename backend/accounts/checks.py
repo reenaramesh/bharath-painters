@@ -3,7 +3,7 @@ from django.core.checks import Error, Warning, register
 from django.db import DatabaseError
 from ipaddress import ip_network
 from urllib.parse import urlsplit
-from .auth_infrastructure import shared_security_cache_configured
+from .auth_infrastructure import shared_security_cache_configured, single_instance_cache_configured
 
 from .email_setup import (LOCAL_EMAIL_BACKENDS, SMTP_BACKEND, email_configuration_error,
                           email_transport_configuration, production_frontend_url_valid,
@@ -125,13 +125,19 @@ def production_auth_origin_check(app_configs, **kwargs):
 
 @register("security", deploy=True)
 def production_shared_cache_check(app_configs, **kwargs):
-    if not shared_security_cache_configured():
-        return [Error(
-            "Production authentication requires one shared Redis primary for security limits.",
-            hint="Set DJANGO_CACHE_BACKEND=django.core.cache.backends.redis.RedisCache and DJANGO_CACHE_LOCATION to its private URL.",
-            id="accounts.E009",
+    if shared_security_cache_configured():
+        return []
+    if getattr(settings, "ALLOW_SINGLE_INSTANCE_AUTH_CACHE", False) and single_instance_cache_configured():
+        return [Warning(
+            "Using in-memory LocMemCache for authentication rate limits on a single instance.",
+            hint="Configure Redis (DJANGO_CACHE_BACKEND and DJANGO_CACHE_LOCATION) if running multiple workers or instances.",
+            id="accounts.W005",
         )]
-    return []
+    return [Error(
+        "Production authentication requires one shared Redis primary for security limits.",
+        hint="Set DJANGO_CACHE_BACKEND=django.core.cache.backends.redis.RedisCache and DJANGO_CACHE_LOCATION to its private URL.",
+        id="accounts.E009",
+    )]
 
 
 @register("security", deploy=True)

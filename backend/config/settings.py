@@ -377,6 +377,7 @@ CACHE_LOCATION = os.environ.get(
     "DJANGO_CACHE_LOCATION",
     "bharath-painters-local-cache",
 )
+ALLOW_SINGLE_INSTANCE_AUTH_CACHE = _env_bool("ALLOW_SINGLE_INSTANCE_AUTH_CACHE", True)
 CACHES = {
     "default": {
         "BACKEND": CACHE_BACKEND,

@@ -38,10 +38,19 @@ class ProductionSecurityInfrastructureTests(SimpleTestCase):
     @override_settings(DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3"}})
     def test_sqlite_production_database_is_a_deployment_error(self):
         self.assertIn("accounts.E011", self.deployment_ids())
+    @override_settings(ALLOW_SINGLE_INSTANCE_AUTH_CACHE=False)
     def test_process_local_and_file_caches_are_deployment_errors(self):
         for backend in ("locmem.LocMemCache", "filebased.FileBasedCache", "dummy.DummyCache", "db.DatabaseCache"):
             with override_settings(CACHES={"default": {"BACKEND": "django.core.cache.backends." + backend}}):
                 self.assertIn("accounts.E009", [item.id for item in checks.production_shared_cache_check(None)])
+
+    @override_settings(ALLOW_SINGLE_INSTANCE_AUTH_CACHE=True, CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}})
+    def test_single_instance_locmem_cache_warns_instead_of_error_and_allows_throttle(self):
+        messages = checks.production_shared_cache_check(None)
+        self.assertFalse(any(item.level >= 40 for item in messages), messages)
+        self.assertIn("accounts.W005", [item.id for item in messages])
+        throttle = AuthScopedRateThrottle()
+        self.assertTrue(throttle.allow_request(self.request(), SimpleNamespace(throttle_scope="login")))
 
     @override_settings(CACHES=REDIS_CACHE)
     def test_one_redis_primary_passes_configuration_check_without_connecting(self):
@@ -58,6 +67,7 @@ class ProductionSecurityInfrastructureTests(SimpleTestCase):
     def request(self):
         return Request(APIRequestFactory().post("/auth/", {"mobile": "9876500011"}, format="json", REMOTE_ADDR="198.51.100.1"))
 
+    @override_settings(ALLOW_SINGLE_INSTANCE_AUTH_CACHE=False)
     def test_authentication_fails_closed_when_shared_cache_is_not_configured(self):
         throttle = AuthScopedRateThrottle()
         with self.assertRaises(APIException) as raised:

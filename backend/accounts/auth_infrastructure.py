@@ -34,6 +34,20 @@ def shared_security_cache_configured():
         return False
 
 
+def single_instance_cache_configured():
+    config = settings.CACHES.get("default", {})
+    return config.get("BACKEND") == "django.core.cache.backends.locmem.LocMemCache"
+
+
+def security_cache_available():
+    if shared_security_cache_configured():
+        return True
+    return bool(
+        getattr(settings, "ALLOW_SINGLE_INSTANCE_AUTH_CACHE", False)
+        and single_instance_cache_configured()
+    )
+
+
 def require_security_cache():
-    if not settings.DEBUG and not shared_security_cache_configured():
+    if not settings.DEBUG and not security_cache_available():
         raise AuthenticationUnavailable()

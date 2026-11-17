@@ -1,53 +1,31 @@
 import "./mobile-workspace.css";
 import { customerConnectionDirectory } from "../utils/workspaceLists.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  ArrowUpDown,
-  ContactRound,
-  Download,
-  FilePlus2,
-  KeyRound,
-  MessageCircle,
-  Phone,
-  Plus,
-  Search,
-  Upload,
-  Users,
-} from "lucide-react";
+import { ContactRound, Download, Plus, Search, SlidersHorizontal, Upload, Users } from "lucide-react";
 import api from "../api/client";
 import CustomerConnectionFlow from "../components/CustomerConnectionFlow";
-import CustomerStatusFilter from "../components/CustomerStatusFilter";
 import { CUSTOMER_STATUSES } from "../constants/customers";
 import MobilePageBack from "../components/MobilePageBack";
 import useAuth from "../context/useAuth";
-import CustomerAccountStatus from "../components/CustomerAccountStatus";
 import CustomerActivationShare from "../components/CustomerActivationShare";
-import { customerAccountStatus } from "../utils/customerActivation";
-import { Button, EmptyState, LoadingState, StatusBadge } from "../components/ui";
-import PageHeader from '../components/ContractorModuleHeader';
-import ContractorDialog from '../components/ContractorDialog';
+import CustomerDirectoryRecords, { customerDirectoryAccess } from "../components/customers/CustomerDirectoryRecords";
+import { Button } from "../components/ui";
+import PageHeader from "../components/ContractorModuleHeader";
+import ContractorDialog from "../components/ContractorDialog";
 import "./crm-pages.css";
+import "../components/customers/customer-directory.css";
 
-const statusColors = {
-  NEW: "bg-blue-50 text-blue-700",
-  WON: "bg-emerald-50 text-emerald-700",
-  LOST: "bg-red-50 text-red-700",
-  CANCELLED: "bg-slate-100 text-slate-600",
-  FOLLOW_UP: "bg-amber-50 text-amber-700",
-  SITE_VISIT: "bg-purple-50 text-purple-700",
-  QUOTATION_SENT: "bg-cyan-50 text-cyan-700",
-  NEGOTIATION: "bg-orange-50 text-orange-700",
-  CONTACTED: "bg-indigo-50 text-indigo-700",
-  PENDING: "bg-amber-50 text-amber-800",
-};
-const label = (value) =>
-  value
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/^./, (letter) => letter.toUpperCase());
+const label = value => String(value || "").replaceAll("_", " ").toLowerCase().replace(/^./, letter => letter.toUpperCase());
+const rowsFrom = data => Array.isArray(data) ? data : data?.results || [];
+const connectionLabels = { CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request declined", RECONNECT_PENDING: "Reconnect request sent", BLOCKED: "Blocked" };
 
 export default function Customers() {
+  const { user } = useAuth();
+  return <CustomerDirectoryWorkspace key={user?.id || "signed-out"} />;
+}
+
+function CustomerDirectoryWorkspace() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -63,697 +41,294 @@ export default function Customers() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
+  const [secondaryLoading, setSecondaryLoading] = useState(true);
+  const [secondaryError, setSecondaryError] = useState("");
+  const [propertiesError, setPropertiesError] = useState(false);
   const [error, setError] = useState("");
   const [showConnectionFlow, setShowConnectionFlow] = useState(false);
   const [onboarding, setOnboarding] = useState(null);
   const [activatingCustomerId, setActivatingCustomerId] = useState(null);
-  const linkBusy = useRef(false);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
-
-  async function loadCustomers() {
-    setLoading(true);
-    setError("");
-    try {
-      // Customer records are the primary content. A temporary failure in a
-      // secondary panel (properties/connections) must not hide the directory.
-      const customerResponse = await api.get("/quotations/customers/", { params: { include_saved: 1 } });
-      const customerData = customerResponse.data;
-      const customerRows = Array.isArray(customerData) ? customerData : customerData.results || [];
-      setCustomers(customerRows.filter(item => !item.is_saved_contact));
-      setSavedContacts(customerRows.filter(item => item.is_saved_contact));
-      const [propertyResult, connectionResult, serviceResult] = await Promise.allSettled([
-        api.get("/quotations/properties/"),
-        api.get("/quotations/contractor/customer-connections/"),
-        api.get("/quotations/service-categories/"),
-      ]);
-      if (propertyResult.status === "fulfilled") {
-        const propertyData = propertyResult.value.data;
-        setProperties(Array.isArray(propertyData) ? propertyData : propertyData.results || []);
-      } else {
-        setProperties([]);
-        console.warn("Customer directory loaded without property details.", propertyResult.reason?.response?.status || propertyResult.reason?.message);
-      }
-      if (connectionResult.status === "fulfilled") {
-        setConnections(connectionResult.value.data.results || connectionResult.value.data || []);
-      } else {
-        setConnections([]);
-        console.warn("Customer directory loaded without connection details.", connectionResult.reason?.response?.status || connectionResult.reason?.message);
-      }
-      if (serviceResult.status === "fulfilled") {
-        setContractorServices(serviceResult.value.data.results || serviceResult.value.data || []);
-      } else {
-        setContractorServices([]);
-      }
-    } catch (requestError) {
-      console.error("Customer records request failed.", requestError.response?.status || requestError.message);
-      setError("Customers could not be loaded. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function activateCustomer(customer, event) {
-    event?.stopPropagation();
-    if (linkBusy.current) return;
-    linkBusy.current = true;
-    setActivatingCustomerId(customer.id);
-    setError("");
-    try {
-      const { data } = await api.post(`/quotations/customers/${customer.id}/activate-account/`);
-      if (data.share_link) setOnboarding({ ...customer, ...data, id: customer.id });
-      else await loadCustomers();
-    } catch (requestError) {
-      setError(formatError(requestError.response?.data) || "Activation link could not be prepared. Please refresh the customer list and try again.");
-    } finally {
-      linkBusy.current = false;
-      setActivatingCustomerId(null);
-    }
-  }
+  const mounted = useRef(true);
+  const version = useRef(0);
+  const linkVersion = useRef(0);
+  const importVersion = useRef(0);
+  const createVersion = useRef(0);
+  const linkBusy = useRef(false);
+  const importBusy = useRef(false);
+  const createBusy = useRef(false);
+  const directoryRef = useRef([]);
 
   useEffect(() => {
-    loadCustomers();
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      version.current += 1;
+      linkVersion.current += 1; importVersion.current += 1; createVersion.current += 1;
+    };
   }, []);
 
-  useEffect(() => {
-    const refreshStatus = () => { if (document.visibilityState === "visible") loadCustomers(); };
-    window.addEventListener("focus", refreshStatus);
-    return () => window.removeEventListener("focus", refreshStatus);
+  const loadCustomers = useCallback(async () => {
+    if (!mounted.current) return;
+    const request = ++version.current;
+    const current = () => mounted.current && version.current === request;
+    setLoading(true); setError(""); setSecondaryLoading(true); setSecondaryError(""); setPropertiesError(false);
+    const secondaryRead = Promise.allSettled([
+      api.get("/quotations/properties/"),
+      api.get("/quotations/contractor/customer-connections/"),
+      api.get("/quotations/service-categories/"),
+    ]).then(([propertyResult, connectionResult, serviceResult]) => {
+      if (!current()) return;
+      const missing = [];
+      if (propertyResult.status === "fulfilled") setProperties(rowsFrom(propertyResult.value.data));
+      else {
+        if ([401, 403, 404].includes(propertyResult.reason?.response?.status)) setProperties([]);
+        setPropertiesError(true); missing.push("Property details");
+      }
+      if (connectionResult.status === "fulfilled") setConnections(rowsFrom(connectionResult.value.data));
+      else { setConnections([]); missing.push("Connection history"); }
+      if (serviceResult.status === "fulfilled") setContractorServices(rowsFrom(serviceResult.value.data));
+      else setContractorServices([]);
+      setSecondaryError(missing.length ? missing.join(" and ") + " could not be refreshed." : "");
+      setSecondaryLoading(false);
+    });
+    try {
+      const { data } = await api.get("/quotations/customers/", { params: { include_saved: 1 } });
+      if (!current()) return;
+      const rows = rowsFrom(data);
+      setCustomers(rows.filter(item => !item.is_saved_contact));
+      setSavedContacts(rows.filter(item => item.is_saved_contact));
+    } catch (failure) {
+      if (!current()) return;
+      if ([401, 403, 404].includes(failure.response?.status)) {
+        version.current += 1;
+        linkVersion.current += 1; importVersion.current += 1; createVersion.current += 1;
+        setCustomers([]); setSavedContacts([]); setProperties([]); setConnections([]); setContractorServices([]);
+        setOnboarding(null); setLoading(false); setSecondaryLoading(false); setSecondaryError("");
+        setActivatingCustomerId(null); setImporting(false); setImportResult(null); setShowImport(false); setShowConnectionFlow(false);
+      }
+      setError("Customers could not be refreshed or access has changed. Please retry.");
+    } finally { if (current()) setLoading(false); }
+    await secondaryRead;
   }, []);
 
+  useEffect(() => { loadCustomers(); }, [loadCustomers]);
   useEffect(() => {
-    if (params.get("action") === "add") setShowConnectionFlow(true);
-  }, [params]);
+    const refresh = () => { if (document.visibilityState === "visible") loadCustomers(); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [loadCustomers]);
+  useEffect(() => { if (params.get("action") === "add") setShowConnectionFlow(true); }, [params]);
 
   const propertiesByCustomer = useMemo(() => {
     const grouped = {};
-    properties.forEach((property) => {
+    properties.forEach(property => {
       const key = String(property.customer);
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(property);
+      (grouped[key] ||= []).push(property);
     });
     return grouped;
   }, [properties]);
-
   const { directoryRows, connectionRows } = useMemo(
     () => customerConnectionDirectory(customers, savedContacts, connections),
     [customers, savedContacts, connections],
   );
+  directoryRef.current = directoryRows;
 
   const filtered = useMemo(() => {
-    const result = directoryRows.filter((customer) => {
-      const term = search.toLowerCase();
-      const customerProperties =
-        propertiesByCustomer[String(customer.id)] || [];
-      const matchesSearch = [
-        customer.name,
-        customer.bharath_id,
-        customer.mobile,
-        customer.city,
-        customer.email,
-        ...customerProperties.flatMap((property) => [
-          property.name,
-          property.property_type,
-          property.address,
-        ]),
-      ].some((value) =>
-        String(value || "")
-          .toLowerCase()
-          .includes(term),
-      );
-      return matchesSearch && (status === "ALL" || customer.status === status);
-    });
-    return result.sort((a, b) => {
-      const aProperties = propertiesByCustomer[String(a.id)] || [];
-      const bProperties = propertiesByCustomer[String(b.id)] || [];
-      const values = {
-        name: [a.name, b.name],
-        property: [
-          propertyLabel(aProperties[0]),
-          propertyLabel(bProperties[0]),
-        ],
-        propertyCount: [aProperties.length, bProperties.length],
-      };
-      const [first, second] = values[sort.key] || values.name;
-      const comparison =
-        typeof first === "number"
-          ? first - second
-          : String(first || "").localeCompare(String(second || ""), undefined, {
-              sensitivity: "base",
-            });
+    const term = search.toLowerCase();
+    return directoryRows.filter(customer => {
+      const customerProperties = propertiesByCustomer[String(customer.id)] || customer.properties || [];
+      const matches = [customer.name, customer.bharath_id, customer.mobile, customer.city, customer.email,
+        ...customerProperties.flatMap(property => [property.name, property.property_type, property.address])]
+        .some(value => String(value || "").toLowerCase().includes(term));
+      return matches && (status === "ALL" || customer.status === status);
+    }).sort((first, second) => {
+      const a = propertiesByCustomer[String(first.id)] || first.properties || [];
+      const b = propertiesByCustomer[String(second.id)] || second.properties || [];
+      const activityTime = customer => customerDirectoryAccess(customer).canUse && Number.isFinite(Date.parse(customer.last_activity_at)) ? Date.parse(customer.last_activity_at) : 0;
+      const values = { name: [first.name, second.name], property: [propertyLabel(a[0]), propertyLabel(b[0])], propertyCount: [a.length, b.length], last_activity_at: [activityTime(first), activityTime(second)] };
+      const [left, right] = values[sort.key] || values.name;
+      const comparison = typeof left === "number" ? left - right : String(left || "").localeCompare(String(right || ""), undefined, { sensitivity: "base" });
       return sort.direction === "asc" ? comparison : -comparison;
     });
   }, [directoryRows, propertiesByCustomer, search, sort, status]);
-
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const visibleCustomers = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
-
+  const visibleCustomers = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleConnections = connectionRows.filter(item => item.status === connectionView).filter(item => !search || [item.customer?.name, item.customer?.mobile, item.customer?.bharath_id]
+    .some(value => String(value || "").toLowerCase().includes(search.toLowerCase())));
   function changeSort(key) {
-    setSort((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === "asc" ? "desc" : "asc",
-    }));
+    setSort(current => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
     setPage(1);
   }
-
-  const cellPadding = "px-5 py-4";
-
-  async function createCustomer(values) {
-    const { data } = await api.post("/quotations/customers/", values);
-    if (data.is_saved_contact || data.already_saved) {
-      await loadCustomers();
-      setConnectionView(data.connection_status || "PENDING");
-      if (data.share_link) setOnboarding(data);
-      else navigate(`/customers/${data.id}`);
-    } else {
-      setCustomers((current) => [data, ...current.filter(item => item.id !== data.id)]);
-      setOnboarding(data);
-    }
-    return data;
+  function currentCustomer(id) { return directoryRef.current.find(customer => String(customer.id) === String(id)); }
+  function canShareActivation(customer) {
+    const access = customer && customerDirectoryAccess(customer);
+    return Boolean(access?.canUse && access.account?.canResend);
   }
-
-  async function regenerateCustomerLink() {
-    if (!onboarding?.id || linkBusy.current) return;
-    linkBusy.current = true;
-    setActivatingCustomerId(onboarding.id);
-    setError("");
+  async function activateCustomer(customer, event) {
+    event?.stopPropagation();
+    const latest = currentCustomer(customer.id);
+    if (linkBusy.current || !canShareActivation(latest)) return;
+    const request = ++linkVersion.current;
+    const current = () => mounted.current && linkVersion.current === request;
+    linkBusy.current = true; setActivatingCustomerId(customer.id); setError("");
     try {
-      const { data } = await api.post(`/quotations/customers/${onboarding.id}/share-link/`);
-      setOnboarding((current) => current ? ({ ...current, ...data }) : null);
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "A new link could not be created.");
+      const { data } = await api.post("/quotations/customers/" + customer.id + "/activate-account/");
+      if (!current()) return;
+      if (!customerDirectoryAccess(currentCustomer(customer.id) || {}).canUse) return;
+      if (data.share_link) setOnboarding({ ...latest, ...data, id: customer.id });
+      else await loadCustomers();
+    } catch (failure) {
+      if (current()) setError(formatError(failure.response?.data) || "Activation link could not be prepared. Refresh the list and try again.");
     } finally {
       linkBusy.current = false;
-      setActivatingCustomerId(null);
+      if (current()) setActivatingCustomerId(null);
     }
   }
-
-  async function resendConnection(item) {
-    setError("");
+  async function createCustomer(values) {
+    if (createBusy.current) throw new Error("A customer is already being saved.");
+    const request = ++createVersion.current;
+    const current = () => mounted.current && createVersion.current === request;
+    createBusy.current = true;
     try {
-      await api.post("/quotations/contractor/customer-connections/request/", { mobile: item.customer?.mobile });
-      await shareConnection(item);
-      await loadCustomers();
-      setConnectionView("RECONNECT_PENDING");
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.response?.data?.detail || "Request could not be resent.");
-    }
+      const { data } = await api.post("/quotations/customers/", values);
+      if (current()) {
+        await loadCustomers();
+        if (current()) setConnectionView(data.connection_status || "CONNECTED");
+      }
+      return data;
+    } finally { createBusy.current = false; }
   }
-
-  async function shareConnection(item) {
+  async function regenerateCustomerLink() {
+    if (!onboarding?.id || linkBusy.current) return;
+    if (onboarding.link_purpose !== "CONNECTION" && !canShareActivation(currentCustomer(onboarding.id))) return;
+    const targetId = onboarding.id;
+    const request = ++linkVersion.current;
+    const current = () => mounted.current && linkVersion.current === request;
+    linkBusy.current = true; setActivatingCustomerId(targetId); setError("");
     try {
-      const { data } = await api.post(`/quotations/customers/${item.customer.id}/share-link/`);
+      const { data } = await api.post("/quotations/customers/" + targetId + "/share-link/");
+      if (!current()) return;
+      const latest = currentCustomer(targetId);
+      if (!latest || latest.account_status === "DISABLED" || (data.link_purpose !== "CONNECTION" && !canShareActivation(latest))) return;
+      if (data.link_purpose === "CONNECTION" && !["PENDING", "RECONNECT_PENDING"].includes(latest.connection_status)) return;
+      setOnboarding(previous => previous?.id === targetId ? { ...previous, ...data } : previous);
+    } catch (failure) { if (current()) setError(failure.response?.data?.detail || "A new link could not be created."); }
+    finally { linkBusy.current = false; if (current()) setActivatingCustomerId(null); }
+  }
+  async function shareConnection(item, resend = false) {
+    if (linkBusy.current || !item.customer?.id || customerDirectoryAccess(item.customer).account?.tone === "danger" || item.customer.account_status === "DISABLED") return;
+    const request = ++linkVersion.current;
+    const current = () => mounted.current && linkVersion.current === request;
+    linkBusy.current = true; setActivatingCustomerId(item.customer.id); setError("");
+    try {
+      if (resend) {
+        await api.post("/quotations/contractor/customer-connections/request/", { mobile: item.customer.mobile });
+        if (!current()) return;
+      }
+      const { data } = await api.post("/quotations/customers/" + item.customer.id + "/share-link/");
+      if (!current()) return;
+      const latest = currentCustomer(item.customer.id);
+      if (!latest || latest.account_status === "DISABLED" || (data.link_purpose !== "CONNECTION" && !canShareActivation(latest))) return;
+      if (data.link_purpose === "CONNECTION" && !["PENDING", "RECONNECT_PENDING", ...(resend ? ["REJECTED"] : [])].includes(latest.connection_status)) return;
       setOnboarding({ ...data, id: item.customer.id, name: data.customer_name, mobile: data.customer_mobile });
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "The connection link could not be created.");
-    }
+      if (resend) {
+        await loadCustomers();
+        if (current()) setConnectionView("RECONNECT_PENDING");
+      }
+    } catch (failure) {
+      if (current()) setError(failure.response?.data?.message || failure.response?.data?.detail || "The connection link could not be created.");
+    } finally { linkBusy.current = false; if (current()) setActivatingCustomerId(null); }
   }
-
   async function importFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    setError("");
-    setImportResult(null);
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file || importBusy.current) return;
+    const request = ++importVersion.current;
+    const current = () => mounted.current && importVersion.current === request;
+    importBusy.current = true; setImporting(true); setError(""); setImportResult(null);
     try {
-      const payload = new FormData();
-      payload.append("file", file);
-      const { data } = await api.post(
-        "/quotations/customers/bulk-import/",
-        payload,
-      );
-      setImportResult(data);
-      await loadCustomers();
-    } catch (requestError) {
-      setError(
-        formatError(requestError.response?.data) ||
-          "Customer file could not be imported.",
-      );
-    } finally {
-      setImporting(false);
-      event.target.value = "";
-    }
+      const payload = new FormData(); payload.append("file", file);
+      const { data } = await api.post("/quotations/customers/bulk-import/", payload);
+      if (current()) { setImportResult(data); await loadCustomers(); }
+    } catch (failure) { if (current()) setError(formatError(failure.response?.data) || "Customer file could not be imported."); }
+    finally { importBusy.current = false; if (current()) { setImporting(false); input.value = ""; } }
   }
-
   async function connectContacts() {
+    if (importBusy.current) return;
     if (!navigator.contacts?.select) {
-      setError(
-        "Contact connection is not supported in this browser. Use Chrome on Android, or upload Excel/CSV.",
-      );
+      setError("Contact connection is not supported in this browser. Use Chrome on Android, or upload Excel/CSV.");
       return;
     }
-    setImporting(true);
-    setError("");
-    setImportResult(null);
+    const request = ++importVersion.current;
+    const current = () => mounted.current && importVersion.current === request;
+    importBusy.current = true; setImporting(true); setError(""); setImportResult(null);
     try {
-      const selected = await navigator.contacts.select(
-        ["name", "tel", "email"],
-        { multiple: true },
-      );
-      const contacts = selected.map((contact) => ({
-        name: contact.name?.[0] || "",
-        mobile: contact.tel?.[0] || "",
-        email: contact.email?.[0] || "",
-        source: "PHONE",
-      }));
-      const { data } = await api.post("/quotations/customers/bulk-import/", {
-        contacts,
-      });
-      setImportResult(data);
-      setShowImport(true);
-      await loadCustomers();
-    } catch (requestError) {
-      if (requestError.name !== "AbortError")
-        setError(
-          formatError(requestError.response?.data) ||
-            "Contacts could not be connected.",
-        );
-    } finally {
-      setImporting(false);
-    }
+      const selected = await navigator.contacts.select(["name", "tel", "email"], { multiple: true });
+      if (!current() || !selected.length) return;
+      const contacts = selected.map(contact => ({ name: contact.name?.[0] || "", mobile: contact.tel?.[0] || "", email: contact.email?.[0] || "", source: "PHONE" }));
+      const { data } = await api.post("/quotations/customers/bulk-import/", { contacts });
+      if (current()) { setImportResult(data); setShowImport(true); await loadCustomers(); }
+    } catch (failure) {
+      if (current() && failure.name !== "AbortError") setError(formatError(failure.response?.data) || "Contacts could not be connected.");
+    } finally { importBusy.current = false; if (current()) setImporting(false); }
   }
-
   function downloadTemplate() {
-    const csv =
-      "Name,Mobile,Email,WhatsApp,Address,City,Pincode,Status,Source,Requirement,Notes\nSample Customer,9876543210,sample@example.com,9876543210,Street address,Bengaluru,560001,NEW,REFERRAL,Interior painting,\n";
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "customer-import-template.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    const csv = "Name,Mobile,Email,WhatsApp,Address,City,Pincode,Status,Source,Requirement,Notes\nSample Customer,9876543210,sample@example.com,9876543210,Street address,Bengaluru,560001,NEW,REFERRAL,Interior painting,\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = "customer-import-template.csv"; link.click(); URL.revokeObjectURL(url);
   }
 
-  return (
-    <div className="space-y-6 crm-page crm-customers-page contractor-people-page">
-      <MobilePageBack />
-      <PageHeader icon={Users} eyebrow="Customer relationships" title="Customers" description="Customer details, connection requests and follow-ups in one place." actions={
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={connectContacts}
-            disabled={importing}
-            aria-label="Add from phone contacts"
-            title="Add from phone contacts"
-            className="people-header-action"
-          >
-            <ContactRound className="h-5 w-5" />
-            <span>Phone contacts</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowImport(true);
-              setImportResult(null);
-            }}
-            aria-label="Bulk upload customers"
-            title="Bulk upload customers"
-            className="people-header-action"
-          >
-            <Upload className="h-5 w-5" />
-            <span>Import file</span>
-          </button>
-          <Button variant="primary"
-            type="button"
-            onClick={() => setShowConnectionFlow(true)}
-            aria-label="Add customer"
-            className="crm-add-customer people-header-action people-primary-action"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />Add customer
-          </Button>
-        </div>
-      } />
-
-      {error && (
-        <div
-          role="alert"
-          className="flex items-center justify-between rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          <span>{error}</span>
-          <button onClick={loadCustomers} className="font-semibold bp-ui-action">
-            Retry
-          </button>
-        </div>
-      )}
-
-      <nav aria-label="Customer connection status" className="crm-customer-status-tabs flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2">
-        {["CONNECTED", "PENDING", "REJECTED", "RECONNECT_PENDING", "BLOCKED"].map((value) => <button key={value} type="button" onClick={() => setConnectionView(value)} aria-current={connectionView === value ? "page" : undefined} className={(`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${connectionView === value ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`) + " bp-ui-action"}>{({ CONNECTED: "All customers", PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[value]} ({value === "CONNECTED" ? directoryRows.length : connectionRows.filter((item) => item.status === value).length})</button>)}
-      </nav>
-
-      {connectionView !== "CONNECTED" && <section className="grid gap-3 md:grid-cols-2">
-        {connectionRows.filter((item) => item.status === connectionView).map((item) => <article key={item.id || `customer-${item.customer?.id}`} className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Customer</p><h2 className="mt-1 font-extrabold bp-ui-section-heading">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${["PENDING", "RECONNECT_PENDING"].includes(item.status) ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{({ PENDING: "Pending", REJECTED: "Request Declined", RECONNECT_PENDING: "Reconnect Request Sent", BLOCKED: "Blocked" })[item.status]}</span></div><p className="mt-4 text-sm text-slate-500">Requested {item.requested_at ? new Date(item.requested_at).toLocaleDateString("en-IN") : "Date unavailable"}</p>{["PENDING", "RECONNECT_PENDING"].includes(item.status) && item.id && item.customer?.id && <button type="button" onClick={() => shareConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold bp-ui-action">Share Link</button>}{item.status === "REJECTED" && item.id && <button type="button" disabled={Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => resendConnection(item)} className="mt-3 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50 bp-ui-action">Resend Request</button>}{item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}{item.customer?.id && <Link to={`/customers/${item.customer.id}`} className="mt-3 ml-3 inline-block text-sm font-bold text-indigo-700">Open saved profile</Link>}</article>)}
-        {!connectionRows.some((item) => item.status === connectionView) && <div className="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-slate-400">No {connectionView.toLowerCase()} requests.</div>}
-      </section>}
-
-      <div className={`${connectionView === "CONNECTED" ? "" : "hidden"} people-surface rounded-2xl border border-slate-200 bg-white`}>
-        <div className="people-toolbar flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
-          <label className="flex flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search customers"
-              aria-label="Search by customer ID, name, mobile, city or email"
-              className="w-full bg-transparent text-sm outline-none bp-ui-control"
-            />
-          </label>
-          <CustomerStatusFilter value={status} options={[{ value: "ALL", label: "All statuses" }, ...CUSTOMER_STATUSES.map((item) => ({ value: item, label: label(item) }))]} onChange={(value) => { setStatus(value); setPage(1); }} />
-          <select
-            aria-label="Filter customers by status"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-            className="hidden md:block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none bp-ui-control"
-          >
-            <option value="ALL">All statuses</option>
-            {CUSTOMER_STATUSES.map((item) => (
-              <option key={item} value={item}>{label(item)}</option>
-            ))}
-          </select>
-        </div>
-
-        <ContactDirectory
-          loading={loading}
-          customers={filtered}
-          propertiesByCustomer={propertiesByCustomer}
-          navigate={navigate}
-          activateCustomer={activateCustomer}
-          activatingCustomerId={activatingCustomerId}
-        />
-        <div className="hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">
-            Loading customers...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-14 text-center">
-            <Users className="mx-auto h-10 w-10 text-slate-300" />
-            <h2 className="mt-4 font-semibold text-slate-900 bp-ui-section-heading">
-              No customers found
-            </h2>
-            
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-3 p-3 md:hidden">
-              {visibleCustomers.map((customer) => {
-                const customerProperties =
-                  propertiesByCustomer[String(customer.id)] || [];
-                const primaryProperty = customerProperties[0];
-                const whatsappNumber = formatWhatsAppNumber(
-                  customer.whatsapp || customer.mobile,
-                );
-                return (
-                  <article
-                    key={customer.id}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/customers/${customer.id}`)}
-                      className="block w-full p-4 text-left bp-ui-action"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="truncate text-base font-bold text-slate-950 bp-ui-section-heading">
-                              {customer.name}
-                            </h2>
-                            <StatusBadge status={customer.status} label={label(customer.status)} tone={customerStatusTone(customer.status)} className="crm-compact-badge" />
-                          </div>
-                          <p className="mt-1 text-xs font-medium text-slate-500">
-                            {customer.bharath_id || "No customer ID"} · {customer.mobile}
-                          </p>
-                        </div>
-                        <span className="rounded-xl bg-slate-950 px-2.5 py-1.5 text-center text-xs font-bold text-white">
-                          {customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}
-                        </span>
-                      </div>
-                      <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                        <p className="truncate text-sm font-bold text-slate-800">
-                          {propertyLabel(primaryProperty) || "No property added"}
-                        </p>
-                        {primaryProperty && (
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                            {[primaryProperty.address, primaryProperty.city]
-                              .filter(Boolean)
-                              .join(", ") || primaryProperty.property_type}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                    <div className="grid grid-cols-[48px_48px_1fr] gap-2 border-t border-slate-100 p-3">
-                      <a
-                        href={customer.mobile ? `tel:${customer.mobile}` : undefined}
-                        aria-label={`Call ${customer.name}`}
-                        className={(`grid h-11 place-items-center rounded-xl border ${customer.mobile ? "border-slate-200 text-slate-700" : "pointer-events-none border-slate-100 text-slate-300"}`) + " bp-ui-icon-action"}
-                      >
-                        <Phone className="h-4 w-4" />
-                      </a>
-                      <a
-                        href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`WhatsApp ${customer.name}`}
-                        className={(`grid h-11 place-items-center rounded-xl border ${whatsappNumber ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "pointer-events-none border-slate-100 text-slate-300"}`) + " bp-ui-icon-action"}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </a>
-                      <Link
-                        to={`/quotations/new?customer=${customer.id}`}
-                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
-                      >
-                        <FilePlus2 className="h-4 w-4" />
-                        New quotation
-                      </Link>
-                      {(!customer.bharath_id || customer.activation_pending) && (
-                        <button
-                          type="button"
-                          disabled={activatingCustomerId === customer.id}
-                          onClick={(event) => activateCustomer(customer, event)}
-                          className="col-span-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-800 disabled:opacity-50 bp-ui-action"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                          {activatingCustomerId === customer.id ? "Preparing link..." : "Share activation link"}
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-            <div className="hidden overflow-x-auto md:block" data-mobile-table="keep">
-              <table className="w-full min-w-[960px] table-fixed border-separate border-spacing-0 bp-ui-table">
-                <colgroup>
-                  <col className="w-[23%]" />
-                  <col className="w-[28%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[13%]" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-slate-100/80">
-                    <SortableHeader
-                      label="Name"
-                      sortKey="name"
-                      sort={sort}
-                      onSort={changeSort}
-                    />
-                    <SortableHeader
-                      label="Property"
-                      sortKey="property"
-                      sort={sort}
-                      onSort={changeSort}
-                    />
-                    <SortableHeader
-                      label="No. of properties"
-                      sortKey="propertyCount"
-                      sort={sort}
-                      onSort={changeSort}
-                    />
-                    <th className="border-b border-slate-200 px-5 py-3.5 text-center">
-                      Call
-                    </th>
-                    <th className="border-b border-slate-200 px-5 py-3.5 text-center">
-                      WhatsApp
-                    </th>
-                    <th className="border-b border-slate-200 px-5 py-3.5 text-center">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleCustomers.map((customer) => {
-                    const customerProperties =
-                      propertiesByCustomer[String(customer.id)] || [];
-                    const primaryProperty = customerProperties[0];
-                    const whatsappNumber = formatWhatsAppNumber(
-                      customer.whatsapp || customer.mobile,
-                    );
-                    return (
-                      <tr
-                        key={customer.id}
-                        tabIndex="0"
-                        onClick={() => navigate(`/customers/${customer.id}`)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") navigate(`/customers/${customer.id}`);
-                        }}
-                        className="cursor-pointer bg-white transition-colors even:bg-slate-50/70 hover:!bg-blue-50/60 focus:bg-blue-50/60 focus:outline-none"
-                      >
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80`}
-                        >
-                          <div className="min-w-0 pr-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-semibold text-slate-900">
-                                {customer.name}
-                              </p>
-                              <StatusBadge status={customer.status} label={label(customer.status)} tone={customerStatusTone(customer.status)} className="crm-compact-badge" />
-                            </div>
-                            <p className="mt-1 truncate text-xs text-slate-500">
-                              {customer.bharath_id || "No customer ID"} ·{" "}
-                              {customer.mobile}
-                            </p>
-                          </div>
-                        </td>
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80`}
-                        >
-                          <p className="truncate pr-3 font-semibold text-slate-800">
-                            {propertyLabel(primaryProperty) || "No property"}
-                          </p>
-                          {primaryProperty && (
-                            <p className="mt-1 truncate pr-3 text-xs text-slate-500">
-                              {[primaryProperty.address, primaryProperty.city]
-                                .filter(Boolean)
-                                .join(", ") || primaryProperty.property_type}
-                            </p>
-                          )}
-                        </td>
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80 text-center font-semibold text-slate-700`}
-                        >
-                          {customerProperties.length}
-                        </td>
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80 text-center`}
-                        >
-                          {customer.mobile ? (
-                            <a
-                              href={`tel:${customer.mobile}`}
-                              onClick={(event) => event.stopPropagation()}
-                              title={`Call ${customer.name}`}
-                              aria-label={`Call ${customer.name}`}
-                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 bp-ui-icon-action"
-                            >
-                              <Phone className="h-4 w-4" />
-                            </a>
-                          ) : (
-                            <span className="text-slate-300">—</span>
-                          )}
-                        </td>
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80 text-center`}
-                        >
-                          {whatsappNumber ? (
-                            <a
-                              href={`https://wa.me/${whatsappNumber}`}
-                              onClick={(event) => event.stopPropagation()}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`WhatsApp ${customer.name}`}
-                              aria-label={`WhatsApp ${customer.name}`}
-                              className="inline-grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 bp-ui-icon-action"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                            </a>
-                          ) : (
-                            <span className="text-slate-300">—</span>
-                          )}
-                        </td>
-                        <td
-                          className={`${cellPadding} border-b border-slate-200/80 text-center`}
-                        >
-                          <div className="flex flex-col items-center gap-1.5">
-                            {(!customer.bharath_id || customer.activation_pending) && <button type="button" disabled={activatingCustomerId === customer.id} onClick={(event) => activateCustomer(customer, event)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-50 bp-ui-action"><KeyRound className="h-3.5 w-3.5" />{activatingCustomerId === customer.id ? "Preparing..." : "Share activation link"}</button>}
-                            <Link
-                              to={`/quotations/new?customer=${customer.id}`}
-                              onClick={(event) => event.stopPropagation()}
-                              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-                            >
-                              <FilePlus2 className="h-4 w-4" />
-                              Quotation
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-col gap-3 border-t px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-slate-500">
-                <span>Rows per page</span>
-                <select
-                  value={pageSize}
-                  onChange={(event) => {
-                    setPageSize(Number(event.target.value));
-                    setPage(1);
-                  }}
-                  className="rounded-lg border px-2 py-1.5 bp-ui-control"
-                >
-                  {[25, 50, 75, 100].map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-                <span>
-                  {(currentPage - 1) * pageSize + 1}–
-                  {Math.min(currentPage * pageSize, filtered.length)} of{" "}
-                  {filtered.length}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40 bp-ui-action"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() =>
-                    setPage((value) => Math.min(totalPages, value + 1))
-                  }
-                  className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40 bp-ui-action"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-        </div>
+  return (<div className="space-y-6 crm-page crm-customers-page contractor-people-page">
+    <MobilePageBack />
+    <PageHeader icon={Users} eyebrow="Customer relationships" title="Customers" description="Your saved customers and properties." actions={<div className="flex flex-wrap gap-2">
+      <button type="button" onClick={connectContacts} disabled={importing} aria-label="Add from phone contacts" className="people-header-action"><ContactRound className="h-5 w-5" aria-hidden="true" /><span>Phone contacts</span></button>
+      <button type="button" onClick={() => { setShowImport(true); setImportResult(null); }} aria-label="Bulk upload customers" className="people-header-action"><Upload className="h-5 w-5" aria-hidden="true" /><span>Import file</span></button>
+      <Button onClick={() => setShowConnectionFlow(true)} aria-label="Add customer" className="crm-add-customer people-header-action people-primary-action"><Plus className="h-4 w-4" aria-hidden="true" />Add customer</Button>
+    </div>} />
+    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"><span>{error}</span><Button variant="quiet" onClick={loadCustomers}>Retry directory</Button></div>}
+    <section className="people-surface rounded-2xl border border-slate-200 bg-white" aria-label="Customer directory">
+      <div className="people-toolbar flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5"><Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+          <input value={search} type="search" onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search customers, phone or property" aria-label="Search by customer ID, name, mobile, city, email or property" className="w-full min-w-0 bg-transparent text-sm outline-none bp-ui-control" />
+        </label>
       </div>
+      <details className="customer-directory-more-filters">
+        <summary><SlidersHorizontal size={16} aria-hidden="true" />More filters{status !== "ALL" || connectionView !== "CONNECTED" ? " · Applied" : ""}</summary>
+        <div className="customer-directory-more-body">
+          <label><span>Contact status</span><select value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="ALL">All statuses</option>{CUSTOMER_STATUSES.map(item => <option key={item} value={item}>{label(item)}</option>)}</select></label>
+          <label><span>Connection history</span><select value={connectionView} onChange={event => { setConnectionView(event.target.value); setPage(1); }}>{Object.entries(connectionLabels).map(([value, text]) => <option key={value} value={value}>{text} ({value === "CONNECTED" ? directoryRows.length : connectionRows.filter(item => item.status === value).length})</option>)}</select></label>
+          <label><span>Sort by</span><select value={sort.key + ":" + sort.direction} onChange={event => { const [key, direction] = event.target.value.split(":"); setSort({ key, direction }); setPage(1); }}>
+            <option value="name:asc">Customer name A–Z</option><option value="name:desc">Customer name Z–A</option><option value="property:asc">Property name A–Z</option><option value="property:desc">Property name Z–A</option><option value="propertyCount:asc">Property count, lowest first</option><option value="propertyCount:desc">Property count, highest first</option>
+          </select></label>
+          {(search || status !== "ALL" || connectionView !== "CONNECTED") && <Button variant="quiet" onClick={() => { setSearch(""); setStatus("ALL"); setConnectionView("CONNECTED"); setPage(1); }}>Clear filters</Button>}
+        </div>
+      </details>
+      {secondaryError && <div className="customer-directory-partial-error" role="alert"><span>{secondaryError} Customer records are still available.</span><Button size="sm" variant="quiet" onClick={loadCustomers}>Retry details</Button></div>}
+      {connectionView === "CONNECTED" ? <>
+        <div className="customer-directory-meta"><p role="status">{filtered.length} customers{loading && customers.length ? " · Refreshing…" : ""}</p></div>
+        <CustomerDirectoryRecords customers={visibleCustomers} propertiesByCustomer={propertiesByCustomer} loading={loading} propertiesLoading={secondaryLoading} propertiesError={propertiesError} sort={sort} onSort={changeSort}
+          onOpen={customer => navigate("/customers/" + customer.id)} onActivate={activateCustomer} activatingCustomerId={activatingCustomerId} actionsDisabled={loading || importing} />
+        <div className="customer-directory-pagination">
+          <div><label>Rows per page<select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{[25, 50, 75, 100].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+            <span>{filtered.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span></div>
+          <div><Button variant="secondary" size="sm" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</Button><Button variant="secondary" size="sm" disabled={currentPage === totalPages} onClick={() => setPage(value => Math.min(totalPages, value + 1))}>Next</Button></div>
+        </div>
+      </> : <section className="grid gap-3 p-4 md:grid-cols-2" aria-label={connectionLabels[connectionView]}>
+        {visibleConnections.map(item => <article key={item.id || "customer-" + item.customer?.id} className="rounded-xl border bg-white p-4">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="font-bold bp-ui-section-heading">{item.customer?.name || item.customer?.masked_customer_id}</h2><p className="mt-1 text-sm text-slate-500">{item.customer?.mobile || item.customer?.masked_mobile}</p></div><span className="text-xs font-bold text-slate-600">{connectionLabels[item.status]}</span></div>
+          <p className="mt-3 text-xs text-slate-500">Requested {item.requested_at ? new Date(item.requested_at).toLocaleDateString("en-IN") : "Date unavailable"}</p>
+          {["PENDING", "RECONNECT_PENDING"].includes(item.status) && item.id && item.customer?.id && item.customer.account_status !== "DISABLED" && <Button size="sm" variant="secondary" className="mt-3" disabled={activatingCustomerId !== null} onClick={() => shareConnection(item)}>Share request link</Button>}
+          {item.status === "REJECTED" && item.id && item.customer.account_status !== "DISABLED" && <Button size="sm" variant="secondary" className="mt-3" disabled={activatingCustomerId !== null || Boolean(item.cooldown_until && new Date(item.cooldown_until) > new Date())} onClick={() => shareConnection(item, true)}>Resend request</Button>}
+          {item.status === "REJECTED" && item.cooldown_until && new Date(item.cooldown_until) > new Date() && <p className="mt-2 text-xs text-slate-500">Available {new Date(item.cooldown_until).toLocaleDateString("en-IN")}</p>}
+          {item.customer?.id && <Link to={"/customers/" + item.customer.id} className="mt-3 inline-flex min-h-11 items-center px-3 text-sm font-semibold text-indigo-700">Open saved profile</Link>}
+        </article>)}
+        {!visibleConnections.length && <p className="p-6 text-center text-sm text-slate-500">{search ? "No matching requests." : "No " + connectionLabels[connectionView].toLowerCase() + " requests."}</p>}
+      </section>}
+    </section>
       {showImport && (
         <ContractorDialog title="Bulk import customers" description="Upload your customer file or choose phone contacts." icon={Upload} onClose={() => setShowImport(false)}>
             <div className="mt-5 rounded-xl border border-dashed p-6 text-center">
@@ -816,12 +391,14 @@ export default function Customers() {
       {showConnectionFlow && <CustomerConnectionFlow
         onClose={() => setShowConnectionFlow(false)}
         onNewCustomer={createCustomer}
+        onExistingCustomer={(customer) => { if (mounted.current) navigate(`/customers/${customer.id}`); }}
       />}
       {onboarding && <CustomerActivationShare error={error} key={onboarding.share_link} customer={onboarding} contractor={{ ...user, services: contractorServices }} busy={activatingCustomerId !== null} onRegenerate={regenerateCustomerLink} onClose={() => { setOnboarding(null); loadCustomers(); }} />}
 
     </div>
   );
 }
+
 function formatError(data) {
   if (!data) return "";
   if (typeof data === "string") {
@@ -839,100 +416,5 @@ function formatError(data) {
     )
     .join(" ");
 }
-function propertyLabel(property) {
-  if (!property) return "";
-  return property.name || property.property_type || "Unnamed property";
-}
-function formatWhatsAppNumber(value) {
-  const digits = String(value || "").replace(/\D/g, "");
-  if (!digits) return "";
-  return digits.length === 10 ? `91${digits}` : digits;
-}
-function customerStatusTone(value) {
-  if (["WON"].includes(value)) return "success";
-  if (["LOST"].includes(value)) return "danger";
-  if (["PENDING", "FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
-  if (["NEW", "CONTACTED", "SITE_VISIT", "QUOTATION_SENT"].includes(value)) return "info";
-  return "neutral";
-}
-function SortableHeader({ label: headerLabel, sortKey, sort, onSort }) {
-  const active = sort.key === sortKey;
-  const centered = sortKey === "propertyCount";
-  return (
-    <th
-      className={`border-b border-slate-200 px-5 py-3.5 ${centered ? "text-center" : "text-left"}`}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={(`inline-flex items-center gap-2 ${centered ? "justify-center" : "text-left"}`) + " bp-ui-action"}
-        aria-label={`Sort by ${headerLabel}`}
-      >
-        {headerLabel}
-        <ArrowUpDown
-          className={`h-3.5 w-3.5 ${active ? "text-slate-900" : "text-slate-400"}`}
-        />
-        {active && (
-          <span className="sr-only">
-            {sort.direction === "asc" ? "ascending" : "descending"}
-          </span>
-        )}
-      </button>
-    </th>
-  );
-}
 
-function ContactDirectory({ loading, customers, propertiesByCustomer, navigate, activateCustomer, activatingCustomerId }) {
-  if (loading) return <div className="crm-directory-state"><LoadingState label="Loading customers..." /></div>;
-  if (!customers.length) return <EmptyState title="No customers found"  className="crm-directory-state" />;
-
-  const sorted = [...customers].sort((first, second) =>
-    String(first.name || "").localeCompare(String(second.name || ""), undefined, { sensitivity: "base" }),
-  );
-  const groups = sorted.reduce((result, customer) => {
-    const initial = /^[A-Z]$/i.test(String(customer.name || "").charAt(0))
-      ? String(customer.name).charAt(0).toUpperCase()
-      : "#";
-    if (!result[initial]) result[initial] = [];
-    result[initial].push(customer);
-    return result;
-  }, {});
-  const letters = Object.keys(groups).sort((a, b) => a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b));
-
-  return <div className="relative">
-    {letters.length > 1 && <div className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:absolute md:right-2 md:top-2 md:z-20 md:h-[calc(100%-1rem)] md:flex-col md:border-0 md:bg-transparent md:px-0 md:py-0" aria-label="Jump to customer initial">
-      {letters.map((letter) => <button key={letter} type="button" onClick={() => document.getElementById(`customer-letter-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="grid h-7 min-w-7 place-items-center crm-customer-letter-link rounded-full text-xs font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-700 bp-ui-action">{letter}</button>)}
-    </div>}
-    <div className={`overflow-y-auto scroll-smooth ${letters.length > 1 ? "md:pr-12" : ""}`}>
-      {letters.map((letter) => <section key={letter} id={`customer-letter-${letter}`} className="scroll-mt-0">
-        <div className="crm-customer-letter-heading sticky top-0 z-10 border-y border-slate-200 bg-slate-100/95 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-700 backdrop-blur">{letter}</div>
-        <div className="divide-y divide-slate-100">
-          {groups[letter].map((customer) => {
-            const customerProperties = propertiesByCustomer[String(customer.id)] || [];
-            const primaryProperty = customerProperties[0];
-            const contactDetailsAvailable = !customer.is_pending_connection || /^\d+$/.test(String(customer.id));
-            const whatsappNumber = contactDetailsAvailable ? formatWhatsAppNumber(customer.whatsapp || customer.mobile) : "";
-            const canOpen = Boolean(customer.id && (!customer.is_pending_connection || /^\d+$/.test(String(customer.id))));
-            const openCustomer = () => { if (canOpen) navigate(`/customers/${customer.id}`); };
-            return <div key={customer.id} onClick={openCustomer} className={`people-contact-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(8rem,1fr)_auto] md:px-5 ${canOpen ? "cursor-pointer hover:bg-indigo-50/60" : ""}`}>
-              <div className="contractor-contact-person">
-                <span className="contractor-contact-avatar" aria-hidden="true">{String(customer.name || '?').charAt(0).toUpperCase()}</span>
-                <div><div className="flex flex-wrap items-center gap-2">{canOpen ? <Link className="people-contact-name" to={`/customers/${customer.id}`} onClick={event => event.stopPropagation()}>{customer.name || 'Unnamed customer'}</Link> : <strong className="people-contact-name">{customer.name || 'Unnamed customer'}</strong>}<span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline ${statusColors[customer.status] || "bg-slate-100 text-slate-600"}`}>{label(customer.status)}</span></div>
-                <p className="mt-0.5 break-words text-xs text-slate-500">{customer.bharath_id || "No customer ID"} · {customer.mobile || "No mobile"}</p></div>
-              </div>
-              <div className="hidden min-w-0 md:block"><p className="truncate text-sm font-semibold text-slate-800">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 truncate text-xs text-slate-500">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"}</p></div>
-              <p className="hidden min-w-0 break-words text-sm font-semibold tabular-nums text-slate-700 md:block">{customer.mobile || "—"}</p>
-              <div className="flex items-center justify-end gap-2" role="group" aria-label={`Actions for ${customer.name}`}>
-                <CustomerAccountStatus customer={customer} compact />
-                {customerAccountStatus(customer)?.canResend && <button type="button" disabled={activatingCustomerId !== null} onClick={(event) => activateCustomer(customer, event)} title="Resend activation link" aria-label={`Resend activation link to ${customer.name}`} className="crm-customer-activation-action inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-orange-700 disabled:opacity-50 bp-ui-action"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-orange-500 ring-2 ring-orange-100 ring-offset-1" />{activatingCustomerId === customer.id ? "Wait?" : "Resend"}</button>}
-                <a href={customer.mobile && contactDetailsAvailable ? `tel:${customer.mobile}` : undefined} onClick={(event) => event.stopPropagation()} aria-label={`Call ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${customer.mobile && contactDetailsAvailable ? "border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-700" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><Phone className="h-4 w-4" /></a>
-                <a href={whatsappNumber ? `https://wa.me/${whatsappNumber}` : undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} aria-label={`WhatsApp ${customer.name}`} className={(`grid h-9 w-9 place-items-center rounded-full border bg-white shadow-sm ${whatsappNumber ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "pointer-events-none text-slate-300"}`) + " bp-ui-icon-action"}><MessageCircle className="h-4 w-4" /></a>
-              </div>
-              <div className="col-span-2 min-w-0 md:hidden"><p className="truncate text-xs font-semibold text-slate-700">{propertyLabel(primaryProperty) || "No property"}</p><p className="mt-0.5 text-[11px] text-slate-600">{customerProperties.length} {customerProperties.length === 1 ? "property" : "properties"} · Tap contact to view</p></div>
-            </div>;
-          })}
-        </div>
-      </section>)}
-    </div>
-  </div>;
-}
+function propertyLabel(property) { return property?.name || property?.property_type || ""; }

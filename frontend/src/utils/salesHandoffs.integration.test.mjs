@@ -9,9 +9,11 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const text = node => typeof node === "string" ? node : (node?.children || []).map(text).join("");
 const button = (view, name) => view.root.findAllByType("button").find(node => text(node) === name);
 const stub = `import React from ${JSON.stringify(import.meta.resolve("react"))};
-export const api={get:async path=>({data:globalThis.__salesGet(path)}),patch:async(path,payload)=>{globalThis.__salesWrites.push([path,payload]);return globalThis.__salesPatch(path,payload);}};
+export const api={get:async path=>({data:globalThis.__salesGet(path)}),patch:async(path,payload)=>{globalThis.__salesWrites.push([path,payload]);return globalThis.__salesPatch(path,payload);},post:async(path,payload)=>{globalThis.__salesWrites.push([path,payload]);return globalThis.__salesPost(path,payload);}};
 export const useMobileView=()=>false;
 export const useAuth=()=>({user:{id:2,role:'CONTRACTOR'}});
+export const useParams=()=>globalThis.__salesRouteParams || {};
+export const ScheduleQuotationItems=()=>null;
 export const useSearchParams=()=>[globalThis.__salesParams];
 const navigate=path=>globalThis.__salesNavigation.push(path);export const useNavigate=()=>navigate;
 export const Link=({to,children,...props})=>React.createElement('a',{href:to,...props},children);
@@ -23,12 +25,12 @@ export const SectionCard=({title,description,children})=>React.createElement('se
 export const ErrorState=({message})=>React.createElement('p',{role:'alert'},message);
 export const EmptyState=({title})=>React.createElement('p',null,title);
 export const StatusBadge=({status})=>React.createElement('span',null,status);
-export const MobilePageBack=()=>null;export const ScheduleWorkspaceNav=()=>null;export const previewPdf=()=>{};`;
+export const MobilePageBack=()=>null;export const ScheduleWorkspaceNav=()=>null;export const ScheduleWorkItems=()=>null;export const ScheduleQuotationReference=()=>null;export const ReopenWorkAction=()=>null;export const previewPdf=()=>{};`;
 const stubUrl = `data:text/javascript;base64,${Buffer.from(stub).toString("base64")}`;
 async function page(name) {
   const url = new URL(`../pages/${name}.jsx`, import.meta.url);
   let source = (await fs.readFile(url, "utf8")).replace(/^import ["'][^"']+\.css["'];$/gm, "");
-  for (const name of ["api", "useMobileView", "useAuth", "ContractorDialog", "MobilePageBack", "ScheduleWorkspaceNav"]) {
+  for (const name of ["api", "useMobileView", "useAuth", "ContractorDialog", "MobilePageBack", "ScheduleWorkspaceNav", "ScheduleWorkItems", "ScheduleQuotationReference", "ScheduleQuotationItems", "ReopenWorkAction"]) {
     source = source.replace(new RegExp('import '+name+' from ["\'][^"\']+["\'];'), `import {${name}} from ${JSON.stringify(stubUrl)};`);
   }
   if (source.includes('import ScheduleApprovalMethod')) {
@@ -47,16 +49,92 @@ const WorkSchedules = await page("WorkSchedules");
 const WorkReschedules = await page("WorkReschedules");
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 function reset(query = "") {
+  globalThis.__salesRouteParams = {};
   globalThis.__salesParams = new URLSearchParams(query);
   globalThis.__salesNavigation = [];
   globalThis.__salesWrites = [];
   globalThis.__salesPatch = async () => ({data:{}});
+  globalThis.__salesPost = async () => ({data:{}});
   globalThis.__salesGet = () => [];
-  globalThis.window = { setInterval:()=>1,clearInterval:()=>{},addEventListener:()=>{},removeEventListener:()=>{} };
+  globalThis.window = { confirm:()=>true,setInterval:()=>1,clearInterval:()=>{},addEventListener:()=>{},removeEventListener:()=>{} };
 }
 async function mount(Page) { let view; await act(async () => { view = create(React.createElement(Page)); }); return view; }
 const visit = () => ({id:9,customer:4,customer_name:"Anita",property:8,opportunity:12,status:"SCHEDULED",scheduled_date:today()});
 const schedule = () => ({id:6,quotation:9,quotation_number:"Q9",status:"CONFIRMED",payment_status:"NOT_REQUESTED",start_date:"2000-01-01",end_date:"2000-01-02",painters:[],contractor_accepted:true,customer_accepted:true});
+
+test('schedule number uses the same-tab detail URL and historical schedule remains available there',async()=>{
+  reset();globalThis.__salesGet=path=>path.startsWith('/jobs/work-schedules/')?[{...schedule(),start_date:today(),end_date:today()}]:[];
+  let view=await mount(WorkSchedules);
+  const link=view.root.findAllByType('a').find(node=>node.props.href==='/work-schedules/6');
+  assert.equal(link.props.target,undefined);
+  await act(async()=>view.unmount());
+  reset();globalThis.__salesRouteParams={scheduleId:'6'};
+  globalThis.__salesGet=path=>path.startsWith('/jobs/work-schedules/')?[schedule()]:[];
+  view=await mount(WorkSchedules);
+  assert.ok(button(view,'Start work'));assert.ok(!button(view,'View details'));
+  assert.match(text(view.toJSON()),/Q9/);
+  await act(async()=>view.unmount());reset();
+});
+
+test("confirmed payment reads Paid rather than a schedule status", async()=>{
+  reset();
+  globalThis.__salesGet=path=>path.startsWith('/jobs/work-schedules/')?[{...schedule(),start_date:today(),end_date:today(),payment_status:'CONFIRMED',advance_amount:'500'}]:[];
+  const view=await mount(WorkSchedules);
+  await act(async()=>button(view,'View details').props.onClick());
+  const badge=view.root.findAll(node=>typeof node.props.className==='string' && node.props.className.includes('schedule-payment-status'))[0];
+  assert.equal(text(badge),'Paid');
+  await act(async()=>view.unmount());
+});
+
+test('completed schedules expose invoice initiation through their own filter',async()=>{
+  reset();
+  globalThis.__salesGet=path=>path.startsWith('/jobs/work-schedules/')?[{...schedule(),status:'COMPLETED'}]:[];
+  const view=await mount(WorkSchedules);
+  const filter=view.root.findAllByType('button').find(node=>text(node).startsWith('Completed'));
+  await act(async()=>filter.props.onClick());
+  await act(async()=>button(view,'View details').props.onClick());
+  const invoice=view.root.findAllByType('a').find(node=>text(node)==='Create final invoice');
+  assert.equal(invoice.props.href,'/quotations/9?action=invoice');
+  assert.ok(view.root.findAllByType('article')[0].props.className.includes('schedule-record-completed'));
+  await act(async()=>view.unmount());
+});
+
+test("contractor can start pending unpaid work without painter acceptance", async()=>{
+  reset();
+  const current={...schedule(),status:"PENDING",customer_accepted:false,contractor_accepted:false,start_date:today(),end_date:today(),payment_status:"NOT_REQUESTED",painters:[]};
+  globalThis.__salesGet=path=>path.startsWith("/jobs/work-schedules/")?[current]:[];
+  const view=await mount(WorkSchedules);
+  await act(async()=>button(view,"View details").props.onClick());
+  assert.ok(button(view,"Start work"), "Contractor controls start independently");
+  assert.doesNotMatch(text(view.toJSON()),/Waiting for painter acceptance|Waiting for advance payment/);
+  await act(async()=>view.unmount());
+});
+
+test("accepted Start response updates work immediately if a related list refresh fails", async()=>{
+  reset();let started=false;
+  const current={...schedule(),start_date:today(),end_date:today(),payment_status:"CONFIRMED",painters:[{id:7,name:"Ravi",status:"ACCEPTED"}]};
+  globalThis.__salesGet=path=>{if(started && path.startsWith('/quotations/'))throw Error('Refresh failed');return path.startsWith('/jobs/work-schedules/')?[current]:[];};
+  globalThis.__salesPost=async()=>{started=true;return {data:{...current,status:'IN_PROGRESS'}};};
+  const view=await mount(WorkSchedules);
+  await act(async()=>button(view,"View details").props.onClick());
+  await act(async()=>button(view,"Start work").props.onClick());
+  assert.ok(button(view,"Complete work"));
+  assert.ok(!button(view,"Start work"), 'Successful start must leave the confirmed state');
+  await act(async()=>view.unmount());
+});
+
+test("a rejected Start displays the backend reason beside the work controls", async()=>{
+  reset();
+  const current={...schedule(),start_date:today(),end_date:today(),payment_status:"CONFIRMED",painters:[{id:7,name:"Ravi",status:"ACCEPTED"}]};
+  globalThis.__salesGet=path=>path.startsWith('/jobs/work-schedules/')?[current]:[];
+  globalThis.__salesPost=async()=>{throw {response:{data:{detail:'Send and approve the revised quotation before starting work.'}}};};
+  const view=await mount(WorkSchedules);
+  await act(async()=>button(view,"View details").props.onClick());
+  await act(async()=>button(view,"Start work").props.onClick());
+  assert.match(text(view.root.findByProps({className:'schedule-progress-error'})),/approve the revised quotation/);
+  assert.ok(button(view,"Start work"));
+  await act(async()=>view.unmount());
+});
 
 test("schedule has one painter management control and keeps advance actions in details", async () => {
   reset();

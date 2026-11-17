@@ -25,10 +25,14 @@ import {
 } from "lucide-react";
 
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import "./admin-portal.css";
 import useAuth from "../context/useAuth";
 import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./master-services.css";
+import { Link, useSearchParams } from "react-router-dom";
+import CatalogueLibrary from "../components/catalogues/CatalogueLibrary";
+import "../components/catalogues/catalogues.css";
 
 // `key` is the UI/nav id. `section` is the canonical backend section name that
 // MASTER_MODELS is keyed by, and is what the reorder endpoint resolves against
@@ -46,6 +50,26 @@ const groups = [
 const empty = { painting_area:"OTHER", name: "", service_category: "", key_features: "", default_price: "", locality: "", zone: "", pincode: "", is_active: true };
 
 export default function MasterServices() {
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  if (user?.role !== "CONTRACTOR") return <MasterServicesWorkspace />;
+  const catalogues = params.get("tab") === "catalogues";
+  function tabLink(tab) {
+    const next = new URLSearchParams(params);
+    if (tab === "catalogues") next.set("tab", tab);
+    else next.delete("tab");
+    return { search: next.toString() ? `?${next}` : "" };
+  }
+  return <div className="services-library-workspace">
+    <nav className="services-library-tabs" aria-label="Services and rates sections">
+      <Link to={tabLink("masters")} aria-current={!catalogues ? "page" : undefined}>Services &amp; rates</Link>
+      <Link to={tabLink("catalogues")} aria-current={catalogues ? "page" : undefined}>Catalogues &amp; Brochures</Link>
+    </nav>
+    {catalogues ? <CatalogueLibrary key={user.id} /> : <MasterServicesWorkspace />}
+  </div>;
+}
+
+function MasterServicesWorkspace() {
   const { user } = useAuth();
   const [active, setActive] = useState(groups[0]);
   const [items, setItems] = useState([]);
@@ -306,7 +330,7 @@ const [orderBusy, setOrderBusy] = useState(false);
   }
 
   async function remove(item) {
-    if (!window.confirm(`Remove ${item.name} from future selections? Existing quotations will not change.`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to remove this entry?", detail: `${item.name}. Existing quotations will not change.` })) return;
     try {
       await api.delete(`/quotations/${active.endpoint}/${item.id}/`);
       await Promise.all([load(), loadCounts()]);

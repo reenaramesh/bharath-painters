@@ -230,6 +230,19 @@ class ConnectionScopedCustomerMixin:
             return representation
         representation["connection_status"] = connection.status
         representation["is_saved_contact"] = False
+        contact = instance.saved_contacts.filter(contractor=request.user).first()
+        if contact:
+            from .customer_contacts import contractor_customer_details
+            details = contractor_customer_details(instance, request.user)
+            for field, value in details.items():
+                if field in representation:
+                    representation[field] = value
+            representation["created_at"] = contact.created_at
+            representation["updated_at"] = contact.updated_at
+        representation["bharath_id"] = instance.bharath_id
+        representation["connection_origin"] = connection.origin
+        if "contractor" in representation:
+            representation["contractor"] = request.user.pk
         representation["activation_pending"] = not instance.portal_user_id or not instance.portal_user.has_usable_password()
         portal_user = instance.portal_user
         representation["account_status"] = (
@@ -269,21 +282,28 @@ class ConnectionScopedCustomerMixin:
             representation["work_history"] = CustomerWorkHistorySerializer(history, many=True, context=self.context).data
         return representation
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         connection = self.contractor_connection(instance)
-        scoped_values = {}
         if connection:
+            from .customer_contacts import save_contact_details
+            if "mobile" in validated_data:
+                normalized = normalize_indian_mobile(validated_data["mobile"])
+                if normalized != instance.normalized_mobile:
+                    raise serializers.ValidationError({"mobile": "Add a separate customer to use a different mobile number."})
+                validated_data["mobile"] = normalized
+            save_contact_details(instance, connection.contractor, validated_data)
             scoped_values = {
-                connection_name: validated_data.pop(public_name)
+                connection_name: validated_data[public_name]
                 for public_name, connection_name in self.scoped_customer_fields.items()
                 if public_name in validated_data
             }
-        instance = super().update(instance, validated_data)
-        if connection and scoped_values:
             for field, value in scoped_values.items():
                 setattr(connection, field, value)
-            connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
-        return instance
+            if scoped_values:
+                connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
+            return instance
+        return super().update(instance, validated_data)
 
 
 class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSerializer):
@@ -310,7 +330,7 @@ class CustomerSerializer(ConnectionScopedCustomerMixin, serializers.ModelSeriali
         queryset = Customer.objects.exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
-        if queryset.exists():
+        if self.instance and queryset.exists():
             raise serializers.ValidationError("A Bharath Painters customer already exists for this mobile number.")
         return normalized
 
@@ -1266,8 +1286,12 @@ class WorkChangeSerializer(serializers.ModelSerializer):
     price_difference = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     quotation_number = serializers.CharField(source="quotation.quotation_number", read_only=True)
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.SerializerMethodField()
     property_name = serializers.SerializerMethodField()
+
+    def get_customer_name(self, obj):
+        from .document_identity import quotation_party_details
+        return quotation_party_details(obj.quotation)[0]["name"]
 
     class Meta:
         model = WorkChange
@@ -2305,6 +2329,30 @@ class QuotationSerializer(serializers.ModelSerializer):
 class CustomerFollowUpSerializer(
     serializers.ModelSerializer
 ):
+    performed_by_name = serializers.SerializerMethodField()
+
+    def get_performed_by_name(self, obj):
+        actor = obj.performed_by or obj.created_by
+        return actor.get_full_name() or actor.mobile
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        opportunity = attrs.get("opportunity", getattr(self.instance, "opportunity", None))
+        if request and opportunity:
+            expected_customer = getattr(self.context.get("view"), "kwargs", {}).get("customer_id")
+            delegated = False
+            if self.context.get("lead_delegation") and request.user.role == "PAINTER":
+                from .lead_access import accessible_leads
+                delegated = accessible_leads(request.user).filter(pk=opportunity.pk).exists()
+            if (opportunity.contractor_id != request.user.pk and not delegated) or (expected_customer and opportunity.customer_id != int(expected_customer)):
+                raise serializers.ValidationError({"opportunity": "Select one of your leads for this customer."})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request:
+            validated_data["performed_by"] = request.user
+        return super().create(validated_data)
 
     class Meta:
         model = CustomerFollowUp
@@ -2314,6 +2362,8 @@ class CustomerFollowUpSerializer(
         read_only_fields = (
             "customer",
             "created_by",
+            "performed_by",
+            "completed_by",
             "follow_up_date",
             "created_at",
         )
@@ -2397,6 +2447,7 @@ class CustomerDetailSerializer(
             "name",
             "mobile",
             "email",
+            "gst_number",
             "whatsapp",
             "address",
             "city",
@@ -2429,9 +2480,42 @@ class CustomerDetailSerializer(
 
 
 class CustomerTaskSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
-    customer_mobile = serializers.CharField(source="customer.mobile", read_only=True)
+    customer_name = serializers.SerializerMethodField()
+    customer_mobile = serializers.SerializerMethodField()
     customer_bharath_id = serializers.CharField(source="customer.bharath_id", read_only=True)
+    performed_by_name = serializers.SerializerMethodField()
+
+    def get_performed_by_name(self, obj):
+        actor = obj.performed_by or obj.created_by
+        return actor.get_full_name() or actor.mobile
+
+    def get_customer_name(self, obj):
+        row = self.context.get("customer_context", {}).get(obj.customer_id)
+        if row is not None:
+            return row["customer_name"]
+        from .customer_contacts import contractor_customer_details
+        return contractor_customer_details(obj.customer, obj.created_by)["name"]
+
+    def get_customer_mobile(self, obj):
+        row = self.context.get("customer_context", {}).get(obj.customer_id)
+        if row is not None:
+            return row["customer_mobile"]
+        from .customer_contacts import contractor_customer_details
+        return contractor_customer_details(obj.customer, obj.created_by)["mobile"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        row = self.context.get("customer_context", {}).get(instance.customer_id)
+        if row is not None:
+            # A task's due date remains its own due date, rather than the
+            # customer's earliest pending task from the candidate summary.
+            data.update({key: value for key, value in row.items() if key != "next_follow_up"})
+        opportunity = instance.opportunity
+        data["opportunity_title"] = opportunity.title if (
+            opportunity and opportunity.contractor_id == instance.created_by_id
+            and opportunity.customer_id == instance.customer_id
+        ) else ""
+        return data
 
     class Meta:
         model = CustomerFollowUp
@@ -2439,6 +2523,8 @@ class CustomerTaskSerializer(serializers.ModelSerializer):
             "id", "customer", "customer_bharath_id", "customer_name", "customer_mobile",
             "follow_up_type", "comment", "follow_up_date", "next_follow_up",
             "is_completed", "completed_at",
+            "performed_by", "performed_by_name", "completed_by",
+            "opportunity", "outcome", "next_action",
         )
         read_only_fields = fields
 
@@ -2574,6 +2660,7 @@ class CustomerDetailSerializer(
             "name",
             "mobile",
             "email",
+            "gst_number",
             "whatsapp",
             "address",
             "city",

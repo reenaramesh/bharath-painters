@@ -151,6 +151,36 @@ class WorkSchedule(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class WorkScheduleRework(models.Model):
+    """Each contractor-requested rework cycle retains its issues and plan."""
+    schedule = models.ForeignKey(WorkSchedule, on_delete=models.CASCADE, related_name="rework_entries")
+    note = models.TextField(max_length=4000)
+    previous_completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="schedule_rework_entries")
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
+class WorkScheduleLineProgress(models.Model):
+    """Execution tracking only; never changes quotation or financial state."""
+    schedule = models.ForeignKey(WorkSchedule, on_delete=models.CASCADE, related_name="line_progress")
+    item = models.ForeignKey("quotations.QuotationItem", null=True, blank=True,
+                             on_delete=models.SET_NULL, related_name="schedule_progress")
+    scope_snapshot = models.JSONField(default=dict)
+    steps = models.JSONField(default=list)
+    note = models.TextField(blank=True)
+    version = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="schedule_line_updates")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("schedule", "item"), name="unique_schedule_line_progress")]
+
+
 class WorkScheduleAuthorization(models.Model):
     """Current date authorization; customer acceptance remains on the schedule."""
     class Mode(models.TextChoices):

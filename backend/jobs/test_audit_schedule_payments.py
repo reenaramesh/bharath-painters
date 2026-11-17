@@ -76,3 +76,11 @@ class SchedulePaymentAuditTests(APITestCase):
         self.assertEqual(schedule.advance_amount, Decimal('40'))
         self.assertEqual(schedule.payment_status, 'AWAITING_PAYMENT')
         self.assertFalse(ProjectReceipt.objects.exists())
+
+    def test_advance_can_be_recorded_after_independent_work_start(self):
+        schedule = self.schedule(status='IN_PROGRESS', customer_accepted=False)
+        response = self.pay(schedule, 'RECORD', amount='40')
+        self.assertEqual(response.status_code, 200, response.data)
+        schedule.refresh_from_db()
+        self.assertEqual(schedule.payment_status, 'CONFIRMED')
+        self.assertEqual(schedule.status, 'IN_PROGRESS')

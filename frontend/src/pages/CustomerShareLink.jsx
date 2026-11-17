@@ -76,8 +76,8 @@ export default function CustomerShareLink() {
     }
   }
 
-  return <main className="min-h-screen bg-slate-50 p-4 sm:p-8">
-    <section className="mx-auto max-w-xl rounded-3xl border bg-white p-6 shadow-sm sm:p-8">
+  return <main className="bp-public-auth bp-auth-share min-h-screen bg-slate-50 p-4 sm:p-8">
+    <section className="bp-auth-card mx-auto max-w-xl rounded-3xl border bg-white p-6 shadow-sm sm:p-8">
       <p className="text-xs font-bold uppercase tracking-widest text-[#176b9b]">Bharath Apps</p>
       <h1 className="mt-2 text-2xl font-extrabold text-slate-950 bp-ui-page-title">{details?.purpose === "ACTIVATION" ? "Activate your customer account" : "Contractor connection request"}</h1>
       {details && <p className="mt-3 text-sm leading-6 text-slate-600">Hello {details.customer_name}, {details.contractor_name} {details.purpose === "ACTIVATION" ? "invited you to activate your customer account." : "would like to connect with you."}</p>}

@@ -1,289 +1,148 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Phone, Plus, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import api from "../api/client";
-import { Button, EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatCard as SharedStatCard, StatusBadge } from "../components/ui";
-import "./crm-pages.css";
-import {
-  OPPORTUNITY_STAGES,
-  SOURCE_OPTIONS,
-  PRIORITY_OPTIONS,
-  stageLabel,
-  money,
-} from "../utils/opportunityOptions";
+import useAuth from "../context/useAuth";
+import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges";
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader } from "../components/ui";
+import LeadActionRail from "../components/leads/LeadActionRail";
+import LeadListRecords from "../components/leads/LeadListRecords";
+import LeadFollowUpForm from "../components/leads/LeadFollowUpForm";
+import { quickUpdateDirty } from "../components/leads/lead-quick-update";
+import { LEAD_ACTIONS } from "../components/leads/lead-action-config";
+import useLeadAssignees from "../components/leads/useLeadAssignees";
+import { OPPORTUNITY_STAGES, SOURCE_OPTIONS, PRIORITY_OPTIONS, stageLabel } from "../utils/opportunityOptions";
+
+const legacyTitles = { overdue: "Overdue actions", today: "Due today", needs_action: "Needs action", awaiting_decision: "Awaiting decision", closed: "Closed history", unassigned: "Unassigned leads" };
+const emptyFilters = { stage: "", source: "", priority: "", date_from: "", date_to: "", assigned_user: "" };
 
 export default function Opportunities() {
-  const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { user } = useAuth();
+  return <OpportunitiesWorkspace key={user?.id || "signed-out"} />;
+}
+
+function OpportunitiesWorkspace() {
+  const { user } = useAuth();
+  const contractor = user?.role === "CONTRACTOR";
+  const team = useLeadAssignees(contractor);
+  const [params, setParams] = useSearchParams();
+  const queue = params.get("queue") || "active";
+  const customer = params.get("customer") || "";
+  const selectedAssignee = params.get("assigned_user") || "";
   const [search, setSearch] = useState("");
-  const [view, setView] = useState("open");
-  const [stage, setStage] = useState("");
-  const [source, setSource] = useState("");
-  const [priority, setPriority] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search.trim()) params.set("search", search.trim());
-      if (view !== "all") params.set("view", view);
-      if (stage) params.set("stage", stage);
-      if (source) params.set("source", source);
-      if (priority) params.set("priority", priority);
-      if (dateFrom) params.set("date_from", dateFrom);
-      if (dateTo) params.set("date_to", dateTo);
-      const { data } = await api.get(`/quotations/leads/?${params.toString()}`);
-      setItems(data);
-      setError("");
-    } catch {
-      setError("Leads could not be loaded.");
-    } finally {
-      setLoading(false);
-    }
-  }, [search, view, stage, source, priority, dateFrom, dateTo]);
-
+  const [filters, setFilters] = useState({ ...emptyFilters });
+  const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const [summaryRetry, setSummaryRetry] = useState(0);
+  const [updating, setUpdating] = useState(null);
+  const [drafts, setDrafts] = useState({});
+  const [notice, setNotice] = useState("");
+  const listHeading = useRef(null);
+  const restoreAfterRefresh = useRef(false);
+  useDraftUnsavedChanges(Object.values(drafts).some(quickUpdateDirty), true, { preservePathname: "/opportunities" });
+  const version = useRef(0);
+  const summaryVersion = useRef(0);
+  const setBoardParams = next => setParams(next);
+  const changeQueue = key => { const next = new URLSearchParams(params); next.set("queue", key); setBoardParams(next); };
+  const retryRefresh = () => { setRetry(value => value + 1); setSummaryRetry(value => value + 1); };
+  function draftChanged(value) {
+    setDrafts(current => {
+      const next = { ...current };
+      if (value) next[updating.id] = value;
+      else delete next[updating.id];
+      return next;
+    });
+  }
+  function updateSaved() {
+    setNotice("Update saved.");
+    restoreAfterRefresh.current = true;
+    setUpdating(null);
+    retryRefresh();
+  }
   useEffect(() => {
-    const timer = window.setTimeout(load, search ? 350 : 0);
-    return () => window.clearTimeout(timer);
-  }, [load, search]);
-
-  const counts = useMemo(
-    () => ({
-      open: items.filter((item) =>
-        !["WON", "LOST", "CANCELLED", "COMPLETED"].includes(item.stage),
-      ).length,
-      new: items.filter((item) => item.stage === "NEW").length,
-      followUp: items.filter(
-        (item) => item.next_follow_up && new Date(item.next_follow_up) <= new Date(),
-      ).length,
-      quotation: items.filter((item) => item.stage === "QUOTATION").length,
-      won: items.filter((item) => item.stage === "WON").length,
-      lost: items.filter((item) => item.stage === "LOST").length,
-    }),
-    [items],
-  );
-
-  return (
-    <div className="space-y-6 crm-page crm-opportunities-page">
-      <PageHeader eyebrow="Sales pipeline" title="Leads" description="Track enquiries, follow-ups and quotations through your sales pipeline." actions={<Button
-          onClick={() => navigate("/opportunities/new")}
-          aria-label="Create a new lead"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          New lead
-        </Button>} />
-
-      {error && <ErrorState message={error} onRetry={load} />}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <SharedStatCard label="Open" value={counts.open} className="crm-opportunity-stat" />
-        <SharedStatCard label="New" value={counts.new} tone="info" className="crm-opportunity-stat" />
-        <SharedStatCard label="Follow-up due" value={counts.followUp} tone="warning" className="crm-opportunity-stat" />
-        <SharedStatCard label="Quotation sent" value={counts.quotation} tone="brand" className="crm-opportunity-stat" />
-        <SharedStatCard label="Won" value={counts.won} tone="success" className="crm-opportunity-stat" />
-        <SharedStatCard label="Lost" value={counts.lost} tone="danger" className="crm-opportunity-stat" />
-      </div>
-
-      <SectionCard title="Find leads"  className="crm-filters-card" bodyClassName="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              aria-label="Search leads"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search ID, client, mobile, property or service"
-              className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-slate-900 bp-control-leading-icon bp-ui-control"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              ["open", "Open"],
-              ["won", "Won"],
-              ["lost", "Lost"],
-              ["all", "All"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                aria-pressed={view === value}
-                onClick={() => setView(value)}
-                className={(`rounded-xl px-3 py-2 text-xs font-bold ${
-                  view === value
-                    ? "bg-slate-950 text-white"
-                    : "border bg-white text-slate-600"
-                }`) + " bp-ui-action"}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Filter leads by stage"
-            value={stage}
-            onChange={(event) => setStage(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
-          >
-            <option value="">All stages</option>
-            {OPPORTUNITY_STAGES.map((value) => (
-              <option key={value} value={value}>
-                {stageLabel(value)}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filter leads by source"
-            value={source}
-            onChange={(event) => setSource(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
-          >
-            <option value="">All sources</option>
-            {SOURCE_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filter leads by priority"
-            value={priority}
-            onChange={(event) => setPriority(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
-          >
-            <option value="">Any priority</option>
-            {PRIORITY_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-            From
-            <input
-              type="date"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(event) => setDateFrom(event.target.value)}
-              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-            To
-            <input
-              type="date"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(event) => setDateTo(event.target.value)}
-              className="rounded-xl border bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900 bp-ui-control"
-            />
-          </label>
-        </div>
-      </SectionCard>
-
-      {loading ? <LoadingState label="Loading leads..." /> : items.length ? (
-        <SectionCard title="Lead records" description={`${items.length} matching ${items.length === 1 ? "lead" : "leads"}`} className="crm-records-card" bodyClassName="p-0">
-          <div className="crm-opportunity-mobile-list">{items.map((item) => <OpportunityCard key={item.id} item={item} />)}</div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-left text-sm bp-ui-table">
-              <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Lead</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Property / service</th><th className="px-4 py-3">Stage</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Source</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">Next follow-up</th><th className="px-4 py-3" data-no-sort="true">Action</th></tr>
-              </thead>
-              <tbody className="divide-y">{items.map((item) => (
-                <tr key={item.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/opportunities/${item.id}`)}>
-                  <td className="px-4 py-4 font-mono text-xs font-semibold text-slate-500">{item.reference_no || `OPP-${item.id}`}</td>
-                  <td className="px-4 py-4 font-bold">{item.title}</td>
-                  <td className="px-4 py-4"><p className="font-semibold">{item.customer_name}</p><p className="text-xs text-slate-500">{item.customer_mobile}</p></td>
-                  <td className="px-4 py-4 text-slate-600">{item.property_name || item.service_name || "-"}</td>
-                  <td className="px-4 py-4"><StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} /></td>
-                  <td className="px-4 py-4"><StatusBadge status={item.priority} label={priorityLabel(item.priority)} tone={item.priority === "HIGH" ? "danger" : item.priority === "MEDIUM" ? "warning" : "neutral"} /></td>
-                  <td className="px-4 py-4">{sourceLabel(item.source)}</td>
-                  <td className="px-4 py-4 text-right font-semibold" data-sort-value={item.estimated_value || 0}>{item.estimated_value ? money(item.estimated_value) : "-"}</td>
-                  <td className="px-4 py-4" data-sort-value={item.next_follow_up || ""}>{item.next_follow_up ? new Date(item.next_follow_up).toLocaleDateString("en-GB") : "-"}</td>
-                  <td className="px-4 py-4"><Link to={`/opportunities/${item.id}`} onClick={(event) => event.stopPropagation()} className="inline-flex rounded-lg border px-3 py-2 font-semibold">View</Link></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </SectionCard>
-      ) : (
-        <EmptyState title="No leads found"  />
-      )}
-    </div>
-  );
-}
-
-export function StatCard({ label, value, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-50 text-slate-700",
-    blue: "bg-blue-50 text-blue-700",
-    amber: "bg-amber-50 text-amber-700",
-    cyan: "bg-cyan-50 text-cyan-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-700",
+    const requestId = ++version.current;
+    const timer = window.setTimeout(() => {
+      setLoading(true); setError("");
+      const query = new URLSearchParams();
+      if (customer) query.set("customer", customer);
+      if (selectedAssignee) query.set("assigned_user", selectedAssignee);
+      Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
+      if (search.trim()) query.set("search", search.trim());
+      const current = () => version.current === requestId;
+      api.get(`/quotations/leads/?${query}&queue=${encodeURIComponent(queue)}`)
+        .then(({ data }) => { if (current()) setItems(data); })
+        .catch(failure => { if (current()) {
+          if ([401, 403, 404].includes(failure.response?.status)) setItems([]);
+          setError("Leads could not be refreshed or access has changed. Please retry.");
+        } })
+        .finally(() => { if (current()) {
+          setLoading(false);
+          if (restoreAfterRefresh.current) {
+            restoreAfterRefresh.current = false;
+            window.requestAnimationFrame(() => { if (document.activeElement === document.body) listHeading.current?.focus(); });
+          }
+        } });
+    }, search ? 300 : 0);
+    return () => { window.clearTimeout(timer); version.current += 1; };
+  }, [search, filters, queue, retry, customer, selectedAssignee, user?.id]);
+  useEffect(() => {
+    const requestId = ++summaryVersion.current;
+    const timer = window.setTimeout(() => {
+      setSummaryLoading(true); setSummaryError("");
+      const query = new URLSearchParams();
+      if (customer) query.set("customer", customer);
+      if (selectedAssignee) query.set("assigned_user", selectedAssignee);
+      Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
+      if (search.trim()) query.set("search", search.trim());
+      const current = () => summaryVersion.current === requestId;
+      api.get(`/quotations/leads/summary/?${query}`)
+        .then(({ data }) => { if (current()) setSummary(data); })
+        .catch(failure => { if (current()) {
+          if ([401, 403, 404].includes(failure.response?.status)) setSummary(null);
+          setSummaryError("Action counts could not be loaded.");
+        } })
+        .finally(() => { if (current()) setSummaryLoading(false); });
+    }, search ? 300 : 0);
+    return () => { window.clearTimeout(timer); summaryVersion.current += 1; };
+  }, [search, filters, summaryRetry, customer, selectedAssignee, user?.id]);
+  const update = (key, value) => {
+    if (key === "assigned_user") { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); setBoardParams(next); }
+    else setFilters(current => ({ ...current, [key]: value }));
   };
-  return (
-    <div className={`rounded-2xl p-4 ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide">
-        {label}
-      </p>
-      <p className="mt-1.5 text-2xl font-bold">{value}</p>
+  const currentTitle = LEAD_ACTIONS.find(action => action.key === queue)?.label || legacyTitles[queue] || "All active leads";
+  const hasFilters = Boolean(search || customer || selectedAssignee || Object.values(filters).some(Boolean));
+  const ownerFilter = <label className="lead-field"><span>Lead owner</span><select value={selectedAssignee} onChange={event => update("assigned_user", event.target.value)} disabled={team.loading}>
+    <option value="">All team members</option><option value={user?.id}>Myself</option><option value="unassigned">Unassigned</option>{team.members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+  </select></label>;
+  return <div className="lead-workspace space-y-5">
+    <PageHeader eyebrow={contractor ? "Your daily workspace" : "Your assigned enquiries"} title={contractor ? "Leads & follow-ups" : "My leads"} description={contractor ? "Assign each enquiry, see what needs attention and keep the next action clear." : "Contact your assigned customers and keep the contractor updated."} actions={contractor ? <Link className="lead-primary-action" to="/opportunities/new"><Plus size={17} aria-hidden="true" />New lead</Link> : undefined} />
+    {notice && <div className="lead-quick-notice" role="status"><span>{notice}</span>{(error || summaryError) && <><span>The saved update is safe. Refresh the board to see the latest information.</span><Button variant="secondary" onClick={retryRefresh}>Retry refresh</Button></>}</div>}
+    {customer && <div className="lead-panel lead-row-heading justify-between text-sm"><p>Showing this customer's leads.</p><button type="button" className="lead-details-toggle" onClick={() => { const next = new URLSearchParams(params); next.delete("customer"); setBoardParams(next); }}>Show all customers</button></div>}
+    <section className="lead-panel" aria-label="Find leads">
+      <div className="lead-filterbar"><input className="lead-search" type="search" aria-label="Search leads" placeholder="Search customer, phone, service or reference" value={search} onChange={event => setSearch(event.target.value)} />{contractor && <div className="lead-owner-filter">{ownerFilter}</div>}</div>
+      {contractor && team.error && <p role="alert" className="lead-muted mt-2">{team.error} <button type="button" className="lead-inline-button" onClick={team.retry}>Retry team list</button></p>}
+      <details className="mt-3"><summary className="lead-details-toggle"><SlidersHorizontal size={14} className="mr-2 inline" aria-hidden="true" />Stage, source, priority & dates</summary><div className="lead-filters">
+        <label className="lead-field"><span>Stage</span><select value={filters.stage} onChange={event => update("stage", event.target.value)}><option value="">All stages</option>{OPPORTUNITY_STAGES.map(key => <option key={key} value={key}>{stageLabel(key)}</option>)}</select></label>
+        <label className="lead-field"><span>Source</span><select value={filters.source} onChange={event => update("source", event.target.value)}><option value="">All sources</option>{SOURCE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="lead-field"><span>Priority</span><select value={filters.priority} onChange={event => update("priority", event.target.value)}><option value="">All priorities</option>{PRIORITY_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="lead-field"><span>Received from</span><input type="date" max={filters.date_to || undefined} value={filters.date_from} onChange={event => update("date_from", event.target.value)} /></label>
+        <label className="lead-field"><span>Received to</span><input type="date" min={filters.date_from || undefined} value={filters.date_to} onChange={event => update("date_to", event.target.value)} /></label>
+      </div></details>
+      {hasFilters && <Button variant="secondary" className="mt-3" onClick={() => { setSearch(""); setFilters({ ...emptyFilters }); const next = new URLSearchParams(params); next.delete("customer"); next.delete("assigned_user"); setBoardParams(next); }}>Clear filters</Button>}
+    </section>
+    <div className="lead-workspace-grid">
+      <LeadActionRail summary={summary} queue={queue} onChoose={changeQueue} loading={summaryLoading} error={summaryError} onRetry={() => setSummaryRetry(value => value + 1)} contractor={contractor} />
+      <section className="lead-panel lead-results" aria-busy={loading} aria-label="Lead results">
+        <div className="lead-list-header lead-list-compact-header"><h2 ref={listHeading} tabIndex={-1}>{currentTitle}<span className="lead-list-count" role="status"> · {items.length}{loading && items.length ? " · Refreshing…" : ""}</span></h2><span className="lead-muted">Dates in India time</span></div>
+        {error && <ErrorState message={error} onRetry={() => setRetry(value => value + 1)} />}
+        {loading && !items.length ? <LoadingState label="Loading leads…" /> : items.length ? <LeadListRecords items={items} contractor={contractor} onUpdate={setUpdating} /> : !error && <EmptyState title={summary?.total === 0 && !hasFilters ? contractor ? "Your lead workspace starts here" : "No leads assigned yet" : `No ${currentTitle.toLowerCase()} leads`} description={summary?.total === 0 && !hasFilters ? contractor ? "Add an enquiry, assign the owner and plan the first contact." : "Leads will appear here when your contractor assigns them to you." : hasFilters ? "Clear filters or choose another action to see more leads." : "You're up to date in this category. Choose All active to see other enquiries."} />}
+      </section>
     </div>
-  );
-}
-
-export function OpportunityCard({ item }) {
-  return (
-    <article className="crm-opportunity-card rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-mono text-xs font-semibold text-slate-400">
-            {item.reference_no || `OPP-${item.id}`}
-          </p>
-          <Link
-            to={`/opportunities/${item.id}`}
-            className="mt-0.5 block break-words text-lg font-bold text-slate-900 hover:text-amber-700"
-          >
-            {item.title}
-          </Link>
-        </div>
-        <StatusBadge status={item.stage} label={stageLabel(item.stage)} tone={opportunityTone(item.stage)} />
-      </div>
-      <p className="mt-2 text-sm font-semibold text-slate-700">
-        {item.customer_name}
-        <span className="font-normal text-slate-400"> · {item.customer_mobile}</span>
-      </p>
-      <p className="mt-0.5 break-words text-sm text-slate-500">
-        {item.property_name || item.service_name}
-      </p>
-      <div className="crm-opportunity-card-metadata">
-        <span><strong>Estimated value</strong>{item.estimated_value ? money(item.estimated_value) : "Not set"}</span>
-        <span><strong>Priority</strong>{priorityLabel(item.priority)}</span>
-        <span><strong>Source</strong>{sourceLabel(item.source)}</span>
-        <span><strong>Next follow-up</strong>{item.next_follow_up ? new Date(item.next_follow_up).toLocaleDateString("en-IN") : "Not scheduled"}</span>
-      </div>
-      {item.customer_mobile && <a href={`tel:${item.customer_mobile}`} aria-label={`Call ${item.customer_name}`} className="crm-opportunity-call"><Phone className="h-4 w-4" aria-hidden="true" />Call customer</a>}
-    </article>
-  );
-}
-
-function sourceLabel(value) {
-  return SOURCE_OPTIONS.find(([option]) => option === value)?.[1] || stageLabel(value) || "Not recorded";
-}
-
-function priorityLabel(value) {
-  return PRIORITY_OPTIONS.find(([option]) => option === value)?.[1] || "Not set";
-}
-
-function opportunityTone(value) {
-  if (["WON", "COMPLETED"].includes(value)) return "success";
-  if (["LOST", "CANCELLED"].includes(value)) return "danger";
-  if (["FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
-  if (["NEW", "CONTACTED", "SITE_VISIT", "MEASUREMENT", "QUOTATION", "IN_PROGRESS"].includes(value)) return "info";
-  return "neutral";
+    {updating && <LeadFollowUpForm key={updating.id} item={updating} draft={drafts[updating.id]} onDraftChange={draftChanged} dialogOpen onClose={() => setUpdating(null)} onSaved={updateSaved} />}
+  </div>;
 }

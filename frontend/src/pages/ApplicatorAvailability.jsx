@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import "./painter-workspace-ui.css";
 import useAuth from "../context/useAuth";
@@ -43,6 +44,7 @@ export default function ApplicatorAvailability() {
     finally { setSaving(false); }
   }
   async function removeBlock(blockId) {
+    if (!await confirmAction({ question: "Are you sure you want to remove this availability block?" })) return;
     try { await api.delete(`/jobs/applicator-availability/blocks/${blockId}/`); await load(); }
     catch { setError("Blocked dates could not be removed."); }
   }

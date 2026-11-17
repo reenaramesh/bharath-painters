@@ -1,31 +1,65 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Building2, MapPin, Search, X } from "lucide-react";
+import { Building2, ContactRound, MapPin, X } from "lucide-react";
 import api from "../api/client";
 import { lockBodyScroll } from "../utils/bodyScrollLock";
+import CustomerContactPicker from "./CustomerContactPicker";
 
 const empty = { customer: "", property_type: "OTHER", measurement_type: "INTERIOR", measurement_unit: "FEET", name: "", flat_number: "", block_name: "", address: "", google_maps_url: "", city: "", pincode: "", approximate_area: "" };
 const types = ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "VILLA", "OFFICE", "COMMERCIAL", "INTERIOR", "EXTERIOR", "OTHER"];
+const optionalFields = ["google_maps_url", "property_type", "measurement_unit"];
+
+function combinedUnitDetails(property) {
+  return [property?.flat_number, property?.block_name].filter(Boolean).join(", ");
+}
+
+function unitDetailsPayload(value) {
+  const separator = value.indexOf(",");
+  let flat = separator < 0 ? value.trim() : value.slice(0, separator).trim();
+  let block = separator < 0 ? "" : value.slice(separator + 1).trim();
+  // A single longer block/tower name fits the existing block field.
+  if (separator < 0 && flat.length > 50 && flat.length <= 100) { block = flat; flat = ""; }
+  return { flat_number: flat, block_name: block,
+    error: flat.length > 50 || block.length > 100 ? "Shorten the flat or block/tower details. Separate the flat and block/tower with a comma." : "" };
+}
+
+function propertyErrorMessage(error) {
+  if (!error) return "";
+  if (typeof error === "string") return error.trim().startsWith("<") ? "Property could not be saved. Please retry." : error;
+  return Object.entries(error).flatMap(([field, messages]) => [messages].flat().filter(message => typeof message === "string")
+    .map(message => ["detail", "non_field_errors"].includes(field) ? message : `${["flat_number", "block_name"].includes(field) ? "Flat / Block / Tower" : field.replaceAll("_", " ")}: ${message}`)).join(" ")
+    || "Property could not be saved. Please check the details.";
+}
 
 export default function PropertyForm({ customers, initialValue, initialCustomer, onSubmit, onClose, saving, error, quotationTheme = false }) {
   const dialogRef = useRef(null);
+  const findCustomerButton = useRef(null);
+  const propertyNameInput = useRef(null);
+  const unitDetailsInput = useRef(null);
+  const unitDetailsEdited = useRef(false);
+  const optionalDetails = useRef(null);
   const titleId = useId();
   const ownerId = useId();
+  const apartmentListId = useId();
+  const apartmentSearchVersion = useRef(0);
   useEffect(() => {
     const dialog = dialogRef.current;
     const opener = document.activeElement;
     const releaseScrollLock = lockBodyScroll();
     dialog.showModal();
-    dialog.querySelector('input:not([disabled])')?.focus();
+    (findCustomerButton.current || propertyNameInput.current)?.focus();
     return () => {
       dialog.close();
       releaseScrollLock();
       if (opener?.isConnected) opener.focus();
     };
   }, []);
-  const [form, setForm] = useState(empty);
-  const [ownerSearch, setOwnerSearch] = useState("");
-  const [ownerOpen, setOwnerOpen] = useState(false);
-  const [apartmentSearch, setApartmentSearch] = useState("");
+  const [form, setForm] = useState(() => initialValue ? { ...empty, ...initialValue } : { ...empty, customer: initialCustomer || "" });
+  const [chosenOwner, setChosenOwner] = useState(null);
+  const [showContacts, setShowContacts] = useState(false);
+  const [ownerError, setOwnerError] = useState("");
+  const [nameSearchOpen, setNameSearchOpen] = useState(false);
+  const [activeApartment, setActiveApartment] = useState(-1);
+  const [unitDetails, setUnitDetails] = useState(() => combinedUnitDetails(initialValue));
   const [selectedApartmentName, setSelectedApartmentName] = useState("");
   const [apartmentMatches, setApartmentMatches] = useState([]);
   const [searchingApartments, setSearchingApartments] = useState(false);
@@ -35,16 +69,34 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
   const [mapError, setMapError] = useState("");
   const [mapSuccess, setMapSuccess] = useState("");
   const lastLookupUrl = useRef("");
-  useEffect(() => { setForm(initialValue ? { ...empty, ...initialValue } : { ...empty, customer: initialCustomer || "" }); }, [initialValue, initialCustomer]);
+  const unitEdited = useRef(false);
+  const errorMessage = propertyErrorMessage(error);
   useEffect(() => {
-    const ownerId = initialValue?.customer || initialCustomer;
-    const owner = customers.find((customer) => String(customer.id) === String(ownerId || ""));
-    setOwnerSearch(owner ? owner.name : "");
-  }, [customers, initialValue, initialCustomer]);
-  useEffect(() => { if (!initialValue) api.get("/accounts/contractor-profile/").then(({ data }) => setForm((value) => ({ ...value, measurement_unit: data.default_measurement_unit || "FEET" }))).catch(() => {}); }, [initialValue]);
+    const fields = error && typeof error === "object" ? Object.keys(error) : [];
+    if (optionalFields.some(field => fields.includes(field) || (typeof error === "string" && error.toLowerCase().includes(field.replaceAll("_", " "))))) {
+      if (optionalDetails.current) optionalDetails.current.open = true;
+    }
+  }, [error]);
   useEffect(() => {
-    const query = apartmentSearch.trim();
-    if (query.length < 2 || query === selectedApartmentName) {
+    setForm(initialValue ? { ...empty, ...initialValue } : { ...empty, customer: initialCustomer || "" });
+    setChosenOwner(null); setOwnerError("");
+  }, [initialValue, initialCustomer]);
+  useEffect(() => {
+    setUnitDetails(combinedUnitDetails(initialValue));
+    unitDetailsEdited.current = false;
+    unitDetailsInput.current?.setCustomValidity("");
+  }, [initialValue, initialCustomer]);
+  useEffect(() => {
+    let active = true;
+    if (!initialValue) api.get("/accounts/contractor-profile/").then(({ data }) => {
+      if (active && !unitEdited.current) setForm(value => ({ ...value, measurement_unit: data.default_measurement_unit || "FEET" }));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [initialValue]);
+  useEffect(() => {
+    const requestId = ++apartmentSearchVersion.current;
+    const query = form.name.trim();
+    if (!nameSearchOpen || query.length < 2 || query === selectedApartmentName) {
       setApartmentMatches([]);
       setSearchingApartments(false);
       setApartmentSearchError("");
@@ -58,27 +110,28 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
     const timer = window.setTimeout(() => {
       api.get("/quotations/apartment-communities/", { params: { q: query } })
         .then(({ data }) => {
-          if (active) {
+          if (active && requestId === apartmentSearchVersion.current) {
             setApartmentMatches(Array.isArray(data) ? data : []);
             setApartmentSearchComplete(true);
           }
         })
         .catch(() => {
-          if (active) {
+          if (active && requestId === apartmentSearchVersion.current) {
             setApartmentMatches([]);
-            setApartmentSearchError("Apartment directory could not be loaded. Please try again.");
+            setApartmentSearchError("Apartment suggestions could not be loaded. You can still use the name you entered.");
           }
         })
         .finally(() => {
-          if (active) setSearchingApartments(false);
+          if (active && requestId === apartmentSearchVersion.current) setSearchingApartments(false);
         });
     }, 250);
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apartmentSearch, selectedApartmentName]);
+  }, [form.name, nameSearchOpen, selectedApartmentName]);
   function selectApartment(apartment) {
+    apartmentSearchVersion.current += 1;
     const location = [apartment.name, apartment.locality, apartment.zone]
       .filter((value, index, values) => value && values.indexOf(value) === index)
       .join(", ");
@@ -89,10 +142,47 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       city: "Bengaluru",
       pincode: apartment.pincode || "",
     }));
-    setApartmentSearch(apartment.name);
     setSelectedApartmentName(apartment.name);
+    setNameSearchOpen(false);
+    setActiveApartment(-1);
     setApartmentMatches([]);
     setApartmentSearchComplete(false);
+  }
+  function changePropertyName(event) {
+    apartmentSearchVersion.current += 1;
+    setForm(value => ({ ...value, name: event.target.value }));
+    setSelectedApartmentName(""); setActiveApartment(-1);
+    setApartmentMatches([]); setApartmentSearchComplete(false);
+    setNameSearchOpen(true);
+  }
+  function propertyNameKeyDown(event) {
+    if (event.key === "Escape" && nameSearchOpen) {
+      event.preventDefault(); event.stopPropagation();
+      setNameSearchOpen(false); setActiveApartment(-1);
+    } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+      if (!nameSearchOpen) { setNameSearchOpen(true); return; }
+      if (!apartmentMatches.length) return;
+      event.preventDefault();
+      const next = event.key === "ArrowDown" ? (activeApartment + 1) % apartmentMatches.length
+        : (activeApartment < 0 ? apartmentMatches.length - 1 : (activeApartment - 1 + apartmentMatches.length) % apartmentMatches.length);
+      setActiveApartment(next);
+      window.requestAnimationFrame(() => document.getElementById(`${apartmentListId}-${next}`)?.scrollIntoView({ block: "nearest" }));
+    } else if (event.key === "Enter" && nameSearchOpen && apartmentMatches[activeApartment]) {
+      event.preventDefault(); selectApartment(apartmentMatches[activeApartment]);
+    }
+  }
+  function submit(event) {
+    event.preventDefault();
+    if (saving) return;
+    if (!form.customer) { setOwnerError("Choose a recent customer or use Find customer."); findCustomerButton.current?.focus(); return; }
+    const unit = unitDetailsEdited.current ? unitDetailsPayload(unitDetails) : { flat_number: form.flat_number, block_name: form.block_name };
+    if (unit.error) {
+      unitDetailsInput.current?.setCustomValidity(unit.error);
+      unitDetailsInput.current?.reportValidity();
+      return;
+    }
+    onSubmit({ ...form, flat_number: unit.flat_number, block_name: unit.block_name,
+      customer: Number(form.customer), approximate_area: form.approximate_area || null });
   }
   async function fetchMapAddress(url = form.google_maps_url.trim(), force = false) {
     if (!url || (!force && lastLookupUrl.current === url)) return;
@@ -116,7 +206,9 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
       setMapLoading(false);
     }
   }
-  const update = (event) => setForm((value) => ({
+  const update = (event) => {
+    if (event.target.name === "measurement_unit") unitEdited.current = true;
+    setForm((value) => ({
     ...value,
     [event.target.name]: event.target.value,
     ...(
@@ -124,23 +216,29 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         ? { measurement_type: event.target.value }
         : {}
     ),
-  }));
+    }));
+  };
   const recentCustomers = [...customers]
     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    .slice(0, 5);
-  const ownerMatches = customers.filter((customer) => {
-    const query = ownerSearch.trim().toLowerCase();
-    return !query || [customer.name, customer.mobile, customer.bharath_id, customer.city]
-      .some((value) => String(value || "").toLowerCase().includes(query));
-  }).slice(0, 8);
+    .slice(0, 2);
   function selectOwner(customer) {
+    if (customer.connection_status !== "CONNECTED" || customer.account_status === "DISABLED") {
+      throw new Error("This customer is unavailable for this property. Choose another saved contact.");
+    }
     setForm((value) => ({ ...value, customer: customer.id }));
-    setOwnerSearch(customer.name);
-    setOwnerOpen(false);
+    setChosenOwner(customer); setOwnerError("");
+    window.requestAnimationFrame(() => propertyNameInput.current?.focus());
+  }
+  const selectedOwner = String(chosenOwner?.id) === String(form.customer) ? chosenOwner
+    : customers.find(customer => String(customer.id) === String(form.customer));
+  function changeOwner() {
+    setForm(value => ({ ...value, customer: "" }));
+    setChosenOwner(null); setOwnerError("");
+    window.requestAnimationFrame(() => findCustomerButton.current?.focus());
   }
   function containFocus(event) {
     if (event.key !== "Tab") return;
-    const controls = [...dialogRef.current.querySelectorAll('a[href], button:enabled, input:enabled:not([type="hidden"]), select:enabled, textarea:enabled, [tabindex="0"]')]
+    const controls = [...dialogRef.current.querySelectorAll('a[href], button:enabled, input:enabled:not([type="hidden"]), select:enabled, textarea:enabled, summary, [tabindex="0"]')]
       .filter((element) => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden");
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && document.activeElement === first) {
@@ -152,20 +250,60 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
     }
   }
   const input = `mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none ${quotationTheme ? "focus:border-[#176b9b]" : "focus:border-slate-900"}`;
-  return <dialog ref={dialogRef} aria-labelledby={titleId} onKeyDown={containFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} className={`${quotationTheme ? "bp-quotation-property-dialog bp-quotation-dialog " : ""}fixed inset-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-xl overflow-y-auto border-0 bg-white p-0 text-slate-950 backdrop:bg-slate-950/40`}>
-    <div className="flex items-center justify-between border-b p-6"><div><h2 id={titleId} className="text-xl font-bold bp-ui-section-heading">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Property and location information</p></div><button type="button" aria-label="Close property form" onClick={onClose} className="p-2 bp-ui-icon-action"><X aria-hidden="true" /></button></div>
-    <form onSubmit={(event) => { event.preventDefault(); if (!form.customer) { setOwnerOpen(true); return; } onSubmit({ ...form, customer: Number(form.customer), approximate_area: form.approximate_area || null }); }} className="grid gap-5 p-6 sm:grid-cols-2">
-      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{error}</p>}
+  return <><dialog ref={dialogRef} aria-labelledby={titleId} onKeyDown={containFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} className={`${quotationTheme ? "bp-quotation-property-dialog bp-quotation-dialog " : ""}fixed inset-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-xl overflow-hidden border-0 bg-white p-0 text-slate-950 backdrop:bg-slate-950/40`}>
+    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b p-5 sm:p-6"><div><h2 id={titleId} className="text-xl font-bold bp-ui-section-heading">{initialValue ? "Edit property" : "Add property"}</h2><p className="text-sm text-slate-500">Start with the property name and address.</p></div><button type="button" aria-label="Close property form" onClick={onClose} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl bp-ui-icon-action"><X aria-hidden="true" /></button></div>
+    <form onSubmit={submit} onInvalidCapture={event => { const details = event.target.closest("details"); if (details) details.open = true; }} className="flex min-h-0 flex-1 flex-col" aria-busy={Boolean(saving)}>
+    <fieldset disabled={saving} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-0 p-5 sm:p-6"><div className="grid gap-5 sm:grid-cols-2">
+      {errorMessage && <p role="alert" className="break-words rounded-xl bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{errorMessage}</p>}
+      {form.customer ? <div className="flex items-start justify-between gap-3 rounded-xl border border-violet-100 bg-violet-50 p-4 sm:col-span-2">
+        <div className="min-w-0"><p className="text-xs font-semibold text-slate-500">Customer</p><p className="mt-1 break-words font-semibold">{selectedOwner?.name || initialValue?.customer_name || "Selected customer"}</p>{selectedOwner?.mobile && <p className="mt-1 break-words text-sm text-slate-600">{selectedOwner.mobile}</p>}</div>
+        {!initialValue && !initialCustomer && <button type="button" onClick={changeOwner} className="min-h-11 rounded-lg px-3 text-sm font-semibold text-violet-700 bp-ui-action">Change</button>}
+      </div> : <section className="space-y-3 sm:col-span-2" aria-labelledby={ownerId}>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h3 id={ownerId} className="text-sm font-semibold">Customer *</h3>
+          <button ref={findCustomerButton} type="button" onClick={() => setShowContacts(true)} className="bp-button bp-button-secondary bp-button-md"><ContactRound size={17} aria-hidden="true" />Find customer</button>
+        </div>
+        {ownerError && <p role="alert" className="text-sm text-red-700">{ownerError}</p>}
+        {recentCustomers.length > 0 ? <><p className="text-xs font-medium text-slate-500">Recent customers</p><ul className="grid list-none gap-2 p-0 sm:grid-cols-2" aria-label="Recent customers">
+          {recentCustomers.map(customer => {
+            const unavailable = customer.connection_status !== "CONNECTED" || customer.account_status === "DISABLED";
+            return <li key={customer.id}><button type="button" disabled={unavailable} onClick={() => selectOwner(customer)}
+              aria-label={`Use ${customer.name}${customer.mobile ? `, ${customer.mobile}` : ""}`}
+              className="h-full min-h-11 w-full rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-violet-300 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 disabled:cursor-not-allowed disabled:bg-slate-50">
+              <span className="block break-words text-sm font-semibold">{customer.name}</span><span className="mt-1 block break-words text-xs text-slate-500">{customer.mobile}</span>
+              {unavailable && <span className="mt-1 block text-xs text-slate-500">Unavailable</span>}
+            </button></li>;
+          })}
+        </ul></> : <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No recent customers. Use Find customer to choose a saved contact.</p>}
+      </section>}
       <div className="relative sm:col-span-2">
-        <label htmlFor={ownerId} className="text-sm font-medium">Owner name *</label>
-        <span className="relative mt-1.5 flex items-center">
-          <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-          <input id={ownerId} required disabled={Boolean(initialValue)} value={ownerSearch} onFocus={() => setOwnerOpen(true)} onChange={(event) => { setOwnerSearch(event.target.value); setForm((value) => ({ ...value, customer: "" })); setOwnerOpen(true); }} placeholder="Search customer" className={(`${input} mt-0 pl-10 bp-control-leading-icon disabled:bg-slate-100`) + " bp-ui-control"} />
-        </span>
-        {!initialValue && recentCustomers.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-slate-400">Recent:</span>{recentCustomers.map((customer) => <button key={customer.id} type="button" onClick={() => selectOwner(customer)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-800 bp-ui-action">{customer.name}</button>)}</div>}
-        {!initialValue && ownerOpen && <div className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">{ownerMatches.length ? ownerMatches.map((customer) => <button key={customer.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOwner(customer)} className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-amber-50 bp-ui-action"><b className="block text-sm text-slate-950">{customer.name}</b></button>) : <p className="px-3 py-4 text-sm text-slate-500">No matching customers found.</p>}</div>}
-        {!initialValue && ownerSearch && !form.customer && <p className="mt-1 text-xs font-medium text-amber-700">Select a customer from the results or recent customers.</p>}
+        <label className="text-sm font-medium">Property/project name *<input ref={propertyNameInput} required maxLength={150} name="name" value={form.name}
+          onChange={changePropertyName} onFocus={() => setNameSearchOpen(true)} onBlur={() => { apartmentSearchVersion.current += 1; setNameSearchOpen(false); setActiveApartment(-1); }}
+          onKeyDown={propertyNameKeyDown} autoComplete="off" role="combobox" aria-autocomplete="list"
+          aria-expanded={nameSearchOpen && apartmentMatches.length > 0} aria-controls={apartmentListId}
+          aria-activedescendant={nameSearchOpen && apartmentMatches[activeApartment] ? `${apartmentListId}-${activeApartment}` : undefined}
+          placeholder="Type a property name or search apartments" className={(input) + " bp-ui-control"} /></label>
+        {nameSearchOpen && apartmentMatches.length > 0 && <div id={apartmentListId} role="listbox" aria-label="Apartment suggestions" className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          {apartmentMatches.map((apartment, index) => <button key={apartment.id} id={`${apartmentListId}-${index}`} role="option" aria-selected={index === activeApartment}
+            tabIndex={-1} type="button" onMouseDown={event => event.preventDefault()} onClick={() => selectApartment(apartment)}
+            className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-violet-50 ${index === activeApartment ? "bg-violet-50" : ""}`}>
+            <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" aria-hidden="true" />
+            <span className="min-w-0"><b className="block break-words text-sm">{apartment.name}</b><small className="mt-1 block break-words text-slate-500">{[apartment.locality, apartment.zone, apartment.pincode].filter(Boolean).join(", ")}</small></span>
+          </button>)}
+        </div>}
+        {nameSearchOpen && searchingApartments && <p role="status" className="mt-1 text-xs text-slate-500">Finding apartment suggestions...</p>}
+        {nameSearchOpen && !searchingApartments && apartmentSearchError && <p role="status" className="mt-1 text-xs text-slate-500">{apartmentSearchError}</p>}
+        {nameSearchOpen && !searchingApartments && !apartmentSearchError && apartmentSearchComplete && !apartmentMatches.length && <p className="mt-1 text-xs text-slate-500">No apartment suggestions. You can use this property name.</p>}
       </div>
+      <label className="text-sm font-medium sm:col-span-2">Flat / Block / Tower <span className="font-normal text-slate-400">(optional)</span><input ref={unitDetailsInput} name="unit_details" value={unitDetails} maxLength={152}
+        onChange={event => { unitDetailsEdited.current = true; setUnitDetails(event.target.value); event.target.setCustomValidity(unitDetailsPayload(event.target.value).error); }}
+        placeholder="e.g. Flat 1204, Block B" className={(input) + " bp-ui-control"} /></label>
+      <label className="text-sm font-medium sm:col-span-2">Address *<textarea required name="address" value={form.address} onChange={update} rows="3" className={(input) + " bp-ui-control"} /></label>
+      <label className="text-sm font-medium">City<input name="city" value={form.city} onChange={update} className={(input) + " bp-ui-control"} /></label>
+      <label className="text-sm font-medium">Pincode<input name="pincode" value={form.pincode} onChange={update} className={(input) + " bp-ui-control"} /></label>
+      <details ref={optionalDetails} className="min-w-0 rounded-xl border border-slate-200 sm:col-span-2">
+      <summary className="min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400">More details <span className="font-normal text-slate-500">{"\u2014 optional"}</span></summary>
+      <div className="grid gap-5 border-t p-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <label className="text-sm font-medium">Google Maps place or pin link <span className="font-normal text-slate-400">(optional)</span>
           <span className="relative mt-1.5 flex items-center">
@@ -180,36 +318,12 @@ export default function PropertyForm({ customers, initialValue, initialCustomer,
         {mapError && <p role="alert" className="mt-2 text-xs text-red-700">{mapError}</p>}
         {mapSuccess && <p role="status" className="mt-2 text-xs text-emerald-700">{mapSuccess}</p>}
       </div>
-      <div className="relative sm:col-span-2">
-        <label className="text-sm font-medium">Apartment / gated community <span className="font-normal text-slate-400">(optional)</span>
-          <span className="relative mt-1.5 flex items-center">
-            <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-            <input value={apartmentSearch} onChange={(event) => { setSelectedApartmentName(""); setApartmentSearch(event.target.value); }} placeholder="Search apartment name, locality or PIN code" className={(`${input} mt-0 pl-10 bp-control-leading-icon`) + " bp-ui-control"} aria-label="Search apartment communities" />
-          </span>
-        </label>
-        {apartmentMatches.length > 0 && (
-          <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
-            {apartmentMatches.map((apartment) => (
-              <button key={apartment.id} type="button" onClick={() => selectApartment(apartment)} className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-amber-50 bp-ui-action">
-                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100"><Building2 className="h-4 w-4" /></span>
-                <span className="min-w-0 flex-1"><b className="block text-sm text-slate-950">{apartment.name}</b><small className="mt-0.5 flex items-center gap-1 text-slate-500"><MapPin className="h-3 w-3" />{[apartment.locality, apartment.zone, apartment.pincode].filter(Boolean).join(" · ")}</small></span>
-              </button>
-            ))}
-          </div>
-        )}
-        {searchingApartments && <p className="mt-1 text-xs text-slate-400">Searching apartment directory...</p>}
-        {!searchingApartments && apartmentSearchError && <p role="alert" className="mt-1 text-xs text-red-700">{apartmentSearchError}</p>}
-        {!searchingApartments && !apartmentSearchError && apartmentSearchComplete && apartmentMatches.length === 0 && <p className="mt-1 text-xs text-slate-500">No matching apartments found. You can still enter the property details manually.</p>}
-      </div>
-      <label className="text-sm font-medium sm:col-span-2">Project address *<textarea required name="address" value={form.address} onChange={update} rows="3" className={(input) + " bp-ui-control"} /></label>
-      <label className="text-sm font-medium">City<input name="city" value={form.city} onChange={update} className={(input) + " bp-ui-control"} /></label>
-      <label className="text-sm font-medium">Pincode<input name="pincode" value={form.pincode} onChange={update} className={(input) + " bp-ui-control"} /></label>
-      <label className="text-sm font-medium">Project name *<input required name="name" value={form.name} onChange={update} placeholder="e.g. Brigade Cassia" className={(input) + " bp-ui-control"} /></label>
       <label className="text-sm font-medium">Type<select name="property_type" value={form.property_type} onChange={update} className={(input) + " bp-ui-control"}>{types.map((type) => <option key={type}>{type}</option>)}</select></label>
-      <label className="text-sm font-medium">Area calculation type<select name="measurement_type" value={form.measurement_type} onChange={update} className={(input) + " bp-ui-control"}><option value="INTERIOR">Interior</option><option value="EXTERIOR">Exterior</option></select></label>
       <label className="text-sm font-medium">Area calculation input unit<select disabled={Boolean(initialValue?.has_measurements)} name="measurement_unit" value={form.measurement_unit} onChange={update} className={(input) + " bp-ui-control"}><option value="FEET">Feet (ft)</option><option value="METRES">Metres (m)</option></select>{initialValue?.has_measurements && <span className="mt-1 block text-xs font-normal text-amber-700">Locked because Area Calculations are saved.</span>}</label>
-      <label className="text-sm font-medium">Flat number <span className="font-normal text-slate-400">(optional)</span><input name="flat_number" value={form.flat_number} onChange={update} placeholder="e.g. 1204" className={(input) + " bp-ui-control"} /></label>
-      <label className="text-sm font-medium">Block / Tower <span className="font-normal text-slate-400">(optional)</span><input name="block_name" value={form.block_name} onChange={update} placeholder="e.g. Block B" className={(input) + " bp-ui-control"} /></label>
-      <div className="flex justify-end gap-3 border-t pt-5 sm:col-span-2"><button type="button" onClick={onClose} className="rounded-xl border px-5 py-2.5 font-semibold bp-ui-action">Cancel</button><button disabled={saving} className={(`rounded-xl px-5 py-2.5 font-semibold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`) + " bp-ui-action"}>{saving ? "Saving..." : "Save property"}</button></div>
-    </form></dialog>;
+      </div></details>
+    </div></fieldset>
+      <div className="flex shrink-0 justify-end gap-3 border-t bg-white p-5 sm:px-6"><button type="button" onClick={onClose} className="min-h-11 rounded-xl border px-5 py-2.5 font-semibold bp-ui-action">Cancel</button><button disabled={saving || !form.customer} className={(`min-h-11 rounded-xl px-5 py-2.5 font-semibold text-white disabled:opacity-60 ${quotationTheme ? "bg-[#176b9b]" : "bg-slate-950"}`) + " bp-ui-action"}>{saving ? "Saving..." : "Save property"}</button></div>
+    </form></div></dialog>
+    {showContacts && <CustomerContactPicker selectionContext="property" onClose={() => setShowContacts(false)} onSelect={selectOwner} />}
+    </>;
 }

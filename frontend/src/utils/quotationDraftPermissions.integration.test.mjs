@@ -18,6 +18,7 @@ get:async path=>{globalThis.__quotationCalls.push(['get',path]);return {data:pat
 patch:async(...args)=>{globalThis.__quotationCalls.push(['patch',...args]);if(globalThis.__quotationFailure)throw globalThis.__quotationFailure;return {data:{}}},delete:async()=>({})};
 export const BackButton=()=>null;
 export const SearchableSelect=()=>null;
+export const QuotationScheduleCard=()=>null;
 export const QuotationLineDiscountSummary=()=>null;
 export const QuotationRevisionHistory=()=>null;
 export const QuotationRevisionDetails=()=>null;
@@ -40,7 +41,7 @@ async function loadPage(name) {
   source=source.replace(/import QuotationDocumentItems, \{ QuotationDocumentItemDetails \} from ["'][^"']+["'];/, 'const QuotationDocumentItems=()=>null; const QuotationDocumentItemDetails=()=>null;');
   source=source.replace(/import \{ QuotationLineItemPopup \} from ["'][^"']+["'];/, 'const QuotationLineItemPopup=()=>null;');
   source=source.replace(/import \{ QuotationRevisionHistory, QuotationRevisionDetails, QuotationRevisionPriceChanges \} from ["'][^"']+["'];/,`import { QuotationRevisionHistory, QuotationRevisionDetails, QuotationRevisionPriceChanges } from ${JSON.stringify(stubUrl)};`);
-  for(const component of ['BackButton','SearchableSelect','GroupedQuotationDraftEditor','QuotationDiscountControls','QuotationLineDiscountSummary','QuotationBuilder','useAuth']) source=source.replace(new RegExp('import '+component+' from [\"\'][^\"\']+[\"\'];'),`import {${component}} from ${JSON.stringify(stubUrl)};`);
+  for(const component of ['BackButton','SearchableSelect','QuotationScheduleCard','GroupedQuotationDraftEditor','QuotationDiscountControls','QuotationLineDiscountSummary','QuotationBuilder','useAuth']) source=source.replace(new RegExp('import '+component+' from [\"\'][^\"\']+[\"\'];'),`import {${component}} from ${JSON.stringify(stubUrl)};`);
   const transformed=await transformWithOxc(source,url.pathname,{jsx:{runtime:'automatic'}});
   const code=transformed.code.replace(/from\s+(["'])([^"']+)\1/g,(_match,_quote,path)=>`from ${JSON.stringify(path==='react-router-dom'||path.endsWith('/api/client')||path.endsWith('/ui')||path.endsWith('/PdfPreview')?stubUrl:path.startsWith('.')?new URL(path+(path.endsWith('.js')||path.endsWith('.jsx')||path.endsWith('.ts')||path.endsWith('.tsx')?'':'.js'),url).href:path.startsWith('data:')?path:import.meta.resolve(path))}`);
   return (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)).default;

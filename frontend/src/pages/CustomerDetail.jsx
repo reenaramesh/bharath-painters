@@ -1,670 +1,214 @@
-import useMobileView from "../hooks/useMobileView.js";
-import { recentFirst } from "../utils/workspaceLists.js";
-import "./mobile-workspace.css";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import {
-  Building2,
-  CalendarClock,
-  CheckCircle2,
-  ChevronDown,
-  Edit3,
-  FileText,
-  Mail,
-  MessageCircle,
-  Phone,
-  Plus,
-  ReceiptText,
-  X,
-} from "lucide-react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
-import CustomerAccountStatus from "../components/CustomerAccountStatus";
-import CustomerActivationShare from "../components/CustomerActivationShare";
-import { customerAccountStatus } from "../utils/customerActivation";
+import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges";
 import CustomerForm from "../components/CustomerForm";
-import BackButton from "../components/BackButton";
-import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
-import PageHeader from '../components/ContractorModuleHeader';
+import CustomerActivationShare from "../components/CustomerActivationShare";
+import { ErrorState, LoadingState } from "../components/ui";
+import LeadFollowUpForm from "../components/leads/LeadFollowUpForm";
+import { quickUpdateDirty } from "../components/leads/lead-quick-update";
+import { requestError } from "../components/leads/lead-format";
+import CustomerProfileView from "../components/customers/CustomerProfileView";
+import CustomerFollowUpChoice from "../components/customers/CustomerFollowUpChoice";
+import GeneralCustomerFollowUp from "../components/customers/GeneralCustomerFollowUp";
+import { customerCanWork } from "../components/customers/customer-workflow";
+import "./mobile-workspace.css";
 import "./crm-pages.css";
 
 export default function CustomerDetail() {
-  const mobile = useMobileView();
   const { id } = useParams();
   const { user } = useAuth();
-  const [activationLink, setActivationLink] = useState(null);
-  const [linkLoading, setLinkLoading] = useState(false);
-  const linkBusy = useRef(false);
+  return <CustomerProfileResource key={`${user?.id}-${id}`} id={id} user={user} />;
+}
+
+function CustomerProfileResource({ id, user }) {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [leads, setLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsError, setLeadsError] = useState("");
+  const [callEvents, setCallEvents] = useState([]);
+  const [callsLoading, setCallsLoading] = useState(false);
+  const [callsError, setCallsError] = useState("");
+  const [dialog, setDialog] = useState(null);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [leadDrafts, setLeadDrafts] = useState({});
+  const [generalDraft, setGeneralDraft] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [followUp, setFollowUp] = useState({
-    follow_up_type: "CALL",
-    comment: "",
-    next_follow_up: "",
-  });
-  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [activationLink, setActivationLink] = useState(null);
+  const [activationBusy, setActivationBusy] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
   const [completingId, setCompletingId] = useState(null);
-  const [callEvents, setCallEvents] = useState([]);
+  const live = useRef(true);
+  const customerRef = useRef(customer);
+  customerRef.current = customer;
+  const reads = useRef({ customer: 0, leads: 0, calls: 0 });
+  const activationLock = useRef(false);
+  const editLock = useRef(false);
+  const completionLock = useRef(false);
+  const requestLock = useRef(false);
+  const canWork = user?.role === "CONTRACTOR" && customerCanWork(customer);
+  useDraftUnsavedChanges(Boolean(generalDraft?.edited) || Object.values(leadDrafts).some(quickUpdateDirty), true, { preservePathname: `/customers/${id}` });
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; reads.current.customer += 1; reads.current.leads += 1; reads.current.calls += 1; };
+  }, []);
+  const loadCustomer = useCallback(async () => {
+    if (!live.current) return null;
+    const version = ++reads.current.customer;
     setLoading(true);
     try {
       const { data } = await api.get(`/quotations/customers/${id}/`);
-      setCustomer(data);
-      setError("");
-    } catch {
-      setError("Customer details could not be loaded.");
-    } finally {
-      setLoading(false);
-    }
+      if (!live.current || version !== reads.current.customer) return null;
+      customerRef.current = data; setCustomer(data); setError("");
+      return data;
+    } catch (failure) {
+      if (live.current && version === reads.current.customer) {
+        if ([401, 403, 404].includes(failure.response?.status)) { customerRef.current = null; setCustomer(null); setDialog(null); setSelectedLead(null); }
+        setError(requestError(failure, "Customer details could not be refreshed. Your saved changes are retained. Please retry."));
+      }
+      return null;
+    } finally { if (live.current && version === reads.current.customer) setLoading(false); }
   }, [id]);
-  useEffect(() => {
-    load();
-  }, [load]);
-  useEffect(() => {
-    let active = true;
-    api.get(`/call-inbox/customers/${id}/events/`).then(({ data }) => {
-      if (active) setCallEvents(data.results || []);
-    }).catch(() => { if (active) setCallEvents([]); });
-    return () => { active = false; };
+  const loadLeads = useCallback(async () => {
+    if (!live.current || !customerCanWork(customerRef.current)) return null;
+    const version = ++reads.current.leads;
+    setLeadsLoading(true);
+    try {
+      const { data } = await api.get("/quotations/leads/", { params: { customer: id } });
+      if (!live.current || version !== reads.current.leads || !customerCanWork(customerRef.current)) return null;
+      const rows = (Array.isArray(data) ? data : data.results || []).filter(lead => String(lead.customer) === String(id));
+      setLeads(rows); setLeadsError(""); return rows;
+    } catch (failure) {
+      if (live.current && version === reads.current.leads) { setLeads([]); setLeadsError(requestError(failure, "Enquiries could not be refreshed. Please retry.")); }
+      return null;
+    } finally { if (live.current && version === reads.current.leads) setLeadsLoading(false); }
   }, [id]);
+  const loadCalls = useCallback(async () => {
+    if (!live.current || !customerCanWork(customerRef.current)) return null;
+    const version = ++reads.current.calls;
+    setCallsLoading(true);
+    try {
+      const { data } = await api.get(`/call-inbox/customers/${id}/events/`);
+      if (!live.current || version !== reads.current.calls || !customerCanWork(customerRef.current)) return null;
+      setCallEvents(data.results || []); setCallsError(""); return data;
+    } catch (failure) {
+      if (live.current && version === reads.current.calls) {
+        if ([401, 403, 404].includes(failure.response?.status)) setCallEvents([]);
+        setCallsError(requestError(failure, "Incoming calls could not be loaded."));
+      }
+      return null;
+    } finally { if (live.current && version === reads.current.calls) setCallsLoading(false); }
+  }, [id]);
+  useEffect(() => { loadCustomer(); }, [loadCustomer]);
   useEffect(() => {
-    const openFollowUp = () => setShowFollowUp(true);
+    if (canWork) { loadLeads(); loadCalls(); }
+    else { reads.current.leads += 1; reads.current.calls += 1; setLeads([]); setCallEvents([]); setLeadsLoading(false); setCallsLoading(false); }
+  }, [canWork, loadLeads, loadCalls]);
+  const refresh = useCallback(async () => {
+    const data = await loadCustomer();
+    if (data && customerCanWork(data)) await Promise.allSettled([loadLeads(), loadCalls()]);
+  }, [loadCustomer, loadLeads, loadCalls]);
+  const openFollowUp = useCallback(() => {
+    if (!live.current || user?.role !== "CONTRACTOR" || !customerCanWork(customerRef.current)) return;
+    setActionError(""); setDialog("choice"); loadLeads();
+  }, [loadLeads, user?.role]);
+  useEffect(() => {
+    const focused = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", focused);
     window.addEventListener("bp-open-customer-followup", openFollowUp);
-    return () => window.removeEventListener("bp-open-customer-followup", openFollowUp);
-  }, []);
-
+    return () => { window.removeEventListener("focus", focused); window.removeEventListener("bp-open-customer-followup", openFollowUp); };
+  }, [refresh, openFollowUp]);
+  function chooseLead(lead) {
+    if (!canWork || String(lead.customer) !== String(id) || lead.can_follow_up !== true || lead.is_closed) return;
+    setDialog(null); setSelectedLead(lead);
+  }
+  function leadDraftChanged(draft) {
+    const key = selectedLead.id;
+    setLeadDrafts(current => { const next = { ...current }; if (draft) next[key] = draft; else delete next[key]; return next; });
+  }
+  async function saved(message) {
+    if (!live.current) return;
+    setSelectedLead(null); setDialog(null); setSuccess(message || "Update saved."); setActionError("");
+    await refresh();
+  }
+  async function updateCustomer(values, { changedFields } = {}) {
+    if (editLock.current || !customerRef.current) return false;
+    editLock.current = true; setSaving(true); setEditError("");
+    const original = customerRef.current;
+    const normalize = value => String(value ?? "").trim();
+    const fields = ["name", "mobile", "email", "gst_number", "whatsapp", "address", "city", "pincode", "status", "notes"];
+    const changes = Object.fromEntries(fields.filter(field => (!changedFields || changedFields.includes(field)) && normalize(values[field]) !== normalize(original[field])).map(field => [field, values[field]]));
+    try {
+      if (Object.keys(changes).length) {
+        const { data } = await api.patch(`/quotations/customers/${id}/`, changes);
+        if (!live.current) return false;
+        customerRef.current = data; setCustomer(data);
+      }
+      if (!live.current) return false;
+      setEditing(false); setSuccess(Object.keys(changes).length ? "Customer details saved." : "No changes were needed.");
+      await loadCustomer();
+      return true;
+    } catch (failure) { if (live.current) setEditError(requestError(failure, "Customer details could not be saved. Your entries are retained.")); return false; }
+    finally { editLock.current = false; if (live.current) setSaving(false); }
+  }
+  async function completeFollowUp(task) {
+    if (completionLock.current || !canWork || task.is_completed || !task.next_follow_up) return;
+    completionLock.current = true; setCompletingId(task.id); setActionError("");
+    try {
+      const fresh = await loadCustomer();
+      if (!live.current || !customerCanWork(fresh)) return;
+      const selected = (fresh.follow_ups || []).find(row => Number(row.id) === Number(task.id));
+      if (!selected || !selected.next_follow_up) throw new Error("This scheduled follow-up is no longer available. Refresh the customer.");
+      if (!selected.is_completed) {
+        const { data } = await api.patch(`/quotations/tasks/${task.id}/`, { is_completed: true });
+        if (!live.current) return;
+        setCustomer(current => current ? { ...current, follow_ups: current.follow_ups.map(row => row.id === task.id ? { ...row, ...data, is_completed: true } : row) } : current);
+      }
+      setSuccess("Follow-up marked as done."); await refresh();
+    } catch (failure) { if (live.current) setActionError(requestError(failure, failure.message || "Follow-up could not be completed.")); }
+    finally { completionLock.current = false; if (live.current) setCompletingId(null); }
+  }
   async function shareActivation() {
-    if (linkBusy.current) return;
-    linkBusy.current = true;
-    setLinkLoading(true);
-    setError("");
+    if (activationLock.current || !canWork) return;
+    activationLock.current = true; setActivationBusy(true); setActionError("");
     try {
       const { data } = await api.post(`/quotations/customers/${id}/${activationLink ? "share-link" : "activate-account"}/`);
-      if (data.share_link) setActivationLink({ ...customer, ...data, id: customer.id });
-      else {
-        setActivationLink(null);
-        await load();
-      }
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Activation link could not be prepared.");
-    } finally {
-      linkBusy.current = false;
-      setLinkLoading(false);
-    }
+      if (!live.current) return;
+      if (data.share_link) setActivationLink({ ...customerRef.current, ...data, id: Number(id) });
+      else { setActivationLink(null); await loadCustomer(); }
+    } catch (failure) { if (live.current) setActionError(requestError(failure, "Activation link could not be prepared.")); }
+    finally { activationLock.current = false; if (live.current) setActivationBusy(false); }
   }
-
-  async function updateCustomer(values) {
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      const editableFields = [
-        "name",
-        "mobile",
-        "email",
-        "whatsapp",
-        "address",
-        "city",
-        "pincode",
-        "status",
-        "notes",
-      ];
-      const normalize = (field, value) => {
-        if (value == null) return "";
-        return String(value).trim();
-      };
-      const changes = Object.fromEntries(
-        editableFields
-          .filter(
-            (field) =>
-              normalize(field, values[field]) !==
-              normalize(field, customer[field]),
-          )
-          .map((field) => [field, values[field]]),
-      );
-
-      if (Object.keys(changes).length === 0) {
-        setEditing(false);
-        setSuccess("No changes were needed.");
-        return;
-      }
-
-      await api.patch(`/quotations/customers/${id}/`, changes);
-      const { data } = await api.get(`/quotations/customers/${id}/`);
-      const failedFields = Object.keys(changes).filter(
-        (field) =>
-          normalize(field, data[field]) !== normalize(field, changes[field]),
-      );
-      if (failedFields.length > 0) {
-        throw new Error(`The server did not save: ${failedFields.join(", ")}.`);
-      }
-      setCustomer(data);
-      setEditing(false);
-      setSuccess("Customer details saved successfully.");
-    } catch (requestError) {
-      setError(
-        requestError.response
-          ? Object.values(requestError.response.data || {})
-              .flat()
-              .join(" ") || "Changes could not be saved."
-          : requestError.message || "Changes could not be saved.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-  async function completeFollowUp(item) {
-    setCompletingId(item.id);
-    try {
-      const payload = { is_completed: true };
-      if (item.task_type || item.lead) {
-        payload.completed_at = new Date().toISOString();
-      }
-      await api.patch(`/quotations/tasks/${item.id}/`, payload);
-      await load();
-      setSuccess("Follow-up marked as done.");
-    } catch {
-      setError("Follow-up could not be completed.");
-    } finally {
-      setCompletingId(null);
-    }
-  }
-
-  async function addFollowUp(event) {
-    event.preventDefault();
-    const isSiteVisit = followUp.follow_up_type === "SITE_VISIT";
-    if (isSiteVisit && !followUp.next_follow_up) {
-      setError("Select the site visit date and time.");
-      return;
-    }
-    const whatsappWindow =
-      isSiteVisit && whatsappUrl ? window.open("", "_blank") : null;
-    if (whatsappWindow) whatsappWindow.opener = null;
-    setSaving(true);
-    setError("");
-    try {
-      await api.post(`/quotations/customers/${id}/follow-ups/`, {
-        ...followUp,
-        next_follow_up: followUp.next_follow_up || null,
-      });
-      setFollowUp({ follow_up_type: "CALL", comment: "", next_follow_up: "" });
-      setShowFollowUp(false);
-      if (isSiteVisit && whatsappUrl) {
-        const visitMessage = `Bharath Apps site visit is scheduled for ${formatSiteVisitDate(followUp.next_follow_up)}. Please contact the contractor if the schedule needs clarification.`;
-        const target = `${whatsappUrl}?text=${encodeURIComponent(visitMessage)}`;
-        if (whatsappWindow) whatsappWindow.location.href = target;
-        else window.open(target, "_blank", "noopener,noreferrer");
-        setSuccess(
-          "Site visit saved. The customer was notified in the portal and WhatsApp is ready to send.",
-        );
-      } else {
-        if (whatsappWindow) whatsappWindow.close();
-        setSuccess(
-          isSiteVisit
-            ? "Site visit saved and the customer was notified in the portal."
-            : "Follow-up added successfully.",
-        );
-      }
-      await load();
-    } catch (requestError) {
-      if (whatsappWindow) whatsappWindow.close();
-      setError(
-        Object.values(requestError.response?.data || {})
-          .flat()
-          .join(" ") || "Follow-up could not be added.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
+  const canRequestConnection = customer?.is_saved_contact === true && customer.account_status !== "DISABLED" && !["PENDING", "RECONNECT_PENDING", "BLOCKED"].includes(customer.connection_status);
   async function requestConnection() {
-    setSaving(true);
-    setError("");
-    setSuccess("");
+    if (requestLock.current || !canRequestConnection) return;
+    requestLock.current = true; setRequestBusy(true); setActionError("");
     try {
-      await api.post("/quotations/contractor/customer-connections/request/", { mobile: customer.mobile });
-      await load();
-      setSuccess("Connection request sent. Your saved contact details remain available while approval is pending.");
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.response?.data?.detail || "Connection request could not be sent.");
-    } finally { setSaving(false); }
+      await api.post("/quotations/contractor/customer-connections/request/", { mobile: customerRef.current.mobile });
+      if (!live.current) return;
+      setSuccess("Connection request sent."); await refresh();
+    } catch (failure) { if (live.current) setActionError(requestError(failure, "The connection request could not be sent.")); }
+    finally { requestLock.current = false; if (live.current) setRequestBusy(false); }
   }
-
-  if (loading)
-    return <div className="crm-page crm-customer-detail"><LoadingState label="Loading customer details..." /></div>;
-  if (!customer)
-    return (
-      <div className="crm-page crm-customer-detail"><ErrorState message={error} onRetry={load} /></div>
-    );
-  if (customer.is_saved_contact) return <div className="space-y-6 crm-page crm-customer-detail contractor-people-page">
-    <BackButton fallback="/customers" label="Back to customers" />
-    {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    {success && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{success}</p>}
-    <section className="people-customer-hero rounded-2xl border bg-white p-6"><PageHeader eyebrow="Customer profile" title={customer.name} description={customer.mobile} actions={<StatusBadge status={customer.connection_status} tone={customer.connection_status === "PENDING" ? "warning" : customer.connection_status === "BLOCKED" ? "danger" : "neutral"} label={customer.connection_status === "PENDING" ? "Connection pending" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Not connected"} />} />
-      <dl className="mt-5 grid gap-4 sm:grid-cols-2">{[["Email", customer.email], ["WhatsApp", customer.whatsapp], ["Address", customer.address], ["City", customer.city], ["Pincode", customer.pincode]].map(([title, value]) => <div key={title}><dt className="text-xs font-bold uppercase text-slate-400">{title}</dt><dd className="mt-1 text-sm">{value || "Not added"}</dd></div>)}</dl>
-      <div className="mt-6 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setEditing(true)} className="rounded-xl border px-4 py-3 text-sm font-bold bp-ui-action">Edit saved details</button><button type="button" disabled={saving || ["PENDING", "BLOCKED"].includes(customer.connection_status)} onClick={requestConnection} className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50 bp-ui-action">{saving ? "Sending..." : customer.connection_status === "PENDING" ? "Waiting for customer approval" : customer.connection_status === "BLOCKED" ? "Connection unavailable" : "Send connection request"}</button></div>
-    </section>
-    <div className="grid gap-6 md:grid-cols-2">
-      <Summary
-        title="Properties"
-        icon={Building2}
-        value={customer.properties?.length || 0}
-        items={(customer.properties || []).map((item) => ({
-          label: item.name || item.property_type || "Property",
-          to: "/properties/" + item.id,
-          state: { customerPath: "/customers/" + customer.id },
-        }))}
-        action={<div className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to={"/properties?customer=" + customer.id + "&action=add"} className="text-amber-700">Add property</Link><Link to={"/properties?customer=" + customer.id} className="text-slate-600">View all properties</Link></div>}
-      />
-      <Summary
-        title="Quotations"
-        icon={FileText}
-        value={customer.quotations?.length || 0}
-        items={(customer.quotations || []).slice(0, 4).map((item) => ({
-          label: (item.quotation_number || "Draft quotation") + (item.status === "DRAFT" ? " · Draft" : ""),
-          to: "/quotations/" + item.id,
-          state: { customerPath: "/customers/" + customer.id },
-        }))}
-        action={<div className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to={"/quotations/new?customer=" + customer.id} className="text-amber-700">Create quotation draft</Link><Link to={"/quotations?customer=" + customer.id} className="text-slate-600">View quotations</Link></div>}
-      />
-    </div>
-    {editing && <CustomerForm initialValue={customer} onSubmit={updateCustomer} onClose={() => setEditing(false)} saving={saving} error={error} />}
-  </div>;
-
-  const inputClass =
-    "rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900";
-  const followUps = (mobile ? recentFirst(customer.follow_ups || [], ["created_at", "follow_up_date", "next_follow_up"]) : [...(customer.follow_ups || [])])
-    .filter((item) => !item.is_completed)
-    .sort(
-    (first, second) =>
-      mobile ? 0 : new Date(second.follow_up_date) - new Date(first.follow_up_date),
-  );
-  const whatsappUrl = getWhatsAppUrl(customer.whatsapp || customer.mobile);
-
-  return (
-    <div className="space-y-6 crm-page crm-customer-detail contractor-people-page">
-      <BackButton fallback="/customers" label="Back to customers" />
-      {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-      <section className="people-customer-hero people-customer-hero-connected flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-6 md:flex-row md:items-start">
-        <div className="people-customer-avatar grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-2xl font-bold text-white">
-          {customer.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1">
-          <PageHeader icon={null} eyebrow="Customer profile" title={customer.name} description={customer.bharath_id || "Customer record"} actions={<StatusBadge status={customer.status} tone={customerStatusTone(customer.status)} />} />
-          <CustomerAccountStatus customer={customer} />
-          {customerAccountStatus(customer)?.canResend && <button type="button" disabled={linkLoading} onClick={shareActivation} className="mt-3 min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 disabled:opacity-50 bp-ui-action">{linkLoading ? "Preparing link..." : "Resend activation link"}</button>}
-          {activationLink && <CustomerActivationShare error={error} key={activationLink.share_link} customer={activationLink} contractor={user} busy={linkLoading} onRegenerate={shareActivation} onClose={() => { setActivationLink(null); load(); }} />}
-          <p className="mt-2 flex items-center gap-2 text-slate-500">
-            <Phone className="h-4 w-4" />
-            {customer.mobile}
-            {customer.city ? ` · ${customer.city}` : ""}
-          </p>
-          {customer.email && (
-            <p className="mt-1 flex items-center gap-2 text-slate-500">
-              <Mail className="h-4 w-4" />
-              {customer.email}
-            </p>
-          )}
-          <p className="mt-3 max-w-3xl text-sm text-slate-600">
-            {customer.requirement || "No requirement added yet."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {customer.connection_status === "CONNECTED" && <Link to={`/customers/${customer.id}/project-account`} className="flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white"><ReceiptText className="h-4 w-4" />Payment History</Link>}
-          <a
-            href={`tel:${customer.mobile}`}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
-          >
-            <Phone className="h-4 w-4" />
-            Call
-          </a>
-          {customer.email && (
-            <a
-              href={`mailto:${customer.email}`}
-              className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </a>
-          )}
-          {whatsappUrl && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"
-            >
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
-            </a>
-          )}
-          <button
-            onClick={() => setShowFollowUp(true)}
-            className="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white bp-ui-action"
-          >
-            <Plus className="h-4 w-4" />
-            Add follow-up
-          </button>
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
-          >
-            <Edit3 className="h-4 w-4" />
-            Edit
-          </button>
-        </div>
-      </section>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Summary
-          title="Properties"
-          icon={Building2}
-          value={customer.properties?.length || 0}
-          items={customer.properties?.map((item) => ({
-            label: item.name || item.property_type,
-            to: `/properties/${item.id}`,
-            calculatorTo: `/properties/${item.id}/measurements`,
-            state: { customerPath: `/customers/${customer.id}` },
-          }))}
-          action={
-            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
-              <Link
-                to={`/properties?customer=${customer.id}&action=add`}
-                className="text-amber-700"
-              >
-                Add property
-              </Link>
-              <Link
-                to={`/properties?customer=${customer.id}`}
-                className="text-slate-600 hover:text-slate-950"
-              >
-                View all properties
-              </Link>
-            </div>
-          }
-        />
-        <Summary
-          title="Quotations"
-          icon={FileText}
-          value={customer.quotations?.length || 0}
-          items={[...(customer.quotations || [])]
-            .sort(
-              (first, second) =>
-                new Date(second.created_at || second.quotation_date) -
-                new Date(first.created_at || first.quotation_date),
-            )
-            .slice(0, 4)
-            .map((item) => ({
-              label: item.quotation_number || "Draft quotation",
-              to: `/quotations/${item.id}`,
-              state: { customerPath: `/customers/${customer.id}/quotations` },
-            }))}
-          action={
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link
-                to={`/customers/${customer.id}/quotations`}
-                className="text-sm font-semibold text-slate-900"
-              >
-                View all quotations
-              </Link>
-              <Link
-                to={`/quotations/new?customer=${customer.id}`}
-                className="text-sm font-semibold text-amber-700"
-              >
-                Create quotation
-              </Link>
-            </div>
-          }
-        />
-      </div>
-
-      <section className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 sm:p-6">
-          <div><h2 className="font-bold text-slate-900 bp-ui-section-heading">Call history</h2><p className="mt-1 text-sm text-slate-500">Incoming calls matched to this customer.</p></div>
-          <div className="flex flex-wrap gap-3 text-sm font-semibold"><Link className="text-slate-700" to={`/properties?customer=${customer.id}`}>Properties</Link><Link className="text-slate-700" to={`/customers/${customer.id}/quotations`}>Quotations</Link><Link className="text-slate-700" to="/leads">Leads</Link><button type="button" className="text-slate-700" onClick={() => setShowFollowUp(true)}>Add follow-up</button></div>
-        </div>
-        {callEvents.length ? <div className="divide-y divide-slate-100">{callEvents.slice(0, 8).map((event) => <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6"><div><p className="font-semibold text-slate-900">{event.call_status || "Incoming call"}</p><p className="mt-1 text-sm text-slate-500">{new Date(event.occurred_at).toLocaleString("en-IN")}</p></div><a className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold text-slate-700" href={`tel:${event.phone_number}`}><Phone className="h-4 w-4"/>Call back</a></div>)}</div> : <p className="p-6 text-sm text-slate-500">No incoming calls have been linked to this customer.</p>}
-      </section>
-
-      <div>
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 p-6">
-              <h2 className="font-bold text-slate-900 bp-ui-section-heading">Follow-up timeline</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Most recent activity appears first
-              </p>
-            </div>
-            {followUps.length ? (
-              <div className="divide-y divide-slate-100">
-                {followUps.map((item) => (
-                  <div key={item.id} className="flex gap-4 p-5">
-                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100">
-                      <CalendarClock className="h-5 w-5 text-slate-600" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {item.follow_up_type.replaceAll("_", " ")}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {item.comment || "No notes"}
-                      </p>
-                      <p className="mt-2 text-xs text-slate-400">
-                        {new Date(item.follow_up_date).toLocaleString()}
-                      </p>
-                      <button
-                        onClick={() => completeFollowUp(item)}
-                        disabled={completingId === item.id}
-                        className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 disabled:opacity-50 bp-ui-action"
-                      >
-                        {completingId === item.id ? "Saving..." : "Mark done"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="p-8 text-center text-sm text-slate-500">
-                No follow-ups recorded yet.
-              </p>
-            )}
-          </div>
-        </section>
-      </div>
-      {showFollowUp && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
-          <section
-            className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="follow-up-title"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2
-                  id="follow-up-title"
-                  className="text-xl font-bold text-slate-900 bp-ui-section-heading"
-                >
-                  Add follow-up
-                </h2>
-                
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowFollowUp(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 bp-ui-icon-action"
-                aria-label="Close follow-up form"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form
-              onSubmit={addFollowUp}
-              className="mt-6 grid gap-4 sm:grid-cols-2"
-            >
-              <label className="text-sm font-semibold text-slate-700">
-                Follow-up type
-                <select
-                  value={followUp.follow_up_type}
-                  onChange={(e) =>
-                    setFollowUp({ ...followUp, follow_up_type: e.target.value })
-                  }
-                  className={(`mt-2 w-full ${inputClass}`) + " bp-ui-control"}
-                >
-                  {["CALL", "WHATSAPP", "NOTE", "SITE_VISIT", "MEETING"].map(
-                    (item) => (
-                      <option key={item} value={item}>
-                        {item.replaceAll("_", " ")}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Next follow-up
-                <input
-                  type="datetime-local"
-                  required={followUp.follow_up_type === "SITE_VISIT"}
-                  value={followUp.next_follow_up}
-                  onChange={(e) =>
-                    setFollowUp({ ...followUp, next_follow_up: e.target.value })
-                  }
-                  className={(`mt-2 w-full ${inputClass}`) + " bp-ui-control"}
-                />
-              </label>
-              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
-                Discussion notes
-                <textarea
-                  required
-                  rows="4"
-                  placeholder="What was discussed?"
-                  value={followUp.comment}
-                  onChange={(e) =>
-                    setFollowUp({ ...followUp, comment: e.target.value })
-                  }
-                  className={(`mt-2 w-full resize-none ${inputClass}`) + " bp-ui-control"}
-                />
-              </label>
-              <div className="flex justify-end gap-2 border-t pt-4 sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => setShowFollowUp(false)}
-                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={saving}
-                  className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 bp-ui-action"
-                >
-                  {saving ? "Saving..." : "Add follow-up"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-      {editing && (
-        <CustomerForm
-          initialValue={customer}
-          onSubmit={updateCustomer}
-          onClose={() => setEditing(false)}
-          saving={saving}
-        />
-      )}
-    </div>
-  );
-}
-
-function Summary({ title, icon: Icon, value, items = [], action }) {
-  return (
-    <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center gap-3 p-5 marker:hidden">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100">
-          <Icon className="h-5 w-5" />
-        </span>
-        <h2 className="min-w-0 flex-1 font-bold text-slate-900 bp-ui-section-heading">{title}</h2>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
-          {value}
-        </span>
-        <ChevronDown className="h-5 w-5 text-slate-500 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="border-t border-slate-200 p-5">
-        {items.length > 0 ? (
-          <div className="space-y-2">
-            {items.map((item, index) =>
-              item.to ? (
-                <div
-                  key={`${item.to}-${index}`}
-                  className="flex items-center gap-2 rounded-lg bg-slate-50 p-1.5"
-                >
-                  <Link
-                    to={item.to}
-                    state={item.state}
-                    className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-white hover:text-slate-950"
-                  >
-                    {item.label}
-                  </Link>
-                </div>
-              ) : (
-                <p
-                  key={`${item.label}-${index}`}
-                  className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600"
-                >
-                  {item.label}
-                </p>
-              ),
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            No {title.toLowerCase()} yet.
-          </p>
-        )}
-        {action && (
-          <div className="mt-4 border-t border-slate-100 pt-4">{action}</div>
-        )}
-      </div>
-    </details>
-  );
-}
-
-function getWhatsAppUrl(value) {
-  const digits = String(value || "").replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
-}
-
-function formatSiteVisitDate(value) {
-  return new Date(value).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function customerStatusTone(value) {
-  if (value === "WON") return "success";
-  if (value === "LOST") return "danger";
-  if (["PENDING", "FOLLOW_UP", "NEGOTIATION"].includes(value)) return "warning";
-  if (["NEW", "CONTACTED", "SITE_VISIT", "QUOTATION_SENT"].includes(value)) return "info";
-  return "neutral";
+  if (!customer) return <div className="crm-page crm-customer-detail">{loading ? <LoadingState label="Loading customer details..." /> : <ErrorState message={error || "Customer not found."} onRetry={loadCustomer} />}</div>;
+  return <>
+    <CustomerProfileView customer={customer} leads={leads}
+      loading={loading} error={error || actionError} success={success} onRetry={() => { setActionError(""); refresh(); }}
+      onFollowUp={openFollowUp} onEdit={() => setEditing(true)} onActivate={shareActivation} activationBusy={activationBusy}
+      onRequestConnection={requestConnection} requestBusy={requestBusy} canWork={canWork} canRequestConnection={canRequestConnection}
+      callEvents={callEvents} callsLoading={callsLoading} callsError={callsError} onRetryCalls={loadCalls} onComplete={completeFollowUp} completingId={completingId} />
+    <CustomerForm initialValue={customer} onSubmit={updateCustomer} onClose={() => { if (!editLock.current) setEditing(false); }} saving={saving} error={editError} open={editing} preserveDraft draftPath={`/customers/${id}`} />
+    {dialog === "choice" && canWork && <CustomerFollowUpChoice customer={customer} leads={leads} loading={leadsLoading} error={leadsError} onRetry={loadLeads} onGeneral={() => setDialog("general")} onLead={chooseLead} onClose={() => setDialog(null)} />}
+    <GeneralCustomerFollowUp customer={customer} draft={generalDraft} onDraftChange={setGeneralDraft} open={dialog === "general" && canWork} onClose={() => setDialog(null)} onSaved={saved} />
+    {selectedLead && canWork && <LeadFollowUpForm key={selectedLead.id} item={selectedLead} draft={leadDrafts[selectedLead.id]} onDraftChange={leadDraftChanged} dialogOpen onClose={() => setSelectedLead(null)} onSaved={saved} />}
+    {activationLink && canWork && <CustomerActivationShare key={activationLink.share_link} customer={activationLink} contractor={user} busy={activationBusy} error={actionError} onRegenerate={shareActivation} onClose={() => { if (!activationLock.current) { setActivationLink(null); loadCustomer(); } }} />}
+  </>;
 }

@@ -1,0 +1,24 @@
+.quotation-schedule-card {
+  --qsc-gap:16px;--qsc-small:8px;--qsc-radius:12px;--qsc-ink:#172033;
+  --qsc-muted:#526078;--qsc-line:#d8dfea;--qsc-accent:#1e40af;
+  padding:24px;border:1px solid var(--qsc-line);border-radius:var(--qsc-radius);background:white;color:var(--qsc-ink);
+}
+.quotation-schedule-card header {display:flex;justify-content:space-between;align-items:start;gap:var(--qsc-gap);flex-wrap:wrap;margin-bottom:var(--qsc-gap)}
+.quotation-schedule-card h2 {display:flex;align-items:center;gap:var(--qsc-small);margin:0;font-size:18px;font-weight:800}
+.quotation-schedule-card header p,.qsc-hint {font-size:12px;line-height:1.7;color:var(--qsc-muted);margin:var(--qsc-small) 0 0}
+.qsc-status {font-size:12px;font-weight:700;padding:var(--qsc-small);border-radius:var(--qsc-radius);background:#eef2ff;color:var(--qsc-accent)}
+.qsc-date-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--qsc-gap)}
+.qsc-date-fields label {display:grid;gap:var(--qsc-small);min-width:0;font-size:14px;font-weight:600}
+.qsc-date-fields input {width:100%;min-width:0;max-width:100%;min-height:44px;border:1px solid var(--qsc-line);border-radius:var(--qsc-radius);padding:var(--qsc-small) 12px;font:inherit;color:var(--qsc-ink);background:white;box-sizing:border-box}
+.qsc-reason {grid-column:1/-1}
+.qsc-actions {display:flex;align-items:center;gap:var(--qsc-gap);flex-wrap:wrap;margin-top:var(--qsc-gap)}
+.qsc-actions a {display:inline-flex;align-items:center;min-height:44px;color:var(--qsc-accent);font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:4px}
+.qsc-error,.qsc-notice {padding:12px;border-radius:var(--qsc-radius);font-size:14px;margin:0 0 var(--qsc-gap)}
+.qsc-error {background:#fff1f2;color:#991b1b}.qsc-notice {background:#ecfdf5;color:#065f46}
+.quotation-schedule-card :is(button,a,input):focus-visible {outline:3px solid var(--qsc-accent);outline-offset:3px}
+@media(max-width:640px) {.quotation-schedule-card {padding:var(--qsc-gap)}.qsc-date-fields {grid-template-columns:minmax(0,1fr)}.qsc-actions {gap:var(--qsc-small)}}
+.qsc-rework-history {margin-top:16px;border:1px solid #e6cb8a;border-radius:12px;padding:12px;background:#fffbeb;min-width:0}
+.qsc-rework-history summary {min-height:44px;display:flex;align-items:center;font-size:14px;font-weight:700;color:#92400e;cursor:pointer}
+.qsc-rework-history div {padding:12px 0;border-top:1px solid #e6cb8a;overflow-wrap:anywhere}
+.qsc-rework-history p {white-space:pre-wrap;margin:0 0 8px;font-size:14px}
+.qsc-rework-history small {font-size:12px;color:#526078}

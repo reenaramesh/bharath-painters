@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { IndianRupee, Users } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { StatusBadge } from "./ui";
 import { apiErrorMessage, prettyDate, rupees, WAGE_TYPES } from "../utils/subcontract";
 
@@ -57,6 +58,12 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
   const released = (workOrder.assignments || []).filter((row) => row.status === "RELEASED");
   const canEditTeam = TEAM_OPEN.includes(workOrder.status);
   const totalWages = wages.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const removeAssignment = async (row) => {
+    if (busy || !await confirmAction({ question: "Are you sure you want to remove this assignment?", detail: row.employee_name })) return;
+    return run(() => api.delete(`/outsourcing/work-orders/${workOrder.id}/assignments/`, {
+      data: { assignment: row.id },
+    }));
+  };
 
   return (
     <section className="rounded-2xl border bg-white p-6">
@@ -116,13 +123,7 @@ export default function SubcontractTeamPanel({ workOrder, onChanged }) {
               {canEditTeam && !["IN_PROGRESS", "COMPLETED"].includes(row.status) && (
                 <button
                   disabled={busy}
-                  onClick={() =>
-                    run(() =>
-                      api.delete(`/outsourcing/work-orders/${workOrder.id}/assignments/`, {
-                        data: { assignment: row.id },
-                      }),
-                    )
-                  }
+                  onClick={() => removeAssignment(row)}
                   className="text-sm font-semibold text-red-600 bp-ui-action"
                 >
                   Remove

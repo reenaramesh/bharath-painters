@@ -97,19 +97,14 @@ class ContractorSchedulingTests(TestCase):
         self.assertEqual(item.status, 'CONFIRMED')
         self.assertTrue(item.customer_accepted)
 
-    def test_start_preserves_advance_and_worker_readiness_checks(self):
+    def test_contractor_starts_without_advance_or_worker_approval(self):
         item, _ = self.create()
         url = reverse('work-schedule-progress', args=[item.pk])
-        self.assertEqual(self.client.post(url, {'action': 'START'}, format='json').status_code, 400)
-        item.payment_status = 'CONFIRMED'
-        item.save(update_fields=['payment_status'])
-        self.assertEqual(self.client.post(url, {'action': 'START'}, format='json').status_code, 400)
-        ContractorApplicatorTeam.objects.create(contractor=self.owner, painter=self.painter, employment_type='FLEXIBLE')
-        WorkSchedulePainter.objects.create(schedule=item, painter=self.painter, status='ACCEPTED')
         self.assertEqual(self.client.post(url, {'action': 'START'}, format='json').status_code, 200)
         item.refresh_from_db()
         self.assertEqual(item.status, 'IN_PROGRESS')
         self.assertFalse(item.customer_accepted)
+        self.assertEqual(item.payment_status, 'NOT_REQUESTED')
 
     def test_confirming_existing_roster_preserves_conflict_checks(self):
         self.quote.status = 'ACCEPTED'

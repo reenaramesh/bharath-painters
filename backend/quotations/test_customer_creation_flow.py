@@ -28,7 +28,7 @@ class CustomerCreationFlowTests(APITestCase):
         self.assertEqual(Customer.objects.count(), 1)
         self.assertEqual(again.status_code, 200)
 
-    def test_existing_customer_requires_approval_and_keeps_private_work_hidden(self):
+    def test_existing_customer_connects_immediately_and_keeps_private_work_separate(self):
         self.client.force_authenticate(self.contractor)
         created = self.client.post(reverse("customer-list-create"), {"name": "Owner", "mobile": "9000010088"}, format="json")
         customer = Customer.objects.get(pk=created.data["id"])
@@ -36,22 +36,18 @@ class CustomerCreationFlowTests(APITestCase):
         saved = self.client.post(reverse("customer-list-create"), {"name": "My contact", "mobile": customer.mobile}, format="json")
         self.assertEqual(saved.status_code, 201, saved.data)
         connection = ContractorCustomerConnection.objects.get(customer=customer, contractor=self.other)
-        self.assertEqual(connection.status, "PENDING")
+        self.assertEqual(connection.status, "CONNECTED")
         self.assertEqual(Customer.objects.count(), 1)
-        self.assertEqual(self.client.post(reverse("property-list-create"), {"customer": customer.id, "name": "Private"}, format="json").status_code, 400)
-        self.assertFalse(Property.objects.filter(contractor=self.other).exists())
-        self.client.force_authenticate(customer.portal_user)
-        accepted = self.client.post(reverse("customer-connection-request-accept", args=[connection.id]))
-        self.assertEqual(accepted.status_code, 200)
-        connection.refresh_from_db()
-        self.assertIsNotNone(connection.accepted_at)
+        self.assertEqual(self.client.post(reverse("property-list-create"), {"customer": customer.id, "name": "Private"}, format="json").status_code, 201)
+        self.assertTrue(Property.objects.filter(contractor=self.other).exists())
+        self.assertIsNone(connection.accepted_at)
 
     def test_decline_resend_block_and_unique_connection(self):
         self.client.force_authenticate(self.contractor)
         created = self.client.post(reverse("customer-list-create"), {"name": "Owner", "mobile": "9000010077"}, format="json")
         customer = Customer.objects.get(pk=created.data["id"])
         self.client.force_authenticate(self.other)
-        self.client.post(reverse("customer-list-create"), {"name": "Saved", "mobile": customer.mobile}, format="json")
+        self.client.post(reverse("contractor-customer-connection-request"), {"mobile": customer.mobile}, format="json")
         connection = ContractorCustomerConnection.objects.get(customer=customer, contractor=self.other)
         self.client.force_authenticate(customer.portal_user)
         self.assertEqual(self.client.post(reverse("customer-connection-request-reject", args=[connection.id])).status_code, 200)

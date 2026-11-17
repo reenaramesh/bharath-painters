@@ -9,7 +9,6 @@ import {
   BadgeCheck,
   Building2,
   BriefcaseBusiness,
-  CalendarDays,
   Download,
   Edit3,
   FileText,
@@ -19,6 +18,8 @@ import {
   User,
 } from "lucide-react";
 import api from "../api/client";
+import { trackFeature } from '../analytics/features.js';
+import { confirmAction } from "../utils/confirmAction.js";
 import { quotationRoomAreaLabel } from "../utils/groupedQuotation";
 import BackButton from "../components/BackButton";
 import { previewPdf } from "../components/PdfPreview";
@@ -27,6 +28,7 @@ import { Button, ErrorState, LoadingState, StatusBadge } from "../components/ui"
 import "./quotation-measurement.css";
 import { consumeQuotationSubmission, quotationSubmissionError } from "../utils/quotationSubmission.js";
 import useAuth from '../context/useAuth';
+import QuotationScheduleCard from '../components/QuotationScheduleCard';
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -190,7 +192,7 @@ export default function QuotationDetail() {
     .filter((item) => item.is_additional_service)
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   async function remove() {
-    if (!window.confirm("Delete this quotation permanently?")) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this quotation draft?", detail: quotation.quotation_number })) return;
     setDeleting(true);
     try {
       await api.delete(`/quotations/${id}/`);
@@ -388,15 +390,6 @@ export default function QuotationDetail() {
               {converting ? "Creating..." : "Create final invoice"}
             </button>
           )}
-          {quotation.status === "ACCEPTED" && (
-            <Link
-              to={`/work-schedules?quotation=${quotation.id}`}
-              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm"
-            >
-              <CalendarDays className="h-4 w-4" />
-              Schedule work
-            </Link>
-          )}
           {quotation.status === "DRAFT" && quotation.can_delete && <button
             onClick={remove}
             disabled={deleting}
@@ -412,12 +405,7 @@ export default function QuotationDetail() {
           {error}
         </div>
       )}
-      {quotation.status === "ACCEPTED" && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="font-bold text-emerald-950">{quotation.accepted_via_receipt_at ? "Quotation accepted through payment receipt" : "Customer accepted this quotation"}</p><p className="mt-1 text-sm text-emerald-800">Next: propose work dates for the customer to confirm. {quotation.accepted_via_receipt_at ? "The advance is already recorded." : "Then record any advance, assign Paint Applicators, start work, and complete the project."}</p></div>
-          <Link to={`/work-schedules?quotation=${quotation.id}`} className="shrink-0 rounded-xl bg-emerald-700 px-5 py-3 text-center text-sm font-semibold text-white">Propose work dates</Link>
-        </section>
-      )}
+      {user?.role === 'CONTRACTOR' && <QuotationScheduleCard key={`${user.id}:${quotation.id}`} quotation={quotation} onStatusChange={status=>setQuotation(current=>({...current,status}))} />}
       {quotation.customer_response_note &&
         ["REVISION_REQUESTED", "DRAFT"].includes(quotation.status) && (
           <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
@@ -683,6 +671,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
   async function copy(text, message) {
     try {
       await navigator.clipboard.writeText(text);
+      if (text === url) trackFeature('quotation_link_copied');
       setFeedback(message);
       setShareError("");
     } catch {
@@ -693,6 +682,7 @@ function QuotationShare({ quotation, customer, customerLogin, onClose }) {
     if (!navigator.share) return copy(url, "Portal link copied.");
     try {
       await navigator.share({title: quotation.quotation_number, text: "View your Bharath Apps quotation", url});
+      trackFeature('quotation_shared');
       setFeedback("Sharing completed.");
       setShareError("");
     } catch (requestError) {

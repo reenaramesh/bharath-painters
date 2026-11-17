@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Move, RotateCcw, ZoomIn, ZoomOut, Trash2 } from "lucide-react";
 import { lockBodyScroll } from "../utils/bodyScrollLock";
 import { createPortal } from "react-dom";
+import { confirmAction } from "../utils/confirmAction.js";
 import {
   DEFAULT_PROFILE_IMAGE_POSITION,
   normalizeProfileImagePosition,
@@ -60,6 +61,7 @@ export default function ProfileImageControl({
     const modal = modalRef.current;
     modal?.querySelector('button')?.focus();
     const handleKey = event => {
+      if (!modal?.contains(event.target)) return;
       if (event.key === 'Escape') setEditing(false);
       if (event.key !== 'Tab') return;
       const nodes = [...(modal?.querySelectorAll('button, input, select, [tabindex="0"]') || [])].filter(node => !node.disabled);
@@ -140,13 +142,15 @@ export default function ProfileImageControl({
     setDraft({ ...DEFAULT_PROFILE_IMAGE_POSITION });
   }
 
-  function removeImage() {
+  async function removeImage() {
+    if (!await confirmAction({ question: "Are you sure you want to remove this image?", detail: label })) return false;
     if (file) {
       onFileChange(null);
       onPositionChange({ ...DEFAULT_PROFILE_IMAGE_POSITION });
     } else {
       onRemove?.();
     }
+    return true;
   }
 
   return (
@@ -187,7 +191,7 @@ export default function ProfileImageControl({
               <span className="w-12 text-right text-xs tabular-nums text-slate-500">{Math.round(draft.zoom * 100)}%</span>
             </div>
             <div className="mt-5 flex flex-wrap justify-between gap-2 border-t pt-4">
-              <div className="flex gap-2"><button type="button" onClick={resetPosition} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action"><RotateCcw className="h-4 w-4" />Center / reset</button>{compact && <button type="button" onClick={() => inputRef.current?.click()} className="grid h-11 w-11 place-items-center rounded-lg border bp-ui-icon-action" aria-label={`Change ${label}`} title="Change image"><Camera size={18} /></button>}{compact && onRemove && <button type="button" onClick={() => { removeImage(); setEditing(false); }} className="grid h-11 w-11 place-items-center rounded-lg border text-rose-700 bp-ui-icon-action" aria-label={`Remove ${label}`} title="Remove image"><Trash2 size={18} /></button>}</div>
+              <div className="flex gap-2"><button type="button" onClick={resetPosition} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold bp-ui-action"><RotateCcw className="h-4 w-4" />Center / reset</button>{compact && <button type="button" onClick={() => inputRef.current?.click()} className="grid h-11 w-11 place-items-center rounded-lg border bp-ui-icon-action" aria-label={`Change ${label}`} title="Change image"><Camera size={18} /></button>}{compact && onRemove && <button type="button" onClick={async () => { if (await removeImage()) setEditing(false); }} className="grid h-11 w-11 place-items-center rounded-lg border text-rose-700 bp-ui-icon-action" aria-label={`Remove ${label}`} title="Remove image"><Trash2 size={18} /></button>}</div>
               <div className="flex gap-2"><button type="button" onClick={() => setEditing(false)} className="rounded-lg border px-4 py-2 text-sm font-semibold bp-ui-action">Cancel</button><button type="button" onClick={savePosition} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white bp-ui-action">Apply position</button></div>
             </div>
           </section>

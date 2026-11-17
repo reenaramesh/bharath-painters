@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import useAuth from "../context/useAuth";
 import PropertyForm from "../components/PropertyForm";
 import SharePropertyDialog from "../components/SharePropertyDialog";
@@ -36,6 +37,7 @@ export default function PropertyDetail() {
   const [measurementRecords, setMeasurementRecords] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [editing, setEditing] = useState(false);
+  const [propertyError, setPropertyError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [measurementError, setMeasurementError] = useState("");
@@ -66,11 +68,14 @@ export default function PropertyDetail() {
 
   async function saveProperty(values) {
     setSaving(true);
+    setPropertyError("");
     try {
       const { data } = await api.patch(`/quotations/properties/${id}/`, values);
       setProperty(data);
       setEditing(false);
+      setError("");
     } catch (requestError) {
+      setPropertyError(requestError.response?.data || "Property could not be saved.");
       setError(
         Object.values(requestError.response?.data || {})
           .flat()
@@ -82,7 +87,7 @@ export default function PropertyDetail() {
   }
 
   async function deleteProperty() {
-    if (!window.confirm("Remove this property from your board? The customer, admin and saved Area Calculations can still access it."))
+    if (!await confirmAction({ question: "Are you sure you want to remove this property?", detail: property.name || property.property_type }))
       return;
     try {
       await api.delete(`/quotations/properties/${id}/`);
@@ -97,7 +102,7 @@ export default function PropertyDetail() {
   }
 
   async function deleteMeasurement(record) {
-    if (!window.confirm(`Delete Area Calculation ${record.reference_no} and all its saved dimensions?`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this Area Calculation and its dimensions?", detail: record.reference_no })) return;
     try {
       await api.delete(`/quotations/measurement-records/${record.id}/`);
       await load();
@@ -179,8 +184,7 @@ export default function PropertyDetail() {
             <div className="property-overview-details mt-5 grid min-w-0 grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
               <Detail label="Owner name" value={customer?.name} />
               <Detail label="Project name" value={property.name} />
-              <Detail label="Flat number" value={property.flat_number || "—"} />
-              <Detail label="Block / Tower" value={property.block_name || "—"} />
+              <Detail label="Flat / Block / Tower" value={[property.flat_number, property.block_name].filter(Boolean).join(", ") || "\u2014"} />
               <Detail
                 label="Project address"
                 value={[property.address, property.city, property.pincode]
@@ -367,8 +371,9 @@ export default function PropertyDetail() {
           customers={customers}
           initialValue={property}
           onSubmit={saveProperty}
-          onClose={() => setEditing(false)}
+          onClose={() => { setEditing(false); setPropertyError(""); }}
           saving={saving}
+          error={propertyError}
         />
       )}
     </div>

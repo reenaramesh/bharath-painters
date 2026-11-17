@@ -58,7 +58,8 @@ class GlobalCustomerConnectionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["name"], "Another")
         self.assertEqual(response.data["email"], "")
-        self.assertTrue(response.data["is_saved_contact"])
+        self.assertFalse(response.data["is_saved_contact"])
+        self.assertEqual(response.data["connection_status"], "CONNECTED")
         self.customer.refresh_from_db()
         self.assertEqual(self.customer.name, "Ramesh Kumar")
 

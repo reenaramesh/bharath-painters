@@ -1,0 +1,15 @@
+.customer-contact-picker {
+  --contact-accent: var(--bp-brand, #5841e8);
+  --contact-tint: #f3f0ff;
+  --contact-line: var(--bp-line, #e4e7ef);
+  --contact-radius: 12px;
+  min-width: 0;
+}
+.customer-contact-picker-list { display: grid; gap: 8px; max-height: min(44dvh, 400px); overflow-y: auto; overscroll-behavior: contain; list-style: none; padding: 4px; margin: 0; }
+.customer-contact-choice { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 12px; border: 1px solid var(--contact-line); border-radius: var(--contact-radius); background: white; color: var(--bp-ink, #17213a); }
+.customer-contact-choice:hover:not(:disabled) { border-color: var(--contact-accent); background: var(--contact-tint); }
+.customer-contact-choice:focus-visible { outline: 3px solid var(--bp-focus-ring, #b5a9ff); outline-offset: 1px; }
+.customer-contact-choice:disabled { cursor: not-allowed; background: var(--bp-canvas, #f7f8fc); }
+.customer-contact-avatar { display: flex; flex: 0 0 40px; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--contact-radius); background: var(--contact-tint); color: var(--contact-accent); }
+.customer-contact-choice:disabled .customer-contact-avatar { background: #e9edf3; color: #617087; }
+@media (max-width: 480px) { .customer-contact-picker-list { max-height: 40dvh; } }

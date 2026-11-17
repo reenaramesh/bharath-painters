@@ -5,6 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from builtins import property as python_property
 from accounts.mobile import normalize_mobile
+from .catalogue_storage import PrivateCatalogueStorage, catalogue_upload_path
 
 
 class MasterDataBase(models.Model):
@@ -469,6 +470,10 @@ class SavedCustomerContact(models.Model):
 
 
 class ContractorCustomerConnection(models.Model):
+    class Origin(models.TextChoices):
+        LEGACY = "LEGACY", "Existing relationship"
+        CONTACT_SAVE = "CONTACT_SAVE", "Contractor saved contact"
+
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
         CONNECTED = "CONNECTED", "Connected"
@@ -497,6 +502,7 @@ class ContractorCustomerConnection(models.Model):
     blocked_at = models.DateTimeField(null=True, blank=True)
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="customer_connections_requested")
     approval_method = models.CharField(max_length=30, choices=ApprovalMethod.choices, blank=True)
+    origin = models.CharField(max_length=20, choices=Origin.choices, default=Origin.LEGACY)
     rejection_reason = models.CharField(max_length=80, blank=True)
     customer_status = models.CharField(max_length=30, choices=Customer.Status.choices, default=Customer.Status.NEW)
     customer_source = models.CharField(max_length=20, choices=Customer.Source.choices, default=Customer.Source.OTHER)
@@ -529,6 +535,7 @@ class CustomerShareLink(models.Model):
 
 class CustomerConnectionAudit(models.Model):
     class Actions(models.TextChoices):
+        CONTACT_SAVED = "CONTACT_SAVED", "Contractor saved customer"
         REQUESTED = "CONNECTION_REQUESTED", "Connection requested"
         ACCEPTED = "CONNECTION_ACCEPTED", "Connection accepted"
         REJECTED = "CONNECTION_REJECTED", "Connection rejected"
@@ -583,6 +590,43 @@ class ColourComparisonDraft(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class ContractorCatalogue(models.Model):
+    class DocumentType(models.TextChoices):
+        PRODUCT_CATALOGUE = "PRODUCT_CATALOGUE", "Product catalogue"
+        OUR_WORK = "OUR_WORK", "Our work"
+        BROCHURE = "BROCHURE", "Brochure"
+
+    contractor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="catalogues")
+    title = models.CharField(max_length=180)
+    category = models.CharField(max_length=100, default="Other")
+    brand_vendor = models.CharField(max_length=160, blank=True)
+    description = models.TextField(blank=True)
+    document_type = models.CharField(max_length=24, choices=DocumentType.choices, default=DocumentType.PRODUCT_CATALOGUE)
+    service_category = models.ForeignKey(ServiceCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="catalogues")
+    product = models.ForeignKey(PaintType, on_delete=models.SET_NULL, null=True, blank=True, related_name="catalogues")
+    is_archived = models.BooleanField(default=False)
+    current_version = models.ForeignKey("CatalogueVersion", on_delete=models.SET_NULL, null=True, blank=True, related_name="current_for_catalogues")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at", "-id")
+
+
+class CatalogueVersion(models.Model):
+    catalogue = models.ForeignKey(ContractorCatalogue, on_delete=models.CASCADE, related_name="versions")
+    version = models.PositiveIntegerField()
+    file = models.FileField(storage=PrivateCatalogueStorage, upload_to=catalogue_upload_path)
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    size = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-version",)
+        constraints = [models.UniqueConstraint(fields=("catalogue", "version"), name="unique_catalogue_version")]
+
+
 class ChatMessage(models.Model):
     conversation = models.ForeignKey(
         ChatConversation,
@@ -608,14 +652,18 @@ class ChatMessage(models.Model):
     edited_at = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    catalogue_send_key = models.CharField(max_length=100, null=True, blank=True)
+    catalogue_send_fingerprint = models.CharField(max_length=64, blank=True)
 
     class Meta:
         ordering = ("created_at",)
+        constraints = [models.UniqueConstraint(fields=("sender", "conversation", "catalogue_send_key"), condition=models.Q(catalogue_send_key__isnull=False), name="unique_chat_catalogue_send_key")]
 
 
 class ChatAttachment(models.Model):
     message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="attachments")
     file = models.FileField(upload_to="chat_attachments/%Y/%m/")
+    catalogue_version = models.ForeignKey(CatalogueVersion, on_delete=models.PROTECT, null=True, blank=True, related_name="chat_attachments")
     file_name = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100)
     size = models.PositiveIntegerField()
@@ -694,6 +742,7 @@ class Lead(models.Model):
         CANCELLED = "CANCELLED", "Cancelled"
 
     class Source(models.TextChoices):
+        CUSTOMER_APP = "CUSTOMER_APP", "Customer app"
         GOOGLE_SEARCH = "GOOGLE_SEARCH", "Google Search"
         GOOGLE_PROFILE = "GOOGLE_PROFILE", "Google Business Profile"
         GOOGLE_ADS = "GOOGLE_ADS", "Google Ads"
@@ -734,6 +783,8 @@ class Lead(models.Model):
     description = models.TextField(blank=True)
     stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.NEW)
     source = models.CharField(max_length=30, choices=Source.choices, default=Source.OTHER)
+    source_detail = models.CharField(max_length=255, blank=True)
+    creation_key = models.CharField(max_length=100, null=True, blank=True)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     estimated_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     expected_start_date = models.DateField(null=True, blank=True)
@@ -748,6 +799,7 @@ class Lead(models.Model):
 
     class Meta:
         ordering = ("-updated_at",)
+        constraints = [models.UniqueConstraint(fields=("contractor", "creation_key"), name="unique_contractor_lead_creation_key")]
 
     def save(self, *args, **kwargs):
         if not self.reference_no:
@@ -930,6 +982,8 @@ class MeasurementAccessRequest(models.Model):
 
 
 class CustomerFollowUp(models.Model):
+    next_action = models.CharField(max_length=200, blank=True)
+    creation_key = models.CharField(max_length=100, null=True, blank=True)
 
     class FollowUpType(models.TextChoices):
         CALL = "CALL", "Call"
@@ -942,6 +996,7 @@ class CustomerFollowUp(models.Model):
 
     class Outcome(models.TextChoices):
         INTERESTED = "INTERESTED", "Interested"
+        QUOTATION_REQUIRED = "QUOTATION_REQUIRED", "Quotation required"
         CALL_LATER = "CALL_LATER", "Call Later"
         WAITING_DECISION = "WAITING_DECISION", "Waiting for Decision"
         REVISED_QUOTE = "REVISED_QUOTE", "Need Revised Quote"
@@ -1000,6 +1055,11 @@ class CustomerFollowUp(models.Model):
         on_delete=models.CASCADE,
         related_name="customer_follow_ups"
     )
+
+    performed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name="performed_customer_follow_ups", null=True, blank=True)
+    completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name="completed_customer_follow_ups", null=True, blank=True)
 
     created_at = models.DateTimeField(
         auto_now_add=True
@@ -1700,13 +1760,11 @@ class Quotation(models.Model):
                 "verification_status": self.contractor.verification_status,
             }
         if self.customer_id and not self.customer_snapshot:
-            self.customer_snapshot = {
-                "bharath_id": self.customer.bharath_id,
-                "name": self.customer.name,
-                "mobile": self.customer.mobile,
-                "email": self.customer.email,
-                "gst_number": self.customer.gst_number,
-            }
+            from .customer_contacts import contractor_customer_details
+            details = contractor_customer_details(self.customer, self.contractor)
+            self.customer_snapshot = {"bharath_id": self.customer.bharath_id, **{
+                field: details[field] for field in ("name", "mobile", "email", "gst_number")
+            }}
         if self.property_id and not self.property_snapshot:
             self.property_snapshot = {
                 "name": self.property.name or self.property.property_type,

@@ -42,7 +42,7 @@ export default function SiteVisits() {
   const [dateFilter, setDateFilter] = useState(requestedDate);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
-  const [showSchedule, setShowSchedule] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(() => Boolean(params.get("opportunity")));
   const selectedVisitShown = useRef(false);
 
   async function load() {
@@ -297,6 +297,7 @@ export default function SiteVisits() {
 
       {showSchedule && (
         <ScheduleVisitModal
+          initialOpportunity={params.get("opportunity") || ""}
           onClose={() => setShowSchedule(false)}
           onCreated={() => {
             setShowSchedule(false);
@@ -308,13 +309,13 @@ export default function SiteVisits() {
   );
 }
 
-function ScheduleVisitModal({ onClose, onCreated }) {
+function ScheduleVisitModal({ onClose, onCreated, initialOpportunity = "" }) {
   const [opportunities, setOpportunities] = useState([]);
   const [_properties, setProperties] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    opportunity: "",
+    opportunity: initialOpportunity,
     scheduled_date: todayISO(),
     scheduled_time: "",
     contact_person: "",
@@ -324,7 +325,7 @@ function ScheduleVisitModal({ onClose, onCreated }) {
 
   useEffect(() => {
     api
-      .get("/quotations/leads/?view_scope=open")
+      .get("/quotations/leads/?queue=active")
       .then(({ data }) => setOpportunities(data.results || data))
       .catch(() => { });
   }, []);

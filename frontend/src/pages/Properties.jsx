@@ -19,6 +19,7 @@ export default function Properties() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [propertyError, setPropertyError] = useState("");
   const [calculatorSort, setCalculatorSort] = useState({ key: "updated_at", direction: "desc" });
   const [calculatorPage, setCalculatorPage] = useState(1);
   const [calculatorPageSize, setCalculatorPageSize] = useState("25");
@@ -104,12 +105,14 @@ export default function Properties() {
 
   async function create(values) {
     setSaving(true);
+    setPropertyError("");
     try {
       const { data } = await api.post("/quotations/properties/", values);
       setProperties((items) => [data, ...items]);
       setShowForm(false);
       setError("");
     } catch (requestError) {
+      setPropertyError(requestError.response?.data || "Property could not be created.");
       setError(
         Object.values(requestError.response?.data || {}).flat().join(" ") ||
           "Property could not be created.",
@@ -300,9 +303,9 @@ export default function Properties() {
           customers={customers}
           initialCustomer={selectedCustomerId}
           onSubmit={create}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setPropertyError(""); }}
           saving={saving}
-          error={error}
+          error={propertyError}
         />
       )}
     </div>

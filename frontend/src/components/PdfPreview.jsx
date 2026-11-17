@@ -15,9 +15,9 @@ import useAuth from '../context/useAuth';
 
 const PREVIEW_EVENT = "bharath-painters:preview-pdf";
 
-export function previewPdf(blob, filename = "document.pdf") {
+export function previewPdf(blob, filename = "document.pdf", options = {}) {
   window.dispatchEvent(
-    new CustomEvent(PREVIEW_EVENT, { detail: { blob, filename } }),
+    new CustomEvent(PREVIEW_EVENT, { detail: { blob, filename, modal: Boolean(options.modal) } }),
   );
 }
 
@@ -32,22 +32,16 @@ export default function PdfPreviewHost() {
   const frameRef = useRef(null);
   const quotationDialogRef = useRef(null);
   const isQuotationPreview = /quotation|^QT[-_]/i.test(preview?.filename || '');
+  const isModalPreview = isQuotationPreview || Boolean(preview?.modal);
   useEffect(() => {
-    if (!preview || !isQuotationPreview) return;
+    if (!preview || !isModalPreview) return;
     const dialog = quotationDialogRef.current;
     const opener = document.activeElement;
     dialog.showModal();
-    const controls = () => [...dialog.querySelectorAll('button:enabled,select:enabled,a[href]')].filter(control => control.getClientRects().length);
-    controls()[0]?.focus();
-    const containFocus = event => {
-      if (event.key !== 'Tab') return;
-      const items = controls();
-      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
-    };
-    dialog.addEventListener('keydown', containFocus);
-    return () => { dialog.close(); dialog.removeEventListener('keydown', containFocus); if (opener?.isConnected) opener.focus({ preventScroll:true }); };
-  }, [preview, isQuotationPreview]);
+    dialog.querySelector('button:enabled')?.focus();
+    // Native modal containment includes the embedded PDF viewer in its tab order.
+    return () => { dialog.close(); if (opener?.isConnected) opener.focus({ preventScroll:true }); };
+  }, [preview, isModalPreview]);
   const close = useCallback(() => {
     generation.current += 1;
     setChangingLanguage(false);
@@ -60,7 +54,7 @@ export default function PdfPreviewHost() {
 
   useEffect(() => {
     const open = (event) => {
-      const { blob, filename } = event.detail || {};
+      const { blob, filename, modal } = event.detail || {};
       if (!blob) return;
       generation.current += 1;
       setNotice("");
@@ -70,6 +64,7 @@ export default function PdfPreviewHost() {
           url: URL.createObjectURL(blob),
           blob,
           filename: filename || "document.pdf",
+          modal,
           request: pdfRequests.get(blob),
           language: pdfRequests.get(blob)?.params?.document_language || "en",
         };
@@ -161,10 +156,10 @@ export default function PdfPreviewHost() {
   }
 
   if (!preview) return null;
-  const PreviewFrame = isQuotationPreview ? "dialog" : "div";
+  const PreviewFrame = isModalPreview ? "dialog" : "div";
 
   return (
-    <PreviewFrame onCancel={isQuotationPreview ? event => { event.preventDefault(); close(); } : undefined} ref={quotationDialogRef} role={isQuotationPreview ? "dialog" : undefined} aria-modal={isQuotationPreview ? true : undefined} aria-label={isQuotationPreview ? "Quotation PDF preview" : undefined} className={`${isQuotationPreview ? "bp-quotation-pdf " : ""}fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5`} data-popup-protection="readonly">
+    <PreviewFrame onCancel={isModalPreview ? event => { event.preventDefault(); close(); } : undefined} onKeyDown={isModalPreview ? event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } } : undefined} ref={quotationDialogRef} role={isModalPreview ? "dialog" : undefined} aria-modal={isModalPreview ? true : undefined} aria-label={isModalPreview ? "PDF preview" : undefined} style={isModalPreview ? { margin: 0, width: "100%", maxWidth: "none", height: "100dvh", maxHeight: "none", border: 0 } : undefined} className={`${isQuotationPreview ? "bp-quotation-pdf " : ""}fixed inset-0 z-[120] flex flex-col bg-slate-950/80 p-2 backdrop-blur-sm sm:p-5`} data-popup-protection="readonly">
       <section className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="bp-pdf-preview-toolbar flex items-center gap-1 border-b border-slate-200 px-3 py-3 sm:gap-3 sm:px-5">
           <span className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white sm:grid">

@@ -6,6 +6,16 @@
   color: var(--bp-ink);
 }
 
+.painter-assignment-filters {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+.painter-assignment-filters button {
+  flex: 0 0 auto;
+  min-width: max-content;
+  min-height: 44px;
+}
+
 .painter-shell main > :is(.space-y-6, .space-y-4) > header:not(.bp-page-header) {
   border: 1px solid var(--painter-border);
   border-radius: 18px;

@@ -6,6 +6,7 @@ import { create, act } from "react-test-renderer";
 import { transformWithOxc } from "vite";
 import { measurement, masters, exampleAssignments } from "../preview/quotationGrouping/fixtures.js";
 import { assignmentQuotationItems, groupedQuotationRoom, surfaceOptions, roomContribution, quotationRoomAreaLabel } from "./groupedQuotation.js";
+import { installConfirmationHost, settleConfirmation } from "./confirmAction.js";
 
 async function componentModule(url) {
   let source = (await fs.readFile(url, 'utf8')).replace(/^import\s+["'][^"']+\.css["'];?\s*$/gm, '');
@@ -76,7 +77,8 @@ test("production workspace uses provided master IDs, edits rates and opens read-
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
   let discardPrompts = 0;
-  globalThis.window = { confirm() { discardPrompts++; return false; } };
+  const releaseConfirmation = installConfirmationHost(request => { if (request) { discardPrompts++; settleConfirmation(request.id, false); } }, () => "workspace-test");
+  globalThis.window = {};
   let state;
   let apiCalls = 0;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -105,7 +107,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     assert.equal(view.root.findAllByType("h2").some(node => text(node) === "Measurements"), false);
     assert.equal(view.root.findAllByType("button").some(node => text(node) === "Add Painting Item"), true);
     await act(async () => view.update(React.createElement(Harness, { phase: "assignments" })));
-    const click = async (label) => act(async () => { const scope = view.root.findAllByProps({ role: "dialog" })[0] || view.root; const button = scope.findAllByType("button").find((node) => text(node) === label); assert.ok(button, label); button.props.onClick(); });
+    const click = async (label) => act(async () => { const scope = view.root.findAllByProps({ role: "dialog" })[0] || view.root; const button = scope.findAllByType("button").find((node) => text(node) === label); assert.ok(button, label); await button.props.onClick(); });
     const label = (name) => view.root.findAllByType("label").find((node) => text(node).startsWith(name));
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Measurements").length, 1);
     assert.equal(view.root.findAllByType("h2").filter((node) => text(node) === "Surface, Materials & Specifications").length, 1);
@@ -170,6 +172,7 @@ test("production workspace uses provided master IDs, edits rates and opens read-
     globalThis.IS_REACT_ACT_ENVIRONMENT = originalAct;
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;
+    releaseConfirmation();
   }
 });
 

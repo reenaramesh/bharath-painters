@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Check, Edit3, Plus, Power, Trash2, X } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { Button, PageHeader } from "../components/ui";
 import "./admin-portal.css";
 import useAuth from "../context/useAuth";
@@ -18,7 +19,7 @@ export default function Billing(){
   const openEdit=plan=>{setEditing(plan.id);setForm({...emptyForm,...plan,price:String(plan.price),discount_percentage:String(plan.discount_percentage||0),job_post_limit:plan.job_post_limit??"",quotation_limit:plan.quotation_limit??"",employee_limit:plan.employee_limit??"",job_seeking_post_limit:plan.job_seeking_post_limit??"",location_limit:plan.location_limit??"",features:(plan.features||[]).join("\n")})};
   const save=async e=>{e.preventDefault();setSaving(true);setError("");const payload={...form,billing_cycle:"MONTHLY",price:form.price||0,job_post_limit:numberOrNull(form.job_post_limit),quotation_limit:numberOrNull(form.quotation_limit),employee_limit:numberOrNull(form.employee_limit),job_seeking_post_limit:numberOrNull(form.job_seeking_post_limit),location_limit:numberOrNull(form.location_limit)};try{if(editing)await api.patch(`/billing/plans/${editing}/`,payload);else await api.post("/billing/plans/",payload);setForm(null);setMessage(editing?"Subscription package updated.":"Subscription package created.");await load()}catch(err){const data=err.response?.data||{};setError(data.detail||Object.values(data).flat().join(" ")||"Package could not be saved.")}finally{setSaving(false)}};
   const toggle=async plan=>{await api.patch(`/billing/plans/${plan.id}/`,{is_active:!plan.is_active});setMessage(plan.is_active?"Package deactivated.":"Package activated.");load()};
-  const remove=async plan=>{if(!window.confirm(`Delete ${plan.name}?`))return;try{const{data}=await api.delete(`/billing/plans/${plan.id}/`);setMessage(data?.detail||"Package deleted.");load()}catch(err){setError(err.response?.data?.detail||"Package could not be deleted.")}};
+  const remove=async plan=>{if(!await confirmAction({question:"Are you sure you want to delete this package?",detail:plan.name}))return;try{const{data}=await api.delete(`/billing/plans/${plan.id}/`);setMessage(data?.detail||"Package deleted.");load()}catch(err){setError(err.response?.data?.detail||"Package could not be deleted.")}};
   return <div className="admin-ui-page space-y-6">
     <PageHeader eyebrow="Package configuration" title="Packages" description="Manage subscription packages, pricing and their existing access controls." actions={<Button onClick={openCreate}><Plus className="h-5 w-5" aria-hidden="true"/>Create package</Button>} />
     {message&&<p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">{message}</p>}{error&&<p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}

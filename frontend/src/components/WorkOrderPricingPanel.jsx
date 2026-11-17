@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
+import { confirmAction } from '../utils/confirmAction.js';
 import useDraftUnsavedChanges from '../hooks/useDraftUnsavedChanges';
 import { FormField, SectionCard } from './ui';
 import { previewPdf } from './PdfPreview';
@@ -20,6 +21,7 @@ export default function WorkOrderPricingPanel({ workOrder, isMain, onChanged, on
  async function save(event){event.preventDefault();if(guard.current || !conversionConfirmed)return;guard.current=true;setBusy(true);setError('');try{await api.patch(`/outsourcing/work-orders/${workOrder.id}/draft-pricing/`,{...metadata,required_start_date:metadata.required_start_date || null,required_end_date:metadata.required_end_date || null,expected_updated_at:workOrder.updated_at,quotation_item_ids:selected,material_mode:pricing.material_mode,pricing_input:workOrderPricingPayload(items,selected,pricing)});setEditing(false);setMessage('Work Order Draft saved.');onChanged();}catch(err){setError(apiErrorMessage(err,'Draft could not be saved. Your saved values are unchanged.'));}finally{guard.current=false;setBusy(false);}}
  async function pdf(){setBusy(true);setError('');try{const {data}=await api.get(`/outsourcing/work-orders/${workOrder.id}/pdf/`,{responseType:'blob'});previewPdf(data,`${workOrder.reference}.pdf`);}catch(err){setError(apiErrorMessage(err,'PDF could not be loaded.'));}finally{setBusy(false);}}
  async function share(){try{const url=window.location.href;if(navigator.share)await navigator.share({title:workOrder.reference,url});else{await navigator.clipboard.writeText(url);setMessage('Recipient link copied. Sign-in is required.');}}catch{setError('Sharing was cancelled or unavailable. Copy this page address to the recipient.');}}
+ async function discardEditing(){if(busy)return;if(!await confirmAction({question:'Are you sure you want to discard these Work Order changes?'}))return;setEditing(false);setError('');}
  const quote=workOrder.pricing_quote;
  const site=workOrder.site_details;
  return <SectionCard title="Agreed Work Order pricing">
@@ -37,7 +39,7 @@ export default function WorkOrderPricingPanel({ workOrder, isMain, onChanged, on
     <div className="grid gap-3 sm:grid-cols-2">{[['required_start_date','Required from'],['required_end_date','Required by']].map(([key,label])=><FormField key={key} label={label} type="date" value={metadata[key] || ''} onChange={event=>setMetadata(current=>({...current,[key]:event.target.value}))}/>)}</div>
     </div></details>
    </fieldset>
-   <div className="flex flex-wrap gap-3"><button disabled={busy || !selected.length || !conversionConfirmed} className="min-h-11 rounded-xl bg-slate-900 px-4 font-bold text-white disabled:opacity-50 bp-ui-action">{busy?'Saving…':'Save Draft'}</button><button type="button" disabled={busy} onClick={()=>{if(window.confirm('Discard unsaved Work Order changes?')){setEditing(false);setError('');}}} className="min-h-11 rounded-xl border px-4 bp-ui-action">Cancel editing</button></div>
+   <div className="flex flex-wrap gap-3"><button disabled={busy || !selected.length || !conversionConfirmed} className="min-h-11 rounded-xl bg-slate-900 px-4 font-bold text-white disabled:opacity-50 bp-ui-action">{busy?'Saving…':'Save Draft'}</button><button type="button" disabled={busy} onClick={discardEditing} className="min-h-11 rounded-xl border px-4 bp-ui-action">Cancel editing</button></div>
   </form> : <>
    <div className="wo-vendor-columns" aria-hidden="true"><span>Sl.</span><span>Work scope / specification</span><span>Qty / Unit</span><span>Vendor rate</span><span>Total</span></div>
    <div className="wo-vendor-lines">{(quote?.quote_lines || []).map((line,index)=><article key={line.id} className="wo-vendor-line"><span className="wo-vendor-serial">{index+1}</span><div className="wo-vendor-scope"><h3 className="break-words font-semibold">{fullDescription(line)}</h3><Specification value={line.specification}/></div><div><small>Qty / Unit</small><span>{line.quantity} {line.unit_name_snapshot}</span></div><div><small>Vendor rate</small><span>{quote?.pricing?.basis==='MARGIN' ? `₹${Number(line.unit_rate).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:12})}` : workOrderMoney(line.unit_rate)}</span></div><div><small>Total</small><strong>{workOrderMoney(line.net_amount)}</strong></div></article>)}</div>

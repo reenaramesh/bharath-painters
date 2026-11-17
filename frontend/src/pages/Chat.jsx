@@ -2,10 +2,13 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Check, ContactRound, FileText, Flag, Forward, Image as ImageIcon, Info, MessageCircle, Moon, Paperclip, Phone, Plus, RotateCcw, Search, Send, ShieldBan, ShieldCheck, Sun, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import useAuth from "../context/useAuth";
 import { resizeChatComposer, shouldSubmitChat } from "../utils/chatComposer.mjs";
 import { contactRole, showMessageTime } from "../utils/chatPresentation.mjs";
 import ChatComposerActions from "../components/ChatComposerActions";
+import CataloguePicker from "../components/catalogues/CataloguePicker";
+import { previewPdf } from "../components/PdfPreview";
 import ChatColourPicker from "../components/ChatColourPicker";
 import ChatMessageOptions from "../components/ChatMessageOptions";
 import ContractorInboxRequests from "../components/ContractorInboxRequests";
@@ -14,6 +17,11 @@ import "./communication-pages.css";
 import "./messenger-preview.css";
 
 export default function Chat() {
+  const { user } = useAuth();
+  return <ChatWorkspace key={user?.id || "signed-out"} />;
+}
+
+function ChatWorkspace() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
@@ -52,6 +60,17 @@ export default function Chat() {
   const [editingText, setEditingText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
   const [files, setFiles] = useState([]);
+  const [catalogues, setCatalogues] = useState([]);
+  const [cataloguePickerOpen, setCataloguePickerOpen] = useState(false);
+  const catalogueSend = useRef(null);
+  const sendLock = useRef(false);
+  const selectedId = useRef(null);
+  selectedId.current = selected?.id;
+  const live = useRef(true);
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; selectedId.current = null; };
+  }, []);
   const [viewingImage, setViewingImage] = useState(null);
   const [viewingShade, setViewingShade] = useState(null);
   const [sending, setSending] = useState(false);
@@ -70,7 +89,7 @@ export default function Chat() {
       window.visualViewport?.removeEventListener("resize", resize);
       observer?.disconnect();
     };
-  }, [text, selected?.id, selected?.is_blocked]);
+  }, [text, files.length, catalogues.length, selected?.id, selected?.is_blocked]);
   const endRef = useRef(null);
   const messagesRef = useRef(null);
 
@@ -97,10 +116,11 @@ export default function Chat() {
       const { data } = await api.get("/quotations/chat/conversations/", {
         params,
       });
-      if (searchTerm !== conversationSearchRef.current) return;
+      if (!live.current || searchTerm !== conversationSearchRef.current) return;
       let rows = data;
       if (user?.role === "CONTRACTOR" && requestedCustomer && !rows.some((item) => item.customer_id === requestedCustomer)) {
         const { data: opened } = await api.post("/quotations/chat/conversations/", { customer: requestedCustomer });
+        if (!live.current) return;
         rows = [opened, ...rows.filter((item) => item.id !== opened.id)];
       }
       setConversations(rows);
@@ -114,22 +134,24 @@ export default function Chat() {
           ? rows.find((item) => item.id === current.id) || current
           : null);
     } catch {
+      if (!live.current) return;
       setError("Conversations could not be loaded.");
       setConversationsLoadError("Conversations could not be loaded.");
       conversationsLoaded.current = true;
     } finally {
-      setLoadingConversations(false);
+      if (live.current) setLoadingConversations(false);
     }
   }, [searchParams, user?.role]);
 
   const loadMessages = useCallback(
     async (silent = false) => {
-      if (!selected) return;
+      if (!selected || !live.current) return;
       if (!silent) setLoadingMessages(true);
       try {
         const { data } = await api.get(
           `/quotations/chat/conversations/${selected.id}/messages/`,
         );
+        if (selectedId.current !== selected.id) return;
         setMessages((current) =>
           JSON.stringify(current) === JSON.stringify(data) ? current : data,
         );
@@ -138,12 +160,12 @@ export default function Chat() {
           setMessagesLoadError(false);
         }
       } catch {
-        if (!silent) {
+        if (!silent && selectedId.current === selected.id) {
           setError("Messages could not be loaded.");
           setMessagesLoadError(true);
         }
       } finally {
-        if (!silent) setLoadingMessages(false);
+        if (!silent && selectedId.current === selected.id) setLoadingMessages(false);
       }
     },
     [selected],
@@ -178,6 +200,9 @@ export default function Chat() {
     setMessages([]);
     setReplyTo(null);
     setFiles([]);
+    setCatalogues([]);
+    setCataloguePickerOpen(false);
+    catalogueSend.current = null;
     setDetailsOpen(false);
     setColourPickerOpen(false);
     setSafetyDialogOpen(false);
@@ -222,7 +247,7 @@ export default function Chat() {
   function chooseFiles(event) {
     const selectedFiles = Array.from(event.target.files || []);
     const combined = [...files, ...selectedFiles];
-    if (combined.length > 5 || combined.some((file) => file.size > 10 * 1024 * 1024)) {
+    if (combined.length + catalogues.length > 5 || combined.some((file) => file.size > 10 * 1024 * 1024)) {
       setError("Attach at most five files, up to 10 MB each.");
     } else {
       setFiles(combined);
@@ -234,35 +259,55 @@ export default function Chat() {
   function send(event) {
     event.preventDefault();
     const message = text.trim();
-    if ((!message && !files.length) || !selected || sending) return;
+    if ((!message && !files.length && !catalogues.length) || !selected || sending || sendLock.current) return;
     if (requireSafetyNotice(selected.id, () => sendMessage())) return;
     sendMessage();
   }
 
   async function sendMessage() {
     const message = text.trim();
-    if ((!message && !files.length) || !selected || sending) return;
+    if ((!message && !files.length && !catalogues.length) || !selected || sending || sendLock.current) return;
+    const conversationId = selected.id;
+    sendLock.current = true;
     setSending(true);
     try {
       const payload = new FormData();
       payload.append("text", message);
       if (replyTo) payload.append("reply_to", replyTo.id);
       files.forEach((file) => payload.append("files", file));
-      await api.post(`/quotations/chat/conversations/${selected.id}/messages/`, payload, { headers: { "Content-Type": "multipart/form-data" } });
-      setText("");
-      setFiles([]);
-      setReplyTo(null);
-      await Promise.all([loadMessages(), loadConversations()]);
+      if (catalogues.length) {
+        const ids = catalogues.map(item => item.current_version.id);
+        const signature = JSON.stringify([conversationId, message, replyTo?.id, ids]);
+        const previous = catalogueSend.current;
+        if (!previous || previous.signature !== signature || previous.files.length !== files.length || files.some((file, index) => file !== previous.files[index])) {
+          const key = crypto.randomUUID?.() || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
+          catalogueSend.current = { signature, files: [...files], key };
+        }
+        payload.append("catalogue_version_ids", JSON.stringify(ids));
+        payload.append("catalogue_send_key", catalogueSend.current.key);
+      }
+      await api.post(`/quotations/chat/conversations/${conversationId}/messages/`, payload, { headers: { "Content-Type": "multipart/form-data" } });
+      if (selectedId.current === conversationId) {
+        setText("");
+        setFiles([]);
+        setCatalogues([]);
+        setReplyTo(null);
+        catalogueSend.current = null;
+        await loadMessages();
+      }
+      if (live.current) await loadConversations();
     } catch (err) {
-      setError(err.response?.data?.text || err.response?.data?.files || err.response?.data?.contact || err.response?.data?.reply_to || "Message could not be sent.");
+      if (selectedId.current === conversationId) setError(err.response?.data?.detail || err.response?.data?.catalogue_version_ids || err.response?.data?.text || err.response?.data?.files || err.response?.data?.contact || err.response?.data?.reply_to || "Message could not be sent.");
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   }
 
   async function sendColour(colour) {
-    if (!selected || sending) return;
+    if (!selected || sending || sendLock.current) return;
     if (requireSafetyNotice(selected.id, () => sendColour(colour))) return;
+    sendLock.current = true;
     setSending(true);
     setError("");
     try {
@@ -276,6 +321,7 @@ export default function Chat() {
     } catch (requestError) {
       setError(requestError.response?.data?.colour || requestError.response?.data?.detail || "Colour could not be sent.");
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   }
@@ -296,7 +342,7 @@ export default function Chat() {
   }
 
   async function deleteMessage(messageId) {
-    if (!window.confirm("Delete this message?")) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this message?" })) return;
     try {
       await api.delete(`/quotations/chat/messages/${messageId}/`);
       if (editingId === messageId) {
@@ -313,6 +359,11 @@ export default function Chat() {
   async function downloadAttachment(attachment) {
     try {
       const { data } = await api.get(attachment.url, { responseType: "blob" });
+      if (!live.current) return;
+      if (attachment.content_type === "application/pdf") {
+        previewPdf(new Blob([data], { type: "application/pdf" }), attachment.name, { modal: true });
+        return;
+      }
       const url = URL.createObjectURL(data);
       const link = document.createElement("a");
       link.href = url;
@@ -320,7 +371,7 @@ export default function Chat() {
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      setError("Attachment could not be downloaded.");
+      if (live.current) setError("Attachment could not be downloaded.");
     }
   }
 
@@ -657,7 +708,7 @@ export default function Chat() {
                         </div>
                       </div>
                     ) : (
-                      <>{message.text && <p className="chat-message-text whitespace-pre-wrap text-sm">{message.text}</p>}{message.contact && <div className={`mt-2 rounded-xl p-3 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><p className="flex items-center gap-2 text-sm font-semibold"><ContactRound className="h-4 w-4" />{message.contact.name}</p><a href={`tel:${message.contact.mobile}`} className="mt-1 block text-sm underline">{message.contact.mobile}</a></div>}{message.colour && <div className={`mt-2 flex min-w-0 items-center gap-3 rounded-xl p-2 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><button type="button" onClick={() => setViewingShade(message.colour)} className="chat-shade-swatch h-14 w-14 shrink-0 rounded-lg border border-black/10 focus:outline-none focus:ring-2 focus:ring-sky-500 bp-ui-action" style={{ backgroundColor: message.colour.hex }} aria-label={`Zoom shade ${message.colour.name}`} title="View shade" /><span className="min-w-0"><b className="block break-words text-sm">{message.colour.name}</b><small className="block text-xs opacity-75">{message.colour.brand} · shade {message.colour.code}</small></span></div>}{message.attachments?.map((attachment) => <button key={attachment.id} type="button" onClick={() => attachment.content_type.startsWith("image/") ? setViewingImage(attachment) : downloadAttachment(attachment)} className={(`chat-attachment mt-2 flex w-full items-center gap-2 rounded-xl p-2 text-left text-sm ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`) + " bp-ui-action"} aria-label={attachment.content_type.startsWith("image/") ? `View ${attachment.name}` : `Download ${attachment.name}`}>{attachment.content_type.startsWith("image/") ? <ChatImage attachment={attachment} /> : <FileText className="h-8 w-8 shrink-0" />}<span className="min-w-0 break-words">{attachment.name}</span></button>)}</>
+                      <>{message.text && <p className="chat-message-text whitespace-pre-wrap text-sm">{message.text}</p>}{message.contact && <div className={`mt-2 rounded-xl p-3 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><p className="flex items-center gap-2 text-sm font-semibold"><ContactRound className="h-4 w-4" />{message.contact.name}</p><a href={`tel:${message.contact.mobile}`} className="mt-1 block text-sm underline">{message.contact.mobile}</a></div>}{message.colour && <div className={`mt-2 flex min-w-0 items-center gap-3 rounded-xl p-2 ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`}><button type="button" onClick={() => setViewingShade(message.colour)} className="chat-shade-swatch h-14 w-14 shrink-0 rounded-lg border border-black/10 focus:outline-none focus:ring-2 focus:ring-sky-500 bp-ui-action" style={{ backgroundColor: message.colour.hex }} aria-label={`Zoom shade ${message.colour.name}`} title="View shade" /><span className="min-w-0"><b className="block break-words text-sm">{message.colour.name}</b><small className="block text-xs opacity-75">{message.colour.brand} · shade {message.colour.code}</small></span></div>}{message.attachments?.map((attachment) => <button key={attachment.id} type="button" onClick={() => attachment.content_type.startsWith("image/") ? setViewingImage(attachment) : downloadAttachment(attachment)} className={(`chat-attachment mt-2 flex w-full items-center gap-2 rounded-xl p-2 text-left text-sm ${message.is_mine ? "bg-white/10" : "bg-slate-100"}`) + " bp-ui-action"} aria-label={attachment.content_type.startsWith("image/") ? `View ${attachment.name}` : `Preview or download ${attachment.name}`}>{attachment.content_type.startsWith("image/") ? <ChatImage attachment={attachment} /> : <FileText className="h-8 w-8 shrink-0" />}<span className="min-w-0 break-words">{attachment.name}</span></button>)}</>
                     )}
                     {!message.deleted_at && message.colour_comparison?.length > 0 && <ChatColourComparison slots={message.colour_comparison} onSelectShade={setViewingShade} />}
                   </div>
@@ -677,13 +728,14 @@ export default function Chat() {
               <div ref={endRef} />
             </div>
             {!selected.is_blocked && <form onSubmit={send} className="chat-composer space-y-2 border-t p-3 sm:p-4">
-              {replyTo && <div className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-xs"><span className="min-w-0 truncate">Replying to: {replyTo.text || replyTo.colour?.name || replyTo.contact?.name || replyTo.attachments?.[0]?.name}</span><button className="bp-ui-icon-action" type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X className="h-4 w-4" /></button></div>}
-              {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((file, index) => <span key={`${file.name}-${index}`} className="flex max-w-full items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs"><Paperclip className="h-3 w-3" /><span className="max-w-36 truncate">{file.name}</span><button className="bp-ui-icon-action" type="button" onClick={() => setFiles((current) => current.filter((_, position) => position !== index))} aria-label={`Remove ${file.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
+              {replyTo && <div className="flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-xs"><span className="min-w-0 truncate">Replying to: {replyTo.text || replyTo.colour?.name || replyTo.contact?.name || replyTo.attachments?.[0]?.name}</span><button className="bp-ui-icon-action" type="button" disabled={sending} onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X className="h-4 w-4" /></button></div>}
+              {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((file, index) => <span key={`${file.name}-${index}`} className="flex max-w-full items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs"><Paperclip className="h-3 w-3" /><span className="max-w-36 truncate">{file.name}</span><button className="bp-ui-icon-action" type="button" disabled={sending} onClick={async () => { if (!await confirmAction({ question: "Are you sure you want to remove this attachment?", detail: file.name })) return; setFiles(current => current.filter(entry => entry !== file)); }} aria-label={`Remove ${file.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
+              {catalogues.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Selected catalogues">{catalogues.map(item => <span key={item.id} className="flex max-w-full items-center gap-2 rounded-lg bg-violet-50 px-2 py-1 text-xs text-violet-800"><FileText className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{item.title} <span className="text-violet-600">v{item.current_version.version}</span></span><button disabled={sending} type="button" className="bp-ui-icon-action grid h-8 w-8 shrink-0 place-items-center" aria-label={`Remove ${item.title}`} onClick={async () => { if (await confirmAction({ question: "Are you sure you want to remove this attachment?", detail: item.title })) setCatalogues(current => current.filter(entry => entry.id !== item.id)); }}><X className="h-4 w-4" /></button></span>)}</div>}
               <div className="chat-compose-box flex items-center gap-2">
-                <input ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.vcf,image/jpeg,image/png,image/webp,application/pdf,text/vcard" onChange={chooseFiles} className="hidden" aria-label="Choose message attachments" />
-                <ChatComposerActions onAttach={() => fileInputRef.current?.click()} onColour={() => setColourPickerOpen(true)} />
-                <textarea ref={composerRef} value={text} rows={1} aria-label="Write a message" onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (shouldSubmitChat(event.nativeEvent)) { event.preventDefault(); event.currentTarget.form.requestSubmit(); } }} placeholder="Write a message…" maxLength={4000} className="chat-compose-input min-w-0 flex-1 text-sm bp-ui-control" />
-                <Button type="submit" loading={sending} disabled={!text.trim() && !files.length} className="chat-send-action h-11 w-11 shrink-0 !p-0" aria-label="Send message"><Send className="h-5 w-5" aria-hidden="true" /></Button>
+                <input ref={fileInputRef} disabled={sending} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.vcf,image/jpeg,image/png,image/webp,application/pdf,text/vcard" onChange={chooseFiles} className="hidden" aria-label="Choose message attachments" />
+                <ChatComposerActions onAttach={() => { if (!sending) fileInputRef.current?.click(); }} onColour={() => { if (!sending) setColourPickerOpen(true); }} onCatalogues={user?.role === "CONTRACTOR" && selected.customer_id ? () => { if (!sending) setCataloguePickerOpen(true); } : undefined} />
+                <textarea ref={composerRef} disabled={sending} value={text} rows={1} aria-label="Write a message" onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (shouldSubmitChat(event.nativeEvent)) { event.preventDefault(); event.currentTarget.form.requestSubmit(); } }} placeholder="Write a message…" maxLength={4000} className="chat-compose-input min-w-0 flex-1 text-sm bp-ui-control" />
+                <Button type="submit" loading={sending} disabled={!text.trim() && !files.length && !catalogues.length} className="chat-send-action h-11 w-11 shrink-0 !p-0" aria-label="Send message"><Send className="h-5 w-5" aria-hidden="true" /></Button>
               </div>
               
             </form>}
@@ -721,6 +773,7 @@ export default function Chat() {
         </aside>;
       })()}
     </div>
+    {cataloguePickerOpen && selected && <CataloguePicker initialSelection={catalogues} limit={5 - files.length} onClose={() => setCataloguePickerOpen(false)} onSelect={items => { if (items.length + files.length > 5) throw new Error("Attach at most five files in total."); setCatalogues(items); setError(""); }} />}
     {colourPickerOpen && selected && <ChatColourPicker onClose={() => setColourPickerOpen(false)} onSend={sendColour} sending={sending} />}
     {safetyDialogOpen && <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="chat-safety-title">
       <section className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">

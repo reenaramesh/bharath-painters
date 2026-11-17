@@ -5,6 +5,10 @@ import "./i18n/fonts.css";
 import App from "./App.jsx";
 import "./styles/reference-theme.css";
 import "./styles/role-dashboards.css";
+import "./styles/contractor-saas-pilot.css";
+import "./styles/premium-system.css";
+import "./styles/premium-roles.css";
+import "./styles/premium-auth.css";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { LanguageProvider } from "./i18n/LanguageContext.jsx";
 import { installPopupInputProtection } from "./utils/popupInputProtection.js";
@@ -15,7 +19,7 @@ const popupLabels = {
   cancel: supportedScripts.map(language => transliterate("Cancel", language)),
 };
 const releasePopupProtection = installPopupInputProtection(document, window, {getLabels:()=>popupLabels});
-document.body.classList.add("bp-ui");
+document.body.classList.add("bp-ui", "bp-premium-ui");
 if (import.meta.hot) import.meta.hot.dispose(releasePopupProtection);
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

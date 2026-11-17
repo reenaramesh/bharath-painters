@@ -8,6 +8,7 @@ import {
   Pencil, Plus, Ruler, Search, Trash2, X,
 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { previewPdf } from "../components/PdfPreview";
 import { ErrorState, LoadingState, StatusBadge } from "../components/ui";
 import "./quotation-measurement.css";
@@ -314,7 +315,7 @@ export default function MeasurementCalculator() {
   }
   async function deleteArea(area) {
     if (!allowMeasurementEdit()) return;
-    if (area.legacy || !window.confirm(`Delete "${area.name}" and every surface and deduction inside it?`)) return;
+    if (area.legacy || !await confirmAction({ question: "Are you sure you want to delete this area?", detail: `${area.name}. Every surface and deduction inside it will also be deleted.` })) return;
     try {
       await api.delete(`/quotations/rooms/${area.id}/`);
       if (String(activeAreaId) === String(area.id)) setActiveAreaId("");
@@ -448,7 +449,7 @@ export default function MeasurementCalculator() {
       setError("Delete the deductions linked to this surface group before deleting this surface.");
       return;
     }
-    if (!window.confirm(`Delete "${surface.name}"?`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this surface?", detail: surface.name })) return;
     try { await api.delete(`/quotations/measurements/${surface.id}/`); await load(); }
     catch (requestError) { setError(requestMessage(requestError, "Surface could not be deleted.")); }
   }
@@ -499,7 +500,7 @@ export default function MeasurementCalculator() {
   }
   async function deleteDeduction(opening) {
     if (!allowMeasurementEdit()) return;
-    if (!window.confirm(`Delete "${opening.name || opening.opening_type}" deduction?`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this deduction?", detail: opening.name || opening.opening_type })) return;
     try { await api.delete(`/quotations/measurement-openings/${opening.id}/`); await load(); }
     catch (requestError) { setError(requestMessage(requestError, "Deduction could not be deleted.")); }
   }

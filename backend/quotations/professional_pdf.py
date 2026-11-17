@@ -1,3 +1,4 @@
+from .customer_contacts import contractor_customer_details
 """Shared professional A4 PDF design for quotations, invoices and measurement reports."""
 
 from .quotation_pdf_labels import quotation_room_area_label
@@ -1248,7 +1249,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     story = [
         *_measurement_pdf_header(context, reference, getattr(measurement_record, "version", ""), measured_on, s, palette),
         Spacer(1, 10),
-        _cards(_measurement_info_card("Customer", [property_obj.customer.name, property_obj.customer.mobile], s), _measurement_info_card("Property", [property_obj.name or property_obj.get_property_type_display(), property_obj.get_property_type_display(), address], s), palette=palette),
+        _cards(_measurement_info_card("Customer", [contractor_customer_details(property_obj.customer, property_obj.contractor)["name"], contractor_customer_details(property_obj.customer, property_obj.contractor)["mobile"]], s), _measurement_info_card("Property", [property_obj.name or property_obj.get_property_type_display(), property_obj.get_property_type_display(), address], s), palette=palette),
         Spacer(1, 2*mm),
     ]
     measured_cards = [(label, area(value)) for label, value in [

@@ -140,6 +140,47 @@
   display: inline-flex;
 }
 
+.crm-customer-detail {
+  --customer-space: var(--bp-space-4, 16px);
+}
+
+.crm-customer-detail .contractor-module-heading,
+.crm-customer-detail .customer-followup-row {
+  overflow-wrap: anywhere;
+}
+
+.crm-customer-detail .customer-detail-actions :is(a, button) {
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  .crm-customer-detail .people-customer-hero .bp-page-actions {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .crm-customer-detail .customer-detail-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--customer-space) / 2);
+  }
+
+  .crm-customer-detail .customer-detail-actions .customer-detail-followup {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .crm-customer-detail .customer-detail-actions :is(a, button) {
+    min-width: 0;
+    padding-inline: calc(var(--customer-space) / 2);
+  }
+
+  .crm-customer-detail .customer-followup-row {
+    padding: var(--customer-space);
+    gap: calc(var(--customer-space) * .75);
+  }
+}
+
 .crm-leads-page,
 .crm-opportunities-page,
 .crm-opportunity-detail {

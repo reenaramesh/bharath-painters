@@ -55,7 +55,7 @@
 [data-quotation-preview] footer button { min-width:0; white-space:normal; }
 [data-quotation-preview] article > .flex { flex-wrap:wrap; }
 [data-quotation-preview] article > .flex > b { margin-left:auto; overflow-wrap:anywhere; }
-.bp-quotation-property-dialog { margin:auto; height:auto; max-height:90dvh; border:1px solid var(--bp-line); border-radius:var(--bp-radius-panel); }
+.bp-quotation-property-dialog { margin:auto; height:min(760px,90dvh); max-height:90dvh; border:1px solid var(--bp-line); border-radius:var(--bp-radius-panel); }
 .bp-quotation-property-dialog form > .border-t { position:sticky; bottom:0; padding:var(--bp-space-4); background:var(--bp-color-surface); flex-wrap:wrap; }
 .bp-quotation-property-dialog form > .border-t button { flex:1; min-height:44px; }
 .bp-quotation-pdf .bp-pdf-preview-toolbar { flex-wrap:wrap; gap:var(--bp-space-2); }

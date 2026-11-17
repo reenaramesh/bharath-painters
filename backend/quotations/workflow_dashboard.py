@@ -22,8 +22,9 @@ def money(value):
 
 
 def project_summary(quotation):
+    from .document_identity import quotation_party_details
     return {"quotation": quotation.pk, "number": quotation.quotation_number,
-            "customer_name": quotation.customer.name, "property_name": quotation.property.name,
+            "customer_name": quotation_party_details(quotation)[0]["name"], "property_name": quotation.property.name,
             "amount": money(quotation.grand_total)}
 
 

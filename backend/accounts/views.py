@@ -10,11 +10,15 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .email_setup import otp_policy, send_configured_email, development_otp_visible
+from .email_setup import (otp_policy, send_configured_email, development_otp_visible,
+                          public_email_delivery_available, authentication_email_enabled)
+from .auth_email_security import (RECOVERY_MESSAGE, RecoveryIdentityCooldown, AuthScopedRateThrottle, AuthAPIView,
+                                  positive_id, recovery_challenge, read_recovery_challenge, password_state)
 from django.core.validators import validate_email
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from datetime import timedelta
 from urllib.parse import quote, urlsplit
 import secrets
@@ -151,7 +155,9 @@ def _recovery_user(mobile, role):
 
 @transaction.atomic
 def _issue_email_otp(user, purpose, target_email):
-    BharathUser.objects.select_for_update().get(pk=user.pk)
+    user = BharathUser.objects.select_for_update().get(pk=user.pk)
+    if not user.is_active:
+        return None, "Account details are incorrect."
     policy = otp_policy()
     recent_hour = PasswordResetOTP.objects.filter(
         user=user,
@@ -177,9 +183,21 @@ def _issue_email_otp(user, purpose, target_email):
         expires_at=timezone.now() + timedelta(minutes=policy.expiry_minutes),
         max_attempts=policy.max_attempts,
     )
+    is_reset = purpose == PasswordResetOTP.Purpose.PASSWORD_RESET
+    email_path = {
+        PasswordResetOTP.Purpose.PASSWORD_RESET: "forgot-password",
+        PasswordResetOTP.Purpose.REGISTRATION_EMAIL: "verify-email",
+        PasswordResetOTP.Purpose.RECOVERY_EMAIL: "account-security",
+    }.get(purpose)
+    # The server origin is validated for production and paired with CORS/CSRF.
+    # A historical admin policy URL must not bypass that configuration.
+    email_link = f"{settings.FRONTEND_URL.rstrip('/')}/{email_path}\n" if email_path else ""
     if not send_configured_email(
-        "Your Bharath Painters verification code",
-        f"Your Bharath Painters verification code is {code}. It expires in {policy.expiry_minutes} minutes. Do not share this code.\nAccount security: {(policy.frontend_url or settings.FRONTEND_URL).rstrip('/')}/account-security",
+        "Reset your Bharath Painters password" if is_reset else "Verify your Bharath Painters email",
+        f"Your Bharath Painters verification code is {code}. It expires in {policy.expiry_minutes} minutes. Do not share this code.\n"
+        f"Return to the {'password recovery' if is_reset else 'email verification'} screen to enter your code.\n"
+        f"{email_link}"
+        "If you did not request this, ignore this email. Your password has not changed.",
         target_email, purpose,
     ):
         challenge.is_used = True
@@ -206,6 +224,9 @@ def _verify_otp(challenge, code):
     for field in ("is_used", "expires_at", "attempts", "max_attempts", "code_hash"):
         setattr(challenge, field, getattr(locked, field))
     if challenge.is_used or challenge.expires_at <= timezone.now() or challenge.attempts >= challenge.max_attempts:
+        # Match the configured hash work of a normal code check without
+        # consuming attempts or reviving an unusable challenge.
+        make_password(code)
         return "The verification code is invalid or expired."
     if not check_password(code, challenge.code_hash):
         challenge.attempts += 1
@@ -223,17 +244,29 @@ def _registration_email_response(user):
     if error:
         return {"email_verification_pending": True, "email_verification_error": error}
     challenge, code = result
-    response = {"email_verification_pending": True, "challenge_id": challenge.id, "masked_email": _masked_email(user.email)}
-    if development_otp_visible():
-        response["test_otp"] = code
+    response = {"email_verification_pending": True, "challenge_id": challenge.id, "masked_email": _masked_email(user.email),
+                "resend_after_seconds": otp_policy().resend_seconds,
+                "expires_in_seconds": otp_policy().expiry_minutes * 60}
     return response
 
 
-class PainterRegistrationView(APIView):
+def _public_registration_error():
+    if not settings.DEBUG and not public_email_delivery_available():
+        return Response({"detail": "Registration email is temporarily unavailable. Please try again later."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return None
+
+
+class PainterRegistrationView(AuthAPIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AuthScopedRateThrottle]
+    throttle_scope = "registration"
 
     @transaction.atomic
     def post(self, request):
-
+        delivery_error = _public_registration_error()
+        if delivery_error is not None:
+            return delivery_error
         consent_error = _registration_consent_error(request)
         if consent_error:
             return Response(consent_error, status=status.HTTP_400_BAD_REQUEST)
@@ -266,11 +299,17 @@ class PainterRegistrationView(APIView):
         )
 
 
-class ContractorRegistrationView(APIView):
+class ContractorRegistrationView(AuthAPIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AuthScopedRateThrottle]
+    throttle_scope = "registration"
 
     @transaction.atomic
     def post(self, request):
-
+        delivery_error = _public_registration_error()
+        if delivery_error is not None:
+            return delivery_error
         consent_error = _registration_consent_error(request)
         if consent_error:
             return Response(consent_error, status=status.HTTP_400_BAD_REQUEST)
@@ -303,37 +342,52 @@ class ContractorRegistrationView(APIView):
         )
 
 
-class RegistrationEmailRequestView(APIView):
+class RegistrationEmailRequestView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_request"
 
+    @transaction.atomic
     def post(self, request):
-        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER)))
+        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(is_active=True, role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER)))
+        if user:
+            user = BharathUser.objects.select_for_update().get(pk=user.pk)
         if not user or not user.check_password(str(request.data.get("password") or "")):
+            return Response({"detail": "Account details are incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.is_active:
             return Response({"detail": "Account details are incorrect."}, status=status.HTTP_400_BAD_REQUEST)
         if user.recovery_email_verified:
             return Response({"detail": "Email already verified."}, status=status.HTTP_409_CONFLICT)
         if not user.email:
             return Response({"detail": "No registration email is available."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(_registration_email_response(user))
+        response = _registration_email_response(user)
+        error = response.get("email_verification_error")
+        if error:
+            limited = error.startswith(("Please wait", "Too many"))
+            result = Response({**response, "detail": error, "resend_after_seconds": otp_policy().resend_seconds},
+                              status=429 if limited else 503)
+            if limited:
+                result["Retry-After"] = str(otp_policy().resend_seconds)
+            return result
+        return Response(response)
 
 
-class RegistrationEmailVerifyView(APIView):
+class RegistrationEmailVerifyView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_verify"
 
     @transaction.atomic
     def post(self, request):
-        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER)))
+        user = _find_user_by_mobile(request.data.get("mobile"), BharathUser.objects.filter(is_active=True, role__in=(BharathUser.Roles.CONTRACTOR, BharathUser.Roles.PAINTER, BharathUser.Roles.CUSTOMER)))
+        if user:
+            user = BharathUser.objects.select_for_update().get(pk=user.pk)
         if not user or not user.check_password(str(request.data.get("password") or "")):
             return Response({"detail": "Account details are incorrect."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            challenge_id = int(request.data.get("challenge_id"))
-        except (TypeError, ValueError):
+        challenge_id = positive_id(request.data.get("challenge_id"))
+        if not user.is_active or user.recovery_email_verified or not challenge_id:
             return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
         challenge = PasswordResetOTP.objects.select_for_update().filter(
             id=challenge_id, user=user,
@@ -352,16 +406,28 @@ class RegistrationEmailVerifyView(APIView):
         user.recovery_email_verified_at = timezone.now()
         user.recovery_email_added_at = timezone.now()
         user.recovery_email_added_by = user
-        user.save(update_fields=("recovery_email", "recovery_email_verified", "recovery_email_verified_at", "recovery_email_added_at", "recovery_email_added_by"))
+        try:
+            with transaction.atomic():
+                user.save(update_fields=("recovery_email", "recovery_email_verified", "recovery_email_verified_at", "recovery_email_added_at", "recovery_email_added_by"))
+        except IntegrityError:
+            return Response({"detail": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
         challenge.is_used = True
         challenge.save(update_fields=("is_used",))
         return Response({"message": "Email verified. You can recover your password with an email code."})
 
 
-class CustomerRegistrationView(APIView):
+class CustomerRegistrationView(AuthAPIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AuthScopedRateThrottle]
+    throttle_scope = "registration"
     @transaction.atomic
     def post(self, request):
         from quotations.models import ChatConversation, Customer, ContractorCustomerConnection
+
+        delivery_error = _public_registration_error()
+        if delivery_error is not None:
+            return delivery_error
 
         consent_error = _registration_consent_error(request)
         if consent_error:
@@ -369,7 +435,7 @@ class CustomerRegistrationView(APIView):
 
         mobile = str(request.data.get("mobile") or "").strip()
         name = str(request.data.get("name") or "").strip()
-        email = str(request.data.get("email") or "").strip()
+        email = str(request.data.get("email") or "").strip().lower()
         password = str(request.data.get("password") or "")
         normalized_mobile = normalize_mobile(mobile)
         if not normalized_mobile:
@@ -378,6 +444,17 @@ class CustomerRegistrationView(APIView):
             return Response({"name": "Name is required."}, status=status.HTTP_400_BAD_REQUEST)
         if len(password) < 8:
             return Response({"password": "Use at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(password, user=BharathUser(first_name=name, email=email, mobile=normalized_mobile))
+        except DjangoValidationError as error:
+            return Response({"password": error.messages}, status=status.HTTP_400_BAD_REQUEST)
+        if email:
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                return Response({"email": "Enter a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+            if BharathUser.objects.filter(recovery_email__iexact=email).exists():
+                return Response({"email": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
 
         invitation = None
         invitation_token = str(request.data.get("property_invitation_token") or "").strip()
@@ -414,6 +491,8 @@ class CustomerRegistrationView(APIView):
 
         # Reject an incompatible login before creating or retiring customer identities.
         existing_user = _find_user_by_mobile(mobile, BharathUser.objects.all())
+        if existing_user and not existing_user.is_active:
+            return Response({"detail": "This account is unavailable. Contact support."}, status=status.HTTP_400_BAD_REQUEST)
         if existing_user and existing_user.role != BharathUser.Roles.CUSTOMER:
             return Response({"mobile": "This mobile belongs to another account type."}, status=status.HTTP_400_BAD_REQUEST)
         if existing_user and existing_user.has_usable_password():
@@ -595,11 +674,12 @@ class CustomerRegistrationView(APIView):
             "message": "Customer account created. You can now sign in.",
             "property_invitation_accepted": bool(invitation),
             "property_id": invitation.property_id if invitation else None,
+            **(_registration_email_response(user) if email else {}),
         }, status=status.HTTP_201_CREATED)
 
 
-class LoginView(APIView):
-    throttle_classes = [ScopedRateThrottle]
+class LoginView(AuthAPIView):
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "login"
 
     def post(self, request):
@@ -675,111 +755,130 @@ class LoginView(APIView):
         )    
 
 
-class ForgotPasswordLookupView(APIView):
+class ForgotPasswordLookupView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_lookup"
 
     def post(self, request):
         mobile = _normalise_mobile(request.data.get("mobile"))
         role = str(request.data.get("role") or BharathUser.Roles.CUSTOMER).upper()
-        user = _recovery_user(mobile, role)
-        if not user:
-            return Response(
-                {"detail": "Account not found. Please check your registered mobile number."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        can_reset = bool(user.recovery_email and user.recovery_email_verified)
-        return Response(
-            {
-                "can_reset": can_reset,
-                "masked_email": _masked_email(user.recovery_email) if can_reset else "",
-                "masked_mobile": _masked_mobile(user.mobile),
-                "bharath_id": user.bharath_id,
-                "message": (
-                    "Verified recovery email found."
-                    if can_reset
-                    else "No Recovery Email Added"
-                ),
-            }
-        )
+        if not mobile or role not in RECOVERY_ROLES:
+            return Response({"detail": "Enter a valid mobile number and account type."}, status=400)
+        # Compatibility keys are retained, without exposing account eligibility.
+        return Response({"can_reset": True, "masked_email": "", "masked_mobile": "",
+                         "bharath_id": "", "message": RECOVERY_MESSAGE})
 
 
-class ForgotPasswordRequestView(APIView):
+class ForgotPasswordRequestView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle, RecoveryIdentityCooldown]
     throttle_scope = "recovery_request"
 
+    @transaction.atomic
     def post(self, request):
+        mode = settings.PASSWORD_RECOVERY_DELIVERY_MODE
+        if (mode not in {"sync", "queued"} or (not settings.DEBUG and mode != "queued")
+                or not authentication_email_enabled()
+                or (not settings.DEBUG and not public_email_delivery_available())):
+            # Global configuration failure is safe to disclose uniformly, before
+            # resolving an account or creating a challenge.
+            return Response({"detail": "Password recovery email is temporarily unavailable. Please try again later."}, status=503)
         mobile = _normalise_mobile(request.data.get("mobile"))
         role = str(request.data.get("role") or BharathUser.Roles.CUSTOMER).upper()
+        if not mobile or role not in RECOVERY_ROLES:
+            return Response({"detail": "Enter a valid mobile number and account type."}, status=400)
+        if mode == "queued":
+            from .models import PasswordRecoveryRequest
+            job = PasswordRecoveryRequest.objects.create(mobile=mobile, role=role)
+            policy = otp_policy()
+            return Response({"message": RECOVERY_MESSAGE, "masked_email": "",
+                "challenge_id": recovery_challenge(mobile, role, job.pk),
+                "resend_after_seconds": policy.resend_seconds,
+                "expires_in_seconds": policy.expiry_minutes * 60})
         user = _recovery_user(mobile, role)
-        if not user:
-            return Response(
-                {"detail": "Account not found. Please check your registered mobile number."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        if not user.recovery_email or not user.recovery_email_verified:
-            return Response(
-                {"detail": "No Recovery Email Added. Sign in and verify a recovery email from Account Security."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        result, error = _issue_email_otp(
-            user, PasswordResetOTP.Purpose.PASSWORD_RESET, user.recovery_email
-        )
-        if error:
-            response_status = status.HTTP_429_TOO_MANY_REQUESTS if error.startswith(("Please wait", "Too many")) else status.HTTP_503_SERVICE_UNAVAILABLE
-            return Response({"detail": error}, status=response_status)
-        challenge, code = result
-        response = {
-            "message": "OTP sent to your verified recovery email.",
-            "masked_email": _masked_email(user.recovery_email),
-            "challenge_id": challenge.id,
-        }
-        if development_otp_visible():
-            response["test_otp"] = code
-        return Response(response)
+        if user:
+            user = BharathUser.objects.select_for_update().get(pk=user.pk)
+            if user.is_active and user.recovery_email and user.recovery_email_verified:
+                # Failure, account rate limits and eligibility remain private.
+                _issue_email_otp(user, PasswordResetOTP.Purpose.PASSWORD_RESET, user.recovery_email)
+        policy = otp_policy()
+        return Response({"message": RECOVERY_MESSAGE, "masked_email": "",
+                         "challenge_id": recovery_challenge(mobile, role),
+                         "resend_after_seconds": policy.resend_seconds,
+                         "expires_in_seconds": policy.expiry_minutes * 60})
 
 
-class ForgotPasswordVerifyView(APIView):
+def _reset_challenge(value):
+    legacy_id = positive_id(value)
+    if legacy_id:
+        return PasswordResetOTP.objects.filter(pk=legacy_id, purpose=PasswordResetOTP.Purpose.PASSWORD_RESET).first()
+    envelope = read_recovery_challenge(value)
+    if not envelope:
+        return None
+    data, issued_at = envelope
+    if "recovery_request_id" in data:
+        from uuid import UUID
+        from .models import PasswordRecoveryRequest
+        try:
+            job_id = UUID(data["recovery_request_id"])
+        except (ValueError, TypeError, AttributeError):
+            return None
+        job = PasswordRecoveryRequest.objects.select_related("challenge").filter(
+            pk=job_id, mobile=data["mobile"], role=data["role"], created_at__lte=issued_at,
+        ).first()
+        return job.challenge if job else None
+    user = _recovery_user(data["mobile"], data["role"])
+    if not user:
+        return None
+    return PasswordResetOTP.objects.filter(user=user, purpose=PasswordResetOTP.Purpose.PASSWORD_RESET,
+                                           created_at__lte=issued_at).first()
+
+
+class ForgotPasswordVerifyView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_verify"
 
+    @transaction.atomic
     def post(self, request):
         code = str(request.data.get("otp") or "").strip()
-        reset = PasswordResetOTP.objects.filter(
-            id=request.data.get("challenge_id"),
-            purpose=PasswordResetOTP.Purpose.PASSWORD_RESET,
-            is_used=False,
-        ).select_related("user").first()
+        invalid = {"detail": "The verification code is invalid or expired."}
+        reset = _reset_challenge(request.data.get("challenge_id"))
         if not reset:
-            return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+            make_password(code)
+            return Response(invalid, status=status.HTTP_400_BAD_REQUEST)
+        user = BharathUser.objects.select_for_update().get(pk=reset.user_id)
+        reset = PasswordResetOTP.objects.select_for_update().get(pk=reset.pk)
+        if reset.verified_at is not None:
+            make_password(code)
+            return Response(invalid, status=status.HTTP_400_BAD_REQUEST)
         if (
-            not reset.target_email
-            or not reset.user.recovery_email_verified
-            or reset.target_email.lower() != str(reset.user.recovery_email or "").lower()
+            not user.is_active or not reset.target_email
+            or not user.recovery_email_verified
+            or reset.target_email.lower() != str(user.recovery_email or "").lower()
         ):
             reset.is_used = True
             reset.save(update_fields=("is_used",))
+            make_password(code)
             return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
         error = _verify_otp(reset, code)
         if error:
-            return Response({"otp": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(invalid, status=status.HTTP_400_BAD_REQUEST)
         token = signing.dumps(
-            {"challenge_id": reset.id, "user_id": reset.user_id},
+            {"challenge_id": reset.id, "user_id": reset.user_id, "password_state": password_state(user)},
             salt=PASSWORD_RESET_SIGNING_SALT,
         )
         return Response({"message": "OTP verified.", "reset_token": token})
 
 
-class ForgotPasswordConfirmView(APIView):
+class ForgotPasswordConfirmView(AuthAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "password_confirm"
 
     @transaction.atomic
@@ -796,16 +895,22 @@ class ForgotPasswordConfirmView(APIView):
             )
         except (BadSignature, SignatureExpired):
             return Response({"detail": "The password reset session is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(signed, dict) or not positive_id(signed.get("challenge_id")) or not positive_id(signed.get("user_id")):
+            return Response({"detail": "The password reset session is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+        user = BharathUser.objects.select_for_update().filter(pk=signed["user_id"]).first()
         reset = PasswordResetOTP.objects.select_for_update().filter(
-            id=signed.get("challenge_id"),
-            user_id=signed.get("user_id"),
+            id=signed["challenge_id"],
+            user_id=signed["user_id"],
             purpose=PasswordResetOTP.Purpose.PASSWORD_RESET,
             is_used=False,
             verified_at__isnull=False,
-        ).select_related("user").first()
-        if not reset or reset.expires_at <= timezone.now():
+        ).first()
+        if (not user or not user.is_active or not reset or reset.expires_at <= timezone.now()
+                or not user.recovery_email_verified or not reset.target_email
+                or reset.target_email.lower() != str(user.recovery_email or "").lower()
+                or not isinstance(signed.get("password_state"), str)
+                or not constant_time_compare(signed["password_state"], password_state(user))):
             return Response({"detail": "The password reset session is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
-        user = reset.user
         try:
             validate_password(new_password, user=user)
         except DjangoValidationError as error:
@@ -834,13 +939,14 @@ class RecoveryEmailView(APIView):
         })
 
 
-class RecoveryEmailRequestView(APIView):
+class RecoveryEmailRequestView(AuthAPIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_request"
 
+    @transaction.atomic
     def post(self, request):
-        user = request.user
+        user = BharathUser.objects.select_for_update().get(pk=request.user.pk)
         if user.role not in RECOVERY_ROLES:
             return Response({"detail": "Recovery email is available for customers, contractors and Paint Applicators."}, status=status.HTTP_403_FORBIDDEN)
         if not user.check_password(str(request.data.get("current_password") or "")):
@@ -872,16 +978,20 @@ class RecoveryEmailRequestView(APIView):
         return Response(response)
 
 
-class RecoveryEmailVerifyView(APIView):
+class RecoveryEmailVerifyView(AuthAPIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "recovery_verify"
 
     @transaction.atomic
     def post(self, request):
+        user = BharathUser.objects.select_for_update().get(pk=request.user.pk)
+        challenge_id = positive_id(request.data.get("challenge_id"))
+        if not challenge_id or not user.is_active:
+            return Response({"detail": "The verification code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
         challenge = PasswordResetOTP.objects.select_for_update().filter(
-            id=request.data.get("challenge_id"),
-            user=request.user,
+            id=challenge_id,
+            user=user,
             purpose=PasswordResetOTP.Purpose.RECOVERY_EMAIL,
             is_used=False,
         ).first()
@@ -890,7 +1000,6 @@ class RecoveryEmailVerifyView(APIView):
         error = _verify_otp(challenge, str(request.data.get("otp") or "").strip())
         if error:
             return Response({"otp": error}, status=status.HTTP_400_BAD_REQUEST)
-        user = request.user
         if BharathUser.objects.exclude(pk=user.pk).filter(recovery_email__iexact=challenge.target_email).exists():
             return Response({"detail": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
         user.recovery_email = challenge.target_email.lower()
@@ -898,10 +1007,14 @@ class RecoveryEmailVerifyView(APIView):
         user.recovery_email_verified_at = timezone.now()
         user.recovery_email_added_at = timezone.now()
         user.recovery_email_added_by = user
-        user.save(update_fields=(
-            "recovery_email", "recovery_email_verified", "recovery_email_verified_at",
-            "recovery_email_added_at", "recovery_email_added_by",
-        ))
+        try:
+            with transaction.atomic():
+                user.save(update_fields=(
+                    "recovery_email", "recovery_email_verified", "recovery_email_verified_at",
+                    "recovery_email_added_at", "recovery_email_added_by",
+                ))
+        except IntegrityError:
+            return Response({"detail": "This email is already linked to another account."}, status=status.HTTP_400_BAD_REQUEST)
         challenge.is_used = True
         challenge.save(update_fields=("is_used",))
         if user.role == BharathUser.Roles.CUSTOMER:
@@ -1378,14 +1491,14 @@ class ProfileCardView(APIView):
         })
 
 
-class ChangePasswordView(APIView):
+class ChangePasswordView(AuthAPIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "password_confirm"
 
     @transaction.atomic
     def post(self, request):
-        user = request.user
+        user = BharathUser.objects.select_for_update().get(pk=request.user.pk)
         current_password = str(request.data.get("current_password") or "")
         new_password = str(request.data.get("new_password") or "")
         confirm_password = str(request.data.get("confirm_password") or "")
@@ -1688,10 +1801,10 @@ class VerifyBharathIDView(APIView):
         )
 
 
-class GoogleLoginView(APIView):
+class GoogleLoginView(AuthAPIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [AuthScopedRateThrottle]
     throttle_scope = "login"
 
     @transaction.atomic
@@ -1723,10 +1836,15 @@ class GoogleLoginView(APIView):
 
         user = BharathUser.objects.select_for_update().filter(google_subject=subject).first()
         if not user:
-            matches = list(BharathUser.objects.select_for_update().filter(email__iexact=email)[:2])
+            # Contact email can be entered by anyone during registration. Only
+            # a previously verified recovery address proves ownership for first
+            # linking; existing immutable Google subject bindings stay valid.
+            matches = list(BharathUser.objects.select_for_update().filter(
+                recovery_email__iexact=email, recovery_email_verified=True,
+            )[:2])
             if not matches:
                 return Response(
-                    {"error": "No Bharath Painters account uses this Google email. Register with your mobile number first, using the same email address."},
+                    {"error": "Sign in with your mobile number and verify this email in Account Security before linking Google Sign-In."},
                     status=status.HTTP_409_CONFLICT,
                 )
             if len(matches) != 1:
@@ -1735,6 +1853,8 @@ class GoogleLoginView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
             user = matches[0]
+            if not user.is_active:
+                return Response({"error": "Your account is inactive."}, status=status.HTTP_403_FORBIDDEN)
             if user.google_subject and user.google_subject != subject:
                 return Response({"error": "This account is already linked to another Google account."}, status=status.HTTP_409_CONFLICT)
             user.google_subject = subject

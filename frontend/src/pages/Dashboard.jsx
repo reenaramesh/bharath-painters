@@ -13,11 +13,12 @@ import api from "../api/client";
 import { dashboardWithInvoiceCount } from "../utils/dashboardInvoiceCount.js";
 import useAuth from "../context/useAuth";
 import ContractorDashboard from "./ContractorDashboard";
+import { DashboardSkeleton } from "../components/dashboard/PilotMotion";
 import AdminDashboard from "./AdminDashboard";
 import SupportWorkspace from "./SupportWorkspace";
 import MobileDashboardShortcuts from "../components/MobileDashboardShortcuts";
 import DashboardWelcomeBanner from '../components/DashboardWelcomeBanner';
-import { StatCard } from '../components/ui';
+import { StatCard, LoadingState } from '../components/ui';
 import { useLanguage } from '../i18n/LanguageContext';
 import { menuRouteEnabled } from '../utils/menuVisibility';
 import "./painter-portal.css";
@@ -58,12 +59,14 @@ export default function Dashboard() {
       setBilling(billingResponse.data);
       setRevenue(revenueResponse?.data ?? null);
       setError("");
+      return true;
     } catch {
       setError(
         user.role === "PAINTER"
           ? `${user.branding?.employee_singular_label || "Employee"} dashboard could not be loaded.`
           : "CRM dashboard could not be loaded.",
       );
+      return false;
     } finally {
       setLoading(false);
       setRevenueLoading(false);
@@ -82,9 +85,7 @@ export default function Dashboard() {
   if (user?.role === "SUPPORT") return <SupportWorkspace />;
   if (user?.role === "PAINTER")
     return loading ? (
-      <p className="p-12 text-center text-slate-500">
-        Loading {user.branding?.employee_singular_label || "Employee"} dashboard...
-      </p>
+      <LoadingState label={`Loading ${user.branding?.employee_singular_label || "Employee"} dashboard…`} />
     ) : data ? (
       <div className="space-y-4">
         <ApplicatorDashboard data={data} onRefresh={load} />
@@ -105,22 +106,17 @@ export default function Dashboard() {
         <p className="mt-2 text-slate-500">Welcome to Bharath Apps.</p>
       </div>
     );
-  if (loading)
-    return (
-      <p className="p-12 text-center text-slate-500">
-        Loading contractor CRM...
-      </p>
-    );
+  if (loading && !data) return <DashboardSkeleton />;
   if (!data)
     return (
-      <div className="rounded-2xl bg-red-50 p-6 text-red-700">
+      <div className="pilot-dashboard-error rounded-2xl bg-red-50 p-6 text-red-700" role="alert">
         {error}
         <button onClick={load} className="ml-3 font-bold bp-ui-action">
           Retry
         </button>
       </div>
     );
-  return <ContractorDashboard data={data} revenue={revenue} revenueLoading={revenueLoading} onRefresh={load} error={error}><SubscriptionCard billing={billing} /></ContractorDashboard>;
+  return <ContractorDashboard data={data} revenue={revenue} revenueLoading={revenueLoading} refreshing={loading} onRefresh={load} error={error}><SubscriptionCard billing={billing} /></ContractorDashboard>;
 }
 function Empty({ text }) {
   return <p className="p-8 text-center text-sm text-slate-400">{text}</p>;
@@ -203,12 +199,14 @@ function ApplicatorDashboard({ data, onRefresh }) {
   const { employmentStatus = "loading" } = useOutletContext() || {};
   const { user, menuVisibility } = useAuth();
   const c = data.counts;
+  const employeeWorkspace = employmentStatus === 'in-house';
   return (
     <div className="painter-portal-page painter-dashboard-page space-y-4 sm:space-y-7">
-      <DashboardWelcomeBanner eyebrow="Your work workspace" title={<>{t('Welcome')}, {data.name}</>}
-        description="Your assignments, schedules and work updates, together in one place."
-        icon={Paintbrush} label="Painter workspace"
+      <DashboardWelcomeBanner eyebrow={employeeWorkspace ? "Your employee workspace" : "Your painter workspace"} title={<>{t('Welcome')}, {data.name}</>}
+        description={employeeWorkspace ? "Your assigned work, attendance and earnings, together in one place." : "Your assignments, schedules and work updates, together in one place."}
+        icon={Paintbrush} label={employeeWorkspace ? "Employee workspace" : "Painter workspace"}
         actions={<>
+          {employeeWorkspace && menuRouteEnabled(user?.role, menuVisibility, '/in-house-applicators') && <Link to="/in-house-applicators" className="bp-button bp-button-primary"><ClipboardList size={17} aria-hidden="true" />Attendance & employment</Link>}
           {menuRouteEnabled(user?.role, menuVisibility, '/painter-assignments') && <Link to="/painter-assignments" className="bp-button bp-button-primary"><ClipboardList size={17} aria-hidden="true" />My assignments</Link>}
           <button onClick={onRefresh} className="bp-button bp-button-secondary" aria-label="Refresh painter dashboard"><RefreshCw size={17} aria-hidden="true" />Refresh</button>
         </>} />

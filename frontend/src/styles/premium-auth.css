@@ -1,0 +1,201 @@
+/* Batch A: public account presentation. Every rule is opt-in and route scoped. */
+body.bp-premium-ui .bp-premium-public {
+  --auth-canvas: var(--ui-canvas, #f7f9fc);
+  --auth-surface: #fff;
+  --auth-ink: var(--ui-ink, #17243c);
+  --auth-muted: #52627b;
+  --auth-line: #dce4ef;
+  --auth-control-line: #7b8ba3;
+  --auth-accent: var(--ui-accent, #2563eb);
+  --auth-accent-strong: #1d4ed8;
+  --auth-tint: #edf3ff;
+  --auth-secondary: var(--ui-secondary, #7c3aed);
+  --auth-panel-radius: 20px;
+  --auth-control-radius: 12px;
+  --auth-space-1: .25rem;
+  --auth-space-2: .5rem;
+  --auth-space-3: .75rem;
+  --auth-space-4: 1rem;
+  --auth-space-5: 1.25rem;
+  --auth-space-6: 1.5rem;
+  --auth-space-8: 2rem;
+  --auth-space-10: 2.5rem;
+  --auth-space-12: 3rem;
+  --auth-type-sm: .875rem;
+  --auth-type-base: 1rem;
+  --auth-type-lg: 1.25rem;
+  --auth-type-title: 2rem;
+  --auth-shadow: 0 2px 4px rgb(23 36 60 / .025), 0 16px 48px rgb(37 63 110 / .07);
+  --auth-fast: 140ms;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth {
+  min-height: 100svh;
+  background: var(--auth-canvas);
+  color: var(--auth-ink);
+  padding: var(--auth-space-10) var(--auth-space-6);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: var(--auth-type-base);
+  line-height: 1.6;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(h1, h2) {
+  color: var(--auth-ink);
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth h1 { font-size: var(--auth-type-title); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(.text-slate-500, .text-slate-600, .text-slate-700) { color: var(--auth-muted); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(.bp-auth-card, .auth-registration-card, .auth-form-card, .share-contact-panel) {
+  min-width: 0;
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-line);
+  border-radius: var(--auth-panel-radius);
+  padding: var(--auth-space-8);
+  box-shadow: var(--auth-shadow);
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  min-height: 48px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--auth-control-line);
+  border-radius: var(--auth-control-radius);
+  background: var(--auth-surface);
+  color: var(--auth-ink);
+  font-size: var(--auth-type-base);
+  font-weight: 400;
+  transition: border-color var(--auth-fast), box-shadow var(--auth-fast);
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, textarea)::placeholder { color: #65758c; opacity: 1; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, select, textarea):focus { border-color: var(--auth-accent); box-shadow: 0 0 0 3px rgb(37 99 235 / .12); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, select, textarea)[aria-invalid="true"] { border-color: #b91c1c; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, button, select, textarea):disabled { cursor: not-allowed; opacity: .65; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input[type="radio"], input[type="checkbox"]) { accent-color: var(--auth-accent); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(button, a):focus-visible,
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(input, select, textarea):focus-visible {
+  outline: 3px solid var(--auth-accent-strong);
+  outline-offset: 3px;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth button {
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: var(--auth-control-radius);
+  transition: background-color var(--auth-fast), border-color var(--auth-fast), box-shadow var(--auth-fast);
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth button:not(:disabled):active { transform: translateY(1px); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(button.bg-slate-950, button.bg-slate-900, .share-contact-save) {
+  background: var(--auth-accent);
+  color: #fff;
+  border-color: var(--auth-accent);
+  border-radius: var(--auth-control-radius);
+  box-shadow: 0 3px 8px rgb(37 99 235 / .16);
+}
+
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(button.bg-slate-950, button.bg-slate-900, .share-contact-save):not(:disabled):hover { background: var(--auth-accent-strong); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth a:not(.text-white):not(.share-contact-save) { color: var(--auth-accent-strong); text-underline-offset: .2em; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth a:not(.text-white):hover { text-decoration: underline; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth [role="alert"]:not(.sr-only) { overflow-wrap: anywhere; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(.bg-red-50, .bg-emerald-50, .bg-sky-50, .bg-blue-50) { border-radius: var(--auth-control-radius); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth :is(.bg-red-50, .bg-emerald-50) { border: 1px solid; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth .bg-red-50 { border-color: #fecaca; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth .bg-emerald-50 { border-color: #a7f3d0; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth > :is(.bp-auth-card, .auth-registration-card) > span.bg-amber-400 { background: var(--auth-tint); color: var(--auth-accent-strong); }
+
+/* Login retains its real service illustration and the existing account actions. */
+body.bp-premium-ui .bp-premium-public .bp-auth-login { padding: 0; }
+body.bp-premium-ui .bp-premium-public .bp-auth-login > section:not(.auth-brand-panel) { background: var(--auth-canvas); padding: var(--auth-space-10); }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-brand-panel {
+  position: relative;
+  min-width: 0;
+  padding: var(--auth-space-12);
+  border-left: 6px solid var(--auth-accent);
+  background: #142442;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-brand-panel h1 {
+  max-width: 15ch;
+  color: #fff;
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  line-height: 1.2;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-brand-panel .auth-brand-eyebrow { color: #b6cbef; font-size: var(--auth-type-sm); letter-spacing: .12em; }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-brand-panel > p { color: #bdcbe0; }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-brand-panel .bg-amber-400 { color: #fff; background: var(--auth-accent); }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-service-art {
+  width: 152px;
+  height: 152px;
+  margin-block: var(--auth-space-8);
+  padding: var(--auth-space-4);
+  object-fit: contain;
+  border: 1px solid #425477;
+  border-radius: var(--auth-panel-radius);
+  background: #243759;
+}
+
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-form-card { max-width: 480px; }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-form-card h2 { font-size: var(--auth-type-title); }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .auth-form-card > p { font-size: var(--auth-type-sm); line-height: 1.7; }
+body.bp-premium-ui .bp-premium-public .bp-auth-login .signin-language { margin-top: var(--auth-space-6); border-color: var(--auth-line); }
+
+/* Registration and verification share the same real form surfaces. */
+body.bp-premium-ui .bp-premium-public .bp-auth-register > div { max-width: 672px; }
+body.bp-premium-ui .bp-premium-public .bp-auth-customer > .bp-auth-card { max-width: 672px; }
+body.bp-premium-ui .bp-premium-public .bp-auth-register .auth-role-option { border-color: var(--auth-line); background: var(--auth-surface); }
+body.bp-premium-ui .bp-premium-public .bp-auth-register .auth-role-option:hover:not(:disabled) { border-color: var(--auth-accent); }
+body.bp-premium-ui .bp-premium-public .bp-auth-register .auth-role-option[aria-pressed="true"] { border-color: var(--auth-accent); background: var(--auth-tint); color: var(--auth-accent-strong); box-shadow: inset 0 0 0 1px var(--auth-accent); }
+body.bp-premium-ui .bp-premium-public .bp-public-auth .registration-consent-card { border-top: 1px solid var(--auth-line); padding-top: var(--auth-space-4); line-height: 1.7; }
+body.bp-premium-ui .bp-premium-public .bp-public-auth input[autocomplete="one-time-code"] { font-variant-numeric: tabular-nums; letter-spacing: .2em; }
+
+/* Invitations keep relationship/access information and all state branches. */
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation > section { max-width: 720px; }
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation #join-property-content > :is(section, div[role="status"]) { border-color: var(--auth-line); border-radius: var(--auth-panel-radius); box-shadow: var(--auth-shadow); }
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation :is([class*="text-[#536774]"], [class*="text-[#145878]"]) { color: var(--auth-muted); }
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation :is(a, button).text-white,
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation header > span { background: var(--auth-accent); border-radius: var(--auth-control-radius); }
+body.bp-premium-ui .bp-premium-public .bp-auth-invitation :is(a, button).text-white:hover:not(:disabled) { background: var(--auth-accent-strong); }
+body.bp-premium-ui .bp-premium-public .bp-auth-share button.text-white:not(.bg-emerald-600) { background: var(--auth-accent); }
+body.bp-premium-ui .bp-premium-public .bp-auth-share button.bg-emerald-600 { background: #067451; }
+body.bp-premium-ui .bp-premium-public .bp-auth-share .bp-auth-card { max-width: 560px; }
+
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-panel { max-width: 560px; margin-block: 0; }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-panel h1 { font-size: var(--auth-type-title); }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-eyebrow { color: var(--auth-muted); font-size: var(--auth-type-sm); }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-categories label { border-color: var(--auth-control-line); border-radius: var(--auth-control-radius); }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-categories label:has(input:checked) { border-color: var(--auth-accent); background: var(--auth-tint); }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-notice { padding: var(--auth-space-4); border: 1px solid var(--auth-line); border-radius: var(--auth-control-radius); background: var(--auth-canvas); }
+body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-notice a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 700; }
+
+/* Public contractor data continues to use its existing profile adapter. */
+body.bp-premium-ui .bp-premium-public .bp-public-profile { max-width: 1120px; padding: var(--auth-space-8) var(--auth-space-4); }
+body.bp-premium-ui .bp-premium-public .bp-public-profile > [role="alert"] { border-color: var(--auth-line); border-radius: var(--auth-panel-radius); padding: var(--auth-space-6); background: var(--auth-surface); }
+body.bp-premium-ui .bp-premium-public .bp-public-profile > [role="alert"] button { min-height: 44px; border-radius: var(--auth-control-radius); color: var(--auth-accent-strong); }
+
+@media (min-width: 1024px) {
+  body.bp-premium-ui .bp-premium-public .bp-auth-login { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); }
+}
+
+@media (max-width: 640px) {
+  body.bp-premium-ui .bp-premium-public .bp-public-auth { padding: var(--auth-space-6) var(--auth-space-4); }
+  body.bp-premium-ui .bp-premium-public .bp-auth-login { padding: 0; }
+  body.bp-premium-ui .bp-premium-public .bp-auth-login > section:not(.auth-brand-panel) { padding: var(--auth-space-4); }
+  body.bp-premium-ui .bp-premium-public .bp-public-auth :is(.bp-auth-card, .auth-registration-card, .auth-form-card, .share-contact-panel) { padding: var(--auth-space-6) var(--auth-space-5); }
+  body.bp-premium-ui .bp-premium-public .bp-public-auth :is(h1, .auth-form-card h2) { font-size: 1.75rem; }
+  body.bp-premium-ui .bp-premium-public .bp-auth-invitation #join-property-content > header { margin-bottom: var(--auth-space-6); }
+  body.bp-premium-ui .bp-premium-public .bp-auth-contact .share-contact-categories { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.bp-premium-ui .bp-premium-public .bp-public-auth *,
+  body.bp-premium-ui .bp-premium-public .bp-public-auth *::before,
+  body.bp-premium-ui .bp-premium-public .bp-public-auth *::after { transition: none; animation: none; }
+  body.bp-premium-ui .bp-premium-public .bp-public-auth button:not(:disabled):active { transform: none; }
+}

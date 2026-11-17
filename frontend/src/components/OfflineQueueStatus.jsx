@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { discardOfflineConflict, flushOfflineOperations, listOfflineOperations, offlineOperationReviewPath } from "../utils/offlineOperationQueue";
 
 export default function OfflineQueueStatus({ actorId }) {
@@ -32,7 +33,7 @@ export default function OfflineQueueStatus({ actorId }) {
   const synced = rows.filter(row => row.state === "SYNCED").length;
   const authRequired = rows.filter(row => row.state === "AUTH_REQUIRED").length;
   const discard = async (operation) => {
-    if (!globalThis.confirm("Discard this offline change? Review the server record before re-entering it.")) return;
+    if (!await confirmAction({ question: "Are you sure you want to discard this offline change?", detail: "Review the server record before re-entering it." })) return;
     if (await discardOfflineConflict(actorId, operation.id)) await refresh();
   };
   if (!rows.length && online) return null;

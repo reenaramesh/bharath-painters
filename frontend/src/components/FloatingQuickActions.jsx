@@ -28,7 +28,7 @@ export default function FloatingQuickActions({ employmentStatus, pathname = "" }
     document.addEventListener("keydown", dismiss);
     return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", dismiss); };
   }, [open]);
-  if (!items.length) return null;
+  if (!items.length || /^\/messages(?:\/|$)/.test(pathname)) return null;
   return <div ref={root} className={`bp-floating-actions ${quotationRoute ? "bp-floating-actions-quotation" : ""}`}>
     {open && <nav id={id} aria-label="Floating quick actions" className="bp-floating-actions-list">
       {items.map(([label,path,Icon]) => <Link key={path} to={path} onClick={() => setOpen(false)} aria-label={label} title={label}><span className="bp-floating-action-label">{label}</span><span className="bp-floating-action-icon"><Icon size={17} aria-hidden="true" /></span></Link>)}

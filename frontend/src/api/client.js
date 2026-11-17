@@ -1,6 +1,7 @@
 import axios from "axios";
 import { installTransientReadRecovery } from "./transientReadRecovery.js";
 import { persistRefreshedSession } from "./refreshedSession.js";
+import { installAnalyticsRequests } from '../analytics/apiActivity.js';
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
@@ -34,6 +35,9 @@ function localizedDocument(config) {
 }
 
 api.interceptors.request.use((config) => {
+  if (config.analyticsUserId && JSON.parse(localStorage.getItem('bharath_user') || 'null')?.id !== config.analyticsUserId) {
+    throw Object.assign(new Error('Analytics account changed'), { permanent: true });
+  }
   const access = localStorage.getItem("bharath_access");
   if (access) config.headers.Authorization = `Bearer ${access}`;
   if (localizedDocument(config)) config.params = { ...config.params, document_language: config.params?.document_language || dashboardLanguage() };
@@ -57,11 +61,16 @@ api.interceptors.response.use(
         const { data } = await axios.post(
           `${api.defaults.baseURL}/accounts/token/refresh/`,
           { refresh },
+          request.analyticsUserId ? { timeout: 5000 } : undefined,
         );
+        if (request.analyticsUserId && JSON.parse(localStorage.getItem('bharath_user') || 'null')?.id !== request.analyticsUserId) {
+          throw Object.assign(new Error('Analytics account changed'), { permanent: true });
+        }
         const access = persistRefreshedSession(localStorage, data);
         request.headers.Authorization = `Bearer ${access}`;
         return api(request);
       } catch {
+        if (request.analyticsUserId) return Promise.reject(error);
         localStorage.removeItem("bharath_access");
         localStorage.removeItem("bharath_refresh");
         localStorage.removeItem("bharath_user");
@@ -73,5 +82,6 @@ api.interceptors.response.use(
 );
 
 installTransientReadRecovery(api);
+installAnalyticsRequests(api);
 
 export default api;

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { lockBodyScroll } from "../../utils/bodyScrollLock";
 import { useLanguage } from '../../i18n/LanguageContext';
+import { enterSurface } from '../premium/premiumMotion';
 
 export function Dialog({
   title,
@@ -16,9 +17,14 @@ export function Dialog({
   bodyClassName = '',
   closeOnBackdrop = false,
   savedVersion,
+  popupProtection,
+  initialFocusRef,
+  dialogRef,
+  isolateEvents = false,
 }) {
   const { t } = useLanguage();
-  const ref = useRef(null);
+  const internalRef = useRef(null);
+  const ref = dialogRef || internalRef;
   const titleId = useRef(null);
   const headingId = useId();
   const descriptionId = `${headingId}-description`;
@@ -29,8 +35,10 @@ export function Dialog({
     previousFocus.current = document.activeElement;
     const releaseScrollLock = lockBodyScroll();
     dialog?.showModal();
-    titleId.current?.focus({ preventScroll: true });
+    const stopMotion = enterSurface(dialog);
+    (initialFocusRef?.current || titleId.current)?.focus({ preventScroll: true });
     return () => {
+      stopMotion();
       if (dialog?.open) dialog.close();
       releaseScrollLock();
       if (previousFocus.current?.isConnected) previousFocus.current.focus({ preventScroll: true });
@@ -38,8 +46,10 @@ export function Dialog({
   }, []);
 
   function handleKeyDown(event) {
+    if (isolateEvents) event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       onClose();
     }
     if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -71,9 +81,14 @@ export function Dialog({
       aria-labelledby={headingId}
       aria-describedby={description ? descriptionId : undefined}
       data-popup-saved-version={savedVersion}
+      data-popup-protection={popupProtection}
       onKeyDown={handleKeyDown}
+      onClick={event => { if (isolateEvents) event.stopPropagation(); }}
+      onPointerDown={event => { if (isolateEvents) event.stopPropagation(); }}
+      onTouchStart={event => { if (isolateEvents) event.stopPropagation(); }}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
       onMouseDown={(event) => {
+        if (isolateEvents) event.stopPropagation();
         if (!closeOnBackdrop || event.target !== event.currentTarget) return;
         const rect = event.currentTarget.getBoundingClientRect();
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();

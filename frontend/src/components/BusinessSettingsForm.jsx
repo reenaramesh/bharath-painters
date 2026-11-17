@@ -8,6 +8,7 @@ import ContractorProfilePreviewModal from "./ContractorProfilePreviewModal";
 import ServiceLocationLookup from "./ServiceLocationLookup";
 import SocialIconUpload from "./SocialIconUpload";
 import { resolveAppTheme } from "../utils/appTheme";
+import { confirmAction } from "../utils/confirmAction.js";
 import "./business-settings.css";
 
 function SectionCard({ children, ...props }) {
@@ -138,7 +139,15 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
     } catch (requestError) { setError(requestError.message || "Settings could not be saved."); }
     finally { setSaving(false); }
   };
-  const discard = () => { setForm(structuredClone(saved)); setFiles({ ...savedFiles }); setFileVersion((value) => value + 1); setError(""); setNotice("Unsaved changes discarded."); };
+  const discard = async () => {
+    if (saving || !dirty || !await confirmAction({ question: "Are you sure you want to discard these changes?" })) return;
+    setForm(structuredClone(saved)); setFiles({ ...savedFiles }); setFileVersion((value) => value + 1); setError(""); setNotice("Unsaved changes discarded.");
+  };
+  const removeSocialLink = async (link) => {
+    if ((link.label || link.url || link.icon) && !await confirmAction({ question: "Are you sure you want to remove this link?", detail: link.label || link.url })) return;
+    setForm(current => ({ ...current, extra_social_links: current.extra_social_links.filter(row => row.id !== link.id) }));
+    setNotice("");
+  };
   const field = (key, label, options = {}) => <Field key={key} label={label} required={options.required}><Input name={key} value={form[key] ?? ""} onChange={(event) => update(key, event.target.value)} {...options} type={live && options.type === "url" ? "text" : options.type} /></Field>;
   const upload = (key, label, photo = false) => {
     if (photo) {
@@ -212,7 +221,7 @@ export default function BusinessSettingsForm({ initial, catalogue: CATALOGUE, on
                 {SOCIAL_FIELDS.map(({key,label}) => <div key={key} hidden={activeSocial !== key}>{field(key,label,{type:key === 'whatsapp_number' ? 'tel' : 'url'})}</div>)}
               </div>
               <div className="msp-wide msp-extra-links">{form.extra_social_links.map((link, index) => <div key={link.id} className="msp-extra-link"><SocialIconUpload value={link.icon} label={link.label || `Link ${index + 1}`} onError={setError} onChange={icon => { setError(''); update('extra_social_links', form.extra_social_links.map(row => row.id === link.id ? {...row,icon} : row)); }}/>
-                <Field label={`Link ${index + 1} URL`} required><Input required name={`extra_url_${link.id}`} type={live ? "text" : "url"} value={link.url} onChange={(event) => update("extra_social_links", form.extra_social_links.map((row) => row.id === link.id ? { ...row, url: event.target.value, label: row.id.startsWith('saved-') ? row.label || socialLinkLabel(event.target.value) : socialLinkLabel(event.target.value) } : row))} /></Field><button type="button" className="msp-icon-button bp-ui-icon-action" aria-label={`Remove link ${index + 1}`} onClick={() => update("extra_social_links", form.extra_social_links.filter((row) => row.id !== link.id))}><Trash2 size={18} /></button></div>)}<button type="button" className="msp-secondary bp-ui-action" disabled={live && form.extra_social_links.length >= 12} onClick={() => update("extra_social_links", [...form.extra_social_links, { id: crypto.randomUUID(), label: "", url: "" }])}><Plus size={17} />Add link</button></div>
+                <Field label={`Link ${index + 1} URL`} required><Input required name={`extra_url_${link.id}`} type={live ? "text" : "url"} value={link.url} onChange={(event) => update("extra_social_links", form.extra_social_links.map((row) => row.id === link.id ? { ...row, url: event.target.value, label: row.id.startsWith('saved-') ? row.label || socialLinkLabel(event.target.value) : socialLinkLabel(event.target.value) } : row))} /></Field><button type="button" className="msp-icon-button bp-ui-icon-action" aria-label={`Remove link ${index + 1}`} onClick={() => removeSocialLink(link)}><Trash2 size={18} /></button></div>)}<button type="button" className="msp-secondary bp-ui-action" disabled={live && form.extra_social_links.length >= 12} onClick={() => update("extra_social_links", [...form.extra_social_links, { id: crypto.randomUUID(), label: "", url: "" }])}><Plus size={17} />Add link</button></div>
             </div></SectionCard>
             <SectionCard title="Business preferences"><div className="msp-field-grid">
               <Field label="Measurement unit"><select className="bp-ui-control" name="default_measurement_unit" value={form.default_measurement_unit} onChange={(event) => update("default_measurement_unit", event.target.value)}><option value="FEET">Feet (ft)</option><option value="METRES">Metres (m)</option></select></Field>
@@ -243,12 +252,16 @@ function ColorField({ label, name, value, onChange }) {
 }
 function FileField({ label, file, photo, onChange, existingUrl, onRemove }) {
   const [url, setUrl] = useState(null);
+  const remove = async () => {
+    if (!await confirmAction({ question: "Are you sure you want to remove this file?", detail: label })) return;
+    if (file) onChange(null); else onRemove();
+  };
   useEffect(() => {
     if (!photo || !file) { setUrl(null); return undefined; }
     const next = URL.createObjectURL(file); setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [file, photo]);
-  return <div className="msp-file-field"><span>{label}</span><div className="msp-file-box">{photo ? <span className="msp-photo">{url || existingUrl ? <img src={url || existingUrl} alt={label} /> : <ImagePlus size={23} />}</span> : <FileText size={24} className="msp-file-icon" />}<div className="msp-file-action"><label><Upload size={15} /><span>{file || existingUrl ? "Replace" : "Upload"}</span><input type="file" accept={photo ? "image/*" : "application/pdf,image/*"} aria-label={label} onChange={(event) => onChange(event.target.files?.[0] || null)} /></label>{existingUrl && !file ? <a href={existingUrl} target="_blank" rel="noreferrer" className="msp-filename">View uploaded file</a> : <span className="msp-filename" title={file?.name}>{file?.name || "Not uploaded"}</span>}</div>{(file || existingUrl) && <button type="button" className="msp-icon-button bp-ui-icon-action" aria-label={`Remove ${label}`} onClick={() => file ? onChange(null) : onRemove()}><X size={17} /></button>}{(file || existingUrl) && <Check size={16} className="msp-uploaded" />}</div></div>;
+  return <div className="msp-file-field"><span>{label}</span><div className="msp-file-box">{photo ? <span className="msp-photo">{url || existingUrl ? <img src={url || existingUrl} alt={label} /> : <ImagePlus size={23} />}</span> : <FileText size={24} className="msp-file-icon" />}<div className="msp-file-action"><label><Upload size={15} /><span>{file || existingUrl ? "Replace" : "Upload"}</span><input type="file" accept={photo ? "image/*" : "application/pdf,image/*"} aria-label={label} onChange={(event) => onChange(event.target.files?.[0] || null)} /></label>{existingUrl && !file ? <a href={existingUrl} target="_blank" rel="noreferrer" className="msp-filename">View uploaded file</a> : <span className="msp-filename" title={file?.name}>{file?.name || "Not uploaded"}</span>}</div>{(file || existingUrl) && <button type="button" className="msp-icon-button bp-ui-icon-action" aria-label={`Remove ${label}`} onClick={remove}><X size={17} /></button>}{(file || existingUrl) && <Check size={16} className="msp-uploaded" />}</div></div>;
 }
 
 function socialLinkLabel(value) {

@@ -1,4 +1,5 @@
 import PaintingMaterialFields from './PaintingMaterialFields.jsx';
+import { confirmAction } from '../utils/confirmAction.js';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { assignedGroup, groupContribution, groupSurfaces, saveGroup, surfaceLabel, surfaceOptions, validateSpec } from '../utils/groupedQuotation.js';
@@ -31,8 +32,8 @@ export default function PaintingItemDialog({ editor, state, measurement, masters
   const available = rooms.filter(room => !room.assigned && room.quantity > 0);
   const total = rooms.filter(room => draft.room_ids.includes(room.id)).reduce((sum, room) => sum + room.quantity, 0);
   useEffect(() => { onRecovery?.({ editor, draft, rate, stage: 0 }); }, [editor, draft, rate, onRecovery]);
-  const close = () => {
-    if ((JSON.stringify(draft) !== JSON.stringify(initial) || rate !== initialRate) && !window.confirm('Discard unsaved changes in this painting item?')) return;
+  const close = async () => {
+    if ((JSON.stringify(draft) !== JSON.stringify(initial) || rate !== initialRate) && !await confirmAction({ question: 'Are you sure you want to discard these painting item changes?' })) return;
     onClose();
   };
   const save = () => {

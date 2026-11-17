@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { EmptyState, SectionCard } from "../ui";
+import { AnimatedValue } from "./PilotMotion";
 import paintingIcon from "../../assets/services/painting.webp";
 import plumbingIcon from "../../assets/services/plumbing.webp";
 import electricalIcon from "../../assets/services/electrical.webp";
@@ -49,22 +50,22 @@ export function PremiumDashboardIcon({ icon: Icon, tone = "blue", className = ""
   );
 }
 
-export function PremiumDashboardMetric({ icon: Icon, label, value, hint, to, tone = "blue" }) {
+export function PremiumDashboardMetric({ icon: Icon, label, value, hint, to, tone = "blue", animate = false, format }) {
   const content = (
     <>
       <span className="premium-dashboard-metric__top">
         <span className="premium-dashboard-metric__label">{label}</span>
         <PremiumDashboardIcon icon={Icon} tone={tone} />
       </span>
-      <strong className="premium-dashboard-metric__value">{value ?? 0}</strong>
+      <strong className="premium-dashboard-metric__value">{animate && Number.isFinite(value) ? <AnimatedValue value={value} format={format} /> : value ?? 0}</strong>
       {hint && <span className="premium-dashboard-metric__hint">{hint}</span>}
     </>
   );
 
-  if (!to) return <article className="premium-dashboard-metric">{content}</article>;
+  if (!to) return <article className={`premium-dashboard-metric premium-dashboard-metric--${tone}`}>{content}</article>;
 
   return (
-    <Link className="premium-dashboard-metric premium-dashboard-metric--link" to={to}>
+    <Link className={`premium-dashboard-metric premium-dashboard-metric--link premium-dashboard-metric--${tone}`} to={to}>
       {content}
       <span className="premium-dashboard-metric__arrow"><ArrowRight size={15} /></span>
     </Link>

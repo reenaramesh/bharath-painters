@@ -33,7 +33,7 @@ export default function QuotationPricingRows({ items, form, units, masters = {},
         <label>Rate<input className="bp-ui-control" aria-label={`Line ${index+1} rate`} disabled={!canEdit} type="number" inputMode="decimal" min="0" step="0.01" value={item.rate ?? ''} placeholder="Enter rate" onChange={event=>onChange(item,'rate',event.target.value)} /></label>
       </div></section>
       <section className="qp-editor-section"><h3>Discount &amp; amount</h3><div className="qp-editor-discount"><span>Line discount</span>{renderDiscount(item,index)}</div><dl className="qp-editor-total"><div><dt>Gross amount</dt><dd>{money(line.amount)}</dd></div><div><dt>Discount</dt><dd>{money(line.discount)}</dd></div><div className="qp-editor-net"><dt>Net amount</dt><dd>{money(line.net)}</dd></div></dl></section>
-      <div className="qp-item-actions"><button className="bp-ui-icon-action" disabled={!canEdit} type="button" aria-label={`Edit specifications for work item ${index+1}`} title="Edit specifications" onClick={()=>{setSelection(null);onEdit(item);}}><Pencil size={18} aria-hidden="true" /></button>{onDelete && <button disabled={!canEdit} type="button" className="qp-delete-item bp-ui-icon-action" aria-label={`Delete work item ${index+1}`} title="Delete item" onClick={()=>{if(onDelete(item))setSelection(null);}}><Trash2 size={18} aria-hidden="true" /></button>}</div>
+      <div className="qp-item-actions"><button className="bp-ui-icon-action" disabled={!canEdit} type="button" aria-label={`Edit specifications for work item ${index+1}`} title="Edit specifications" onClick={()=>{setSelection(null);onEdit(item);}}><Pencil size={18} aria-hidden="true" /></button>{onDelete && <button disabled={!canEdit} type="button" className="qp-delete-item bp-ui-icon-action" aria-label={`Delete work item ${index+1}`} title="Delete item" onClick={async ()=>{if(await onDelete(item))setSelection(null);}}><Trash2 size={18} aria-hidden="true" /></button>}</div>
     </div>;
   };
   const renderEditableRow = (item, index) => {
@@ -82,7 +82,7 @@ export default function QuotationPricingRows({ items, form, units, masters = {},
           <td className="qp-net" data-label="Net"><output>{money(totals.lines[index].net)}</output></td>
           <td className="qp-action-cell" data-label="Actions"><div className="qp-item-actions">
             <button className="bp-ui-icon-action" disabled={!canEdit} type="button" aria-label={`Edit specifications for work item ${index + 1}`} title="Edit specifications" onClick={() => { setSelection(null); onEdit(item); }}><Pencil size={16} aria-hidden="true" /></button>
-            {onDelete && (!popupOnly || editable) && <button disabled={!canEdit} type="button" className="qp-delete-item bp-ui-icon-action" aria-label={`Delete work item ${index + 1}`} title="Delete work item" onClick={() => { if (onDelete(item)) setSelection(null); }}><Trash2 size={16} aria-hidden="true" /></button>}
+            {onDelete && (!popupOnly || editable) && <button disabled={!canEdit} type="button" className="qp-delete-item bp-ui-icon-action" aria-label={`Delete work item ${index + 1}`} title="Delete work item" onClick={async () => { if (await onDelete(item)) setSelection(null); }}><Trash2 size={16} aria-hidden="true" /></button>}
           </div></td>
         </tr>;
   };

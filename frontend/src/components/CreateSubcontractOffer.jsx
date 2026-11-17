@@ -3,6 +3,7 @@ import useDraftUnsavedChanges from '../hooks/useDraftUnsavedChanges';
 import { X } from 'lucide-react';
 import OfferWorkWizard from './OfferWorkWizard';
 import api from '../api/client';
+import { confirmAction } from '../utils/confirmAction.js';
 import WorkOrderPricingFields from './WorkOrderPricingFields';
 import { approvedQuotationStatuses, initialWorkOrderMargins, workOrderPricingPayload } from '../utils/workOrderPricing';
 import { apiErrorMessage, connectionCounterparty } from '../utils/subcontract';
@@ -31,6 +32,8 @@ function LegacySubcontractOffer({ initialQuotation = '', initialContractor = '',
   const creationKey = useRef(crypto.randomUUID());
   const draftRef = useRef(null);
   const dialogRef = useRef(null);
+  const pricingBaseline = useRef(JSON.stringify(initialWorkOrderMargins([])));
+  const sourceTitleBaseline = useRef('');
   const dirty = priced && Boolean(form.receiving_contractor || Number(pricing.margin_value)>0 || Object.values(pricing.margins || {}).some(row=>Number(row.value)>0) || ['share_site_pin','share_customer_address','share_customer_contact','show_pricing_adjustment'].some(key=>pricing[key]));
   const allowNavigation = useDraftUnsavedChanges(dirty);
 
@@ -63,13 +66,21 @@ function LegacySubcontractOffer({ initialQuotation = '', initialContractor = '',
   useEffect(() => {
     let active = true;
     setServices([]); setSelected([]); setServicesError('');
-    if (!form.quotation) { setServicesLoading(false); return () => { active = false; }; }
+    if (!form.quotation) {
+      const emptyPricing = initialWorkOrderMargins([]);
+      pricingBaseline.current = JSON.stringify(emptyPricing);
+      setPricing(emptyPricing); setSourceItems([]); setServicesLoading(false);
+      return () => { active = false; };
+    }
     setServicesLoading(true);
     api.get(`/quotations/${form.quotation}/`).then(({ data }) => {
       if (!active) return;
       setServices(offerServices(data));
       setSourceItems(data.items || []);
-      setPricing(initialWorkOrderMargins(data.items || [],null,data));
+      const nextPricing = initialWorkOrderMargins(data.items || [],null,data);
+      pricingBaseline.current = JSON.stringify(nextPricing);
+      sourceTitleBaseline.current = data.property_name || 'Contractor work';
+      setPricing(nextPricing);
       if(priced)setSelected((data.items || []).map(item=>item.id));
       setForm(current => ({ ...current, project_title: current.project_title || data.property_name || 'Contractor work' }));
     }).catch(err => { if (active) setServicesError(apiErrorMessage(err, 'Quotation services could not be loaded.')); })
@@ -80,7 +91,32 @@ function LegacySubcontractOffer({ initialQuotation = '', initialContractor = '',
   const update = event => { const { name, value } = event.target; setForm(current => ({ ...current, [name]: value })); };
   const selectedServices = services.filter(item => selected.includes(item.id));
   const grouped = Object.groupBy(services, item => item.category);
-  const close = () => { if (!busyRef.current && (!dirty || window.confirm('Discard unsaved Work Order changes?'))) { allowNavigation(); onClose(); } };
+  const contextHasEdits = selected.length > 0 || JSON.stringify(pricing) !== pricingBaseline.current || Boolean(form.agreed_scope_summary.trim()) || Boolean(form.project_title && form.project_title !== sourceTitleBaseline.current);
+  async function changePreparation(value, element) {
+    const previous = priced ? 'PRICED' : 'SCOPE';
+    if (value === previous || busyRef.current) return;
+    if (contextHasEdits) {
+      element.value = previous;
+      if (!await confirmAction({ question: 'Are you sure you want to discard these Work Order selections and pricing?', detail: 'Changing preparation clears the current quotation selection.' })) return;
+    }
+    setPriced(value === 'PRICED');
+    setForm(current => ({ ...current, quotation: '' }));
+  }
+  async function changeQuotation(value, element) {
+    if (value === form.quotation || busyRef.current) return;
+    if (contextHasEdits) {
+      element.value = form.quotation;
+      if (!await confirmAction({ question: 'Are you sure you want to discard these Work Order selections and pricing?', detail: 'The new quotation replaces the current services and pricing.' })) return;
+    }
+    setServices([]); setSelected([]); setServicesLoading(Boolean(value));
+    setForm(current => ({ ...current, quotation: value, project_title: '', agreed_scope_summary: '' }));
+  }
+  const close = async () => {
+    if (busyRef.current) return;
+    if (dirty && !await confirmAction({ question: 'Are you sure you want to discard these Work Order changes?' })) return;
+    if (busyRef.current) return;
+    allowNavigation(); onClose();
+  };
   async function submit(event) {
     event.preventDefault();
     if (busyRef.current) return;
@@ -108,8 +144,8 @@ function LegacySubcontractOffer({ initialQuotation = '', initialContractor = '',
     {catalogueError && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{catalogueError}<button type="button" onClick={() => setReload(n => n + 1)} className="ml-3 min-h-11 underline bp-ui-action">Retry</button></div>}
     <form onSubmit={submit} className="space-y-4">
       <fieldset disabled={saving || Boolean(draftId) || loading || Boolean(catalogueError)} className="min-w-0 space-y-4">
-        <div className="grid gap-4 md:grid-cols-3"><Field label="Preparation"><select className={(control) + " bp-ui-control"} value={priced ? "PRICED" : "SCOPE"} onChange={event=>{setPriced(event.target.value === "PRICED");setForm(current=>({...current,quotation:""}));}}><option value="PRICED">Priced Work Order Draft</option><option value="SCOPE">Request subcontractor quotation (existing flow)</option></select></Field>
-        <Field label="Quotation"><select required name="quotation" value={form.quotation} onChange={event => { const quotation = event.target.value; setServices([]); setSelected([]); setServicesLoading(Boolean(quotation)); setForm(current => ({ ...current, quotation, project_title: '', agreed_scope_summary: '' })); }} className={(control) + " bp-ui-control"}>
+        <div className="grid gap-4 md:grid-cols-3"><Field label="Preparation"><select className={(control) + " bp-ui-control"} value={priced ? "PRICED" : "SCOPE"} onChange={event => changePreparation(event.target.value, event.currentTarget)}><option value="PRICED">Priced Work Order Draft</option><option value="SCOPE">Request subcontractor quotation (existing flow)</option></select></Field>
+        <Field label="Quotation"><select required name="quotation" value={form.quotation} onChange={event => changeQuotation(event.target.value, event.currentTarget)} className={(control) + " bp-ui-control"}>
           <option value="">Choose a quotation</option>{quotations.filter(row=>!priced || approvedQuotationStatuses.includes(row.status)).map(row => <option key={row.id} value={row.id}>{[row.quotation_number || `#${row.id}`, row.customer_name, row.property_name].filter(Boolean).join(' · ')}</option>)}
         </select></Field>
         {!loading && !catalogueError && !quotations.some(row=>!priced || approvedQuotationStatuses.includes(row.status)) && <p role="status" className="text-sm text-amber-800">No eligible quotations are available. Priced Work Orders require an approved quotation.</p>}

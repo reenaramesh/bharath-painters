@@ -1,6 +1,7 @@
 ﻿import QuotationDocumentItems from "../components/QuotationDocumentItems.jsx";
 import { SERVICE_MASTER_LABELS } from "../utils/serviceMasterLabels.js";
 import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
+import { confirmAction } from "../utils/confirmAction.js";
 import { openRecovery, writeRecovery, clearRecovery } from "../utils/quotationRecovery.js";
 import QuotationDiscountControls from "../components/QuotationDiscountControls.jsx";
 import QuotationPricingRows from "../components/QuotationPricingRows.jsx";
@@ -116,6 +117,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sourceLead = searchParams.get("lead") ?? recovered?.sourceLead ?? initialQuotation?.lead ?? null;
+  const [leadContext, setLeadContext] = useState(null);
   const [step, setStep] = useState(recovered?.step ?? (location.state?.resumeReview ? 2 : 0));
   const [useMeasurements, setUseMeasurements] = useState(recovered?.useMeasurements ?? (initialQuotation ? initialQuotation.quotation_type === "MEASUREMENT" : !location.pathname.endsWith("new-manual")));
   const [customers, setCustomers] = useState([]);
@@ -175,20 +177,30 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   const [error, setError] = useState(location.state?.submissionError || "");
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [propertyError, setPropertyError] = useState("");
   const [savingProperty, setSavingProperty] = useState(false);
   async function createCustomer(values) {
     const { data } = await api.post("/quotations/customers/", values);
+    if (data.already_saved) return data;
+    selectCustomer(data);
+    return data;
+  }
+  function selectCustomer(data) {
     if (data.connection_status !== "CONNECTED") {
-      setError("Customer saved. You can create a quotation after the customer accepts your connection request.");
-      return data;
+      throw new Error("This customer relationship is unavailable for quotation sharing.");
     }
     setCustomers((current) => [data, ...current.filter((item) => item.id !== data.id)]);
     setCustomerSearch(data.name);
     setForm((current) => ({ ...current, customer: data.id, property: "" }));
-    return data;
+    setError("");
+  }
+  async function useExistingCustomer(customer) {
+    const { data } = await api.get(`/quotations/customers/${customer.id}/`);
+    selectCustomer(data);
   }
   async function createProperty(values) {
     setSavingProperty(true);
+    setPropertyError("");
     try {
       const { data } = await api.post("/quotations/properties/", values);
       setProperties((current) => [data, ...current.filter((item) => item.id !== data.id)]);
@@ -196,11 +208,22 @@ export default function QuotationBuilder({ initialQuotation = null }) {
       setShowPropertyForm(false);
       setError("");
     } catch (requestError) {
+      setPropertyError(requestError.response?.data || "Property could not be created.");
       setError(formatError(requestError.response?.data) || "Property could not be created.");
     } finally {
       setSavingProperty(false);
     }
   }
+  useEffect(() => {
+    if (!sourceLead) return;
+    let active = true;
+    api.get(`/quotations/leads/${sourceLead}/`).then(({ data }) => {
+      if (!active) return;
+      setLeadContext(data);
+      if (!initialQuotation && !recovered) setForm(current => ({ ...current, customer: current.customer || data.customer, property: current.property || data.property || "" }));
+    }).catch(() => { if (active) setError("The linked lead could not be loaded. Check the lead before preparing this quotation."); });
+    return () => { active = false; };
+  }, [sourceLead, initialQuotation, recovered]);
   useEffect(() => {
     Promise.all([
       api.get("/quotations/customers/", { params: { include_pending: 1 } }),
@@ -647,7 +670,8 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     setSelectedFieldIds((current) => [...new Set([...current.filter((fieldId) => !originalMeasurementFields.some((field) => field.field_id === fieldId && field.scope === "full" && field.selection_group === "WALL")), ...originalMeasurementFields.filter((field) => field.scope === "room" && field.selection_group === "WALL").map((field) => field.field_id), id])]);
     setSpecialWallEditor(null);
   }
-  function deleteSpecialWall() {
+  async function deleteSpecialWall() {
+    if (!await confirmAction({ question: "Are you sure you want to delete this special wall?", detail: specialWallEditor.wall.name })) return;
     const id = specialWallEditor.wall.field_id;
     setSpecialWalls((current) => current.filter((wall) => wall.field_id !== id));
     setSelectedFieldIds((current) => current.filter((fieldId) => fieldId !== id));
@@ -761,6 +785,22 @@ export default function QuotationBuilder({ initialQuotation = null }) {
   }, [activeItems, form, selectedRooms, masters.services, editing]);
   const update = (name, value) =>
     setForm((current) => ({ ...current, [name]: value }));
+  const hasDraftSelections = Boolean(items.length || groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length || specialWalls.length);
+  async function confirmSourceChange(question) {
+    return !hasDraftSelections || await confirmAction({ question });
+  }
+  async function chooseCustomer(item) {
+    if (String(item.id) === String(form.customer)) return;
+    if (!await confirmSourceChange("Are you sure you want to change customer and discard these draft selections?")) return;
+    setForm(current => ({ ...current, customer: item.id, property: "" }));
+    setCustomerSearch(item.name);
+  }
+  async function changeQuotationType(value) {
+    if (value === useMeasurements) return;
+    if (!await confirmSourceChange("Are you sure you want to change quotation type and discard these selections?")) return;
+    setUseMeasurements(value);
+    if (!value) { setSelectedRoomIds([]); setSelectedFieldIds([]); }
+  }
   const updateItem = (index, name, value) =>
     setItems((current) =>
       current.map((item, itemIndex) =>
@@ -796,9 +836,9 @@ export default function QuotationBuilder({ initialQuotation = null }) {
     setMobileItemIndex(items.length);
     setItems((current) => [...current, { ...emptyItem, description: "", calculation_method: "MANUAL", is_additional_service: true, quantity: 1, coats: 1, ...(!useMeasurements ? {lumpsum_item_pending:true} : {}) }]);
   };
-  function removeWorkItem(item) {
+  async function removeWorkItem(item) {
     if (!lumpEditable) return false;
-    if (!window.confirm(`Delete ${item.description || "this work item"} from the quotation? Save the quotation to persist this change.`)) return false;
+    if (!await confirmAction({ question: "Are you sure you want to delete this work item?", detail: item.description })) return false;
     const assignmentId = item.specification_details?.assignment_id;
     if (assignmentId) setGroupAssignments(current => deleteAssignment(current, assignmentId, item.specification_details.kind));
     else if (item.field_id) setSelectedFieldIds(current => current.filter(id => id !== item.field_id));
@@ -1249,8 +1289,8 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         {step ? "Previous step" : "Back to quotations"}
       </button>
       {recovered && !editing && (
-        <button type="button" disabled={saving || previewingPdf} className="ml-3 min-h-11 rounded-lg border border-[#dce7ed] bg-white px-4 py-2 text-sm font-semibold text-[#9b1c1c] hover:bg-[#fef2f2] hover:border-[#9b1c1c] bp-ui-action" onClick={() => {
-          if (!window.confirm("Discard draft and reload? Your saved Draft will remain unchanged.")) return;
+        <button type="button" disabled={saving || previewingPdf} className="ml-3 min-h-11 rounded-lg border border-[#dce7ed] bg-white px-4 py-2 text-sm font-semibold text-[#9b1c1c] hover:bg-[#fef2f2] hover:border-[#9b1c1c] bp-ui-action" onClick={async () => {
+          if (!await confirmAction({ question: "Are you sure you want to delete this local draft?" })) return;
           clearBrowserRecovery(); markBuilderSaved(); window.location.reload();
         }}>Discard Draft</button>
       )}
@@ -1271,6 +1311,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
         ))}
       </div>
       {!dataReady && <p role="status">Loading quotation data...</p>}
+      {leadContext && <section className="rounded-xl border border-violet-200 bg-violet-50 p-4" aria-label="Customer requirement from lead"><p className="text-xs font-semibold text-violet-700">{leadContext.reference_no} · Customer requirement</p><p className="mt-1 font-semibold text-slate-900">{leadContext.title}</p>{leadContext.description && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{leadContext.description}</p>}</section>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4">{notice}</p>}
       {error && <div role="alert" className="quotation-validation-message rounded-xl p-4 text-sm">{error}</div>}
       <fieldset disabled={saving || previewingPdf} className="min-w-0">
@@ -1279,23 +1320,23 @@ export default function QuotationBuilder({ initialQuotation = null }) {
           <div className="quotation-customer-fields grid gap-4 sm:gap-5 md:grid-cols-2">
             <div className="md:col-span-2"><h2 className="text-lg font-extrabold text-[#193750] bp-ui-section-heading">Customer and property</h2></div>
             <div className="quotation-selection-field text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-customer-search">Customer *</label><button disabled={sourceLocked} type="button" onClick={() => setShowCustomerForm(true)} className="inline-flex items-center gap-1 font-bold text-[#176b9b] bp-ui-action"><UserRoundPlus className="h-4 w-4" aria-hidden="true" />New Customer</button></span>
+              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-customer-search">Customer *</label><button disabled={sourceLocked} type="button" onClick={async () => { if (await confirmSourceChange("Are you sure you want to change customer and discard these draft selections?")) setShowCustomerForm(true); }} className="inline-flex items-center gap-1 font-bold text-[#176b9b] bp-ui-action"><UserRoundPlus className="h-4 w-4" aria-hidden="true" />New Customer</button></span>
               <span className="quotation-customer-search mt-2 flex items-center gap-2 rounded-xl border border-[#cbdce6] px-3 py-2.5 focus-within:border-[#176b9b]">
                 <Search className="h-4 w-4 text-slate-400" />
-                <input id="quotation-customer-search" aria-label="Customer" readOnly={sourceLocked} value={quotationCustomerDisplay(customerSearch, selectedCustomer, form.customer)} onChange={(e) => { setCustomerSearch(e.target.value); if (form.customer) { update("customer", ""); update("property", ""); } }} placeholder="Search customers" className="w-full bg-transparent font-normal outline-none bp-ui-control" />
+                <input id="quotation-customer-search" aria-label="Customer" readOnly={sourceLocked} value={quotationCustomerDisplay(customerSearch, selectedCustomer, form.customer)} onChange={async (e) => { const value = e.target.value; if (form.customer) { e.target.value = quotationCustomerDisplay(customerSearch, selectedCustomer, form.customer); if (!await confirmSourceChange("Are you sure you want to change customer and discard these draft selections?")) return; setForm(current => ({ ...current, customer: "", property: "" })); } setCustomerSearch(value); }} placeholder="Search customers" className="w-full bg-transparent font-normal outline-none bp-ui-control" />
               </span>
-              {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 bp-ui-action">{item.name}</button>)}</span></span>}
-              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => { update("customer", item.id); update("property", ""); setCustomerSearch(item.name); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100 bp-ui-action"><b>{item.name}</b></button>)}</span>}
+              {!sourceLocked && !customerSearch && recentCustomers.length > 0 && <span className="mt-2 block"><span className="mb-1 block text-xs font-semibold text-slate-400">Recent customers</span><span className="flex flex-wrap gap-1.5">{recentCustomers.map((item) => <button key={item.id} type="button" onClick={() => chooseCustomer(item)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 bp-ui-action">{item.name}</button>)}</span></span>}
+              {customerSearch && !form.customer && customerSearchResults.length > 0 && <span className="relative z-40 mt-2 block max-h-52 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerSearchResults.map((item) => <button key={item.id} type="button" onClick={() => chooseCustomer(item)} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-normal hover:bg-slate-100 bp-ui-action"><b>{item.name}</b></button>)}</span>}
               {customerSearch && !form.customer && customerSearchResults.length === 0 && <span className="mt-2 block text-xs font-normal text-red-600">No matching customers found.</span>}
             </div>
             <div className="quotation-selection-field text-sm font-medium">
-              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-property">Property *</label><button type="button" onClick={() => setShowPropertyForm(true)} disabled={sourceLocked || !form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action"><Building2 className="h-4 w-4" aria-hidden="true" />Add Property</button></span>
+              <span className="flex items-center justify-between gap-2"><label htmlFor="quotation-property">Property *</label><button type="button" onClick={async () => { if (await confirmSourceChange("Are you sure you want to change property and discard these draft selections?")) setShowPropertyForm(true); }} disabled={sourceLocked || !form.customer} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action"><Building2 className="h-4 w-4" aria-hidden="true" />Add Property</button></span>
               <select
                 id="quotation-property"
                 aria-label="Property"
                 disabled={sourceLocked}
                 value={form.property}
-                onChange={(e) => update("property", e.target.value)}
+                onChange={async (e) => { const value = e.target.value; e.target.value = form.property; if (String(value) === String(form.property)) return; if (await confirmSourceChange("Are you sure you want to change property and discard these draft selections?")) update("property", value); }}
                 className={(input) + " bp-ui-control"}
               >
                 <option value="">Select property</option>{sourceLocked && !availableProperties.some(entry=>String(entry.id)===String(form.property)) && <option value={form.property}>{selectedProperty?.name || form.property}</option>}
@@ -1311,7 +1352,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                 <label htmlFor="quotation-area-calculation">Area Calculation *</label>
                 <button type="button" disabled={sourceLocked || !form.property || measurementRecordsLoading} onClick={() => navigate(continueMeasurementPath(form.property, measurementRecords, user?.id, selectedMeasurementId))} className="inline-flex items-center gap-1 font-bold text-[#176b9b] disabled:cursor-not-allowed disabled:opacity-40 bp-ui-action"><Plus className="h-4 w-4" />{selectedMeasurementId ? "Add / edit measured areas" : "Add measurement"}</button>
               </div>
-              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={(event) => { if (event.target.value === selectedMeasurementId) return; if ((groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length || items.length) && !window.confirm("Changing the measurement version invalidates the current measured selections. Clear these draft items and load the selected version? Choose Cancel to keep them.")) return; setSelectedMeasurementId(event.target.value); }} disabled={sourceLocked || !form.property || measurementRecordsLoading} className={(input) + " bp-ui-control"}>
+              <select id="quotation-area-calculation" value={selectedMeasurementId} onChange={async (event) => { const value = event.target.value; event.target.value = selectedMeasurementId; if (value === selectedMeasurementId) return; if ((groupAssignments.groups.length || groupAssignments.specials.length || groupAssignments.services?.length || items.length) && !await confirmAction({ question: "Are you sure you want to clear these draft items and change the Area Calculation?" })) return; setSelectedMeasurementId(value); }} disabled={sourceLocked || !form.property || measurementRecordsLoading} className={(input) + " bp-ui-control"}>
                 <option value="">{sourceLocked && !selectedMeasurementId ? "Saved scope - no measurement version recorded" : !form.property ? "Select a property first" : measurementRecordsLoading ? "Loading Area Calculations..." : "Select Area Calculation"}</option>
                 {sourceLocked && selectedMeasurementId && !measurementRecords.some(record=>String(record.id)===String(selectedMeasurementId)) && <option value={selectedMeasurementId}>Saved measurement {selectedMeasurementId}</option>}
                 {measurementRecords.map((record) => <option key={record.id} value={record.id}>{record.reference_no} · {record.measured_on} · {record.total_sqft} sq ft</option>)}
@@ -1326,8 +1367,8 @@ export default function QuotationBuilder({ initialQuotation = null }) {
             <h2 className="text-lg font-extrabold text-[#193750] bp-ui-section-heading">Quotation type</h2>
             
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <button disabled={sourceLocked} type="button" onClick={()=>setUseMeasurements(true)} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
-              <button disabled={sourceLocked} type="button" onClick={()=>{setUseMeasurements(false);setSelectedRoomIds([]);setSelectedFieldIds([])}} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>changeQuotationType(true)} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><Ruler className="h-5 w-5" /></span><p className="font-bold">Square Foot Quotation</p></button>
+              <button disabled={sourceLocked} type="button" onClick={()=>changeQuotationType(false)} className={(`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${!useMeasurements?"border-[#176b9b] bg-[#176b9b] text-white shadow-sm":"border-[#dce7ed] bg-white hover:border-[#176b9b]"}`) + " bp-ui-action"}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${!useMeasurements?"bg-white/15":"bg-[#e8f3f8] text-[#176b9b]"}`}><IndianRupee className="h-5 w-5" /></span><p className="font-bold">Lump Sum Quotation</p></button>
             </div>
           </div>
         )}
@@ -1357,7 +1398,7 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedFieldIds([])}
+                  onClick={async () => { if (selectedFieldIds.length && !await confirmAction({ question: "Are you sure you want to clear these selections?" })) return; setSelectedFieldIds([]); }}
                   className="rounded-lg border px-3 py-2 text-xs font-semibold bp-ui-action"
                 >
                   Clear all
@@ -1449,17 +1490,18 @@ export default function QuotationBuilder({ initialQuotation = null }) {
                 updateMasterChoice={updateMasterChoice}
                 saveRoom={createRoomFromService}
                 close={() => { setMobileItemIndex(null); if (!useMeasurements) setError(clearItemValidationMessage); }}
-                remove={() => {
+                remove={async () => {
                   const item = items[mobileItemIndex];
-                  if (!useMeasurements) { if (removeWorkItem(item)) setMobileItemIndex(null); return; }
+                  if (!useMeasurements) { if (await removeWorkItem(item)) setMobileItemIndex(null); return; }
+                  if (!await confirmAction({ question: "Are you sure you want to delete this work item?", detail: item.description })) return;
                   if (item.field_id) setSelectedFieldIds((ids) => ids.filter((id) => id !== item.field_id));
                   else setItems((value) => value.filter((_, index) => index !== mobileItemIndex));
                   setMobileItemIndex(null);
                 }}
               />
             )}
-       {showCustomerForm && <CustomerConnectionFlow quotationTheme onClose={() => setShowCustomerForm(false)} onNewCustomer={createCustomer} />}
-       {showPropertyForm && <PropertyForm quotationTheme customers={customers} initialCustomer={form.customer} onSubmit={createProperty} onClose={() => setShowPropertyForm(false)} saving={savingProperty} />}
+       {showCustomerForm && <CustomerConnectionFlow quotationTheme onClose={() => setShowCustomerForm(false)} onNewCustomer={createCustomer} onExistingCustomer={useExistingCustomer} />}
+       {showPropertyForm && <PropertyForm quotationTheme customers={customers} initialCustomer={form.customer} onSubmit={createProperty} onClose={() => { setShowPropertyForm(false); setPropertyError(""); }} saving={savingProperty} error={propertyError} />}
        {showPreview && (
         <QuotationPreviewDialog
           editing={editing}
@@ -1747,15 +1789,18 @@ function MobileRateDialog({ item, index, masters, savedRooms, roomOptions, selec
   const Frame = QuotationLineItemPopup;
   const currentMissing = missingLumpSumItemFields(item, masters);
   const fieldError = (name) => itemError && currentMissing.includes(name) ? <p className={`quotation-inline-error ${lumpsum ? "lsq-item-form__full" : ""}`} role="alert">{name === 'Rate' ? 'Enter a valid rate of zero or more.' : `Complete ${name.toLowerCase()}.`}</p> : null;
-  const saveItem = () => {
+  const canClose = async () => !roomSaving && (!addingRoom || !newRoomName.trim() || await confirmAction({ question: "Are you sure you want to discard this new room name?" }));
+  const requestClose = async () => { if (await canClose()) close(); };
+  const saveItem = async () => {
+    if (lumpsum && currentMissing.length) { setItemError("invalid"); return; }
+    if (!await canClose()) return;
     if (!lumpsum) { close(); return; }
-    if (currentMissing.length) { setItemError("invalid"); return; }
     updateItem(index, "lumpsum_item_pending", false);
     close();
   };
-  const footer = <div className="grid w-full grid-cols-[auto_1fr] gap-3"><button type="button" aria-label="Delete editor item" onClick={remove} className="lsq-editor-delete inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600 bp-ui-action"><Trash2 className="h-5 w-5" /><span>Delete</span></button><Button type="button" onClick={saveItem}>{lumpsum ? "Save Item" : "Update line"}</Button></div>;
+  const footer = <div className="grid w-full grid-cols-[auto_1fr] gap-3"><button type="button" aria-label="Delete editor item" disabled={roomSaving} onClick={remove} className="lsq-editor-delete inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 px-4 py-3 text-red-600 bp-ui-action"><Trash2 className="h-5 w-5" /><span>Delete</span></button><Button type="button" disabled={roomSaving} onClick={saveItem}>{lumpsum ? "Save Item" : "Update line"}</Button></div>;
   return (
-    <Frame popupProtection={lumpsum ? "handled" : null} index={index} description={roomName} titleText={item.lumpsum_item_pending ? "Add Item" : "Edit Item"} editable footer={footer} onClose={close}>
+    <Frame popupProtection="handled" index={index} description={roomName} titleText={item.lumpsum_item_pending ? "Add Item" : "Edit Item"} editable footer={footer} onClose={requestClose}>
         {itemError && currentMissing.length > 0 && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">Complete: {currentMissing.join(", ")}.</p>}
         <div className={`lsq-item-form ${lumpsum ? "is-lumpsum" : "space-y-4"}`}>
           <div className={`grid gap-3 sm:grid-cols-2 ${lumpsum ? "lsq-item-form__full" : ""}`}>
@@ -1875,7 +1920,7 @@ function ExteriorMeasurementFields({ fields, selectedFieldIds, toggle, items, se
         })}
       </div>
       {mobileField && mobileItem && (
-        <QuotationLineItemPopup popupProtection={null} titleText="Edit selected area field" description={`${mobileField.room_name} - ${mobileField.description}`} onClose={() => setMobileFieldId(null)} footer={<Button type="button" onClick={() => setMobileFieldId(null)}>Update selection</Button>}>
+        <QuotationLineItemPopup popupProtection="handled" titleText="Edit selected area field" description={`${mobileField.room_name} - ${mobileField.description}`} onClose={() => setMobileFieldId(null)} footer={<Button type="button" onClick={() => setMobileFieldId(null)}>Update selection</Button>}>
             <label className="flex items-center gap-3 rounded-xl border p-4 font-semibold"><input type="checkbox" checked={selectedFieldIds.includes(mobileField.field_id)} onChange={() => toggle(mobileField.field_id)} />Include this field in quotation</label>
             <label className="mt-4 block text-sm font-semibold">Service / Product Category
               <select value={mobileItem.service_category || ""} onChange={(event) => { updateFieldItem(mobileField.field_id, "service_category", event.target.value); updateFieldItem(mobileField.field_id, "paint_type", ""); if (!selectedFieldIds.includes(mobileField.field_id)) toggle(mobileField.field_id); }} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 bp-ui-control"><option value="">Select Service / Product Category</option>{serviceCategories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>

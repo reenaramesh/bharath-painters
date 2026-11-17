@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import React from 'react';
+import { act, create } from 'react-test-renderer';
+import { transformWithOxc } from 'vite';
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const source = await readFile(new URL('./FeedbackToast.jsx', import.meta.url), 'utf8');
+const compiled = await transformWithOxc(source, 'FeedbackToast.jsx', { jsx: { runtime: 'automatic' } });
+const code = compiled.code.replace(/from\s+(['"])([^'"]+)\1/g, (_, _quote, path) => `from ${JSON.stringify(import.meta.resolve(path))}`);
+const FeedbackToast = (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)).default;
+test('announces actual supplied feedback politely and gives the user control over dismissal', async () => {
+  let dismissed = false;
+  let view;
+  await act(async () => { view = create(React.createElement(FeedbackToast, { message: 'Saved account colours.', onDismiss: () => { dismissed = true; } })); });
+  assert.equal(view.root.findByProps({ role: 'status' }).props['aria-live'], 'polite');
+  assert.equal(view.root.findByType('p').children.join(''), 'Saved account colours.');
+  await act(async () => view.root.findByType('button').props.onClick());
+  assert.equal(dismissed, true);
+  await act(async () => view.update(React.createElement(FeedbackToast, { message: '' })));
+  assert.equal(view.toJSON(), null);
+  await act(async () => view.unmount());
+});

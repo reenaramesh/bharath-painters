@@ -19,11 +19,14 @@
     "i18next": "^26.4.2",
     "india-pincode": "^2.5.9",
     "lucide-react": "^1.31.0",
+    "motion": "14.7.1",
     "pdfjs-dist": "^6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-i18next": "^17.0.15",
+    "react-is": "^19.2.8",
     "react-router-dom": "^7.18.2",
+    "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

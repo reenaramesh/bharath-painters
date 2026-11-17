@@ -7,6 +7,7 @@ import ProfileImageControl from "../components/ProfileImageControl";
 import { LoadingState } from "../components/ui";
 import { profileImageStyle } from "../utils/profileImagePosition";
 import { resolveAppTheme } from "../utils/appTheme";
+import { confirmAction } from "../utils/confirmAction.js";
 
 const pdfColorTemplates = [
   { value: "STUDIO", label: "Studio", colors: ["#142743", "#ff991f"] },
@@ -136,8 +137,22 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
     setSocialDraft(platform.field ? form[platform.field] || "" : "");
     setExtraDraft(platform.extraIndex === undefined ? { label: platform.label || "", url: "" } : form.extra_social_links?.[platform.extraIndex] || { label: "", url: "" });
   };
-  const commitSocialModal = () => {
+  const closeSocialModal = async () => {
     if (!socialModal) return;
+    const initialExtra = socialModal.extraIndex === undefined
+      ? { label: socialModal.label || "", url: "" }
+      : form.extra_social_links?.[socialModal.extraIndex] || { label: "", url: "" };
+    const changed = socialModal.field
+      ? socialDraft !== (form[socialModal.field] || "")
+      : extraDraft.label !== initialExtra.label || extraDraft.url !== initialExtra.url;
+    if (changed && !await confirmAction({ question: "Are you sure you want to discard these social link changes?" })) return;
+    setSocialModal(null);
+  };
+  const commitSocialModal = async () => {
+    if (!socialModal) return;
+    const previousUrl = socialModal.field ? form[socialModal.field] : form.extra_social_links?.[socialModal.extraIndex]?.url;
+    const nextUrl = socialModal.field ? socialDraft.trim() : extraDraft.url.trim();
+    if (previousUrl && !nextUrl && !await confirmAction({ question: "Are you sure you want to remove this social link?", detail: socialModal.label || extraDraft.label })) return;
     if (socialModal.field) {
       setForm((value) => ({ ...value, [socialModal.field]: socialDraft.trim() }));
     } else if (socialModal.extraIndex === undefined) {
@@ -151,8 +166,17 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
     }
     setSocialModal(null);
   };
-  const removeExtraSocial = (index) =>
+  const removeExtraSocial = async (index) => {
+    if (!await confirmAction({ question: "Are you sure you want to remove this social link?", detail: form.extra_social_links?.[index]?.label })) return;
     setForm((value) => ({ ...value, extra_social_links: (value.extra_social_links || []).filter((_, i) => i !== index) }));
+  };
+  const removeDocument = async (slot, pending = false) => {
+    const detail = pending ? form[slot.field]?.name : form[`${slot.field}_url`]?.split("/").pop();
+    if (!await confirmAction({ question: `Are you sure you want to remove this ${slot.label.toLowerCase()}?`, detail })) return;
+    setForm((value) => pending
+      ? { ...value, [slot.field]: null }
+      : { ...value, [slot.field]: null, [`${slot.field}_url`]: "", [`clear_${slot.field}`]: true });
+  };
   useEffect(() => {
     if (managedForm) return;
     api
@@ -708,7 +732,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                     <div className="flex items-center gap-2 rounded-lg bg-slate-50 p-2">
                       <FileText className="h-4 w-4 shrink-0 text-slate-500" />
                       <span className="min-w-0 flex-1 truncate text-xs">{pending.name}</span>
-                      <button type="button" aria-label={`Clear ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null }))} className="shrink-0 text-slate-500 hover:text-red-600 bp-ui-icon-action">
+                      <button type="button" aria-label={`Clear ${slot.label}`} onClick={() => removeDocument(slot, true)} className="shrink-0 text-slate-500 hover:text-red-600 bp-ui-icon-action">
                         <X className="h-4 w-4" />
                       </button>
                     </div>
@@ -716,7 +740,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
                     <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-2">
                       <FileText className="h-4 w-4 shrink-0 text-emerald-600" />
                       <span className="min-w-0 flex-1 truncate text-xs text-emerald-900">{form[`${slot.field}_url`].split("/").pop()}</span>
-                      <button type="button" aria-label={`Remove ${slot.label}`} onClick={() => setForm((value) => ({ ...value, [slot.field]: null, [`${slot.field}_url`]: "", [`clear_${slot.field}`]: true }))} className="shrink-0 text-emerald-700 hover:text-red-600 bp-ui-icon-action">
+                      <button type="button" aria-label={`Remove ${slot.label}`} onClick={() => removeDocument(slot)} className="shrink-0 text-emerald-700 hover:text-red-600 bp-ui-icon-action">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -771,10 +795,11 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
       <div
         role="dialog"
         aria-modal="true"
+        data-popup-protection="handled"
         aria-label={socialModal.field ? socialModal.label : "Add link"}
         className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/50 p-4"
         onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSocialModal(null);
+          if (event.target === event.currentTarget) closeSocialModal();
         }}
       >
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
@@ -789,7 +814,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
             <h3 className="min-w-0 flex-1 truncate text-base font-bold">
               {socialModal.field ? socialModal.label : socialModal.extraIndex === undefined ? "Add link" : "Edit link"}
             </h3>
-            <button type="button" onClick={() => setSocialModal(null)} aria-label="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 bp-ui-icon-action">
+            <button type="button" onClick={closeSocialModal} aria-label="Close" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 bp-ui-icon-action">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -834,7 +859,7 @@ export default function ContractorSettings({ themeOnly = false, embedded = false
           <div className="mt-5 flex gap-2">
             <button
               type="button"
-              onClick={() => setSocialModal(null)}
+              onClick={closeSocialModal}
               className="min-h-11 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold bp-ui-action"
             >
               Cancel

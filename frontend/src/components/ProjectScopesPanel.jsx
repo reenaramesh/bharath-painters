@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { HardHat, Pencil, Plus, Trash2, X } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from "./ui";
 import { apiErrorMessage, prettyDate, rupees } from "../utils/subcontract";
 
@@ -149,6 +150,7 @@ export default function ProjectScopesPanel({ quotationId }) {
   };
 
   const remove = async (scope) => {
+    if (!await confirmAction({ question: "Are you sure you want to remove this project scope?", detail: scope.title })) return;
     setError("");
     try {
       await api.delete(`/quotations/project-scopes/${scope.id}/`);

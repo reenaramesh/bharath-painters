@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Eye, EyeOff, Palette } from "lucide-react";
 import api from "../api/client";
+import { authError, useAuthLifecycle } from "../utils/authFlow.js";
 import "../styles/auth-reference.css";
 import RegistrationConsent from "../components/RegistrationConsent";
+import RegistrationEmailVerification from "../components/RegistrationEmailVerification";
 
 export default function Register() {
+  const active = useAuthLifecycle();
   const navigate = useNavigate();
   const [role, setRole] = useState("CONTRACTOR");
   const [form, setForm] = useState({
@@ -17,7 +20,6 @@ export default function Register() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [verification, setVerification] = useState(null);
-  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState({ ready: false, accepted: false, policyVersion: "" });
   const update = (event) =>
@@ -26,6 +28,7 @@ export default function Register() {
     "mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 outline-none focus:border-slate-900";
   async function submit(event) {
     event.preventDefault();
+    if (saving) return;
     if (!consent.ready) {
       setError("Wait for the Terms of Use and Privacy Notice to load before registering.");
       return;
@@ -61,49 +64,19 @@ export default function Register() {
           ? { headers: { "Content-Type": "multipart/form-data" } }
           : undefined,
       );
+      if (!active.current) return;
       if (data.email_verification_pending) setVerification(data);
       else navigate("/login", { state: { registered: true } });
     } catch (requestError) {
-      setError(
-        Object.values(requestError.response?.data || {})
-          .flat()
-          .join(" ") || "Registration failed.",
-      );
+      if (!active.current) return;
+      setError(authError(requestError, "Registration failed. Try again."));
     } finally {
-      setSaving(false);
+      if (active.current) setSaving(false);
     }
   }
 
-  async function resendOtp() {
-    setSaving(true);
-    setError("");
-    try {
-      const { data } = await api.post("/accounts/register/email/request/", { mobile: form.mobile, password: form.password });
-      setVerification(data);
-      setOtp("");
-      if (data.email_verification_error) setError(data.email_verification_error);
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Verification code could not be sent.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function verifyOtp(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await api.post("/accounts/register/email/verify/", { mobile: form.mobile, password: form.password, challenge_id: verification.challenge_id, otp });
-      navigate("/login", { state: { registered: true } });
-    } catch (requestError) {
-      setError(requestError.response?.data?.otp || requestError.response?.data?.detail || "Code could not be verified.");
-    } finally {
-      setSaving(false);
-    }
-  }
   return (
-    <main className="auth-reference-page min-h-screen bg-slate-50 p-6">
+    <main className="bp-public-auth bp-auth-register auth-reference-page min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-2xl">
         <Link to="/login" className="text-sm font-semibold text-slate-600">
           ← Back to login
@@ -118,6 +91,7 @@ export default function Register() {
             ].map(([value, Icon]) => (
               <button
                 key={value}
+                disabled={saving || Boolean(verification)}
                 aria-pressed={role === value}
                 onClick={() => setRole(value)}
                 className={(`auth-role-option rounded-xl border p-4 text-left ${role === value ? "border-slate-950 bg-slate-50" : "border-slate-200"}`) + " bp-ui-action"}
@@ -129,26 +103,16 @@ export default function Register() {
               </button>
             ))}
           </div>
-          {error && (
-            <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-          {verification ? <form onSubmit={verifyOtp} className="mt-6 space-y-4">
-            <p className="text-sm text-slate-600">Verify your email to enable password recovery. We sent a verification code to <strong>{verification.masked_email || form.email}</strong>.</p>
-            {verification.test_otp && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Development code: <strong>{verification.test_otp}</strong></p>}
-            <label className="block text-sm font-semibold">Email verification code<input required inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} className={(input) + " bp-ui-control"} /></label>
-            <button disabled={saving || (otp.length < 6 || otp.length > 10) || !verification.challenge_id} className="w-full rounded-xl bg-[#176b9b] px-4 py-3 font-bold text-white disabled:opacity-50 bp-ui-action">{saving ? "Verifying..." : "Verify email"}</button>
-            <button type="button" disabled={saving} onClick={resendOtp} className="text-sm font-semibold text-[#176b9b] bp-ui-action">Resend code</button>
-          </form> : <>
+          <p id="registration-error" role="alert" className={error ? "mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700" : "sr-only"}>{error}</p>
+          {verification ? <RegistrationEmailVerification initialVerification={verification} mobile={form.mobile} password={form.password} email={form.email} onVerified={() => navigate("/login", { state: { registered: true } })} /> : <>
           <form onSubmit={submit} className="mt-6 grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-medium sm:col-span-2">
               Name *
-              <input required name="name" autoComplete="name" value={form.name} onChange={update} className={(input) + " bp-ui-control"} />
+              <input aria-describedby="registration-error" aria-invalid={Boolean(error)} disabled={saving} required name="name" autoComplete="name" value={form.name} onChange={update} className={(input) + " bp-ui-control"} />
             </label>
             <label className="text-sm font-medium">
               Mobile *
-              <input
+              <input aria-describedby="registration-error" aria-invalid={Boolean(error)} disabled={saving}
                 required
                 name="mobile"
                 type="tel"
@@ -162,8 +126,9 @@ export default function Register() {
             </label>
             <label className="text-sm font-medium">
               Email *
-              <input
+              <input aria-describedby="registration-error" aria-invalid={Boolean(error)} disabled={saving}
                 required
+                autoComplete="email"
                 type="email"
                 name="email"
                 value={form.email}
@@ -173,7 +138,7 @@ export default function Register() {
             </label>
             <div className="text-sm font-medium sm:col-span-2">
               <label htmlFor="registration-password">Password *</label>
-              <span className="relative block"><input required minLength="8" type={showPassword ? "text" : "password"} id="registration-password" name="password" autoComplete="new-password" value={form.password} onChange={update} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 bp-ui-action">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span>
+              <span className="relative block"><input aria-describedby="registration-error" aria-invalid={Boolean(error)} disabled={saving} required minLength="8" type={showPassword ? "text" : "password"} id="registration-password" name="password" autoComplete="new-password" value={form.password} onChange={update} className={`${input} pr-12`} /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-1 top-1.5 grid w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 bp-ui-action">{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></span>
             </div>
             
             <RegistrationConsent role={role} onConsentChange={setConsent} />

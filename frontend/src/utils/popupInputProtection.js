@@ -1,3 +1,5 @@
+import { cancelConfirmation, confirmAction } from './confirmAction.js';
+
 // Protect dismissals, never submit/save handlers. Field snapshots stay in memory.
 const ROOTS = 'dialog[open], [role="dialog"], [data-popup-root], .fixed.inset-0, [class*="modal"], [class*="backdrop"]';
 const FIELDS = 'input,select,textarea,[contenteditable="true"]';
@@ -21,6 +23,8 @@ export function isDismissAction(button, labels = {close:['Close'],cancel:['Cance
 
 export function installPopupInputProtection(doc, browser, {getLabels = () => ({close:['Close'],cancel:['Cancel']})} = {}) {
   const states = new WeakMap();
+  const pendingRoots = new Set();
+  let active = true;
   const style = element => browser.getComputedStyle(element);
   const visible = element => element.isConnected && element.getClientRects().length && style(element).visibility !== 'hidden';
   const fullOverlay = element => {
@@ -44,7 +48,9 @@ export function installPopupInputProtection(doc, browser, {getLabels = () => ({c
     if (!state) { state = {baseline:snapshot(root),touched:false,form:false,allowClick:null,allowCancel:false,savedVersion:root.getAttribute('data-popup-saved-version')}; states.set(root,state); }
     return state;
   };
-  const scan = () => { for (const root of roots()) {
+  const scan = () => {
+    for (const root of pendingRoots) if (!visible(root)) cancelConfirmation(root);
+    for (const root of roots()) {
     const state=ensure(root),savedVersion=root.getAttribute('data-popup-saved-version');
     // Components increment this only after a confirmed save, never on submit.
     if (savedVersion!==state.savedVersion) { state.savedVersion=savedVersion; state.touched=false; }
@@ -70,7 +76,32 @@ export function installPopupInputProtection(doc, browser, {getLabels = () => ({c
     return state.touched && (current.size!==state.baseline.size || [...current].some(([field,value])=>state.baseline.get(field)!==value));
   };
   const block = event => { event.preventDefault(); event.stopImmediatePropagation(); };
-  const confirmClose = root => !dirty(root) || browser.confirm('You have unsaved changes. Close this form? Choose Cancel to keep editing.');
+  const requestClose = async (root, resume) => {
+    const state = ensure(root);
+    if (state.pending) return;
+    state.pending = true;
+    pendingRoots.add(root);
+    try {
+      const yes = await confirmAction({ question: 'Are you sure you want to discard these changes?', owner: root });
+      if (yes && active && visible(root)) resume(state);
+    } finally {
+      state.pending = false;
+      pendingRoots.delete(root);
+    }
+  };
+  const replayClick = (root, button) => {
+    if (!button.isConnected || button.disabled) return;
+    ensure(root).allowClick = button;
+    button.click();
+    ensure(root).allowClick = null;
+  };
+  const replayCancel = root => {
+    ensure(root).allowCancel = true;
+    const event = new browser.Event('cancel', {cancelable:true});
+    const unhandled = root.dispatchEvent(event);
+    ensure(root).allowCancel = false;
+    if (unhandled && root.open) root.close();
+  };
   const outside = (root,event) => {
     if (root.tagName==='DIALOG' && event.target===root) {
       const box=root.getBoundingClientRect();
@@ -96,22 +127,31 @@ export function installPopupInputProtection(doc, browser, {getLabels = () => ({c
     const state=ensure(root),button=event.target.closest?.('button,[role="button"],[data-popup-dismiss]');
     if (button && isDismissAction(button,getLabels())) {
       if (state.allowClick===button) { state.allowClick=null; return; }
-      if (!confirmClose(root)) block(event);
+      if (dirty(root)) { block(event); void requestClose(root, () => replayClick(root, button)); }
     } else if (event.target.closest?.(FIELDS) || (button && !(button.form && button.type==='submit'))) state.touched=true;
   };
   const escape = event => {
     if (event.key!=='Escape') return;
     const root=top();
     if (!root || !form(root)) return;
+    const state = ensure(root);
+    if (state.allowEscape) { state.allowEscape = false; return; }
     const buttons=[...root.querySelectorAll('button,[role="button"],[data-popup-dismiss]')].filter(button=>!button.disabled && isDismissAction(button,getLabels()));
     const closeButton=buttons.find(button=>button.getAttribute('aria-label') || button.querySelector('svg.lucide-x')) || buttons[0];
     if (closeButton) {
       block(event);
-      if (confirmClose(root)) { ensure(root).allowClick=closeButton; closeButton.click(); }
-    } else if (!confirmClose(root)) block(event);
-    else {
-      const state=ensure(root);state.allowCancel=true;
-      browser.setTimeout(()=>{state.allowCancel=false;},0);
+      if (dirty(root)) void requestClose(root, () => replayClick(root, closeButton));
+      else replayClick(root, closeButton);
+    } else if (dirty(root)) {
+      block(event);
+      void requestClose(root, () => {
+        ensure(root).allowEscape = true;
+        const target = root.contains(doc.activeElement) ? doc.activeElement : root;
+        const escaped = new browser.KeyboardEvent('keydown', {key:'Escape',bubbles:true,cancelable:true});
+        const unhandled = target.dispatchEvent(escaped);
+        ensure(root).allowEscape = false;
+        if (unhandled && root.tagName === 'DIALOG') replayCancel(root);
+      });
     }
   };
   const cancel = event => {
@@ -119,12 +159,12 @@ export function installPopupInputProtection(doc, browser, {getLabels = () => ({c
     if (!root.matches?.('dialog') || !form(root)) return;
     const state=ensure(root);
     if (state.allowCancel) { state.allowCancel=false; return; }
-    if (!confirmClose(root)) block(event);
+    if (dirty(root)) { block(event); void requestClose(root, () => replayCancel(root)); }
   };
   const listeners={focusin:edit,beforeinput:edit,input:edit,change:edit,pointerdown:pointer,mousedown:pointer,touchstart:pointer,click,keydown:escape,cancel};
   for (const [name,handler] of Object.entries(listeners)) doc.addEventListener(name,handler,{capture:true,passive:false});
   const observer=new browser.MutationObserver(scan);
   observer.observe(doc.documentElement,{subtree:true,childList:true,attributes:true});
   scan();
-  return () => { observer.disconnect(); for (const [name,handler] of Object.entries(listeners)) doc.removeEventListener(name,handler,true); };
+  return () => { active = false; for (const root of pendingRoots) cancelConfirmation(root); observer.disconnect(); for (const [name,handler] of Object.entries(listeners)) doc.removeEventListener(name,handler,true); };
 }

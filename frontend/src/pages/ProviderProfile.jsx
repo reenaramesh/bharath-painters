@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import useAuth from "../context/useAuth";
 import { ErrorState, LoadingState, PageHeader, SectionCard } from "../components/ui";
 import { apiErrorMessage, prettyDate } from "../utils/subcontract";
@@ -521,7 +522,8 @@ export default function ProviderProfile({ embedded = false }) {
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={load}
+              disabled={saving}
+              onClick={async () => { if (await confirmAction({ question: "Are you sure you want to discard these profile changes?" })) await load(); }}
               className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold bp-ui-action"
             >
               Discard changes

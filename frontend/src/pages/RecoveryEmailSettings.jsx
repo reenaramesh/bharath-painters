@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 
@@ -62,7 +63,9 @@ export default function RecoveryEmailSettings() {
     const warning = action === "delete"
       ? "Delete your account permanently? This is your own choice. Your sign-in account will be permanently deleted, you will not receive any notifications, and you will need to register again to use Bharath Apps."
       : "Temporarily deactivate your account? This is your own choice. You will be signed out and will not receive notifications while the account is inactive.";
-    if (!window.confirm(warning)) return;
+    if (action === "delete") {
+      if (!await confirmAction({ question: "Are you sure you want to delete your account?" })) return;
+    } else if (!window.confirm(warning)) return;
     setAccountActionBusy(true); setAccountActionError("");
     try { await api.post("/accounts/account/lifecycle/", { action }); await logout(); navigate("/login", { replace: true }); }
     catch (e) { setAccountActionError(e.response?.data?.detail || "The account action could not be completed."); }

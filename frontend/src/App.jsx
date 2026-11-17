@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import "./styles/mobile-responsive.css";
 import "./styles/application-ui.css";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import ConfirmationProvider from "./components/ConfirmationProvider";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import VerifiedContractorRoute from "./components/VerifiedContractorRoute";
@@ -11,6 +12,7 @@ import PdfPreviewHost from "./components/PdfPreview";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import WhatsAppAppChooser from "./components/WhatsAppAppChooser";
 import LanguageSelector from "./components/LanguageSelector";
+import { routePresentation } from "./config/routePresentation";
 
 const page = (name) => lazy(() => import(`./pages/${name}.jsx`));
 const PublicContractorProfile = page("PublicContractorProfile");
@@ -21,6 +23,7 @@ const CustomerShareLink = page("CustomerShareLink");
 const InHouseEmployeeActivation = page("InHouseEmployeeActivation");
 const JoinProperty = page("JoinProperty");
 const ForgotPassword = page("ForgotPassword");
+const VerifyEmail = page("VerifyEmail");
 const RecoveryEmailSettings = page("RecoveryEmailSettings");
 const Dashboard = page("Dashboard");
 const Customers = page("Customers");
@@ -55,6 +58,7 @@ const SupportTickets = page("SupportTickets");
 const SupportWorkspace = page("SupportWorkspace");
 const SupportStaff = page("SupportStaff");
 const AdminIntegrations = page("AdminIntegrations");
+const ApplicationAnalytics = page("ApplicationAnalytics");
 const CustomerDashboard = page("CustomerDashboard");
 const CustomerConnections = page("CustomerConnections");
 const CustomerProfile = page("CustomerProfile");
@@ -120,10 +124,12 @@ const SubcontractWorkOrdersPreview = import.meta.env.DEV
 function App() {
   return (
     <BrowserRouter>
+      <ConfirmationProvider>
       <PdfPreviewHost />
       <PwaInstallPrompt />
       <WhatsAppAppChooser />
       <AppRoutes />
+      </ConfirmationProvider>
     </BrowserRouter>
   );
 }
@@ -135,6 +141,7 @@ function AppRoutes() {
   const publicLanguagePage = ["/register", "/customer-register", "/forgot-password"].includes(location.pathname) || location.pathname.startsWith("/contractor-profile/") || location.pathname.startsWith("/employee-activation/");
 
   return (
+    <div className={routePresentation(location.pathname).public ? "bp-premium-public" : undefined}>
     <RouteErrorBoundary resetKey={location.pathname}>
       {publicLanguagePage && <div className="flex justify-end bg-white px-4 py-3"><LanguageSelector /></div>}
       <Suspense
@@ -163,6 +170,7 @@ function AppRoutes() {
           <Route path="/employee-activation/:token" element={<InHouseEmployeeActivation />} />
           <Route path="/join/property/:token" element={<JoinProperty />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route
             element={
               <ProtectedRoute>
@@ -217,6 +225,8 @@ function AppRoutes() {
             <Route path="/support-workspace" element={<SupportWorkspace />} />
             <Route path="/support-staff" element={<SupportStaff />} />
             <Route path="/admin-integrations" element={<AdminIntegrations />} />
+            <Route path="/application-analytics" element={<ApplicationAnalytics />} />
+            <Route path="/application-analytics/modules/:moduleId" element={<ApplicationAnalytics />} />
             <Route path="/measurement-access" element={<MeasurementAccess />} />
             <Route
               path="/customer-quotations"
@@ -237,6 +247,7 @@ function AppRoutes() {
             />
             <Route path="/customer-properties/:id/access" element={<PropertyAccess />} />
             <Route path="/work-schedules" element={<WorkSchedules />} />
+            <Route path="/work-schedules/:scheduleId" element={<WorkSchedules />} />
             <Route path="/work-changes" element={<WorkChanges />} />
             <Route path="/work-reschedules" element={<WorkReschedules />} />
             <Route path="/completed-work" element={<CompletedWork />} />
@@ -407,6 +418,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
     </RouteErrorBoundary>
+    </div>
   );
 }
 

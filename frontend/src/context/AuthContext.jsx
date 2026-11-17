@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(`bp-language-user-${data.user.id}`, data.user.preferred_language || "en");
     sessionStorage.removeItem(`bp-connection-reminder-${data.user?.id || "guest"}`);
     setUser(data.user);
+    try { sessionStorage.removeItem('bp-analytics-session'); sessionStorage.setItem('bp-analytics-login',JSON.stringify({user:data.user.id,at:Date.now()})); } catch { /* optional analytics */ }
     return data.user;
   }
 
@@ -35,6 +36,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(`bp-language-user-${data.user.id}`, data.user.preferred_language || "en");
     sessionStorage.removeItem(`bp-connection-reminder-${data.user?.id || "guest"}`);
     setUser(data.user);
+    try { sessionStorage.removeItem('bp-analytics-session'); sessionStorage.setItem('bp-analytics-login',JSON.stringify({user:data.user.id,at:Date.now()})); } catch { /* optional analytics */ }
     return data.user;
   }, []);
 
@@ -44,6 +46,8 @@ export function AuthProvider({ children }) {
   }, [acceptSession]);
 
   async function logout() {
+    // Start the best-effort keepalive request while this account still owns its credentials.
+    window.dispatchEvent(new Event('bp-analytics-before-logout'));
     try {
       const registration = await navigator.serviceWorker?.getRegistration("/");
       const subscription = await registration?.pushManager.getSubscription();

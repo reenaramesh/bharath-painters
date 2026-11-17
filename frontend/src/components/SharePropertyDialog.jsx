@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, UserRoundCheck, X } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 
 const ACCESS_OPTIONS = [
   ["VIEW_ONLY", "View only"],
@@ -153,6 +154,7 @@ export default function SharePropertyDialog({ open, onClose, propertyId, propert
 
   async function cancelPending() {
     if (!lookup || busy) return;
+    if (!await confirmAction({ question: "Are you sure you want to remove this pending property access?", detail: lookup.customer?.name || lookup.normalized_mobile || mobile })) return;
     setBusy(true); setError("");
     try {
       if (lookup.contact?.status === "PENDING") {

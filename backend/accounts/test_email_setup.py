@@ -15,7 +15,7 @@ from .models import BharathUser, EmailDeliveryLog, EmailOTPSetup, PasswordResetO
 from .views import _issue_email_otp, _verify_otp, _registration_email_response
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", DEBUG=True,
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", EMAIL_PROVIDER="AUTO", DEBUG=True,
                    EMAIL_SETUP_ENCRYPTION_KEY=Fernet.generate_key().decode())
 class EmailSetupTests(TestCase):
     def setUp(self):
@@ -113,12 +113,14 @@ class EmailSetupTests(TestCase):
         self.assertIsNotNone(_verify_otp(challenge, code))
         self.assertIn("Too many", _issue_email_otp(self.superuser, challenge.purpose, "test@example.com")[1])
 
-    def test_active_setup_hides_response_codes_and_uses_urls(self):
+    @override_settings(FRONTEND_URL="https://server.example.com")
+    def test_active_setup_hides_response_codes_and_uses_server_auth_origin(self):
         self.activate()
         response = _registration_email_response(self.superuser)
         self.assertNotIn("test_otp", response)
         self.assertNotIn("encrypted_api_key", response)
-        self.assertIn("https://app.example.com/account-security", mail.outbox[0].body)
+        self.assertIn("https://server.example.com/verify-email", mail.outbox[0].body)
+        self.assertNotIn("https://app.example.com/verify-email", mail.outbox[0].body)
         from .utils import bharath_profile_url
         self.superuser.bharath_id = "BP-C-TEST"
         self.assertEqual(bharath_profile_url(self.superuser), "https://api.example.com/api/accounts/verify-page/BP-C-TEST/")

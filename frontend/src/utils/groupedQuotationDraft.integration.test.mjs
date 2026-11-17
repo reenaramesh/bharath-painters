@@ -7,6 +7,7 @@ import {transformWithOxc} from 'vite';
 import {measurement,masters,exampleAssignments} from '../preview/quotationGrouping/fixtures.js';
 import {assignmentQuotationItems} from './groupedQuotation.js';
 import {recoveryKey,readRecovery,writeRecovery} from './quotationRecovery.js';
+import {installConfirmationHost,settleConfirmation} from './confirmAction.js';
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const browserStorage = () => {
  const values=new Map();
@@ -42,19 +43,21 @@ const {default:Builder}=await import(`data:text/javascript;base64,${Buffer.from(
 const button=(view,name)=>view.root.findAllByType('button').find(node=>node.children.includes(name));
 test('review deletion confirms and releases a measured assignment without API writes',async()=>{
  const view=await open();
+ let answer=false;
+ const releaseConfirmation=installConfirmationHost(request=>{if(request)settleConfirmation(request.id,answer);},()=>"builder-test");
  try {
   await act(async()=>button(view,'Continue').props.onClick());
   await act(async()=>button(view,'Continue').props.onClick());
   let rows=view.root.findByType('pricing-rows');
   const originalCount=rows.props.items.length;
-  window.confirm=()=>false;
+  answer=false;
   await act(async()=>rows.props.onDelete(rows.props.items[0]));
   assert.equal(view.root.findByType('pricing-rows').props.items.length,originalCount);
-  window.confirm=()=>true;
+  answer=true;
   await act(async()=>rows.props.onDelete(rows.props.items[0]));
   assert.equal(view.root.findByType('pricing-rows').props.items.length,originalCount-1);
   assert.equal(globalThis.__builderCalls.length,0);
- } finally { await act(async()=>view.unmount()); }
+ } finally { releaseConfirmation(); await act(async()=>view.unmount()); }
 });
 async function open(){resetBrowser();globalThis.__builderFixture=fixture();globalThis.__builderMasters=masters;globalThis.__builderMeasurement=measurement;globalThis.__builderCalls=[];delete globalThis.__builderFailure;delete globalThis.__builderSendFailure;let view;await act(async()=>{view=create(React.createElement(Builder,{initialQuotation:globalThis.__builderFixture}));});return view;}
 test('shared builder restores grouped Draft and navigates all three stages without writes',async()=>{

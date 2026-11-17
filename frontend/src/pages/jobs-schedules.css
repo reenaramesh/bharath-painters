@@ -320,3 +320,63 @@
   .bp-work-schedules-page .schedule-list-toolbar { align-items:stretch; }
   .bp-work-schedules-page .schedule-list-toolbar > :is(label,select) { width:100%; }
 }
+.schedule-detail-cards {
+  --schedule-gap:16px; --schedule-radius:12px; --schedule-ink:#172033;
+  --schedule-muted:#526078; --schedule-line:#d8dfea; --schedule-accent:#1e40af;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--schedule-gap);
+  padding:var(--schedule-gap);border-top:1px solid var(--schedule-line);background:#f8fafc;
+}
+.schedule-detail-card {min-width:0;padding:var(--schedule-gap);background:white;border:1px solid var(--schedule-line);border-radius:var(--schedule-radius);color:var(--schedule-ink);font-size:14px}
+.schedule-detail-card h3 {margin:0 0 var(--schedule-gap);font-size:14px}
+.schedule-detail-content {display:grid;gap:12px;overflow-wrap:anywhere}
+.schedule-detail-content p {margin:0}
+.schedule-detail-label {display:block;font-size:12px;color:var(--schedule-muted);margin-bottom:4px}
+.schedule-payment-head {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.schedule-payment-amount {display:block;font-size:24px;font-weight:800;line-height:1.4}
+.schedule-payment-status {padding:4px 8px;background:#f1f5f9;color:var(--schedule-muted);border-radius:var(--schedule-radius);font-size:12px;font-weight:700}
+.schedule-payment-status.is-paid {background:#ecfdf5;color:#065f46}
+.schedule-payment-meta {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
+.schedule-payment-meta dt {color:var(--schedule-muted);font-size:12px}
+.schedule-payment-meta dd {margin:4px 0 0;font-weight:600;overflow-wrap:anywhere}
+.schedule-receipt-row {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--schedule-line);padding-top:12px}
+.schedule-receipt-row strong {font-size:12px}
+.schedule-receipt-button {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 12px;border:1px solid var(--schedule-line);border-radius:var(--schedule-radius);color:var(--schedule-accent);font-size:12px;font-weight:700;background:white}
+.schedule-receipt-button:hover {background:#eef2ff}
+.schedule-receipt-button:active {transform:translateY(1px)}
+.schedule-detail-cards button:focus-visible {outline:3px solid var(--schedule-accent);outline-offset:3px}
+@media(max-width:900px) {.schedule-detail-cards {grid-template-columns:minmax(0,1fr)}}
+.schedule-quotation-link {display:inline-flex;align-items:center;gap:8px;min-height:44px;color:#1e40af;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:4px}
+.schedule-quotation-link:hover {color:#00288e}
+.schedule-quotation-link:active {transform:translateY(1px)}
+.schedule-quotation-link:focus-visible {outline:3px solid #1e40af;outline-offset:3px}
+.schedule-quotation-link[aria-disabled=true] {opacity:.65;cursor:wait}
+.schedule-invoice-link {display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;border:1px solid #c7d2fe;border-radius:12px;color:#1e40af;font-size:14px;font-weight:700;background:#eef2ff}
+.qsc-rework-history {margin-top:16px;border:1px solid #e6cb8a;border-radius:12px;padding:12px;background:#fffbeb;min-width:0}
+.qsc-rework-history summary {min-height:44px;display:flex;align-items:center;color:#92400e;font-size:14px;font-weight:700;cursor:pointer}
+.qsc-rework-history div {padding:12px 0;border-top:1px solid #e6cb8a;overflow-wrap:anywhere}
+.qsc-rework-history p {white-space:pre-wrap;font-size:14px;margin:0 0 8px}
+.qsc-rework-history small {color:#526078;font-size:12px}
+.schedule-detail-page .schedule-record {border:1px solid #e2e8f0;border-radius:16px;padding:16px;min-width:0}
+.schedule-detail-page .schedule-record > .quotation-items {margin-top:24px;margin-bottom:24px;min-width:0;overflow:hidden}
+.schedule-detail-page .schedule-summary-row {grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr))}
+.schedule-detail-page .schedule-work-items {margin-top:24px}
+@media(max-width:768px) {
+  .schedule-detail-page .schedule-record {padding:12px}
+  .schedule-detail-page .schedule-summary-row {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .schedule-detail-page .schedule-summary-row > :first-child {grid-column:1/-1}
+  .schedule-detail-page .quotation-items label {width:100%;min-width:0}
+  .schedule-detail-page .quotation-document-card-metrics > span {padding:10px 6px}
+  .schedule-detail-page .quotation-document-card-metrics b {font-size:13px}
+}
+@media(max-width:640px) {
+  .bp-work-schedules-page .schedule-record {--record-accent:#1e40af;--record-soft:#eef2ff;border:1px solid #d8dfea;border-left:4px solid var(--record-accent);border-radius:12px;margin:12px 0;overflow:hidden}
+  .bp-work-schedules-page .schedule-record-pending {--record-accent:#92400e;--record-soft:#fffbeb}
+  .bp-work-schedules-page .schedule-record-in_progress {--record-accent:#1e40af;--record-soft:#eff6ff}
+  .bp-work-schedules-page .schedule-record-completed {--record-accent:#065f46;--record-soft:#ecfdf5}
+  .bp-work-schedules-page .schedule-record-cancelled {--record-accent:#991b1b;--record-soft:#fff1f2}
+  .bp-work-schedules-page .schedule-summary-row {padding:16px;gap:12px}
+  .bp-work-schedules-page .schedule-summary-row>:first-child {padding-bottom:12px;border-bottom:1px solid #d8dfea}
+  .bp-work-schedules-page .schedule-summary-row>:nth-child(2),.bp-work-schedules-page .schedule-summary-row>:nth-child(3) {padding:12px;background:var(--record-soft);border-radius:12px;align-self:stretch}
+  .bp-work-schedules-page .schedule-painters {padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px}
+  .bp-work-schedules-page .schedule-details-toggle {grid-column:1/-1;width:100%;justify-self:stretch;background:white;color:var(--record-accent);border-color:var(--record-accent)}
+}

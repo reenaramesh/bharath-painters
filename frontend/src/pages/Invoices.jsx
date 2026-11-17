@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Pencil, Plus, ReceiptText, Search, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { invoiceSavePayload } from "../utils/invoiceSavePayload.js";
 import { createPaymentSender } from "../utils/paymentRequest.js";
 import { formatINRAmount } from "../types/financialDisplay.ts";
@@ -230,7 +231,7 @@ export default function Invoices() {
     }
   }
   async function deletePayment(paymentId) {
-    if (!window.confirm("Delete this payment entry?")) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this payment entry?", detail: editing.invoice_number })) return;
     try {
       const { data } = await api.delete(`/quotations/invoices/${editing.id}/payments/${paymentId}/`);
       setEditing(data);

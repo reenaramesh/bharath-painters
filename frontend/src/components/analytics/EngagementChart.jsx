@@ -1,0 +1,4 @@
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+export default function EngagementChart({trend}) {
+  return <section className="aa-panel"><h2>Active engagement over time</h2><p className="aa-muted">Foreground minutes by day. Exact durations appear in the overview trend data table.</p>{trend.length ? <div className="aa-chart" role="group" aria-label="Engaged minutes over time"><ResponsiveContainer width="100%" height="100%"><LineChart data={trend.map(row=>({...row,minutes:Number((row.engaged_ms/60000).toFixed(2))}))} accessibilityLayer><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis width={40}/><Tooltip/><Line dataKey="minutes" name="Active minutes" stroke="#3155a4" strokeWidth={2} isAnimationActive={false}/></LineChart></ResponsiveContainer></div>:<p className="aa-muted">Engagement will appear after foreground activity is recorded.</p>}</section>;
+}

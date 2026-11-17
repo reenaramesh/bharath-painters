@@ -1,0 +1,271 @@
+/* Approved Contractor pilot, promoted to shared premium navigation and tokens. */
+.bp-ui.minimia-shell.bp-premium-app {
+  --pilot-canvas: #f7f9fc;
+  --pilot-surface: #ffffff;
+  --pilot-ink: #17243c;
+  --pilot-muted: #52627b;
+  --pilot-line: #e3eaf4;
+  --pilot-blue: #2563eb;
+  --pilot-blue-deep: #1746ae;
+  --pilot-violet: #7c3aed;
+  --pilot-emerald: #10b981;
+  --pilot-emerald-ink: #067451;
+  --pilot-orange: #f59e0b;
+  --pilot-orange-ink: #925300;
+  --pilot-type-xs: .75rem;
+  --pilot-type-sm: .875rem;
+  --pilot-type-base: 1rem;
+  --pilot-type-lg: 1.25rem;
+  --pilot-type-xl: 1.5rem;
+  --pilot-type-display: 2rem;
+  --pilot-space-1: .25rem;
+  --pilot-space-2: .5rem;
+  --pilot-space-3: .75rem;
+  --pilot-space-4: 1rem;
+  --pilot-space-5: 1.25rem;
+  --pilot-space-6: 1.5rem;
+  --pilot-space-8: 2rem;
+  --pilot-radius: 20px;
+  --pilot-control-radius: 12px;
+  --pilot-shadow-near: 0 2px 4px rgb(23 36 60 / .025);
+  --pilot-shadow-far: 0 12px 32px rgb(37 63 110 / .065);
+  --pilot-fast: 140ms;
+  --pilot-duration: 240ms;
+  --pilot-slow: 480ms;
+  --pilot-ease: cubic-bezier(.2, 0, 0, 1);
+  --pilot-ease-out: cubic-bezier(.16, 1, .3, 1);
+  background: var(--pilot-canvas);
+}
+
+/* Shared navigation uses the existing drawer, focus handling and permission map. */
+.bp-ui.minimia-shell.bp-premium-app .bp-navigation-surface {
+  --ws-card: #111e3a;
+  --ws-text: #f2f6ff;
+  --ws-muted: #b5c5e0;
+  --ws-line: #293956;
+  --ws-brand: #a9c9ff;
+  --ws-focus: #fbbf24;
+  --ws-active: #22385e;
+  background: linear-gradient(175deg, #15274a, #101c35 75%);
+  border-right-color: #253856;
+}
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-brand { padding-block: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-logo {
+  border: 1px solid #ffffff35;
+  background: linear-gradient(140deg, #4c8bff, #2563eb);
+  box-shadow: 0 6px 18px #00000022;
+  border-radius: var(--pilot-control-radius);
+}
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-brand strong { letter-spacing: -.025em; }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-mobile-close { display: none; }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-search { background: #ffffff09; border-color: #ffffff20; border-radius: var(--pilot-control-radius); }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-group-trigger { color: #afc0db; letter-spacing: .07em; font-size: 11px; }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-link {
+  min-height: 44px;
+  border-radius: var(--pilot-control-radius);
+  transition: background var(--pilot-fast) var(--pilot-ease), color var(--pilot-fast) var(--pilot-ease);
+}
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-link:hover { background: #ffffff10; color: #fff; }
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-link.is-active {
+  color: #fff;
+  background: linear-gradient(100deg, #2563eb, #3876f4);
+  box-shadow: 0 4px 14px #00000018, inset 0 1px #ffffff24;
+}
+.bp-ui.minimia-shell.bp-premium-app .ws-nav-link:active { background: #1d4ed8; }
+.bp-ui.minimia-shell.bp-premium-app .bp-topbar {
+  border-bottom: 1px solid var(--pilot-line);
+  background: rgb(255 255 255 / .94);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--pilot-shadow-near);
+}
+.bp-ui.minimia-shell.bp-premium-app .bp-topbar-search { border-color: var(--pilot-line); background: var(--pilot-canvas); border-radius: var(--pilot-control-radius); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shell-icon-button { border-radius: var(--pilot-control-radius); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shell-icon-button:hover { color: var(--pilot-blue); background: #edf3ff; border-color: #cadbff; }
+.bp-ui.minimia-shell.bp-premium-app .bp-topbar :is(button,input,select):focus-visible { outline: 3px solid var(--pilot-blue); outline-offset: 2px; }
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav {
+  border: 1px solid rgb(215 225 242 / .95);
+  border-radius: var(--pilot-radius);
+  background: rgb(255 255 255 / .96);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 -4px 32px #253f6e15;
+  gap: 0;
+  padding: var(--pilot-space-1);
+}
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav :is(a,button) { color: var(--pilot-muted); min-height: 60px; transition: background var(--pilot-fast) var(--pilot-ease); }
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav .bp-mobile-nav-item { padding-inline: 1px; }
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav .bp-mobile-nav-item > span:last-child { font-size: 11px; }
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav :is(a,button)[aria-current="page"] { color: #174fb8; background: #edf3ff; }
+.bp-ui.minimia-shell.bp-premium-app .bp-mobile-bottom-nav :is(a,button):focus-visible { outline: 2px solid var(--pilot-blue); outline-offset: -3px; }
+
+/* Dashboard-only body. Other Contractor workflow surfaces retain their design. */
+.bp-ui.minimia-shell.bp-premium-app.bp-contractor-mosaic .bp-page-container { max-width: 1600px; padding-inline: var(--pilot-space-6); padding-top: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-dashboard {
+  --dashboard-ink: var(--pilot-ink);
+  --dashboard-muted: var(--pilot-muted);
+  --dashboard-line: var(--pilot-line);
+  --dashboard-primary: var(--pilot-blue);
+  --dashboard-radius: var(--pilot-radius);
+  --dashboard-shadow: var(--pilot-shadow-near), var(--pilot-shadow-far);
+  gap: var(--pilot-space-6);
+  animation: pilot-enter var(--pilot-slow) var(--pilot-ease-out) both;
+}
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero {
+  min-height: 220px;
+  padding: var(--pilot-space-8);
+  border: 1px solid #ffffff20;
+  border-radius: var(--pilot-radius);
+  grid-template-columns: minmax(0, 1fr) 220px;
+  background: radial-gradient(ellipse at 92% 15%, #6f5de2 0, transparent 46%), linear-gradient(110deg, #133b8a, #2563eb);
+  box-shadow: 0 12px 32px #1f55b822;
+}
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero::after { width: 320px; height: 320px; border-color: #ffffff18; box-shadow: 0 0 0 32px #ffffff05, 0 0 0 64px #ffffff04; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__eyebrow { display: flex; align-items: center; gap: var(--pilot-space-2); color: #dce9ff; font-size: 11px; letter-spacing: .13em; margin-bottom: var(--pilot-space-3); }
+.pilot-workspace-dot { width: 7px; height: 7px; border-radius: 50%; background: #6ee7b7; box-shadow: 0 0 0 4px #6ee7b71a; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero h1 { color: #fff; font-size: clamp(26px, 2.5vw, 36px); line-height: 1.2; letter-spacing: -.04em; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-description { color: #e0eaff; max-width: 54ch; margin-top: var(--pilot-space-3); font-size: var(--pilot-type-sm); line-height: 1.7; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-actions { margin-top: var(--pilot-space-5); gap: var(--pilot-space-3); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-cta { background: #fff; color: #1746ae; border-radius: var(--pilot-control-radius); padding-inline: var(--pilot-space-4); font-size: var(--pilot-type-xs); box-shadow: var(--pilot-shadow-near); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-refresh { background: #ffffff0e; border: 1px solid #ffffff55; color: #fff; border-radius: var(--pilot-control-radius); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-refresh:hover { background: #ffffff20; border-color: #ffffff99; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-refresh:disabled { opacity: .7; cursor: wait; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-refresh[aria-busy="true"] svg { animation: pilot-spin 1s linear infinite; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero :is(a,button):focus-visible { outline-color: #fcd34d; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__illustration { width: 220px; max-width: 100%; max-height: 190px; filter: drop-shadow(0 14px 18px #081e6540); transform: rotate(-6deg); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-refresh-status { display: flex; align-items: center; gap: var(--pilot-space-2); color: var(--pilot-muted); font-size: var(--pilot-type-xs); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-refresh-status:empty { display: none; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-refresh-status.is-success { padding: var(--pilot-space-3) var(--pilot-space-4); border: 1px solid #b9e9d8; border-radius: var(--pilot-control-radius); background: #ecfdf5; color: var(--pilot-emerald-ink); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__metrics { gap: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric {
+  --metric-accent: var(--pilot-blue);
+  min-height: 158px;
+  padding: var(--pilot-space-5);
+  gap: var(--pilot-space-3);
+  border: 1px solid var(--pilot-line);
+  border-top: 3px solid var(--metric-accent);
+  border-radius: var(--pilot-radius);
+  box-shadow: var(--pilot-shadow-near), var(--pilot-shadow-far);
+  background: linear-gradient(160deg, #fff 60%, color-mix(in srgb, var(--metric-accent) 4%, white));
+}
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric--amber { --metric-accent: var(--pilot-orange); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric--purple { --metric-accent: var(--pilot-violet); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric--green { --metric-accent: var(--pilot-emerald); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__label { color: var(--pilot-muted); font-size: var(--pilot-type-xs); font-weight: 600; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__value { color: var(--pilot-ink); font-size: clamp(25px, 2.5vw, 32px); letter-spacing: -.04em; line-height: 1.2; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__hint { color: var(--pilot-muted); font-size: var(--pilot-type-xs); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__arrow { color: var(--metric-accent); opacity: .7; transform: none; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric:hover { border-color: var(--metric-accent); transform: translateY(-3px); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-icon { border-radius: var(--pilot-control-radius); transform: none; box-shadow: inset 0 1px #fff9, var(--pilot-shadow-near); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-icon--blue { color: #1d4ed8; background: linear-gradient(145deg, #f5f8ff, #d5e4ff); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__priority { gap: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-priority-item { border-radius: var(--pilot-control-radius); padding: var(--pilot-space-4); box-shadow: none; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-priority-item h2 { font-size: var(--pilot-type-sm); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcuts { padding: var(--pilot-space-5); border-color: var(--pilot-line); border-radius: var(--pilot-radius); box-shadow: var(--pilot-shadow-near); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shortcut-heading { font-size: var(--pilot-type-sm); font-weight: 800; margin-bottom: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut-items { gap: var(--pilot-space-3); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut { --shortcut-accent: var(--pilot-blue); flex: 0 0 88px; width: 88px; gap: var(--pilot-space-2); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut:nth-child(4n+2) { --shortcut-accent: var(--pilot-emerald-ink); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut:nth-child(4n+3) { --shortcut-accent: var(--pilot-violet); }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut:nth-child(4n+4) { --shortcut-accent: var(--pilot-orange-ink); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shortcut-icon { width: 48px; height: 48px; flex-basis: 48px; border-radius: var(--pilot-control-radius); transition: transform var(--pilot-duration) var(--pilot-ease-out); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shortcut-icon:not(.bp-shortcut-icon-primary) { color: var(--shortcut-accent); border-color: color-mix(in srgb, var(--shortcut-accent) 16%, white); background: color-mix(in srgb, var(--shortcut-accent) 7%, white); }
+.bp-ui.minimia-shell.bp-premium-app .bp-shortcut-label { font-size: 11px; line-height: 1.4; }
+.bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcut:hover .bp-shortcut-icon { transform: translateY(-3px); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__column { display: flex; flex-direction: column; gap: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel { min-width: 0; border: 1px solid var(--pilot-line); border-radius: var(--pilot-radius); background: var(--pilot-surface); box-shadow: var(--pilot-shadow-near), var(--pilot-shadow-far); overflow: hidden; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel > header { padding: var(--pilot-space-5); border-color: var(--pilot-line); background: #fff; gap: var(--pilot-space-3); align-items: center; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel h2 { color: var(--pilot-ink); font-size: var(--pilot-type-sm); font-weight: 800; letter-spacing: -.02em; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel-body { padding: 0 var(--pilot-space-5) var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-panel-link { min-height: 44px; color: #2058c0; font-size: 11px; gap: var(--pilot-space-1); white-space: normal; text-align: right; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-total { padding: var(--pilot-space-4) 0; gap: var(--pilot-space-2); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-total > strong { color: var(--pilot-ink); font-size: var(--pilot-type-display); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-chart-caption { margin: var(--pilot-space-2) 0; font-size: 11px; color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-chart { min-height: 160px; gap: var(--pilot-space-2); border-top: 1px dashed var(--pilot-line); padding-top: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-month { height: 140px; gap: var(--pilot-space-2); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-bar-track { position: relative; height: 110px; border-radius: 6px; overflow: visible; background: #f5f3ff; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-bar-track:focus-visible { outline: 2px solid var(--pilot-violet); outline-offset: 3px; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-bar-track:is(:hover,:focus-visible)::after { position: absolute; z-index: 2; bottom: 100%; left: 50%; transform: translateX(-50%); padding: var(--pilot-space-2); background: var(--pilot-ink); color: #fff; border-radius: 6px; font-size: 11px; white-space: nowrap; content: attr(data-value); pointer-events: none; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-bar { min-height: 0; width: 70%; max-width: 28px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #a381f7, #7c3aed); box-shadow: none; transform-origin: bottom; animation: pilot-chart-reveal var(--pilot-slow) var(--pilot-ease-out) both; }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline { padding-top: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-track { height: 16px; border-radius: 8px; margin-bottom: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-segment { min-width: 0; background: var(--pilot-blue); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-segment:nth-child(4n+2) { background: var(--pilot-violet); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-segment:nth-child(4n+3) { background: var(--pilot-orange); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-segment:nth-child(4n+4) { background: var(--pilot-emerald); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-list li { padding-block: var(--pilot-space-3); color: var(--pilot-muted); border-bottom: 1px solid var(--pilot-line); }
+.bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__pipeline-caption { margin-top: var(--pilot-space-4); color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app :is(.premium-dashboard-record,.premium-dashboard-quote) { min-height: 76px; padding-block: var(--pilot-space-4); gap: var(--pilot-space-3); border-color: var(--pilot-line); }
+.bp-ui.minimia-shell.bp-premium-app :is(.premium-dashboard-record__content,.premium-dashboard-quote__main) strong { color: var(--pilot-ink); line-height: 1.5; }
+.bp-ui.minimia-shell.bp-premium-app :is(.premium-dashboard-record__content,.premium-dashboard-quote__main) > span { color: var(--pilot-muted); line-height: 1.5; }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-empty { margin-block: var(--pilot-space-4); padding: var(--pilot-space-6) var(--pilot-space-4); border: 1px dashed var(--pilot-line); border-radius: var(--pilot-control-radius); background: var(--pilot-canvas); }
+.bp-ui.minimia-shell.bp-premium-app .premium-dashboard-empty p { color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app .premium-service-directory { border: 1px solid var(--pilot-line); border-radius: var(--pilot-radius); padding: var(--pilot-space-5); background: #fff; box-shadow: var(--pilot-shadow-near); }
+.bp-ui.minimia-shell.bp-premium-app .premium-service-directory__image { transition: transform var(--pilot-duration) var(--pilot-ease-out); }
+.bp-ui.minimia-shell.bp-premium-app .premium-service-directory li:hover .premium-service-directory__image { transform: translateY(-4px) rotate(-3deg); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-workspace-feeds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-workspace-feeds:empty { display: none; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-workspace-feed .contractor-dashboard__panel-body > :is(p,[role="alert"]) { padding-block: var(--pilot-space-4); color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-list { display: grid; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-row { display: flex; align-items: flex-start; gap: var(--pilot-space-3); padding-block: var(--pilot-space-4); border-bottom: 1px solid var(--pilot-line); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-row:last-child { border: 0; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-copy { display: flex; flex-direction: column; gap: var(--pilot-space-1); min-width: 0; flex: 1; font-size: var(--pilot-type-xs); line-height: 1.6; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-copy > span { color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-row :is(p,strong) { overflow-wrap: anywhere; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-feed-row small { color: var(--pilot-muted); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-dashboard-error { padding: var(--pilot-space-6); border: 1px solid #fecaca; border-radius: var(--pilot-radius); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-dashboard-skeleton { display: grid; gap: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-dashboard-skeleton :is(.pilot-skeleton-hero,.pilot-skeleton-metrics > div,.pilot-skeleton-panels > div) { border: 1px solid var(--pilot-line); border-radius: var(--pilot-radius); background: #fff; padding: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-dashboard-skeleton i { display: block; height: 16px; margin-block: var(--pilot-space-4); border-radius: 8px; background: linear-gradient(90deg, #e8eef8 25%, #f6f9fd 50%, #e8eef8 75%); background-size: 200% 100%; animation: pilot-skeleton 1.5s ease-in-out infinite; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-hero { min-height: 220px; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-hero i:nth-child(2) { width: 60%; height: 32px; }
+.bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--pilot-space-4); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pilot-space-6); }
+.bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-panels > div { min-height: 300px; }
+@keyframes pilot-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pilot-chart-reveal { from { transform: scaleY(.05); } to { transform: scaleY(1); } }
+@keyframes pilot-skeleton { to { background-position: -200% 0; } }
+@keyframes pilot-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1199px) {
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1023px) {
+  .bp-ui.minimia-shell.bp-premium-app .ws-nav-mobile-close { display: grid; }
+}
+@media (max-width: 767px) {
+  .bp-ui.minimia-shell.bp-premium-app.bp-contractor-mosaic .bp-page-container { padding: var(--pilot-space-4) var(--pilot-space-4) 120px; }
+  .bp-ui.minimia-shell.bp-premium-app .pilot-dashboard { gap: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero { min-height: 224px; grid-template-columns: minmax(0, 1fr); padding: var(--pilot-space-5); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-copy { padding-right: 0; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero h1 { max-width: 85%; font-size: 26px; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-description { max-width: 78%; font-size: var(--pilot-type-xs); line-height: 1.65; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__eyebrow { font-size: 9px; letter-spacing: .08em; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__illustration { position: absolute; width: 110px; height: 110px; right: -16px; top: 56px; opacity: .9; pointer-events: none; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-actions { gap: var(--pilot-space-2); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__hero-cta { padding-inline: var(--pilot-space-3); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__metrics { gap: var(--pilot-space-3); }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric { min-height: 144px; padding: var(--pilot-space-4); gap: var(--pilot-space-2); }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__top { gap: var(--pilot-space-1); }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__top .premium-dashboard-icon { width: 32px; height: 32px; flex-basis: 32px; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__top .premium-dashboard-icon svg { width: 17px; height: 17px; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__value { font-size: 25px; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__hint { font-size: 11px; line-height: 1.6; padding-right: 0; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric__arrow { display: none; }
+  .bp-ui.minimia-shell.bp-premium-app .bp-dashboard-shortcuts { padding: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app :is(.contractor-dashboard__grid,.pilot-workspace-feeds) { grid-template-columns: minmax(0, 1fr); gap: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__column { gap: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel > header { padding: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-dashboard__panel-body { padding-inline: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-revenue-chart { gap: var(--pilot-space-1); }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-priority-item { flex-wrap: wrap; }
+  .bp-ui.minimia-shell.bp-premium-app .contractor-priority-item .contractor-panel-link { margin-left: auto; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-record { flex-wrap: wrap; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-record__meta { max-width: 100%; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-service-directory { padding: var(--pilot-space-4); }
+  .bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bp-ui.minimia-shell.bp-premium-app .pilot-skeleton-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-ui.minimia-shell.bp-premium-app :is(*, *::before, *::after) { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .bp-ui.minimia-shell.bp-premium-app .premium-dashboard-metric:hover { transform: none; }
+}

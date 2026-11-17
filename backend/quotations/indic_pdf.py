@@ -1,3 +1,5 @@
+from .document_identity import quotation_party_details
+from .customer_contacts import contractor_customer_details
 """Indic PDF variants using PyMuPDF Story's HarfBuzz text shaping.
 
 Every language choice is an argument. No process-global locale/font mutation.
@@ -97,7 +99,7 @@ def quotation_pdf(quotation, language, included_sections=None):
             rows.append((" · ".join(value for value in details if value), item.quantity, item.rate, item.amount))
     metadata = []
     if allowed("customer_details"):
-        metadata.append(("customer", (quotation.customer_snapshot or {}).get("name") or quotation.customer.name))
+        metadata.append(("customer", quotation_party_details(quotation)[0]["name"]))
     if allowed("property_details"):
         metadata.append(("property", (quotation.property_snapshot or {}).get("name") or quotation.property.name))
     if allowed("quotation_metadata"):
@@ -133,7 +135,7 @@ def measurement_pdf(property_obj, record, language):
              surface.gross_area, surface.deduction_area, surface.addition_area, surface.net_area) for surface in surfaces]
     html_bytes = render_document(language, "measurement", record.reference_no if record else str(property_obj.pk),
         company_name(record) if record and record.contractor_id else "Bharath Apps",
-        [("customer", property_obj.customer.name), ("property", property_obj.name), ("date", record.measured_on if record else ""),
+        [("customer", contractor_customer_details(property_obj.customer, property_obj.contractor)["name"]), ("property", property_obj.name), ("date", record.measured_on if record else ""),
          ("linear_unit", getattr(property_obj, 'linear_unit_label', 'ft')), ("area_unit", 'sq ft')],
         ["room", "surface", "length", "width", "gross", "deduction", "addition", "net"], rows)
     return BytesIO(html_bytes)
@@ -147,7 +149,7 @@ def receipt_pdf(record, language, kind):
         company = company_name(record)
     else:
         quotation = record.quotation
-        customer, property_name, company = quotation.customer.name, quotation.property.name, company_name(quotation)
+        customer, property_name, company = quotation_party_details(quotation)[0]["name"], quotation.property.name, company_name(quotation)
         if kind == "advance":
             reference = record.advance_receipt_number or quotation.quotation_number
             rows = [(record.payment_confirmed_at, standard_label(language, record.payment_mode), record.payment_reference, record.advance_amount)]

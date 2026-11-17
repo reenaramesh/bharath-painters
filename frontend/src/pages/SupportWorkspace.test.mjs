@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import React from 'react';
+import { act, create } from 'react-test-renderer';
+import { transformWithOxc } from 'vite';
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const dataUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
+const stubs = dataUrl(`import React from ${JSON.stringify(import.meta.resolve('react'))};
+export const Link=({children,...props})=>React.createElement('a',props,children);
+export const PageHeader=()=>null;
+export const Dialog=({children,title,onClose})=>React.createElement('dialog',{open:true,'aria-label':title,onCancel:onClose},children);
+export const confirmAction=()=>Promise.resolve(false);
+export default globalThis.supportTestDependency;`);
+const source = (await readFile(new URL('./SupportWorkspace.jsx', import.meta.url), 'utf8')).replace(/^import ["'][^"']+\.css["'];$/gm, '');
+const compiled = await transformWithOxc(source, 'SupportWorkspace.jsx', { jsx: { runtime: 'automatic' } });
+const auth = dataUrl('export default ()=>({user:{role:"SUPPORT"}});');
+const api = dataUrl('export default {get:(...args)=>globalThis.supportGet(...args),post:()=>{throw Error("Unexpected action submission")}};');
+const code = compiled.code.replace(/from\s+(['"])([^'"]+)\1/g, (_m, _q, path) => `from ${JSON.stringify(path.includes('useAuth') ? auth : path.includes('api/client') ? api : path.startsWith('.') || path === 'react-router-dom' ? stubs : import.meta.resolve(path))}`);
+const Workspace = (await import(dataUrl(code))).default;
+
+test('support operation uses shared dialog and retains ticket, justification, and cancel behavior', async () => {
+  globalThis.supportGet = async path => ({ data: path.includes('support-tickets') ? [{ id: 5, status: 'OPEN', ticket_number: 'T5' }] : { accounts: [{ id: 12, name: 'Customer', role: 'CUSTOMER', active: true, mobile: '123' }], customers: [], quotations: [], invoices: [], properties: [], measurements: [] } });
+  let view;
+  await act(async () => { view = create(React.createElement(Workspace)); });
+  await act(async () => view.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+  const suspend = view.root.findAllByType('button').find(button => button.props.children === 'Suspend account');
+  await act(async () => suspend.props.onClick());
+  const dialog = view.root.findByType('dialog');
+  assert.equal(dialog.props['aria-label'], 'SUSPEND ACCOUNT');
+  assert.equal(dialog.findByType('select').props.required, true);
+  assert.equal(dialog.findByType('textarea').props.minLength, 10);
+  assert.equal(dialog.findByType('textarea').props.required, true);
+  await act(async () => dialog.findByType('form').props.onSubmit({ preventDefault() {} }));
+  assert.equal(view.root.findAllByType('dialog').length, 1);
+  await act(async () => dialog.props.onCancel());
+  assert.equal(view.root.findAllByType('dialog').length, 0);
+  await act(async () => suspend.props.onClick());
+  await act(async () => view.root.findAllByType('button').find(button => button.props.children === 'Cancel').props.onClick());
+  assert.equal(view.root.findAllByType('dialog').length, 0);
+  await act(async () => view.unmount());
+  delete globalThis.supportGet;
+});

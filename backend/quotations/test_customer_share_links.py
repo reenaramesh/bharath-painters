@@ -82,10 +82,10 @@ class CustomerShareLinkTests(APITestCase):
         customer.portal_user.save(update_fields=("password",))
         second_contractor = BharathUser.objects.create_user(mobile="9000011013", password="Pass123!", role="CONTRACTOR")
         self.client.force_authenticate(second_contractor)
-        saved = self.client.post(reverse("customer-list-create"), {"name": "Maya contact", "mobile": customer.mobile}, format="json")
-        self.assertEqual(saved.status_code, 201, saved.data)
-        token = saved.data["share_link"].split("/")[-1]
-        connection = ContractorCustomerConnection.objects.get(customer=customer, contractor=second_contractor)
+        # Legacy invitation endpoints remain usable for explicit requests.
+        from .views import issue_customer_share_link
+        connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=second_contractor)
+        token = issue_customer_share_link(connection, CustomerShareLink.Purpose.CONNECTION)["share_link"].split("/")[-1]
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(reverse("customer-share-link", args=[token])).status_code, 200)
         self.assertEqual(self.client.post(reverse("customer-share-link", args=[token]), {"action": "accept"}).status_code, 403)
@@ -116,9 +116,10 @@ class CustomerShareLinkTests(APITestCase):
         customer.portal_user.save(update_fields=("password",))
         second_contractor = BharathUser.objects.create_user(mobile="9000011014", password="Pass123!", role="CONTRACTOR")
         self.client.force_authenticate(second_contractor)
-        saved = self.client.post(reverse("customer-list-create"), {"name": "Maya contact", "mobile": customer.mobile}, format="json")
-        token = saved.data["share_link"].split("/")[-1]
-        connection = ContractorCustomerConnection.objects.get(customer=customer, contractor=second_contractor)
+        # Legacy invitation endpoints remain usable for explicit requests.
+        from .views import issue_customer_share_link
+        connection = ContractorCustomerConnection.objects.create(customer=customer, contractor=second_contractor)
+        token = issue_customer_share_link(connection, CustomerShareLink.Purpose.CONNECTION)["share_link"].split("/")[-1]
         self.client.force_authenticate(customer.portal_user)
         rejected = self.client.post(reverse("customer-share-link", args=[token]), {"action": "reject"})
         self.assertEqual(rejected.status_code, 200)

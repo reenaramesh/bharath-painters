@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import IndiaLocationPicker from "../components/IndiaLocationPicker";
@@ -182,7 +183,7 @@ export default function PainterSeeking() {
     }
   }
   async function remove(item) {
-    if (!confirm("Delete this job-seeking post?")) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this job-seeking post?", detail: item.title })) return;
     await api.delete(`/jobs/seeking/${item.id}/`);
     await load();
   }

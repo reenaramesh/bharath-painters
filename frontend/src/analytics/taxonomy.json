@@ -1,0 +1,350 @@
+[
+  {
+    "screen": "/dashboard",
+    "module": "dashboard"
+  },
+  {
+    "screen": "/applicator",
+    "module": "dashboard"
+  },
+  {
+    "screen": "/customer-dashboard",
+    "module": "customer-dashboard"
+  },
+  {
+    "screen": "/customer/connections",
+    "module": "connections"
+  },
+  {
+    "screen": "/customer/profile",
+    "module": "customer-profile"
+  },
+  {
+    "screen": "/customer/connection-requests",
+    "module": "connections"
+  },
+  {
+    "screen": "/profile",
+    "module": "profile"
+  },
+  {
+    "screen": "/customer-reviews",
+    "module": "customer-reviews"
+  },
+  {
+    "screen": "/completed-projects",
+    "module": "projects"
+  },
+  {
+    "screen": "/account-security",
+    "module": "security"
+  },
+  {
+    "screen": "/appearance",
+    "module": "appearance"
+  },
+  {
+    "screen": "/contractors",
+    "module": "contractors"
+  },
+  {
+    "screen": "/painters",
+    "module": "professionals"
+  },
+  {
+    "screen": "/painter-contacts",
+    "module": "painter-contacts"
+  },
+  {
+    "screen": "/painters/contacts/:id",
+    "module": "painter-contacts"
+  },
+  {
+    "screen": "/painters/contacts",
+    "module": "painter-contacts"
+  },
+  {
+    "screen": "/customers",
+    "module": "customers"
+  },
+  {
+    "screen": "/call-inbox",
+    "module": "call-inbox"
+  },
+  {
+    "screen": "/customers/:id",
+    "module": "customers"
+  },
+  {
+    "screen": "/customers/:id/project-account",
+    "module": "customers"
+  },
+  {
+    "screen": "/customers/:id/quotations",
+    "module": "customers"
+  },
+  {
+    "screen": "/invoices",
+    "module": "invoices"
+  },
+  {
+    "screen": "/tasks",
+    "module": "tasks"
+  },
+  {
+    "screen": "/messages",
+    "module": "messages"
+  },
+  {
+    "screen": "/colors-shades",
+    "module": "colors"
+  },
+  {
+    "screen": "/service-requests",
+    "module": "requests"
+  },
+  {
+    "screen": "/support-tickets",
+    "module": "support"
+  },
+  {
+    "screen": "/support-workspace",
+    "module": "recovery"
+  },
+  {
+    "screen": "/support-staff",
+    "module": "support-staff"
+  },
+  {
+    "screen": "/admin-integrations",
+    "module": "integrations"
+  },
+  {
+    "screen": "/measurement-access",
+    "module": "measurement-access"
+  },
+  {
+    "screen": "/customer-quotations",
+    "module": "customer-quotations"
+  },
+  {
+    "screen": "/customer-quotations/:id",
+    "module": "customer-quotations"
+  },
+  {
+    "screen": "/customer-invoices",
+    "module": "customer-invoices"
+  },
+  {
+    "screen": "/customer-properties",
+    "module": "customer-properties"
+  },
+  {
+    "screen": "/customer-properties/:id",
+    "module": "customer-properties"
+  },
+  {
+    "screen": "/customer-properties/:id/access",
+    "module": "customer-properties"
+  },
+  {
+    "screen": "/work-schedules",
+    "module": "schedules"
+  },
+  {
+    "screen": "/work-schedules/:scheduleId",
+    "module": "schedules"
+  },
+  {
+    "screen": "/work-changes",
+    "module": "work-changes"
+  },
+  {
+    "screen": "/work-reschedules",
+    "module": "schedules"
+  },
+  {
+    "screen": "/completed-work",
+    "module": "completed"
+  },
+  {
+    "screen": "/leads",
+    "module": "leads"
+  },
+  {
+    "screen": "/opportunities",
+    "module": "opportunities"
+  },
+  {
+    "screen": "/opportunities/new",
+    "module": "opportunities"
+  },
+  {
+    "screen": "/opportunities/:id",
+    "module": "opportunities"
+  },
+  {
+    "screen": "/site-visits",
+    "module": "site-visits"
+  },
+  {
+    "screen": "/painter-seeking",
+    "module": "jobs"
+  },
+  {
+    "screen": "/find-painter",
+    "module": "bookings"
+  },
+  {
+    "screen": "/painter-assignments",
+    "module": "assignments"
+  },
+  {
+    "screen": "/jobs",
+    "module": "jobs"
+  },
+  {
+    "screen": "/job-activity",
+    "module": "job-activity"
+  },
+  {
+    "screen": "/applicator-team",
+    "module": "referrals"
+  },
+  {
+    "screen": "/in-house-applicators",
+    "module": "employees"
+  },
+  {
+    "screen": "/in-house-applicators/new",
+    "module": "employees"
+  },
+  {
+    "screen": "/in-house-applicators/:id",
+    "module": "employees"
+  },
+  {
+    "screen": "/in-house-earnings",
+    "module": "earnings"
+  },
+  {
+    "screen": "/work-reviews",
+    "module": "reviews"
+  },
+  {
+    "screen": "/billing",
+    "module": "billing"
+  },
+  {
+    "screen": "/packages",
+    "module": "packages"
+  },
+  {
+    "screen": "/revenue",
+    "module": "revenue"
+  },
+  {
+    "screen": "/customer-connections",
+    "module": "connections-admin"
+  },
+  {
+    "screen": "/contractor-revenue",
+    "module": "receipts"
+  },
+  {
+    "screen": "/my-packages",
+    "module": "subscription"
+  },
+  {
+    "screen": "/activity-log",
+    "module": "activity"
+  },
+  {
+    "screen": "/measurement-trial",
+    "module": "properties"
+  },
+  {
+    "screen": "/applicator-availability",
+    "module": "availability"
+  },
+  {
+    "screen": "/applicator-bookings",
+    "module": "painter-bookings"
+  },
+  {
+    "screen": "/properties",
+    "module": "properties"
+  },
+  {
+    "screen": "/properties/:id",
+    "module": "properties"
+  },
+  {
+    "screen": "/properties/:id/measurements",
+    "module": "properties"
+  },
+  {
+    "screen": "/master-services",
+    "module": "services"
+  },
+  {
+    "screen": "/contractor-network",
+    "module": "network"
+  },
+  {
+    "screen": "/subcontract-work-orders",
+    "module": "subcontracts"
+  },
+  {
+    "screen": "/subcontract-work-orders/:id",
+    "module": "subcontracts"
+  },
+  {
+    "screen": "/settings",
+    "module": "settings"
+  },
+  {
+    "screen": "/provider-profile",
+    "module": "settings"
+  },
+  {
+    "screen": "/applicator-profile",
+    "module": "settings"
+  },
+  {
+    "screen": "/contractor-theme",
+    "module": "settings"
+  },
+  {
+    "screen": "/quotations",
+    "module": "quotations"
+  },
+  {
+    "screen": "/quotations/new",
+    "module": "quotations"
+  },
+  {
+    "screen": "/quotations/new-measured",
+    "module": "quotations"
+  },
+  {
+    "screen": "/quotations/:id",
+    "module": "quotations"
+  },
+  {
+    "screen": "/quotations/new-manual",
+    "module": "quotations"
+  },
+  {
+    "screen": "/quotations/:id/edit",
+    "module": "quotations"
+  },
+  {
+    "screen": "/work-photos",
+    "module": "photos"
+  },
+  {
+    "screen": "/reports",
+    "module": "reports"
+  }
+]

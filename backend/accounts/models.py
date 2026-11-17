@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.db import models
+from django.db import models, router, transaction
+from django.utils import timezone
+import uuid
 from .mobile import normalize_mobile, matching_mobile_users
 
 
@@ -180,6 +182,21 @@ class BharathUser(AbstractUser):
 
     REQUIRED_FIELDS = ["email"]
 
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        # Password changes from admin/profile/setup paths must invalidate codes
+        # just like the dedicated change/reset endpoints. Keep both writes atomic.
+        if self._state.adding or not self.pk or (update_fields is not None and "password" not in update_fields):
+            return super().save(force_insert=force_insert, force_update=force_update,
+                                using=using, update_fields=update_fields)
+        database = using or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=database):
+            previous = type(self).objects.using(database).select_for_update().filter(pk=self.pk).values_list("password", flat=True).first()
+            result = super().save(force_insert=force_insert, force_update=force_update,
+                                  using=database, update_fields=update_fields)
+            if previous is not None and previous != self.password:
+                PasswordResetOTP.objects.using(database).filter(user_id=self.pk, is_used=False).update(is_used=True)
+            return result
+
     def __str__(self):
         return f"{self.get_full_name()} - {self.mobile}"
 
@@ -205,6 +222,22 @@ class PasswordResetOTP(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+class PasswordRecoveryRequest(models.Model):
+    """Private durable work item, created identically for every submitted number."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    mobile = models.CharField(max_length=25)
+    role = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    available_at = models.DateTimeField(default=timezone.now)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=12, default="PENDING")
+    challenge = models.ForeignKey(PasswordResetOTP, null=True, blank=True, on_delete=models.SET_NULL,
+                                  related_name="queued_recovery_requests")
+
+    class Meta:
+        indexes = [models.Index(fields=("processed_at", "created_at"), name="auth_recovery_pending_idx")]
 
 
 class EmailOTPSetup(models.Model):

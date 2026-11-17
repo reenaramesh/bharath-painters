@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calculator, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 
 const newWall = (i) => ({ name: `Wall ${i + 1}`, height: "", length: "" });
 const newCeiling = (i) => ({ name: `Ceiling ${i + 1}`, length: "", width: "" });
@@ -1015,9 +1016,10 @@ export default function RoomMeasurementForm({
               disabled={saving}
               onClick={async () => {
                 if (
-                  !window.confirm(
-                    "Delete this complete room calculation? This will remove its walls, ceiling, custom areas and deductions.",
-                  )
+                  !await confirmAction({
+                    question: "Are you sure you want to delete this room calculation?",
+                    detail: "This removes its walls, ceiling, custom areas and deductions.",
+                  })
                 )
                   return;
                 setSaving(true);

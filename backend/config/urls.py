@@ -2,9 +2,11 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
+from jobs.photo_delivery import deny_public_work_photo, guarded_media
 
 
 urlpatterns = [
+    path('api/application-analytics/', include('application_analytics.urls')),
     path(
         "admin/",
         admin.site.urls
@@ -30,7 +32,10 @@ urlpatterns = [
 ]
 
 
+urlpatterns += [path(f"{settings.MEDIA_URL.lstrip('/')}work_photos/<path:filename>", deny_public_work_photo)]
+
 urlpatterns += static(
         settings.MEDIA_URL,
+        view=guarded_media,
         document_root=settings.MEDIA_ROOT
     )

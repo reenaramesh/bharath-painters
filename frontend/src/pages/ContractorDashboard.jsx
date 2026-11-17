@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -29,9 +30,10 @@ import {
   PremiumServiceDirectory,
 } from "../components/dashboard/PremiumDashboardComponents";
 import paintServiceIllustration from "../assets/services/painting.webp";
+import ContractorWorkspaceFeed from "../components/dashboard/ContractorWorkspaceFeed";
 import "../components/dashboard/premium-dashboard.css";
 
-const money = (value) => `Γé╣${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 function PanelLink({ to, children }) {
   return <Link className="contractor-panel-link" to={to}>{children}<ArrowRight size={15} aria-hidden="true" /></Link>;
@@ -75,8 +77,14 @@ function getRevenueByMonth(revenue) {
   return monthly;
 }
 
-export default function ContractorDashboard({ data = {}, revenue, revenueLoading = false, onRefresh, error, children }) {
+export default function ContractorDashboard({ data = {}, revenue, revenueLoading = false, refreshing = false, onRefresh, error, children }) {
   const mobile = useMobileView();
+  const [refreshFeedback, setRefreshFeedback] = useState("");
+  const refresh = async () => {
+    setRefreshFeedback("");
+    const updated = await onRefresh?.();
+    if (updated === true) setRefreshFeedback("Workspace updated successfully.");
+  };
   const { user, menuVisibility } = useAuth();
   const visible = (to) => menuRouteEnabled(user?.role, menuVisibility, to);
   const counts = data.counts || {};
@@ -93,28 +101,30 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
   const showCreateQuotation = visible("/quotations");
   const metrics = [
     { icon: Users, label: "Customers", value: counts.customers, hint: `${counts.active_leads ?? 0} active leads`, to: "/customers", tone: "blue" },
-    { icon: Building2, label: "Properties", value: counts.properties, hint: "Connected customer sites", to: "/properties", tone: "sky" },
+    { icon: Building2, label: "Properties", value: counts.properties, hint: "Connected customer sites", to: "/properties", tone: "amber" },
     { icon: FileText, label: "Quotations", value: counts.quotations, hint: `${money(counts.quotation_value)} total value`, to: "/quotations", tone: "purple" },
-    { icon: Banknote, label: "Payments", value: revenue ? money(revenue.total_collected) : revenueLoading ? "ΓÇª" : "ΓÇö", hint: revenue ? `${money(revenue.outstanding)} outstanding` : "Open payment register", to: "/contractor-revenue", tone: "green" },
+    { icon: Banknote, label: "Payments", value: revenue ? Number(revenue.total_collected) : revenueLoading ? "…" : "—", format: money, hint: revenue ? `${money(revenue.outstanding)} outstanding` : "Open payment register", to: "/contractor-revenue", tone: "green" },
   ];
   const visibleMetrics = metrics.filter((metric) => visible(metric.to));
   const sortedTasks = mobile ? recentFirst(tasks, ["created_at", "next_follow_up"]) : tasks;
   const pipelineTotal = pipeline.reduce((sum, stage) => sum + Number(stage.count || 0), 0);
 
   return (
-    <div className="contractor-dashboard">
+    <div className="contractor-dashboard pilot-dashboard">
       <header className="contractor-dashboard__hero">
         <div className="contractor-dashboard__hero-copy">
-          <p className="contractor-dashboard__eyebrow">Contractor workspace</p>
+          <p className="contractor-dashboard__eyebrow"><span className="pilot-workspace-dot" aria-hidden="true" />Your business, in colour</p>
           <h1>Namaste, {data.contractor_name || "there"}</h1>
           <p className="contractor-dashboard__hero-description">Your customers, painting projects, quotations and next steps, together in one place.</p>
           <div className="contractor-dashboard__hero-actions">
             {showCreateQuotation && <Link className="contractor-dashboard__hero-cta" to="/quotations/new"><Plus size={16} aria-hidden="true" />New quotation</Link>}
-            <Button className="contractor-dashboard__hero-refresh" variant="secondary" onClick={onRefresh} aria-label="Refresh contractor dashboard"><RefreshCw size={15} aria-hidden="true" /><span>Refresh</span></Button>
+            <Button className="contractor-dashboard__hero-refresh" variant="secondary" onClick={refresh} disabled={refreshing} aria-busy={refreshing} aria-label="Refresh contractor dashboard"><RefreshCw size={15} aria-hidden="true" /><span>{refreshing ? "Updating…" : "Refresh"}</span></Button>
           </div>
         </div>
         <img className="contractor-dashboard__illustration" src={paintServiceIllustration} alt="" aria-hidden="true" width="1024" height="1024" fetchPriority="high" />
       </header>
+
+      <div className={`pilot-refresh-status ${refreshFeedback && !error ? "is-success" : ""}`} role="status" aria-live="polite">{refreshing ? "Updating your workspace…" : !error && refreshFeedback ? <><CheckCircle2 size={16} aria-hidden="true" />{refreshFeedback}</> : null}</div>
 
       {(dueTasks > 0 || data.profile_completion?.percent < 100) && <section className="contractor-dashboard__priority" aria-label="Priority attention">
         {dueTasks > 0 && <div className="contractor-priority-item contractor-priority-urgent">
@@ -132,33 +142,26 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
       {error && <ErrorState message={error} onRetry={onRefresh} />}
 
       <section className="contractor-dashboard__metrics" aria-label="Workspace overview">
-        {visibleMetrics.map((metric) => <PremiumDashboardMetric key={metric.label} {...metric} />)}
+        {visibleMetrics.map((metric) => <PremiumDashboardMetric key={metric.label} {...metric} animate />)}
       </section>
-
-      {visible("/master-services") && <PremiumServiceDirectory />}
 
       <MobileDashboardShortcuts mobileOnly={false} />
 
       <div className="contractor-dashboard__grid">
-        <div className="contractor-dashboard__column">
-          <PremiumDashboardPanel title="Recent quotations" action={<PanelLink to="/quotations">View all</PanelLink>}>
-            {quotations.length ? quotations.map((item) => <Link className="premium-dashboard-quote" key={item.id} to={`/quotations/${item.id}`}>
-              <PremiumDashboardIcon icon={FileText} tone="blue" />
-              <span className="premium-dashboard-quote__main"><strong>{item.property}</strong><span>{item.customer} ┬╖ {item.number}</span></span>
-              <span className="premium-dashboard-quote__side"><StatusBadge status={item.status} /><strong>{money(item.amount)}</strong></span>
-            </Link>) : <PremiumDashboardEmpty title="No quotations yet" description="Create a quotation to start a new painting project." />}
-            {showCreateQuotation && <Link className="premium-dashboard-create" to="/quotations/new"><Plus size={16} aria-hidden="true" />Create quotation</Link>}
+          <PremiumDashboardPanel className="pilot-revenue-panel" title="Revenue & payments" action={<PanelLink to="/contractor-revenue">Payment register</PanelLink>}>
+            {revenueLoading && !revenue ? <p className="premium-dashboard-loading" role="status">Loading payment summary…</p> : revenue ? <>
+              <div className="premium-dashboard-revenue-total"><span>Collected this year</span><strong>{money(revenue.total_collected)}</strong><span>{money(revenue.advance_received)} in advances · {money(revenue.invoice_payments)} against invoices</span></div>
+              <p className="pilot-chart-caption">Monthly receipts · {revenue.year}</p>
+              <div className="premium-dashboard-revenue-chart" role="list" aria-label={`Monthly receipts for ${revenue.year}`}>
+                {revenueByMonth.map((month) => <div className="premium-dashboard-revenue-month" key={month.month}>
+                  <span className="premium-dashboard-revenue-bar-track" role="listitem" tabIndex={0} aria-label={`${month.label}: ${money(month.amount)}`} data-value={money(month.amount)}><span className="premium-dashboard-revenue-bar" style={{ height: `${maxMonthlyRevenue ? Math.max(0, (month.amount / maxMonthlyRevenue) * 100) : 0}%` }} /></span>
+                  <span>{month.label}</span>
+                </div>)}
+              </div>
+              {!maxMonthlyRevenue && <p className="pilot-chart-caption">No receipts recorded for this year yet.</p>}
+            </> : <PremiumDashboardEmpty title="Payment summary unavailable" description="Open the payment register to review receipts and balances." />}
           </PremiumDashboardPanel>
-
-          <PremiumDashboardPanel title="Recent customers" action={<PanelLink to="/customers">Customer directory</PanelLink>}>
-            {customers.length ? <div className="premium-dashboard-customers">{customers.map((item) => <Link className="premium-dashboard-record" key={item.id} to={`/customers/${item.id}`}>
-              <span className="premium-dashboard-customer-avatar" aria-hidden="true">{item.name?.charAt(0).toUpperCase() || "?"}</span>
-              <span className="premium-dashboard-record__content"><strong>{item.name}</strong><span>{[item.mobile, item.city].filter(Boolean).join(" ┬╖ ")}</span></span>
-              <StatusBadge status={item.status} />
-            </Link>)}</div> : <PremiumDashboardEmpty title="No customers yet" description="Your connected customers will appear here." />}
-          </PremiumDashboardPanel>
-
-          <PremiumDashboardPanel title="Customer pipeline" action={<PanelLink to="/customers">Manage customers</PanelLink>}>
+          <PremiumDashboardPanel className="pilot-customer-pipeline" title="Customer pipeline" action={<PanelLink to="/customers">Manage customers</PanelLink>}>
             {pipeline.length ? <div className="contractor-dashboard__pipeline">
               <div className="contractor-dashboard__pipeline-track" role="img" aria-label={`Customer pipeline with ${pipelineTotal} customers across ${pipeline.length} stages`}>
                 {pipeline.map((stage) => <span key={stage.status} className="contractor-dashboard__pipeline-segment" style={{ flexGrow: Math.max(0, Number(stage.count) || 0) }} title={`${stage.label}: ${stage.count}`} />)}
@@ -167,6 +170,25 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
               <span className="contractor-dashboard__pipeline-caption">{pipelineTotal} connected customer{pipelineTotal === 1 ? "" : "s"} by current status</span>
             </div> : <PremiumDashboardEmpty title="Pipeline is empty" description="Customer stages will appear as your CRM grows." />}
           </PremiumDashboardPanel>
+        <div className="contractor-dashboard__column">
+          <PremiumDashboardPanel title="Recent quotations" action={<PanelLink to="/quotations">View all</PanelLink>}>
+            {quotations.length ? quotations.map((item) => <Link className="premium-dashboard-quote" key={item.id} to={`/quotations/${item.id}`}>
+              <PremiumDashboardIcon icon={FileText} tone="blue" />
+              <span className="premium-dashboard-quote__main"><strong>{item.property}</strong><span>{item.customer} · {item.number}</span></span>
+              <span className="premium-dashboard-quote__side"><StatusBadge status={item.status} /><strong>{money(item.amount)}</strong></span>
+            </Link>) : <PremiumDashboardEmpty title="No quotations yet" description="Create a quotation to start a new painting project." />}
+            {showCreateQuotation && <Link className="premium-dashboard-create" to="/quotations/new"><Plus size={16} aria-hidden="true" />Create quotation</Link>}
+          </PremiumDashboardPanel>
+
+          <PremiumDashboardPanel title="Recent customers" action={<PanelLink to="/customers">Customer directory</PanelLink>}>
+            {customers.length ? <div className="premium-dashboard-customers">{customers.map((item) => <Link className="premium-dashboard-record" key={item.id} to={`/customers/${item.id}`}>
+              <span className="premium-dashboard-customer-avatar" aria-hidden="true">{item.name?.charAt(0).toUpperCase() || "?"}</span>
+              <span className="premium-dashboard-record__content"><strong>{item.name}</strong><span>{[item.mobile, item.city].filter(Boolean).join(" · ")}</span></span>
+              <StatusBadge status={item.status} />
+            </Link>)}</div> : <PremiumDashboardEmpty title="No customers yet" description="Your connected customers will appear here." />}
+          </PremiumDashboardPanel>
+
+
 
           <PremiumDashboardPanel title="Quotation pipeline" action={<PanelLink to="/quotations">View quotations</PanelLink>}>
             <p className="premium-dashboard-panel__description">Recent quotation stages use the status values returned by your CRM.</p>
@@ -182,7 +204,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
         </div>
 
         <div className="contractor-dashboard__column">
-          <PremiumDashboardPanel title="TodayΓÇÖs schedule" action={<PanelLink to="/site-visits">View calendar</PanelLink>}>
+          <PremiumDashboardPanel title="Today’s schedule" action={<PanelLink to="/site-visits">View calendar</PanelLink>}>
             {visits.length ? <div className="premium-dashboard-schedule">{visits.slice(0, 5).map((visit) => <Link className="premium-dashboard-record" key={visit.id} to={visit.customer_id ? `/customers/${visit.customer_id}` : "/site-visits"}>
               <PremiumDashboardIcon icon={CalendarDays} tone="amber" />
               <span className="premium-dashboard-record__content"><strong>{visit.customer_name}</strong><span>{visit.property_name || visit.opportunity_title || "Site visit"}</span></span>
@@ -198,17 +220,7 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
             </article>)}</div> : <PremiumDashboardEmpty title="All caught up" description="New customer follow-ups will show up here." />}
           </PremiumDashboardPanel>
 
-          <PremiumDashboardPanel title="Revenue & payments" action={<PanelLink to="/contractor-revenue">Payment register</PanelLink>}>
-            {revenueLoading && !revenue ? <p className="premium-dashboard-loading" role="status">Loading payment summaryΓÇª</p> : revenue ? <>
-              <div className="premium-dashboard-revenue-total"><span>Collected this year</span><strong>{money(revenue.total_collected)}</strong><span>{money(revenue.advance_received)} in advances ┬╖ {money(revenue.invoice_payments)} against invoices</span></div>
-              <div className="premium-dashboard-revenue-chart" role="img" aria-label={`Monthly receipts for ${revenue.year}: ${revenueByMonth.map((month) => `${month.label} ${money(month.amount)}`).join(", ")}`}>
-                {revenueByMonth.map((month) => <div className="premium-dashboard-revenue-month" key={month.month}>
-                  <span className="premium-dashboard-revenue-bar-track"><span className="premium-dashboard-revenue-bar" style={{ height: `${maxMonthlyRevenue ? Math.max(3, (month.amount / maxMonthlyRevenue) * 100) : 3}%` }} /></span>
-                  <span>{month.label}</span>
-                </div>)}
-              </div>
-            </> : <PremiumDashboardEmpty title="Payment summary unavailable" description="Open the payment register to review receipts and balances." />}
-          </PremiumDashboardPanel>
+
 
           <PremiumDashboardPanel title="Messages & service requests" action={<PanelLink to="/messages">Open inbox</PanelLink>}>
             <div className="premium-dashboard-followups">
@@ -230,6 +242,10 @@ export default function ContractorDashboard({ data = {}, revenue, revenueLoading
           </PremiumDashboardPanel>
         </div>
       </div>
+
+      <div className="pilot-workspace-feeds"><ContractorWorkspaceFeed refreshKey={data} /></div>
+
+      {visible("/master-services") && <PremiumServiceDirectory />}
 
       {children && <div className="contractor-dashboard__footer">{children}<span className="contractor-subscription-note"><CheckCircle2 size={15} aria-hidden="true" />Plan and account details</span></div>}
     </div>

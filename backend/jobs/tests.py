@@ -153,12 +153,12 @@ class WorkScheduleProgressTests(TestCase):
         self.assertEqual(self.quotation.status, Quotation.Status.IN_PROGRESS)
         self.assertIsNotNone(self.schedule.work_started_at)
 
-    def test_contractor_cannot_start_while_assignment_response_is_pending(self):
+    def test_contractor_can_start_while_assignment_response_is_pending(self):
         self.client.force_authenticate(self.contractor)
         response = self.client.post(reverse("work-schedule-progress", args=(self.schedule.id,)), {"action": "START"}, format="json")
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         self.schedule.refresh_from_db()
-        self.assertEqual(self.schedule.status, WorkSchedule.Status.CONFIRMED)
+        self.assertEqual(self.schedule.status, WorkSchedule.Status.IN_PROGRESS)
 
     def test_assigned_painter_cannot_bypass_another_pending_response(self):
         second = BharathUser.objects.create_user(
@@ -210,7 +210,7 @@ class WorkScheduleProgressTests(TestCase):
         self.schedule.save(update_fields=("payment_status",))
         self.assertEqual(self.client.post(reverse("painter-assignment-progress", args=(assignment.id,)), {"action": "START"}, format="json").status_code, 200)
 
-    def test_work_schedule_completion_waits_for_all_active_painters(self):
+    def test_work_schedule_completion_is_contractor_controlled(self):
         assignment = self.schedule.painter_assignments.get()
         assignment.status = "COMPLETED"
         assignment.save(update_fields=("status",))
@@ -219,9 +219,9 @@ class WorkScheduleProgressTests(TestCase):
         self.schedule.save(update_fields=("status",))
         self.client.force_authenticate(self.contractor)
         response = self.client.post(reverse("work-schedule-progress", args=(self.schedule.id,)), {"action": "COMPLETE"}, format="json")
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         self.schedule.refresh_from_db()
-        self.assertEqual(self.schedule.status, WorkSchedule.Status.IN_PROGRESS)
+        self.assertEqual(self.schedule.status, WorkSchedule.Status.COMPLETED)
         self.assertTrue(WorkSchedulePainter.objects.filter(pk=other.pk).exists())
 
     def test_removing_painter_preserves_assignment_row_as_released(self):

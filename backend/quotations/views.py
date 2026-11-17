@@ -264,14 +264,15 @@ class GlobalSearchView(APIView):
         results = []
         user = request.user
         if user.role == BharathUser.Roles.CONTRACTOR:
-            customers = Customer.objects.filter(contractor_connections__contractor=user, contractor_connections__status=ContractorCustomerConnection.Status.CONNECTED).filter(models.Q(name__icontains=query) | models.Q(mobile__icontains=query) | models.Q(bharath_id__icontains=query)).distinct()[:6]
-            results += [{"type": "Customer", "title": x.name, "subtitle": x.mobile, "link": f"/customers/{x.id}"} for x in customers]
-            quotations = Quotation.objects.filter(contractor=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(customer__name__icontains=query) | models.Q(property__name__icontains=query))[:6]
-            results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.customer.name, "link": f"/quotations/{x.id}"} for x in quotations]
+            from .customer_contacts import with_contractor_contact
+            customers = with_contractor_contact(Customer.objects.filter(contractor_connections__contractor=user, contractor_connections__status="CONNECTED"), user).filter(models.Q(crm_name__icontains=query) | models.Q(crm_mobile__icontains=query) | models.Q(bharath_id__icontains=query)).distinct()[:6]
+            results += [{"type": "Customer", "title": x.crm_name, "subtitle": x.crm_mobile, "link": f"/customers/{x.id}"} for x in customers]
+            quotations = with_contractor_contact(Quotation.objects.filter(contractor=user, deleted_at__isnull=True), user, "customer__").filter(models.Q(quotation_number__icontains=query) | models.Q(crm_name__icontains=query) | models.Q(property__name__icontains=query))[:6]
+            results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.crm_name, "link": f"/quotations/{x.id}"} for x in quotations]
             properties = Property.objects.filter(contractor=user, connection__status=ContractorCustomerConnection.Status.CONNECTED, contractor_hidden_at__isnull=True).filter(models.Q(name__icontains=query) | models.Q(city__icontains=query) | models.Q(address__icontains=query))[:6]
             results += [{"type": "Property", "title": x.name or x.property_type, "subtitle": x.city, "link": f"/properties/{x.id}"} for x in properties]
         elif user.role == BharathUser.Roles.CUSTOMER:
-            quotations = Quotation.objects.filter(customer__portal_user=user, deleted_at__isnull=True).filter(models.Q(quotation_number__icontains=query) | models.Q(property__name__icontains=query))[:8]
+            quotations = CustomerQuotationListView.customer_queryset(user).filter(deleted_at__isnull=True).exclude(status=Quotation.Status.DRAFT).filter(models.Q(quotation_number__icontains=query) | models.Q(property__name__icontains=query))[:8]
             results += [{"type": "Quotation", "title": x.quotation_number, "subtitle": x.property.name or x.property.property_type, "link": f"/customer-quotations/{x.id}"} for x in quotations]
         elif user.role == BharathUser.Roles.ADMIN:
             people = BharathUser.objects.filter(models.Q(mobile__icontains=query) | models.Q(first_name__icontains=query) | models.Q(bharath_id__icontains=query))[:10]
@@ -498,7 +499,9 @@ def connection_data(connection, viewer_role=""):
     if viewer_role in {BharathUser.Roles.CUSTOMER, BharathUser.Roles.ADMIN}:
         data["customer"] = {"id": customer.id, "bharath_id": customer.bharath_id, "name": customer.name, "mobile": customer.mobile}
     elif connection.status == ContractorCustomerConnection.Status.CONNECTED:
-        data["customer"] = {"id": customer.id, "bharath_id": customer.bharath_id, "name": customer.name, "mobile": customer.mobile}
+        from .customer_contacts import contractor_customer_details
+        details = contractor_customer_details(customer, connection.contractor)
+        data["customer"] = {"id": customer.id, "bharath_id": customer.bharath_id, "name": details["name"], "mobile": details["mobile"]}
     else:
         data["customer"] = {
             "id": customer.id,
@@ -1604,43 +1607,34 @@ def save_existing_customer_contact(request, customer, partial=False):
     # Serialize identity activation before connection edits, while allowing
     # concurrent foreign-key references to this existing customer.
     customer = Customer.objects.select_for_update(no_key=True).get(pk=customer.pk)
-    connection = ContractorCustomerConnection.objects.select_for_update().filter(customer=customer, contractor=request.user).first()
-    if not customer.portal_user_id or not customer.bharath_id:
-        activate_customer_account(customer)
-    if connection and connection.status == ContractorCustomerConnection.Status.CONNECTED:
-        data = CustomerSerializer(customer, context={"request": request}).data
-        data["already_saved"] = True
-        return Response(data)
+    from .customer_contacts import connect_saved_contact, save_contact_details
+    if request.data.get("only_if_new_contact") is True:
+        from .customer_contact_lookup import contact_lookup_payload
+        lookup = contact_lookup_payload(request.user, customer.normalized_mobile, customer)
+        if lookup["state"] == "UNAVAILABLE":
+            raise ValidationError({"account": lookup["message"]})
+        if lookup["state"] == "FOUND":
+            payload = CustomerSerializer(customer, context={"request": request}).data
+            payload.update(already_saved=True, connection_status=lookup["customer"]["connection_status"])
+            return Response(payload)
+    # Validate disabled/conflicting identities even when an ID was already issued.
+    activate_customer_account(customer)
     if "mobile" in request.data and normalize_indian_mobile(request.data["mobile"]) != customer.normalized_mobile:
         raise ValidationError({"mobile": "Add a separate contact to save a different mobile number."})
     serializer = CustomerSerializer(customer, data=request.data, partial=partial, context={"request": request})
     serializer.is_valid(raise_exception=True)
-    contact, created = SavedCustomerContact.objects.get_or_create(customer=customer, contractor=request.user)
-    values = {key: value for key, value in serializer.validated_data.items() if key in SAVED_CONTACT_FIELDS}
-    contact.details = {**contact.details, **values}
-    contact.save(update_fields=("details", "updated_at"))
-    if not connection:
-        now = timezone.now()
-        connection = ContractorCustomerConnection.objects.create(
-            customer=customer, contractor=request.user, requested_by=request.user,
-            status=ContractorCustomerConnection.Status.PENDING,
-            requested_at=now, last_request_at=now,
-            **saved_contact_connection_defaults(customer, request.user),
-        )
-        record_connection_audit(request, connection, CustomerConnectionAudit.Actions.REQUESTED)
-        public = contractor_public_data(request.user)
-        create_notification(customer.portal_user, "CONNECTION_REQUEST", "New contractor connection request",
-                            f"{public['business_name']} wants to connect with your account.",
-                            "/customer/connections?tab=pending", request.user)
+    contact, created = save_contact_details(customer, request.user, serializer.validated_data)
+    connection = connect_saved_contact(customer, request.user, request)
     if connection:
         scoped_values = saved_contact_connection_defaults(customer, request.user)
         for field, value in scoped_values.items():
             setattr(connection, field, value)
         if scoped_values:
             connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
-    payload = saved_contact_representation(contact, connection)
-    if connection.status in (ContractorCustomerConnection.Status.PENDING, ContractorCustomerConnection.Status.RECONNECT_PENDING):
-        payload.update(issue_customer_share_link(connection, CustomerShareLink.Purpose.CONNECTION))
+    payload = CustomerSerializer(customer, context={"request": request}).data
+    payload["already_saved"] = not created
+    if connection.status == ContractorCustomerConnection.Status.CONNECTED and not customer.portal_user.has_usable_password():
+        payload.update(issue_customer_share_link(connection, CustomerShareLink.Purpose.ACTIVATION))
         payload["contractor_name"] = contractor_public_data(request.user)["business_name"]
     return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -1673,7 +1667,25 @@ class CustomerListCreateView(
             queryset = queryset | Customer.objects.filter(
                 saved_contacts__contractor=self.request.user,
             ).exclude(status=Customer.Status.CANCELLED).distinct()
-        return queryset.distinct().order_by("-updated_at")
+        return queryset.select_related("portal_user").distinct().order_by("-updated_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        customers = list(page if page is not None else queryset)
+        # A saved phone contact is not permission to inspect account activity.
+        connected_ids = set(ContractorCustomerConnection.objects.filter(
+            contractor=request.user, customer_id__in=[item.pk for item in customers],
+            status=ContractorCustomerConnection.Status.CONNECTED,
+        ).values_list("customer_id", flat=True)) if customers else set()
+        from application_analytics.last_activity import last_activity_by_user
+        activity = last_activity_by_user([
+            item.portal_user for item in customers if item.pk in connected_ids and item.portal_user_id
+        ])
+        data = self.get_serializer(customers, many=True).data
+        for customer, row in zip(customers, data):
+            row["last_activity_at"] = activity.get(customer.portal_user_id) if customer.pk in connected_ids else None
+        return self.get_paginated_response(data) if page is not None else Response(data)
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -1682,9 +1694,14 @@ class CustomerListCreateView(
         normalized = normalize_indian_mobile(request.data.get("mobile"))
         if not normalized:
             return Response({"mobile": ["Enter a valid Indian mobile number."]}, status=status.HTTP_400_BAD_REQUEST)
+        if "only_if_new_contact" in request.data and not isinstance(request.data["only_if_new_contact"], bool):
+            raise ValidationError({"only_if_new_contact": "Send a boolean value."})
         if request.data.get('contact_only') is True:
             from .shared_contacts import save_shared_customer
             return save_shared_customer(request, normalized)
+        existing_account = find_user_by_normalized_mobile(normalized)
+        if existing_account and not existing_account.is_active:
+            raise ValidationError({"account": "This customer account is disabled. Contact an administrator to restore access."})
         from .customer_identity import release_deleted_customer_mobile
         release_deleted_customer_mobile(normalized)
         existing = Customer.objects.select_for_update().exclude(status=Customer.Status.CANCELLED).filter(normalized_mobile=normalized).first()
@@ -1709,27 +1726,16 @@ class CustomerListCreateView(
             if not existing:
                 raise
             return save_existing_customer_contact(request, existing)
-        now = timezone.now()
+        from .customer_contacts import connect_saved_contact, save_contact_details
         activate_customer_account(customer)
-        connection = ContractorCustomerConnection.objects.create(
-            customer=customer, contractor=request.user,
-            status=ContractorCustomerConnection.Status.CONNECTED,
-            requested_by=request.user,
-            requested_at=now, last_request_at=now, connected_at=now, approved_at=now, accepted_at=now,
-            approval_method=ContractorCustomerConnection.ApprovalMethod.INITIAL_CREATOR,
-            customer_status=customer.status,
-            customer_source=customer.source,
-            customer_client_type=customer.client_type,
-            requirement=customer.requirement,
-            internal_notes=customer.notes,
-            next_follow_up=customer.next_follow_up,
-        )
-        ChatConversation.objects.get_or_create(
-            customer=customer, contractor=request.user,
-            defaults={"connection": connection},
-        )
-        record_connection_audit(request, connection, CustomerConnectionAudit.Actions.ACCEPTED)
-        SavedCustomerContact.objects.get_or_create(customer=customer, contractor=request.user, defaults={"details": {"name": customer.name, "mobile": customer.mobile}})
+        save_contact_details(customer, request.user, {
+            field: getattr(customer, field) for field in SAVED_CONTACT_FIELDS
+        })
+        connection = connect_saved_contact(customer, request.user, request)
+        scoped_values = saved_contact_connection_defaults(customer, request.user)
+        for field, value in scoped_values.items():
+            setattr(connection, field, value)
+        connection.save(update_fields=tuple(scoped_values) + ("updated_at",))
         output = self.get_serializer(customer).data
         output["connection_status"] = connection.status
         output.update(issue_customer_share_link(connection, CustomerShareLink.Purpose.ACTIVATION))
@@ -2659,6 +2665,35 @@ class PropertyMeasurementPdfView(APIView):
 # CUSTOMER FOLLOW-UPS
 # ============================================================
 
+def locked_customer_for_followup(customer_id, contractor):
+    """Lock customer privacy rows; callers with a lead must lock that lead first."""
+    if contractor.role != "CONTRACTOR" or not contractor.is_active:
+        return None
+    customer = Customer.objects.select_for_update().filter(pk=customer_id).first()
+    if not customer:
+        return None
+    connections = customer.contractor_connections
+    if not (connections.filter(contractor=contractor, status="CONNECTED").exists()
+            or (customer.contractor_id == contractor.pk and not connections.exists())):
+        return None
+    if customer.status == "CANCELLED":
+        raise PermissionDenied("This customer is unavailable for follow-ups.")
+    # Activation also locks the portal user before updating its connection.
+    if customer.portal_user_id:
+        portal = BharathUser.objects.select_for_update().get(pk=customer.portal_user_id)
+        if not portal.is_active or portal.role != "CUSTOMER":
+            raise PermissionDenied("This customer is unavailable for follow-ups.")
+    connection = ContractorCustomerConnection.objects.select_for_update().filter(
+        customer=customer, contractor=contractor,
+    ).first()
+    if connection and connection.customer_status == "CANCELLED":
+        raise PermissionDenied("This customer is unavailable for follow-ups.")
+    allowed = connection and connection.status == ContractorCustomerConnection.Status.CONNECTED
+    if not allowed and not (not connection and customer.contractor_id == contractor.pk and not customer.contractor_connections.exists()):
+        return None
+    return customer
+
+
 class CustomerFollowUpListCreateView(
     generics.ListCreateAPIView
 ):
@@ -2666,6 +2701,33 @@ class CustomerFollowUpListCreateView(
     permission_classes = [IsAuthenticated]
 
     serializer_class = CustomerFollowUpSerializer
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        # New general-customer forms reuse the existing creation_key field.
+        # Legacy clients without a key and lead-linked clients retain their flow.
+        key = str(request.data.get("creation_key") or "").strip()
+        if not key or request.data.get("opportunity"):
+            return super().post(request, *args, **kwargs)
+        if len(key) > 100:
+            raise ValidationError({"creation_key": "Use at most 100 characters."})
+        customer = locked_customer_for_followup(self.kwargs["customer_id"], request.user)
+        if not customer:
+            return Response({"detail": "Customer not found."}, status=404)
+        submission = request.data.copy()
+        submission["creation_key"] = key
+        serializer = self.get_serializer(data=submission)
+        serializer.is_valid(raise_exception=True)
+        previous = CustomerFollowUp.objects.filter(customer=customer, created_by=request.user,
+            opportunity__isnull=True, creation_key=key).first()
+        if previous:
+            values = serializer.validated_data
+            fields = ("follow_up_type", "comment", "next_follow_up", "outcome", "next_action")
+            if any(getattr(previous, field) != values.get(field, None if field == "next_follow_up" else "") for field in fields):
+                return Response({"detail": "This save identifier belongs to a different follow-up. Review your entries and save again."}, status=409)
+            return Response(self.get_serializer(previous).data)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=201, headers=self.get_success_headers(serializer.data))
 
     def get_queryset(self):
 
@@ -2736,7 +2798,7 @@ class CustomerTaskListView(generics.ListAPIView):
     serializer_class = CustomerTaskSerializer
 
     def get_queryset(self):
-        queryset = CustomerFollowUp.objects.select_related("customer").filter(
+        queryset = CustomerFollowUp.objects.select_related("customer", "created_by", "performed_by", "opportunity").filter(
             created_by=self.request.user,
             next_follow_up__isnull=False,
         )
@@ -2744,47 +2806,99 @@ class CustomerTaskListView(generics.ListAPIView):
             queryset = queryset.filter(is_completed=False)
         return queryset.order_by("next_follow_up")
 
+    def list(self, request, *args, **kwargs):
+        from .followup_finder import followup_context
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        tasks = list(page if page is not None else queryset)
+        customers = {task.customer_id: task.customer for task in tasks}
+        context = self.get_serializer_context()
+        context["customer_context"] = followup_context(request.user, customers.values())
+        data = self.get_serializer(tasks, many=True, context=context).data
+        return self.get_paginated_response(data) if page is not None else Response(data)
+
 
 class CustomerTaskCompleteView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def patch(self, request, pk):
-        task = CustomerFollowUp.objects.select_related("customer").filter(
+        target = CustomerFollowUp.objects.filter(
             pk=pk,
             created_by=request.user,
             next_follow_up__isnull=False,
+        ).values("customer_id", "opportunity_id").first()
+        if not target:
+            return Response({"detail": "Task not found."}, status=status.HTTP_404_NOT_FOUND)
+        # Employee and contractor lead writers lock lead -> customer -> task.
+        # Lock only the lead row: nullable joined customer/account rows cannot
+        # safely be included in a PostgreSQL FOR UPDATE operation.
+        if target["opportunity_id"]:
+            lead = Lead.objects.select_for_update().filter(
+                pk=target["opportunity_id"], customer_id=target["customer_id"], contractor=request.user,
+            ).first()
+            if not lead:
+                return Response({"detail": "Task not found."}, status=status.HTTP_404_NOT_FOUND)
+        customer = locked_customer_for_followup(target["customer_id"], request.user)
+        if not customer:
+            return Response({"detail": "Task not found."}, status=status.HTTP_404_NOT_FOUND)
+        task = CustomerFollowUp.objects.select_for_update().filter(
+            pk=pk, created_by=request.user, customer=customer,
+            opportunity_id=target["opportunity_id"], next_follow_up__isnull=False,
         ).first()
         if not task:
             return Response({"detail": "Task not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        def task_response():
+            from .followup_finder import followup_context
+            return Response(CustomerTaskSerializer(task, context={"request": request,
+                "customer_context": followup_context(request.user, [customer])}).data)
+
+        from rest_framework.fields import BooleanField
+        completed = BooleanField().run_validation(request.data["is_completed"]) if "is_completed" in request.data else None
+        if "next_follow_up" in request.data and task.is_completed and completed is not False:
+            return Response({"detail": "This follow-up was already completed. Refresh the Tasks page before moving it."}, status=409)
         update_fields = []
         if "is_completed" in request.data:
-            completed = bool(request.data.get("is_completed"))
-            task.is_completed = completed
-            task.completed_at = timezone.now() if completed else None
-            update_fields.extend(("is_completed", "completed_at"))
+            if completed != task.is_completed:
+                task.is_completed = completed
+                task.completed_at = timezone.now() if completed else None
+                task.completed_by = request.user if completed else None
+                update_fields.extend(("is_completed", "completed_at", "completed_by"))
         if "next_follow_up" in request.data:
             next_follow_up = parse_datetime(str(request.data.get("next_follow_up") or ""))
             if not next_follow_up:
                 return Response({"next_follow_up": "Enter a valid date and time."}, status=status.HTTP_400_BAD_REQUEST)
             if timezone.is_naive(next_follow_up):
                 next_follow_up = timezone.make_aware(next_follow_up)
-            task.next_follow_up = next_follow_up
-            task.is_completed = False
-            task.completed_at = None
-            update_fields.extend(("next_follow_up", "is_completed", "completed_at"))
+            if task.next_follow_up != next_follow_up:
+                task.next_follow_up = next_follow_up
+                update_fields.append("next_follow_up")
+                if task.is_completed:
+                    task.is_completed = False
+                    task.completed_at = None
+                    task.completed_by = None
+                    update_fields.extend(("is_completed", "completed_at", "completed_by"))
         if "comment" in request.data:
-            task.comment = str(request.data.get("comment") or "").strip()
-            update_fields.append("comment")
+            comment = str(request.data.get("comment") or "").strip()
+            if task.comment != comment:
+                task.comment = comment
+                update_fields.append("comment")
         if not update_fields:
+            if {"is_completed", "next_follow_up", "comment"}.intersection(request.data):
+                return task_response()
             return Response({"detail": "No task changes were provided."}, status=status.HTTP_400_BAD_REQUEST)
+        task._lead_change_actor = request.user
         task.save(update_fields=tuple(set(update_fields)))
-        return Response(CustomerTaskSerializer(task).data)
+        return task_response()
 
 
 def conversation_data(conversation, viewer):
     last = conversation.messages.order_by("-created_at").first()
     customer = conversation.customer
     contractor = conversation.contractor
+    from .customer_contacts import contractor_customer_details
+    details = contractor_customer_details(customer, contractor) if customer else {}
     profile = contractor.contractor_profile if hasattr(contractor, "contractor_profile") else None
     painter = conversation.painter
     other_user = contractor if viewer.id != contractor.id else (painter or (customer.portal_user if customer else None))
@@ -2794,8 +2908,8 @@ def conversation_data(conversation, viewer):
         "participant_type": "CUSTOMER" if customer else "PAINTER",
         "customer_id": customer.id if customer else None,
         "customer_bharath_id": customer.bharath_id if customer else "",
-        "customer_name": customer.name if customer else "",
-        "customer_mobile": customer.mobile if customer else "",
+        "customer_name": details.get("name", ""),
+        "customer_mobile": details.get("mobile", ""),
         "painter_id": painter.id if painter else None,
         "painter_name": painter.get_full_name() or painter.mobile if painter else "",
         "painter_mobile": painter.mobile if painter else "",
@@ -2997,7 +3111,8 @@ def chat_targets_for(user):
         painters = BharathUser.objects.filter(pk__in=painter_ids, role=BharathUser.Roles.PAINTER, is_active=True)
         targets = [{"type": "PAINTER", "id": item.id, "name": item.get_full_name() or item.mobile, "subtitle": item.bharath_id or "Paint Applicator"} for item in painters]
         connections = ContractorCustomerConnection.objects.filter(contractor=user, status=ContractorCustomerConnection.Status.CONNECTED).select_related("customer")
-        targets.extend({"type": "CUSTOMER", "id": item.customer_id, "name": item.customer.name, "subtitle": item.customer.bharath_id or "Customer"} for item in connections)
+        from .customer_contacts import contractor_customer_details
+        targets.extend({"type": "CUSTOMER", "id": item.customer_id, "name": contractor_customer_details(item.customer, user)["name"], "subtitle": item.customer.bharath_id or "Customer"} for item in connections)
         return targets
     return []
 
@@ -3193,10 +3308,12 @@ class ChatConversationListView(APIView):
         if search:
             participant_search = models.Q()
             if request.user.role == BharathUser.Roles.CONTRACTOR:
+                from .customer_contacts import with_contractor_contact
+                conversations = with_contractor_contact(conversations, request.user, "customer__")
                 participant_search = (
-                    models.Q(customer__name__icontains=search)
-                    | models.Q(customer__mobile__icontains=search)
-                    | models.Q(customer__email__icontains=search)
+                    models.Q(crm_name__icontains=search)
+                    | models.Q(crm_mobile__icontains=search)
+                    | models.Q(crm_email__icontains=search)
                     | models.Q(customer__bharath_id__icontains=search)
                     | models.Q(painter__first_name__icontains=search)
                     | models.Q(painter__last_name__icontains=search)
@@ -3317,6 +3434,9 @@ class ChatMessageListCreateView(APIView):
         return Response([chat_message_data(item, request.user) for item in conversation.messages.select_related("sender", "reply_to").prefetch_related("attachments", "reply_to__attachments")])
 
     def post(self, request, pk):
+        if "catalogue_version_ids" in request.data:
+            from .catalogue_chat import create_catalogue_message
+            return create_catalogue_message(request, pk)
         BharathUser.objects.filter(pk=request.user.pk).update(last_activity_at=timezone.now())
         conversation = self.get_conversation(request, pk)
         if not conversation:
@@ -3427,6 +3547,10 @@ class ChatMessageForwardView(APIView):
                 forwarded_from=source,
             )
             for attachment in source.attachments.all():
+                if attachment.catalogue_version_id:
+                    ChatAttachment.objects.create(message=forwarded, catalogue_version_id=attachment.catalogue_version_id, file="",
+                                                  file_name=attachment.file_name, content_type=attachment.content_type, size=attachment.size)
+                    continue
                 attachment.file.open("rb")
                 try:
                     copy = ChatAttachment(message=forwarded, file_name=attachment.file_name,
@@ -3535,7 +3659,8 @@ class ChatMessageDetailView(APIView):
             return Response({"detail": "Messages can be deleted only within 10 minutes of sending."}, status=status.HTTP_403_FORBIDDEN)
         conversation = message.conversation
         for attachment in message.attachments.all():
-            attachment.file.delete(save=False)
+            if not attachment.catalogue_version_id:
+                attachment.file.delete(save=False)
             attachment.delete()
         message.text = ""
         message.contact_name = ""
@@ -3554,28 +3679,35 @@ class ChatAttachmentDownloadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        attachment = ChatAttachment.objects.select_related("message", "message__conversation").filter(pk=pk, message__deleted_at__isnull=True).first()
+        attachment = ChatAttachment.objects.select_related("message", "message__conversation", "catalogue_version").filter(pk=pk, message__deleted_at__isnull=True).first()
         if not attachment:
             return Response({"detail": "Attachment not found."}, status=status.HTTP_404_NOT_FOUND)
         conversation = ChatMessageListCreateView().get_conversation(request, attachment.message.conversation_id)
         if not conversation:
             return Response({"detail": "Attachment not found."}, status=status.HTTP_404_NOT_FOUND)
         try:
-            return FileResponse(attachment.file.open("rb"), as_attachment=True,
-                                filename=attachment.file_name, content_type=attachment.content_type)
+            source_file = attachment.catalogue_version.file if attachment.catalogue_version_id else attachment.file
+            response = FileResponse(source_file.open("rb"), as_attachment=True,
+                                    filename=attachment.file_name, content_type=attachment.content_type)
+            if attachment.catalogue_version_id:
+                response["Cache-Control"] = "private, no-store"
+                response["X-Content-Type-Options"] = "nosniff"
+            return response
         except (OSError, FileNotFoundError):
             return Response({"detail": "Attachment file is unavailable."}, status=status.HTTP_404_NOT_FOUND)
 
 
 def service_request_data(item):
     contractor = item.connection.contractor if item.connection_id else item.customer.contractor
+    from .customer_contacts import contractor_customer_details
+    contact = contractor_customer_details(item.customer, contractor)
     profile = contractor.contractor_profile if hasattr(contractor, "contractor_profile") else None
     return {
         "id": item.id,
         "customer": item.customer_id,
         "customer_bharath_id": item.customer.bharath_id,
-        "customer_name": item.customer.name,
-        "customer_mobile": item.customer.mobile,
+        "customer_name": contact["name"],
+        "customer_mobile": contact["mobile"],
         "contractor_name": profile.company_name if profile else contractor.get_full_name() or contractor.mobile,
         "service_type": item.service_type_id,
         "service_name": item.service_type.name if item.service_type else item.title,
@@ -3686,7 +3818,7 @@ class ServiceRequestListCreateView(APIView):
             )
             Lead.objects.create(
                 contractor=connection.contractor, customer=customer, service_request=item,
-                service_type=service, title=title, description=item.description,
+                service_type=service, title=title, description=item.description, source=Lead.Source.CUSTOMER_APP,
             )
             create_notification(connection.contractor, "SERVICE_REQUEST", "New service request", f"{customer.name}: {title}", "/service-requests", request.user)
             return Response(service_request_data(item), status=status.HTTP_201_CREATED)
@@ -3700,21 +3832,26 @@ class ServiceRequestListCreateView(APIView):
 
 
 def lead_data(item):
-    quotation = item.quotations.order_by("-created_at").first()
+    from .lead_workflow import workflow_data
+    workflow = workflow_data(item)
+    from .customer_contacts import contractor_customer_details
+    contact = contractor_customer_details(item.customer, item.contractor)
+    quotation = workflow["primary_quotation"]
     schedule = getattr(quotation, "work_schedule", None) if quotation else None
     return {
-        "id": item.id, "customer": item.customer_id, "customer_bharath_id": item.customer.bharath_id, "customer_name": item.customer.name,
-        "customer_mobile": item.customer.mobile, "service_request": item.service_request_id,
+        "id": item.id, "customer": item.customer_id, "customer_bharath_id": item.customer.bharath_id, "customer_name": contact["name"],
+        "customer_mobile": contact["mobile"], "service_request": item.service_request_id,
         "service_type": item.service_type_id, "service_name": item.service_type.name if item.service_type else item.title,
         "property": item.property_id, "property_name": (item.property.name or item.property.property_type) if item.property else "",
         "assigned_user": item.assigned_user_id,
         "reference_no": item.reference_no, "title": item.title, "description": item.description, "stage": item.stage,
-        "source": item.source, "priority": item.priority,
+        "source": item.source, "source_detail": item.source_detail, "priority": item.priority,
+        **{key: workflow[key] for key in ("workflow_stage", "payment_status", "balance_due", "is_closed", "next_action", "queue_flags", "last_activity_at")},
         "estimated_value": item.estimated_value, "expected_start_date": item.expected_start_date,
         "site_visit_required": item.site_visit_required,
         "next_follow_up": item.next_follow_up, "notes": item.notes,
         "lost_reason": item.lost_reason, "lost_note": item.lost_note,
-        "archived_at": item.archived_at, "is_history": bool(item.archived_at),
+        "archived_at": item.archived_at, "is_history": workflow["is_closed"],
         "created_at": item.created_at,
         "quotation_id": quotation.id if quotation else None,
         "quotation_number": quotation.quotation_number if quotation else "",
@@ -3733,52 +3870,48 @@ class LeadListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != BharathUser.Roles.CONTRACTOR:
-            return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        from .lead_access import lead_reader, lead_response
+        lead_reader(request.user)
+        from .lead_workflow import owned_leads, filter_lead_rows
+        queryset = owned_leads(request.user, request.query_params)
+        rows = [lead_response(item, request.user) for item in queryset]
+        return Response(filter_lead_rows(rows, request.query_params))
 
-        from jobs.models import WorkSchedule, WorkSchedulePainter
-        queryset = Lead.objects.filter(contractor=request.user).select_related("customer", "service_type", "service_request", "property", "assigned_user").prefetch_related("stage_history", "quotations")
-        search = str(request.query_params.get("search") or "").strip()
-        stage = str(request.query_params.get("stage") or "").upper()
-        source = str(request.query_params.get("source") or "").upper()
-        priority = str(request.query_params.get("priority") or "").upper()
-        view_scope = str(request.query_params.get("view") or "").strip().lower()
-        date_from = parse_date(str(request.query_params.get("date_from") or ""))
-        date_to = parse_date(str(request.query_params.get("date_to") or ""))
-        if search:
-            queryset = queryset.filter(models.Q(reference_no__icontains=search) | models.Q(customer__name__icontains=search) | models.Q(customer__mobile__icontains=search) | models.Q(customer__bharath_id__icontains=search) | models.Q(title__icontains=search) | models.Q(property__name__icontains=search) | models.Q(property__address__icontains=search) | models.Q(property__city__icontains=search))
-        if stage:
-            queryset = queryset.filter(stage=stage)
-        if source:
-            queryset = queryset.filter(source=source)
-        if priority:
-            queryset = queryset.filter(priority=priority)
-        if date_from:
-            queryset = queryset.filter(created_at__date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(created_at__date__lte=date_to)
-        if view_scope == "open":
-            queryset = queryset.exclude(stage__in=(Lead.Stage.WON, Lead.Stage.LOST, Lead.Stage.CANCELLED, Lead.Stage.COMPLETED))
-        elif view_scope == "won":
-            queryset = queryset.filter(stage=Lead.Stage.WON)
-        elif view_scope == "lost":
-            queryset = queryset.filter(stage=Lead.Stage.LOST)
-        return Response([lead_data(item) for item in queryset])
-
+    @transaction.atomic
     def post(self, request):
         if request.user.role != BharathUser.Roles.CONTRACTOR:
             return Response({"detail": "Contractor access only."}, status=status.HTTP_403_FORBIDDEN)
+        from .lead_workflow import validated_lead_input
+        data = validated_lead_input(request.data)
         from .customer_identity import authorized_customers_for_contractor
         customer = authorized_customers_for_contractor(request.user).filter(
-            pk=request.data.get("customer"),
+            pk=data.get("customer"),
         ).first()
         if not customer:
             return Response({"customer": "Select one of your existing customers."}, status=status.HTTP_400_BAD_REQUEST)
-        title = str(request.data.get("title") or "").strip()
+        # Recheck privacy under the same locks used by follow-up writes. A
+        # customer selected earlier may now be disabled or locally cancelled.
+        # This creates a new lead; existing-key replays below only read a lead.
+        customer = locked_customer_for_followup(customer.pk, request.user)
+        if not customer:
+            return Response({"customer": "Select one of your existing customers."}, status=status.HTTP_400_BAD_REQUEST)
+        title = str(data.get("title") or "").strip()
         if not title:
             return Response({"title": "Enter the requested service."}, status=status.HTTP_400_BAD_REQUEST)
-        service = ServiceType.objects.filter(pk=request.data.get("service_type")).first()
-        property_id = request.data.get("property")
+        creation_key = str(data.get("creation_key") or "").strip() or None
+        if creation_key and len(creation_key) > 100:
+            raise ValidationError({"creation_key": "Use at most 100 characters."})
+        if creation_key:
+            existing = Lead.objects.filter(contractor=request.user, creation_key=creation_key).first()
+            if existing:
+                if existing.customer_id != customer.pk or existing.title != title:
+                    return Response({"detail": "This submission key was already used for another enquiry."}, status=409)
+                from .lead_access import lead_response
+                return Response(lead_response(existing, request.user))
+        service = ServiceType.objects.filter(models.Q(created_by=request.user) | models.Q(created_by__isnull=True) | models.Q(created_by__role="ADMIN"), pk=data.get("service_type"), is_active=True).first()
+        if data.get("service_type") and not service:
+            raise ValidationError({"service_type": "Select a service available to your business."})
+        property_id = data.get("property")
         property_obj = None
         if property_id:
             property_obj = Property.objects.filter(
@@ -3789,48 +3922,77 @@ class LeadListCreateView(APIView):
             ).first()
             if not property_obj:
                 return Response({"property": "Select a property you can access."}, status=status.HTTP_400_BAD_REQUEST)
-        assigned_user = BharathUser.objects.filter(pk=request.data.get("assigned_user")).first()
-        source = str(request.data.get("source") or Lead.Source.OTHER).upper()
+        from .lead_access import resolve_assignee, assignment_changed, lead_response
+        assigned_user = resolve_assignee(request.user, data.get("assigned_user", request.user.pk))
+        source = str(data.get("source") or Lead.Source.OTHER).upper()
         if source not in {choice[0] for choice in Lead.Source.choices}:
             source = Lead.Source.OTHER
-        priority = str(request.data.get("priority") or Lead.Priority.MEDIUM).upper()
+        priority = str(data.get("priority") or Lead.Priority.MEDIUM).upper()
         if priority not in {choice[0] for choice in Lead.Priority.choices}:
             priority = Lead.Priority.MEDIUM
-        expected_start = parse_date(str(request.data.get("expected_start_date") or ""))
-        next_follow_up = parse_datetime(str(request.data.get("next_follow_up") or ""))
-        if next_follow_up and timezone.is_naive(next_follow_up):
-            next_follow_up = timezone.make_aware(next_follow_up)
-        item = Lead.objects.create(
+        expected_start = parse_date(str(data.get("expected_start_date") or ""))
+        from .lead_workflow import followup_time
+        next_follow_up = followup_time(data.get("next_follow_up"))
+        source_detail = str(data.get("source_detail") or "").strip()
+        if len(source_detail) > 255:
+            raise ValidationError({"source_detail": "Use at most 255 characters."})
+        from .lead_workflow import create_lead_safely
+        item, created = create_lead_safely(
             contractor=request.user, customer=customer, service_type=service, property=property_obj,
-            assigned_user=assigned_user, title=title, description=str(request.data.get("description") or "").strip(),
-            source=source, priority=priority,
-            estimated_value=request.data.get("estimated_value") or None,
+            assigned_user=assigned_user, title=title, description=str(data.get("description") or "").strip(),
+            source=source, source_detail=source_detail, creation_key=creation_key, priority=priority,
+            estimated_value=data.get("estimated_value") or None,
             expected_start_date=expected_start,
-            site_visit_required=bool(request.data.get("site_visit_required")),
+            site_visit_required=bool(data.get("site_visit_required")),
             next_follow_up=next_follow_up,
-            notes=str(request.data.get("notes") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
         )
+        if not created:
+            return Response(lead_response(item, request.user))
         LeadStageHistory.objects.create(lead=item, to_stage=Lead.Stage.NEW, note="Opportunity created", changed_by=request.user)
-        return Response(lead_data(item), status=status.HTTP_201_CREATED)
+        assignment_changed(item, None, request.user, initial=True)
+        if next_follow_up:
+            CustomerFollowUp.objects.create(customer=customer, opportunity=item, created_by=request.user, performed_by=request.user, follow_up_type="CALL", comment="First follow-up scheduled", next_follow_up=next_follow_up)
+        return Response(lead_response(item, request.user), status=status.HTTP_201_CREATED)
 
 
 class LeadDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request, pk):
+        from .lead_workflow import owned_leads
+        from .lead_access import lead_reader, lead_response
+        lead_reader(request.user)
+        item = owned_leads(request.user).filter(pk=pk).first()
+        if not item:
+            return Response({"detail": "Lead not found."}, status=404)
+        return Response(lead_response(item, request.user, detail=True))
+
+    @transaction.atomic
     def patch(self, request, pk):
-        item = Lead.objects.select_related("customer", "service_type", "service_request", "property", "assigned_user").prefetch_related("stage_history", "quotations").filter(pk=pk, contractor=request.user).first()
+        from .lead_workflow_views import contractor_only
+        contractor_only(request)
+        from .lead_workflow import validated_lead_input
+        data = validated_lead_input(request.data)
+        item = Lead.objects.select_for_update(of=("self",)).select_related("customer", "service_type", "service_request", "property", "assigned_user").prefetch_related("stage_history", "quotations").filter(pk=pk, contractor=request.user).first()
         if not item:
             return Response({"detail": "Opportunity not found."}, status=status.HTTP_404_NOT_FOUND)
         previous_stage = item.stage
-        stage = str(request.data.get("stage") or previous_stage).upper()
+        previous_assignee = item.assigned_user_id
+        stage = str(data.get("stage") or previous_stage).upper()
         if stage not in {choice[0] for choice in Lead.Stage.choices}:
             return Response({"stage": "Select a valid opportunity stage."}, status=status.HTTP_400_BAD_REQUEST)
+        if stage != previous_stage:
+            from .lead_workflow import workflow_data
+            actual = workflow_data(item)["workflow_stage"]
+            if (actual in {"WON", "IN_PROGRESS", "COMPLETED"} and stage != actual) or (stage in {"WON", "IN_PROGRESS", "COMPLETED"} and stage != actual):
+                raise ValidationError({"stage": "Update the linked quotation or work schedule to change work progress."})
         if stage == Lead.Stage.LOST and previous_stage != Lead.Stage.LOST:
-            lost_reason = str(request.data.get("lost_reason") or "").upper()
+            lost_reason = str(data.get("lost_reason") or "").upper()
             if lost_reason not in {choice[0] for choice in Lead.LostReason.choices}:
                 return Response({"lost_reason": "Select a reason for losing this opportunity."}, status=status.HTTP_400_BAD_REQUEST)
             item.lost_reason = lost_reason
-            item.lost_note = str(request.data.get("lost_note") or "").strip()
+            item.lost_note = str(data.get("lost_note") or "").strip()
         elif stage not in (Lead.Stage.LOST, Lead.Stage.CANCELLED) and previous_stage == Lead.Stage.LOST:
             # Reopen: clear the lost details and restore the opportunity
             item.lost_reason = ""
@@ -3838,35 +4000,59 @@ class LeadDetailView(APIView):
             if item.archived_at:
                 item.archived_at = None
         item.stage = stage
-        if stage in (Lead.Stage.QUOTATION, Lead.Stage.WON, Lead.Stage.IN_PROGRESS, Lead.Stage.COMPLETED, Lead.Stage.LOST, Lead.Stage.CANCELLED) and not item.archived_at:
-            item.archived_at = timezone.now()
-        if "estimated_value" in request.data: item.estimated_value = request.data.get("estimated_value") or None
-        if "priority" in request.data and str(request.data.get("priority")).upper() in {choice[0] for choice in Lead.Priority.choices}:
-            item.priority = str(request.data.get("priority")).upper()
-        if "source" in request.data and str(request.data.get("source")).upper() in {choice[0] for choice in Lead.Source.choices}:
-            item.source = str(request.data.get("source")).upper()
-        if "property" in request.data:
-            item.property = Property.objects.filter(pk=request.data.get("property"), customer=item.customer).first() if request.data.get("property") else None
-        if "assigned_user" in request.data:
-            item.assigned_user = BharathUser.objects.filter(pk=request.data.get("assigned_user")).first() if request.data.get("assigned_user") else None
-        if "expected_start_date" in request.data:
-            item.expected_start_date = parse_date(str(request.data.get("expected_start_date") or ""))
-        if "site_visit_required" in request.data:
-            item.site_visit_required = bool(request.data.get("site_visit_required"))
-        if "notes" in request.data:
-            item.notes = str(request.data.get("notes") or "").strip()
-        if "title" in request.data and str(request.data.get("title") or "").strip():
-            item.title = str(request.data.get("title")).strip()
-        if "description" in request.data:
-            item.description = str(request.data.get("description") or "").strip()
-        if "next_follow_up" in request.data:
-            value = parse_datetime(str(request.data.get("next_follow_up") or ""))
-            if value and timezone.is_naive(value):
-                value = timezone.make_aware(value)
+        from .lead_workflow import workflow_data
+        item.archived_at = (item.archived_at or timezone.now()) if workflow_data(item)["is_closed"] else None
+        if "estimated_value" in data: item.estimated_value = data.get("estimated_value") or None
+        if "priority" in data and str(data.get("priority")).upper() in {choice[0] for choice in Lead.Priority.choices}:
+            item.priority = str(data.get("priority")).upper()
+        if "source" in data and str(data.get("source")).upper() in {choice[0] for choice in Lead.Source.choices}:
+            item.source = str(data.get("source")).upper()
+        if "property" in data:
+            item.property = Property.objects.filter(pk=data.get("property"), customer=item.customer, contractor=request.user).first() if data.get("property") else None
+            if data.get("property") and not item.property:
+                raise ValidationError({"property": "Select one of your properties for this customer."})
+        if "assigned_user" in data:
+            from .lead_access import resolve_assignee
+            item.assigned_user = resolve_assignee(request.user, data["assigned_user"])
+        if "source_detail" in data:
+            value = str(data.get("source_detail") or "").strip()
+            if len(value) > 255:
+                raise ValidationError({"source_detail": "Use at most 255 characters."})
+            item.source_detail = value
+        if "expected_start_date" in data:
+            item.expected_start_date = parse_date(str(data.get("expected_start_date") or ""))
+        if "site_visit_required" in data:
+            item.site_visit_required = bool(data.get("site_visit_required"))
+        if "notes" in data:
+            item.notes = str(data.get("notes") or "").strip()
+        if "title" in data and str(data.get("title") or "").strip():
+            item.title = str(data.get("title")).strip()
+        if "description" in data:
+            item.description = str(data.get("description") or "").strip()
+        if "next_follow_up" in data:
+            from .lead_workflow import followup_time
+            value = followup_time(data.get("next_follow_up"))
             item.next_follow_up = value
+            pending = item.follow_ups.filter(created_by=request.user, customer=item.customer, is_completed=False, next_follow_up__isnull=False).order_by("next_follow_up").first()
+            if pending:
+                pending.next_follow_up = value
+                pending.is_completed = not bool(value)
+                pending.completed_by = request.user if pending.is_completed else None
+                pending.completed_at = timezone.now() if pending.is_completed else None
+                pending._lead_change_actor = request.user
+                pending.save()
+            elif value:
+                CustomerFollowUp.objects.create(opportunity=item, customer=item.customer, created_by=request.user, performed_by=request.user, follow_up_type="CALL", comment="Follow-up scheduled", next_follow_up=value)
         item.save()
+        if "assigned_user" in data:
+            from .lead_access import assignment_changed
+            assignment_changed(item, previous_assignee, request.user)
+        if "next_follow_up" in data:
+            from .lead_workflow import sync_next_follow_up
+            sync_next_follow_up(item.pk)
+            item.refresh_from_db()
         if stage != previous_stage:
-            note = str(request.data.get("stage_note") or "").strip() or {
+            note = str(data.get("stage_note") or "").strip() or {
                 Lead.Stage.QUOTATION: "Quotation prepared",
                 Lead.Stage.MEASUREMENT: "Area Calculation added",
                 Lead.Stage.WON: "Opportunity won",
@@ -3879,7 +4065,9 @@ class LeadDetailView(APIView):
                 ServiceRequest.objects.filter(pk=item.service_request_id).update(
                     status=mapping[stage], contractor_seen_at=timezone.now(), customer_seen_at=None
                 )
-        return Response(lead_data(Lead.objects.select_related("customer", "service_type", "service_request").prefetch_related("stage_history", "quotations").get(pk=item.pk)))
+        from .lead_access import lead_response
+        from .lead_workflow import owned_leads
+        return Response(lead_response(owned_leads(request.user).get(pk=item.pk), request.user))
 
 
 def normalize_mobile(value):
@@ -3901,17 +4089,17 @@ class ClientSearchView(APIView):
         digits = normalize_mobile(query)
         filters = models.Q()
         if digits and len(digits) >= 6:
-            filters |= models.Q(mobile__icontains=digits) | models.Q(whatsapp__icontains=digits) | models.Q(alternate_mobile__icontains=digits)
-        filters |= models.Q(name__icontains=query) | models.Q(email__icontains=query) | models.Q(bharath_id__icontains=query)
+            filters |= models.Q(crm_mobile__icontains=digits) | models.Q(crm_whatsapp__icontains=digits) | models.Q(crm_alternate_mobile__icontains=digits)
+        filters |= models.Q(crm_name__icontains=query) | models.Q(crm_email__icontains=query) | models.Q(bharath_id__icontains=query)
         from .customer_identity import authorized_customers_for_contractor
-        customers = authorized_customers_for_contractor(request.user).filter(filters)[:8]
+        from .customer_contacts import contractor_customer_details, with_contractor_contact
+        customers = with_contractor_contact(authorized_customers_for_contractor(request.user), request.user).filter(filters)[:8]
         return Response([{
-            "id": item.id, "bharath_id": item.bharath_id, "name": item.name, "mobile": item.mobile,
-            "alternate_mobile": item.alternate_mobile, "email": item.email, "client_type": item.client_type,
-            "city": item.city, "address": item.address,
-            "properties": item.properties.count(),
-            "open_opportunities": item.leads.exclude(stage__in=(Lead.Stage.WON, Lead.Stage.LOST, Lead.Stage.CANCELLED, Lead.Stage.COMPLETED)).count(),
-            "completed_jobs": item.leads.filter(stage__in=(Lead.Stage.COMPLETED, Lead.Stage.WON)).count(),
+            "id": item.id, "bharath_id": item.bharath_id,
+            **{key: contractor_customer_details(item, request.user)[key] for key in ("name", "mobile", "alternate_mobile", "email", "client_type", "city", "address")},
+            "properties": item.properties.filter(contractor=request.user, contractor_hidden_at__isnull=True).count(),
+            "open_opportunities": item.leads.filter(contractor=request.user).exclude(stage__in=(Lead.Stage.WON, Lead.Stage.LOST, Lead.Stage.CANCELLED, Lead.Stage.COMPLETED)).count(),
+            "completed_jobs": item.leads.filter(contractor=request.user, stage__in=(Lead.Stage.COMPLETED, Lead.Stage.WON)).count(),
             "created_at": item.created_at,
         } for item in customers])
 
@@ -3955,11 +4143,13 @@ class SiteVisitListCreateView(APIView):
 
 
 def site_visit_data(item):
+    from .customer_contacts import contractor_customer_details
+    contact = contractor_customer_details(item.customer, item.contractor)
     return {
         "id": item.id, "reference_no": item.reference_no,
         "opportunity": item.opportunity_id, "opportunity_reference": item.opportunity.reference_no,
         "opportunity_title": item.opportunity.title, "stage": item.opportunity.stage,
-        "customer": item.customer_id, "customer_name": item.customer.name, "customer_mobile": item.customer.mobile,
+        "customer": item.customer_id, "customer_name": contact["name"], "customer_mobile": contact["mobile"],
         "property": item.property_id,
         "property_name": (item.property.name or item.property.property_type) if item.property else "",
         "scheduled_date": item.scheduled_date, "scheduled_time": item.scheduled_time,
@@ -3986,7 +4176,9 @@ class SiteVisitDetailView(APIView):
         if "scheduled_date" in request.data and str(request.data.get("scheduled_date") or ""):
             visit.scheduled_date = parse_date(str(request.data.get("scheduled_date")))
         if "assigned_person" in request.data:
-            visit.assigned_person = BharathUser.objects.filter(pk=request.data.get("assigned_person")).first() if request.data.get("assigned_person") else None
+            if request.data.get("assigned_person") and str(request.data["assigned_person"]) != str(request.user.pk):
+                raise ValidationError({"assigned_person": "Select your own contractor account."})
+            visit.assigned_person = request.user if request.data.get("assigned_person") else None
         visit.save()
         note_by_status = {
             SiteVisit.Status.COMPLETED: "Site visit completed",
@@ -4005,27 +4197,31 @@ class LeadConvertView(APIView):
 
     def post(self, request, pk):
         from jobs.models import WorkSchedule
+        from .lead_workflow import workflow_data
+        from .lead_workflow_views import contractor_only
+        contractor_only(request)
         opportunity = Lead.objects.select_related("customer").filter(pk=pk, contractor=request.user).first()
         if not opportunity:
             return Response({"detail": "Opportunity not found."}, status=status.HTTP_404_NOT_FOUND)
-        quotation = opportunity.quotations.select_related("property").order_by("-created_at").first()
+        quotation = workflow_data(opportunity)["primary_quotation"]
         if not quotation:
             return Response({"detail": "A quotation is required before converting to a job."}, status=status.HTTP_400_BAD_REQUEST)
+        if quotation.status != Quotation.Status.ACCEPTED:
+            return Response({"detail": "The customer must accept the quotation before scheduling work."}, status=400)
         if WorkSchedule.objects.filter(quotation=quotation).exists():
             return Response({"detail": "This opportunity has already been converted to a job.", "job": WorkSchedule.objects.get(quotation=quotation).pk}, status=status.HTTP_400_BAD_REQUEST)
         start_date = parse_date(str(request.data.get("start_date") or "")) or timezone.localdate()
         end_date = parse_date(str(request.data.get("end_date") or "")) or start_date
         with transaction.atomic():
             opportunity.stage = Lead.Stage.WON
-            if not opportunity.archived_at:
-                opportunity.archived_at = timezone.now()
+            opportunity.archived_at = None
             opportunity.save()
             schedule = WorkSchedule.objects.create(
                 quotation=quotation,
                 proposed_start_date=start_date,
                 proposed_end_date=end_date,
                 proposed_by=request.user,
-                status=WorkSchedule.Status.CONFIRMED,
+                status=WorkSchedule.Status.PENDING,
                 contractor_accepted=True,
             )
             LeadStageHistory.objects.create(lead=opportunity, from_stage=Lead.Stage.WON, to_stage=Lead.Stage.WON, note=f"Converted to job {schedule.pk} (quotation {quotation.quotation_number})", changed_by=request.user)
@@ -4415,6 +4611,13 @@ class AdminOperationsDashboardView(APIView):
             "conversation__contractor", "conversation__painter"
         ).order_by("-created_at")
 
+        from application_analytics.last_activity import last_activity_by_user
+        last_activity = last_activity_by_user([
+            *(profile.user for profile in contractors),
+            *(profile.user for profile in painters),
+            *(item.portal_user for item in customers if item.portal_user_id),
+        ])
+
         contractor_rows = [{
             "id": profile.user_id,
             "name": profile.owner_name or profile.user.get_full_name() or profile.user.mobile,
@@ -4432,6 +4635,7 @@ class AdminOperationsDashboardView(APIView):
             "number_of_painters": profile.number_of_painters,
             "team_size": profile.user.applicator_team_members.count(),
             "profile_completion": contractor_profile_completion(profile)["percent"],
+            "last_activity_at": last_activity.get(profile.user_id),
             "created_at": profile.user.created_at,
         } for profile in contractors]
         painter_rows = [{
@@ -4451,6 +4655,7 @@ class AdminOperationsDashboardView(APIView):
             "weekly_wage": profile.weekly_wage,
             "availability": profile.availability,
             "teams": profile.user.contractor_teams.count(),
+            "last_activity_at": last_activity.get(profile.user_id),
             "created_at": profile.user.created_at,
         } for profile in painters]
         customer_rows = [{
@@ -4471,6 +4676,7 @@ class AdminOperationsDashboardView(APIView):
             ),
             "contractor_id": item.contractor_id,
             "portal_enabled": bool(item.portal_user_id),
+            "last_activity_at": last_activity.get(item.portal_user_id),
             "created_at": item.created_at,
         } for item in customers]
         quotation_rows = [{
@@ -4904,6 +5110,7 @@ class ContractorCrmDashboardView(APIView):
         recent_customers = customers.order_by("-updated_at")[:6]
         recent_quotations = quotations.order_by("-updated_at")[:6]
 
+        from .customer_contacts import contractor_customer_details
         profile = request.user.contractor_profile if hasattr(request.user, "contractor_profile") else None
         return Response({
             "contractor_name": profile.company_name if profile and profile.company_name else request.user.get_full_name() or request.user.mobile,
@@ -4930,23 +5137,20 @@ class ContractorCrmDashboardView(APIView):
             },
             "pipeline": pipeline,
             "tasks": [{
-                "id": item.id, "customer": item.customer_id, "customer_bharath_id": item.customer.bharath_id, "customer_name": item.customer.name,
-                "customer_mobile": item.customer.mobile, "type": item.follow_up_type,
+                "id": item.id, "customer": item.customer_id, "customer_bharath_id": item.customer.bharath_id, "customer_name": contractor_customer_details(item.customer, request.user)["name"],
+                "customer_mobile": contractor_customer_details(item.customer, request.user)["mobile"], "type": item.follow_up_type,
                 "comment": item.comment, "next_follow_up": item.next_follow_up,
                 "overdue": item.next_follow_up <= now,
             } for item in tasks[:6]],
-            "site_visits": [{"id": visit.id, "customer_name": visit.customer.name, "property_name": visit.property.name if visit.property else "", "opportunity_title": visit.opportunity.title, "scheduled_date": visit.scheduled_date, "scheduled_time": visit.scheduled_time, "status": visit.status} for visit in visits[:6]] + [{"id": f"followup-{visit.id}", "customer_name": visit.customer.name, "customer_id": visit.customer_id, "property_name": "", "opportunity_title": visit.comment, "scheduled_date": timezone.localtime(visit.next_follow_up).date(), "scheduled_time": timezone.localtime(visit.next_follow_up).time(), "status": "SCHEDULED"} for visit in visit_followups[:6]],
-            "recent_customers": [{
-                "id": item.id, "bharath_id": item.bharath_id, "name": item.name, "mobile": item.mobile,
-                "status": item.status, "city": item.city, "updated_at": item.updated_at,
-            } for item in recent_customers],
+            "site_visits": [{"id": visit.id, "customer_name": contractor_customer_details(visit.customer, request.user)["name"], "property_name": visit.property.name if visit.property else "", "opportunity_title": visit.opportunity.title, "scheduled_date": visit.scheduled_date, "scheduled_time": visit.scheduled_time, "status": visit.status} for visit in visits[:6]] + [{"id": f"followup-{visit.id}", "customer_name": contractor_customer_details(visit.customer, request.user)["name"], "customer_id": visit.customer_id, "property_name": "", "opportunity_title": visit.comment, "scheduled_date": timezone.localtime(visit.next_follow_up).date(), "scheduled_time": timezone.localtime(visit.next_follow_up).time(), "status": "SCHEDULED"} for visit in visit_followups[:6]],
+            "recent_customers": [CustomerSerializer(item, context={"request": request}).data for item in recent_customers],
             "recent_quotations": [{
-                "id": item.id, "number": item.quotation_number, "customer": item.customer.name, "customer_bharath_id": item.customer.bharath_id,
+                "id": item.id, "number": item.quotation_number, "customer": contractor_customer_details(item.customer, request.user)["name"], "customer_bharath_id": item.customer.bharath_id,
                 "property": item.property.name or item.property.property_type, "status": item.status,
                 "amount": item.grand_total, "updated_at": item.updated_at,
             } for item in recent_quotations],
             "new_requests": [{
-                "id": item.id, "customer": item.customer.name, "customer_bharath_id": item.customer.bharath_id,
+                "id": item.id, "customer": contractor_customer_details(item.customer, request.user)["name"], "customer_bharath_id": item.customer.bharath_id,
                 "title": item.title, "status": item.status, "created_at": item.created_at,
             } for item in requests.filter(status=ServiceRequest.Status.NEW)[:5]],
         })
@@ -5559,6 +5763,8 @@ class CustomerQuotationActionView(APIView):
                 schedule.save(update_fields=("quotation", "updated_at"))
                 if schedule.status == WorkSchedule.Status.IN_PROGRESS:
                     quotation.status = Quotation.Status.IN_PROGRESS
+                elif schedule.status == WorkSchedule.Status.COMPLETED:
+                    quotation.status = Quotation.Status.COMPLETED
                 elif schedule.status in (WorkSchedule.Status.PENDING, WorkSchedule.Status.CONFIRMED):
                     quotation.status = Quotation.Status.SCHEDULED
                 quotation.save(update_fields=("status", "updated_at"))
@@ -5572,6 +5778,8 @@ class CustomerQuotationActionView(APIView):
                 payload.update({"next_step": "WORK_IN_PROGRESS", "schedule_url": "/work-schedules"})
             elif quotation.status == Quotation.Status.SCHEDULED:
                 payload.update({"next_step": "EXISTING_SCHEDULE", "schedule_url": "/work-schedules"})
+            elif quotation.status == Quotation.Status.COMPLETED:
+                payload.update({"next_step": "EXISTING_SCHEDULE", "schedule_url": f"/work-schedules?quotation={quotation.id}"})
             else:
                 payload.update({"next_step": "SCHEDULE", "schedule_url": f"/work-schedules?quotation={quotation.id}"})
         return Response(payload)
@@ -5741,7 +5949,7 @@ class QuotationSubmitView(APIView):
         if not quotation:
             return Response({"detail": "Quotation not found."}, status=status.HTTP_404_NOT_FOUND)
         if quotation.connection_id and quotation.connection.status != ContractorCustomerConnection.Status.CONNECTED:
-            return Response({"detail": "The customer must accept your connection request before you can send this quotation."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "This customer relationship is unavailable for quotation sharing."}, status=status.HTTP_403_FORBIDDEN)
         if quotation.status != Quotation.Status.DRAFT:
             return Response(
                 {"detail": "Only a draft quotation can be submitted. Previous versions are preserved."},
@@ -5757,7 +5965,9 @@ class QuotationSubmitView(APIView):
         notification_title = "Revised quotation received" if is_revision else "New quotation received"
         notification_message = f"{quotation.quotation_number} has been revised by your contractor" if is_revision else f"{quotation.quotation_number} from your contractor"
         create_notification(quotation.customer.portal_user, "QUOTATION", notification_title, notification_message, f"/customer-quotations/{quotation.id}", request.user)
-        response_data = {"id": quotation.id, "status": quotation.status, "is_revision": is_revision, "customer_mobile": quotation.customer.mobile, "customer_email": quotation.customer.email, "customer_id": quotation.customer.bharath_id}
+        from .document_identity import quotation_party_details
+        contact_details, _ = quotation_party_details(quotation)
+        response_data = {"id": quotation.id, "status": quotation.status, "is_revision": is_revision, "customer_mobile": contact_details["mobile"], "customer_email": contact_details["email"], "customer_id": quotation.customer.bharath_id}
         if temporary_password:
             response_data["temporary_password"] = temporary_password
         return Response(response_data)

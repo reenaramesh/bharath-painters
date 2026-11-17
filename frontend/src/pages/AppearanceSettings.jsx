@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import api from "../api/client";
 import useAuth from "../context/useAuth";
 import { resolveAppTheme } from "../utils/appTheme";
+import FeedbackToast from "../components/premium/FeedbackToast";
 
 const presets = [
   { label: "Bharath Premium", primary: "#5740EC", accent: "#FB4B8B" },
@@ -51,7 +52,7 @@ export default function AppearanceSettings() {
       <div className="mt-5 grid gap-4 sm:grid-cols-2">{[["app_primary_color", "Primary color"], ["app_accent_color", "Accent color"]].map(([field, label]) => <label key={field} className="text-sm font-semibold">{label}<span className="mt-2 flex items-center gap-2"><input type="color" value={validColor(colors[field]) ? colors[field] : "#2563EB"} onChange={(event) => setColors((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="h-11 w-12 cursor-pointer rounded border border-slate-300 p-1" aria-label={`${label} picker`} /><input required pattern="#[0-9a-fA-F]{6}" value={colors[field]} onChange={(event) => setColors((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-300 px-3 font-mono uppercase bp-ui-control" title="Enter a six-digit hex color" /></span></label>)}</div>
       <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><span className="grid h-10 w-10 place-items-center rounded-lg font-bold text-white" style={{ background: validColor(colors.app_primary_color) ? colors.app_primary_color : "#2563EB" }}>BP</span><span className="text-sm font-semibold" style={{ color: validColor(colors.app_primary_color) ? colors.app_primary_color : "#2563EB" }}>Buttons and selected navigation</span><span className="ml-auto h-5 w-10 rounded-full" style={{ background: validColor(colors.app_accent_color) ? colors.app_accent_color : "#F59E0B" }} /></div>
       {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {message && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
+      <FeedbackToast message={message} onDismiss={() => setMessage("")} />
       <button disabled={saving} className="mt-5 min-h-11 rounded-xl bg-[#2563eb] px-5 font-bold text-white disabled:opacity-50 bp-ui-action">{saving ? "Saving..." : "Save colors"}</button>
     </form>
   </div>;

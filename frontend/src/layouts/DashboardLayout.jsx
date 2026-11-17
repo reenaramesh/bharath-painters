@@ -1,5 +1,6 @@
 ﻿import useAuth from "../context/useAuth";
 import Sidebar from "../components/Sidebar";
+import ActivityTracking from '../analytics/ActivityTracking';
 import Topbar from "../components/Topbar";
 import { Outlet, useLocation } from "react-router-dom";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +13,9 @@ import MobileBottomNav from "../components/MobileBottomNav";
 import FloatingQuickActions from "../components/FloatingQuickActions";
 import useEmploymentStatus from "../hooks/useEmploymentStatus";
 import { resolveAppTheme } from "../utils/appTheme";
+import { hasCustomPresentationTheme, presentationRole, routePresentation } from "../config/routePresentation";
+import PremiumRouteFrame from "../components/premium/PremiumRouteFrame";
+import WorkspaceBreadcrumbs from "../components/premium/WorkspaceBreadcrumbs";
 import "../pages/contractor-dashboard.css";
 import "../pages/customer-portal.css";
 
@@ -60,7 +64,8 @@ export default function DashboardLayout() {
       return next;
     });
   return (
-    <div style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${premiumContractorDashboard ? "bp-contractor-mosaic" : ""} ${premiumContractorQuotationWorkspace ? "bp-contractor-quotation" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+    <div data-ui-role={presentationRole(user?.role, employmentStatus)} data-module={routePresentation(pathname).module} data-ui-custom-theme={hasCustomPresentationTheme(appColors) || undefined} style={themedWorkspace ? appColors || undefined : undefined} className={`bp-ui minimia-shell bp-premium-app flex min-h-screen overflow-x-clip bg-[#f5f7fb] ${messagesPage ? "h-dvh overflow-y-hidden" : ""} ${themedWorkspace ? "contractor-shell" : ""} ${contractorWorkspace ? "bp-saas-pilot" : ""} ${premiumContractorDashboard ? "bp-contractor-mosaic" : ""} ${premiumContractorQuotationWorkspace ? "bp-contractor-quotation" : ""} ${user?.role === "PAINTER" ? "painter-shell" : ""} ${user?.role === "CUSTOMER" ? "customer-shell" : ""} ${user?.role === "ADMIN" ? "admin-shell" : ""}`}>
+      <ActivityTracking />
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
@@ -84,11 +89,14 @@ export default function DashboardLayout() {
         />
 
         <main className={`bp-page-container w-full pb-28 pt-4 md:py-6 xl:py-8 ${messagesPage ? "flex min-h-0 flex-1 flex-col overflow-hidden !pb-24 md:!pb-6 xl:!pb-8" : ""}`}>
+          <WorkspaceBreadcrumbs employmentStatus={employmentStatus} />
+          <PremiumRouteFrame routeKey={pathname}>
           <RouteErrorBoundary resetKey={pathname}>
             <Suspense fallback={<div className="bp-state" role="status"><span className="bp-spinner" /><p>Loading page…</p></div>}>
               <Outlet context={{ employmentStatus }} />
             </Suspense>
           </RouteErrorBoundary>
+          </PremiumRouteFrame>
         </main>
         <MobileBottomNav employmentStatus={employmentStatus} />
         <FloatingQuickActions key={pathname} employmentStatus={employmentStatus} pathname={pathname} />

@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { formatLastActivity } from "../utils/lastActivity.js";
+import { confirmAction } from "../utils/confirmAction.js";
 import AdminMenuVisibility from "../components/AdminMenuVisibility";
 import AdminConversations from "../components/AdminConversations";
 import { groupAdminConversations } from "../utils/adminConversations";
@@ -50,6 +52,7 @@ const columns = {
     ["bharath_id", "Bharath ID"],
     ["profile_completion", "Profile"],
     ["team_size", "Team"],
+    ["last_activity_at", "Last activity"],
   ],
   applicators: [
     ["name", "Name"],
@@ -57,6 +60,7 @@ const columns = {
     ["bharath_id", "Bharath ID"],
     ["skills", "Skills"],
     ["teams", "Teams"],
+    ["last_activity_at", "Last activity"],
   ],
   customers: [
     ["bharath_id", "Customer ID"],
@@ -65,6 +69,7 @@ const columns = {
     ["city", "City"],
     ["contractor", "Contractor"],
     ["email", "Email"],
+    ["last_activity_at", "Last activity"],
   ],
   messages: [
     ["created_at", "Date/time"],
@@ -231,7 +236,7 @@ export default function AdminDashboard() {
     const count = selectedIds.length;
     const reason = window.prompt("Why are you deleting account access? This reason is saved to the audit history (10 to 1000 characters).");
     if (!reason || reason.trim().length < 10 || reason.trim().length > 1000) { if (reason !== null) window.alert("Enter a justification between 10 and 1000 characters."); return; }
-    if (!window.confirm(`Delete access for ${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}? Related business records will be preserved.`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to remove access for these accounts?", detail: `${count} selected ${section === "applicators" ? "paint applicator" : section.slice(0, -1)}${count === 1 ? "" : "s"}` })) return;
     setSaving(true);
     const failed = [];
     for (const id of selectedIds) {
@@ -247,7 +252,7 @@ export default function AdminDashboard() {
     setSaving(false);
   }
   async function releaseDeletedCustomerNumbers() {
-    if (saving || !window.confirm("Release mobile numbers held by deleted customers? This keeps historical business records.")) return;
+    if (saving || !await confirmAction({ question: "Are you sure you want to release these mobile numbers?" })) return;
     setSaving(true);
     setError("");
     setRepairMessage("");
@@ -274,7 +279,7 @@ export default function AdminDashboard() {
   }
   async function releaseInactiveAccountNumbers() {
     if (!retiredAccounts || !retiredSelection.length || saving) return;
-    if (!window.confirm(`Release the mobile numbers of ${retiredSelection.length} selected inactive accounts? Those accounts will no longer be able to sign in.`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to release these mobile numbers?", detail: `${retiredSelection.length} selected inactive accounts` })) return;
     setSaving(true);
     setError("");
     try {
@@ -323,7 +328,7 @@ export default function AdminDashboard() {
   async function deleteAccess(row) {
     const reason = window.prompt(`Why are you deleting access for ${row.name || row.company}? This reason is saved to the audit history.`);
     if (!reason || reason.trim().length < 10 || reason.trim().length > 1000) { if (reason !== null) window.alert("Enter a justification between 10 and 1000 characters."); return; }
-    if (!window.confirm(`Delete access for ${row.name || row.company}? Related business records will be preserved.`)) return;
+    if (!await confirmAction({ question: "Are you sure you want to remove this account access?", detail: row.name || row.company })) return;
     setSaving(true);
     try {
       await api.delete(`/quotations/admin-dashboard/${section}/${row.id}/`, { data: { reason: reason.trim() } });
@@ -823,6 +828,7 @@ function DataTable({
   );
 }
 function display(key, value) {
+  if (key === "last_activity_at") return formatLastActivity(value);
   if (key === "profile_completion") return `${value ?? 0}%`;
   if (key === "grand_total")
     return `₹${Number(value || 0).toLocaleString("en-IN")}`;

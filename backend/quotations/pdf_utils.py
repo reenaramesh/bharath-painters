@@ -1,3 +1,4 @@
+from .customer_contacts import contractor_customer_details
 from io import BytesIO
 from decimal import Decimal
 from pathlib import Path
@@ -46,7 +47,7 @@ def build_measurement_pdf(property_obj, measurement_record=None):
     address = ", ".join(value for value in [property_obj.address, property_obj.city, property_obj.pincode] if value)
     meta = [
         ["Project", Paragraph(escape(property_obj.name or property_obj.property_type), small), "Date", str(measurement_record.measured_on if measurement_record else property_obj.updated_at.date())],
-        ["Owner", Paragraph(escape(property_obj.customer.name), small), "Generated", report_date],
+        ["Owner", Paragraph(escape(contractor_customer_details(property_obj.customer, property_obj.contractor)["name"]), small), "Generated", report_date],
         ["Address", Paragraph(escape(address or "-"), small), "Input unit", property_obj.get_measurement_unit_display()],
     ]
     if measurement_record:

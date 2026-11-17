@@ -31,6 +31,7 @@ export const STAGE_STYLES = {
 };
 
 export const SOURCE_OPTIONS = [
+  ["CUSTOMER_APP", "Customer app"],
   ["GOOGLE_SEARCH", "Google Search"],
   ["GOOGLE_PROFILE", "Google Business Profile"],
   ["GOOGLE_ADS", "Google Ads"],
@@ -77,6 +78,7 @@ export const LOST_REASON_OPTIONS = [
 
 export const FOLLOW_UP_OUTCOMES = [
   ["INTERESTED", "Interested"],
+  ["QUOTATION_REQUIRED", "Quotation required"],
   ["CALL_LATER", "Call Later"],
   ["WAITING_DECISION", "Waiting for Decision"],
   ["REVISED_QUOTE", "Need Revised Quote"],

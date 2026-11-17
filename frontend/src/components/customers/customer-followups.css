@@ -1,0 +1,21 @@
+.customer-followup-choice,.customer-general-followup { display:grid;gap:16px;min-width:0;color:var(--bp-ink,#17213a);font-size:14px; }
+.customer-followup-option { display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;min-height:64px;padding:12px 16px;border:1px solid var(--bp-line,#e4e7ef);border-radius:12px;text-align:left;background:white; }
+.customer-followup-option:hover { border-color:#5841e8;background:#f3f0ff; }
+.customer-followup-option>strong { width:100%;overflow-wrap:anywhere; }
+.customer-followup-option>span { font-size:13px;color:var(--bp-muted,#617087);overflow-wrap:anywhere; }
+.customer-followup-choice h3 { font-size:14px;font-weight:700; }
+.customer-followup-footer { display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding-top:12px;border-top:1px solid var(--bp-line,#e4e7ef); }
+.customer-general-followup form>fieldset { display:grid;gap:16px;min-width:0;border:0;padding:0; }
+.customer-general-followup label { display:grid;gap:6px;font-size:14px;font-weight:600;min-width:0; }
+.customer-general-followup :is(input:not([type=radio]),select,textarea) { width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--bp-line,#e4e7ef);border-radius:10px;background:white;color:inherit;font:inherit; }
+.customer-general-time { border:0;padding:0;min-width:0; }
+.customer-general-time legend { font-size:14px;font-weight:600;margin-bottom:8px; }
+.customer-general-choices { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
+.customer-general-choices label { display:flex;align-items:center;gap:8px;min-height:48px;padding:10px;border:1px solid var(--bp-line,#e4e7ef);border-radius:10px;font-size:13px;cursor:pointer; }
+.customer-general-choices label:has(input:checked) { background:#f3f0ff;border-color:#5841e8; }
+.customer-general-choices input { width:18px;height:18px;flex:none;accent-color:#5841e8; }
+.customer-general-context { font-weight:700;overflow-wrap:anywhere; }
+.customer-general-help { font-size:13px;color:var(--bp-muted,#617087); }
+.customer-general-error { color:#a12932;font-size:14px; }
+.customer-followup-choice :is(button,a):focus-visible,.customer-general-followup :is(input,select,textarea,button):focus-visible { outline:3px solid #a99bff;outline-offset:3px; }
+@media(max-width:480px) { .customer-general-followup :is(input:not([type=radio]),select,textarea) { font-size:16px; }.customer-followup-footer>.bp-button { flex:1; } }

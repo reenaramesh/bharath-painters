@@ -1,7 +1,7 @@
 import useMobileView from "../hooks/useMobileView.js";
 import "./mobile-workspace.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { needsKickoffAdvance, resolveScheduleQuery, schedulableQuotations } from "../utils/salesHandoffs.js";
 import {
   CalendarDays,
@@ -13,12 +13,18 @@ import {
   Search,
 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import ContractorDialog from "../components/ContractorDialog";
 import { previewPdf } from "../components/PdfPreview";
 import useAuth from "../context/useAuth";
 import MobilePageBack from "../components/MobilePageBack";
 import ScheduleWorkspaceNav from "../components/ScheduleWorkspaceNav";
 import ScheduleApprovalMethod from "../components/ScheduleApprovalMethod";
+import ScheduleWorkItems from "../components/ScheduleWorkItems";
+import ReopenWorkAction from "../components/ReopenWorkAction";
+import ScheduleQuotationReference from "../components/ScheduleQuotationReference";
+import ScheduleQuotationItems from "../components/ScheduleQuotationItems";
+import useDraftUnsavedChanges from "../hooks/useDraftUnsavedChanges.js";
 import { Button, EmptyState, ErrorState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 import "./jobs-schedules.css";
 
@@ -27,6 +33,7 @@ const filters = [
   "PENDING",
   "CONFIRMED",
   "IN_PROGRESS",
+  "COMPLETED",
   "CANCELLED",
 ];
 const todayKey = () => {
@@ -42,6 +49,8 @@ const tomorrowKey = () => {
 };
 
 export default function WorkSchedules() {
+  const { scheduleId } = useParams();
+  const [categoryItemIds, setCategoryItemIds] = useState(null);
   const mobile = useMobileView();
   const { user } = useAuth();
   const [params] = useSearchParams();
@@ -64,6 +73,18 @@ export default function WorkSchedules() {
   const [assigning, setAssigning] = useState(null);
   const [selected, setSelected] = useState([]);
   const [expanded, setExpanded] = useState(null);
+  const [progressFailure, setProgressFailure] = useState(null);
+  const progressLock = useRef(false);
+  const [workDraftState, setWorkDraftState] = useState({ account: user.id, rows: {} });
+  const workDrafts = workDraftState.account === user.id ? workDraftState.rows : {};
+  useDraftUnsavedChanges(Object.values(workDrafts).some(rows => Object.keys(rows).length > 0), user.role === "CONTRACTOR", { preservePathname: "/work-schedules" });
+  function changeWorkDrafts(scheduleId, update) {
+    setWorkDraftState(previous => {
+      const rows = previous.account === user.id ? previous.rows : {};
+      const next = typeof update === "function" ? update(rows[scheduleId] || {}) : update;
+      return { account: user.id, rows: { ...rows, [scheduleId]: next } };
+    });
+  }
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [sort, setSort] = useState({ key: "", direction: "asc" });
@@ -152,13 +173,13 @@ export default function WorkSchedules() {
   const visible = useMemo(() => {
     const today = todayKey();
     const rows = items.filter((item) => {
-      if ((item.status === "COMPLETED" && expanded !== item.id) || item.needs_reschedule) return false;
+      if ((item.status === "COMPLETED" && filter !== "COMPLETED" && expanded !== item.id) || item.needs_reschedule) return false;
       if (kickoffQueue && !needsKickoffAdvance(item)) return false;
       const upcoming =
         item.end_date >= today &&
         !["COMPLETED", "CANCELLED"].includes(item.status);
       const matchesDate =
-        datePreset === "ALL" ||
+        expanded === item.id || datePreset === "ALL" ||
         (datePreset === "UPCOMING"
           ? upcoming
           : item.start_date >= dateFrom && item.start_date <= dateTo);
@@ -415,7 +436,7 @@ export default function WorkSchedules() {
     const reason = window
       .prompt("Reason for cancelling this unpaid schedule:")
       ?.trim();
-    if (!reason || !window.confirm("Cancel this schedule?")) return;
+    if (!reason || !await confirmAction({ question: "Are you sure you want to cancel this schedule?", detail: item.quotation_number })) return;
     setSaving(true);
     try {
       await api.post(`/jobs/work-schedules/${item.id}/cancel/`, { reason });
@@ -427,6 +448,7 @@ export default function WorkSchedules() {
     }
   }
   async function updateProgress(item, action) {
+    if (progressLock.current) return;
     if (
       !window.confirm(
         action === "START"
@@ -435,17 +457,39 @@ export default function WorkSchedules() {
       )
     )
       return;
+    progressLock.current = true;
+    setProgressFailure(null);
     setSaving(true);
     try {
-      await api.post(`/jobs/work-schedules/${item.id}/progress/`, { action });
+      const response = await api.post(`/jobs/work-schedules/${item.id}/progress/`, { action });
+      setItems(current => current.map(row => row.id === item.id ? { ...row, ...response.data } : row));
       await load();
     } catch (err) {
-      setError(message(err, "Work status could not be updated."));
+      const reason = message(err, "Work status could not be updated.");
+      setProgressFailure({ account: user.id, schedule: item.id, message: reason });
+      setError(reason);
     } finally {
+      progressLock.current = false;
       setSaving(false);
     }
   }
 
+  if (scheduleId) {
+    const item = items.find(row => String(row.id) === scheduleId);
+    return <div className="space-y-6 jobs-schedules-page bp-work-schedules-page schedule-detail-page">
+      <PageHeader eyebrow="Work schedule" title={item?.quotation_number || 'Work schedule'} description="Quotation items, scheduled dates and work progress in one workspace." actions={<Link to="/work-schedules" className="inline-flex min-h-11 items-center rounded-xl border bg-white px-4 text-sm font-semibold">All work schedules</Link>} />
+      {error && <ErrorState message={error} onRetry={load} />}
+      {!loaded && !error ? <p role="status" className="p-6">Loading work schedule…</p> : loaded && !item ? <EmptyState title="Work schedule unavailable" description="This schedule may no longer exist or your account may not have access." /> : item && <ProjectRow
+        key={`${user.id}:${item.id}`} item={item} role={user.role} accountId={user.id}
+        workDrafts={workDrafts[item.id] || {}} onWorkDraftsChange={update => changeWorkDrafts(item.id, update)}
+        saving={saving} progressError={progressFailure?.account === user.id && progressFailure?.schedule === item.id ? progressFailure.message : ''}
+        expanded detailMode categoryItemIds={categoryItemIds} onCategoryItemsChange={setCategoryItemIds} onToggle={()=>{}}
+        onAccept={accept} onAssign={openAssign} onPayment={paymentAction} onReceipt={downloadAdvanceReceipt} onCancel={cancelUnpaid} onProgress={updateProgress}
+        onWorkUpdated={updated=>{setItems(current=>current.map(row=>row.id===updated.id?{...row,...updated}:row));void load();}}
+      />}
+      {assigning && <PainterModal item={assigning} error={error} painters={painters} selected={selected} setSelected={setSelected} saving={saving} onClose={()=>setAssigning(null)} onSubmit={savePainters} />}
+    </div>;
+  }
   return (
     <div className="space-y-6 jobs-schedules-page bp-work-schedules-page">
       <MobilePageBack />
@@ -528,7 +572,7 @@ export default function WorkSchedules() {
             {filters.map((value) => (
               <button
                 key={value}
-                onClick={() => setFilter(value)}
+                onClick={() => {setFilter(value);if(value === "COMPLETED")setDatePreset("ALL");}}
                 aria-pressed={filter === value}
                 className={(`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold ${filter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`) + " bp-ui-action"}
               >
@@ -569,7 +613,11 @@ export default function WorkSchedules() {
                   key={item.id}
                   item={item}
                   role={user.role}
+                  accountId={user.id}
+                  workDrafts={workDrafts[item.id] || {}}
+                  onWorkDraftsChange={update => changeWorkDrafts(item.id, update)}
                   saving={saving}
+                  progressError={progressFailure?.account === user.id && progressFailure?.schedule === item.id ? progressFailure.message : ""}
                   expanded={expanded === item.id}
                   onToggle={() =>
                     setExpanded(expanded === item.id ? null : item.id)
@@ -580,6 +628,7 @@ export default function WorkSchedules() {
                   onReceipt={downloadAdvanceReceipt}
                   onCancel={cancelUnpaid}
                   onProgress={updateProgress}
+                  onWorkUpdated={updated=>{setItems(current=>current.map(row=>row.id===updated.id?{...row,...updated}:row));setFilter("ALL");void load();}}
                 />
               ))}
             </div>
@@ -639,7 +688,11 @@ function SortHeader({ label: text, column, sort, onSort }) {
 function ProjectRow({
   item,
   role,
+  accountId,
+  workDrafts,
+  onWorkDraftsChange,
   saving,
+  progressError,
   expanded,
   onToggle,
   onAccept,
@@ -648,46 +701,36 @@ function ProjectRow({
   onReceipt,
   onCancel,
   onProgress,
+  onWorkUpdated,
+  detailMode = false,
+  categoryItemIds = null,
+  onCategoryItemsChange,
 }) {
   const myAccepted =
     role === "CUSTOMER" ? item.customer_accepted : item.contractor_accepted;
   const paid = item.payment_status === "CONFIRMED";
-  const ready = item.painters.length > 0;
-  const nextAction =
-    item.status === "PENDING" && !myAccepted && (role !== "CUSTOMER" || item.property_access?.permissions?.approve_quotations) ? (
-      <Action onClick={() => onAccept(item.id)} disabled={saving} primary>
-        Accept dates
-      </Action>
-    ) : role === "CONTRACTOR" &&
-      item.status === "CONFIRMED" &&
-      ready &&
-      item.payment_status !== "CONFIRMED" ? (
-      <span className="text-sm font-semibold text-amber-700">
-        Waiting for advance payment
-      </span>
-    ) : role === "CONTRACTOR" &&
-      item.status === "CONFIRMED" &&
-      ready &&
-      item.start_date > todayKey() ? (
-      <span className="text-sm font-semibold text-indigo-700">
-        Starts on {item.start_date}
-      </span>
-    ) : role === "CONTRACTOR" && item.status === "CONFIRMED" && ready && paid ? (
-      <Action onClick={() => onProgress(item, "START")} primary>
+  const canStart = role === "CONTRACTOR" && ["PENDING", "CONFIRMED"].includes(item.status);
+  const nextAction = canStart ? (
+      <Action onClick={() => onProgress(item, "START")} disabled={saving} primary>
         Start work
       </Action>
+    ) : item.status === "PENDING" && !myAccepted && role === "CUSTOMER" && item.property_access?.permissions?.approve_quotations ? (
+      <Action onClick={() => onAccept(item.id)} disabled={saving} primary>Accept dates</Action>
     ) : role === "CONTRACTOR" && item.status === "IN_PROGRESS" ? (
-      <Action onClick={() => onProgress(item, "COMPLETE")} primary>
+      <Action onClick={() => onProgress(item, "COMPLETE")} disabled={saving} primary>
         Complete work
       </Action>
+    ) : role === "CONTRACTOR" && item.status === "COMPLETED" ? (
+      <><ReopenWorkAction schedule={item} onUpdated={onWorkUpdated} /><Link className="schedule-invoice-link" to={item.invoice_id?`/invoices?invoice=${item.invoice_id}`:`/quotations/${item.quotation}?action=invoice`}>{item.invoice_id?"View invoice":"Create final invoice"}</Link></>
     ) : (
       <span className="text-sm text-slate-400">No action required</span>
     );
   return (
-    <article className={`bg-white ${role === "CUSTOMER" ? "customer-schedule-record" : ""}`}>
+    <article className={`schedule-record schedule-record-${item.status.toLowerCase()} bg-white ${role === "CUSTOMER" ? "customer-schedule-record" : ""}`}>
       <div className="schedule-summary-grid schedule-summary-row">
         <div className="min-w-0">
-          <h2 className="font-bold text-slate-950 bp-ui-section-heading">{item.quotation_number}</h2>
+          <h2 className="font-bold text-slate-950 bp-ui-section-heading">{detailMode ? item.quotation_number : <Link to={`/work-schedules/${item.id}`} title="Open work schedule" className="inline-flex min-h-11 items-center text-indigo-700 underline underline-offset-4">{item.quotation_number}</Link>}</h2>
+          <ScheduleQuotationReference key={`${accountId}:${item.quotation}`} quotationId={item.quotation} quotationNumber={item.quotation_number} role={role} />
           <p className="mt-1 text-sm font-semibold text-slate-700">{role === "CUSTOMER" ? item.property : item.customer}</p>
           <p className="mt-0.5 text-xs text-slate-500">{role === "CUSTOMER" ? `With ${item.contractor}` : item.property}</p>
         </div>
@@ -698,10 +741,10 @@ function ProjectRow({
           {item.painters.length ? <ul className="space-y-1">{item.painters.map(painter => <li key={painter.assignment_id || painter.id} className="flex flex-wrap items-center gap-1 text-sm"><span className="font-semibold text-slate-800">{painter.name}</span><span className="text-xs text-slate-500">{label(painter.status || "ASSIGNED")}</span></li>)}</ul> : <p className="text-sm text-slate-500">No painters assigned</p>}
           {role === "CONTRACTOR" && item.status === "CONFIRMED" && <button type="button" onClick={() => onAssign(item)} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-indigo-700 bp-ui-action"><Paintbrush className="h-4 w-4" aria-hidden="true" />Manage painters</button>}
         </div>
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={`schedule-details-${item.id}`} className="schedule-details-toggle inline-flex min-h-11 items-center justify-center gap-1 rounded-xl border px-3 text-sm font-semibold text-indigo-700 bp-ui-action">{expanded ? "Hide details" : "View details"}{expanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}</button>
+        {!detailMode && <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={`schedule-details-${item.id}`} className="schedule-details-toggle inline-flex min-h-11 items-center justify-center gap-1 rounded-xl border px-3 text-sm font-semibold text-indigo-700 bp-ui-action">{expanded ? "Hide details" : "View details"}{expanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}</button>}
       </div>
       {expanded && (
-        <div id={`schedule-details-${item.id}`} className="grid gap-3 border-t bg-slate-50/60 p-4 md:grid-cols-3 lg:p-5">
+        <div id={`schedule-details-${item.id}`} className="schedule-detail-cards">
           <Detail title="Schedule details">
             {item.scheduling_mode === "CONTRACTOR" && <p className="font-semibold text-blue-700">Contractor-authorized dates — portal approval not required.</p>}
             <p>
@@ -720,36 +763,20 @@ function ProjectRow({
               <p className="text-amber-700">Reason: {item.reschedule_reason}</p>
             )}
           </Detail>
-          <Detail title="Advance & receipts">
-            <p>
-              Status: <b>{role === "CUSTOMER" ? customerPaymentLabel(item.payment_status) : label(item.payment_status)}</b>
-            </p>
-            {Number(item.advance_amount) > 0 && (
-              <p>
-                Amount:{" "}
-                <b>₹{Number(item.advance_amount).toLocaleString("en-IN")}</b>
-              </p>
-            )}
-            {item.payment_mode && (
-              <p>
-                {item.payment_mode}
-                {item.payment_reference && ` | ${item.payment_reference}`}
-              </p>
-            )}
+          <Detail title="Payment details">
+            <div className="schedule-payment-head">
+              <div><span className="schedule-detail-label">Advance</span><strong className="schedule-payment-amount">{Number(item.advance_amount) > 0 ? `\u20b9${Number(item.advance_amount).toLocaleString("en-IN")}` : "Not set"}</strong></div>
+              <span className={`schedule-payment-status ${paid ? "is-paid" : ""}`}>{customerPaymentLabel(item.payment_status)}</span>
+            </div>
+            {(item.payment_mode || item.payment_reference) && <dl className="schedule-payment-meta">
+              {item.payment_mode && <div><dt>Mode</dt><dd>{label(item.payment_mode)}</dd></div>}
+              {item.payment_reference && <div><dt>Reference</dt><dd>{item.payment_reference}</dd></div>}
+            </dl>}
             <PaymentActions item={item} role={role} onPayment={onPayment} />
-            {paid && item.advance_receipt_number && (
-              <button
-                type="button"
-                onClick={() => onReceipt(item)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 bp-ui-action"
-              >
-                <Download className="h-4 w-4" />
-                Download receipt
-              </button>
-            )}
-            {paid && (
-              null
-            )}
+            {paid && item.advance_receipt_number && <div className="schedule-receipt-row">
+              <div><span className="schedule-detail-label">Receipt</span><strong>{item.advance_receipt_number}</strong></div>
+              <button type="button" onClick={() => onReceipt(item)} className="schedule-receipt-button bp-ui-action"><Download className="h-4 w-4" aria-hidden="true" />Download receipt</button>
+            </div>}
             {role === "CONTRACTOR" && !paid && item.status === "CONFIRMED" && (
               <button
                 onClick={() => onCancel(item)}
@@ -760,7 +787,9 @@ function ProjectRow({
             )}
           </Detail>
           <Detail title="Work progress">
+            {item.rework_history?.length>0 && <details className="qsc-rework-history"><summary>Rework notes ({item.rework_history.length})</summary>{item.rework_history.map(row=><div key={row.id}><p>{row.note}</p><small>{new Date(row.created_at).toLocaleString('en-IN')}</small></div>)}</details>}
             <div className="flex flex-wrap gap-2">{nextAction}</div>
+            {progressError && <p role="alert" className="schedule-progress-error">{progressError}</p>}
             {item.work_started_at && (
               <p className="text-slate-500">
                 Started: {new Date(item.work_started_at).toLocaleString()}
@@ -779,6 +808,22 @@ function ProjectRow({
           </Detail>
         </div>
       )}
+      {detailMode && <ScheduleQuotationItems key={`quotation:${accountId}:${item.quotation}`} quotationId={item.quotation} role={role} onFilterItems={onCategoryItemsChange} />}
+      <ScheduleWorkItems
+        key={`${accountId}:${item.id}`}
+        scheduleId={item.id}
+        parentStatus={item.status}
+        visible={expanded}
+        initiallyOpen={detailMode}
+        itemIds={categoryItemIds}
+        drafts={workDrafts}
+        onDraftsChange={onWorkDraftsChange}
+        scheduleBusy={saving}
+        progressError={progressError}
+        project={{ quotation: item.quotation_number, property: item.property, customer: role === "CONTRACTOR" ? item.customer : undefined }}
+        onStart={canStart ? () => onProgress(item, "START") : undefined}
+        startHint="Start when site work begins. Customer approval, painter acceptance and advance payment are tracked separately."
+      />
     </article>
   );
 }
@@ -932,14 +977,14 @@ function Action({ children, onClick, disabled, primary }) {
 }
 function Detail({ title, children }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4 text-sm">
+    <section className="schedule-detail-card">
       <h3 className="mb-2 font-bold">{title}</h3>
-      <div className="space-y-1">{children}</div>
-    </div>
+      <div className="schedule-detail-content">{children}</div>
+    </section>
   );
 }
 function PaymentActions({ item, role, onPayment }) {
-  if (item.status !== "CONFIRMED")
+  if (!["CONFIRMED", "IN_PROGRESS"].includes(item.status))
     return (
       null
     );
@@ -979,11 +1024,7 @@ function PaymentActions({ item, role, onPayment }) {
         Confirm receipt
       </button>
     );
-  return (
-    <p className="mt-2 text-xs text-emerald-700">
-      Payment recorded separately from booking.
-    </p>
-  );
+  return null;
 }
 function Status({ value }) {
   const tone = value === "COMPLETED" ? "success" : value === "CANCELLED" ? "danger" : value === "PENDING" ? "warning" : "info";

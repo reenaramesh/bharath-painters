@@ -70,7 +70,7 @@ class LinkedSignupEndpointTests(APITestCase):
         from django.urls import reverse
         response = self.client.post(reverse('register-customer'), {
             'name': 'Linked terms customer', 'mobile': '9888877719',
-            'email': 'linked.terms@example.com', 'password': 'customer-pass',
+            'email': 'linked.terms@example.com', 'password': 'River-bank-password-2026!',
             'policy_version': POLICY_VERSION, 'acceptance_method': 'REGISTRATION_SUBMIT',
             'terms_accepted': True, 'privacy_notice_acknowledged': True,
         }, format='json')

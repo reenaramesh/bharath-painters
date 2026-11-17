@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .mobile import normalize_mobile, matching_mobile_users
 from .profile_field_ownership import (
@@ -71,6 +72,14 @@ def validate_registration_email(value):
     return email
 
 
+def validate_registration_password(value):
+    try:
+        validate_password(value)
+    except DjangoValidationError as error:
+        raise serializers.ValidationError(error.messages)
+    return value
+
+
 class PainterRegistrationSerializer(serializers.ModelSerializer):
 
     mobile = serializers.CharField(max_length=32)
@@ -125,6 +134,9 @@ class PainterRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         return validate_registration_email(value)
+
+    def validate_password(self, value):
+        return validate_registration_password(value)
 
     def create(self, validated_data):
 
@@ -205,6 +217,9 @@ class ContractorRegistrationSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         return validate_registration_email(value)
 
+    def validate_password(self, value):
+        return validate_registration_password(value)
+
     def create(self, validated_data):
 
         name = validated_data.pop("name", "").strip()
@@ -258,6 +273,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     company_logo_position = ProfileImagePositionField(required=False)
     profile_background_position = ProfileImagePositionField(required=False)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
+    current_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     company_name = serializers.CharField(required=False, allow_blank=True)
     owner_name = serializers.CharField(required=False)
     profile_completion = serializers.SerializerMethodField()
@@ -275,7 +291,7 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContractorProfile
         fields = [
-            "mobile", "email", "password", "profile_photo", "profile_photo_position", "company_name", "owner_name", "profile_completion",
+            "mobile", "email", "password", "current_password", "profile_photo", "profile_photo_position", "company_name", "owner_name", "profile_completion",
             "company_logo", "company_logo_shape", "company_logo_position", "pdf_color_template", "pdf_font_template",
             "profile_background", "profile_background_position",
             "business_established_date",
@@ -344,6 +360,13 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
         return cleaned
 
     def validate(self, attrs):
+        if attrs.get("password"):
+            if not attrs.get("current_password"):
+                raise serializers.ValidationError({"current_password": "Enter your current password to change it."})
+            try:
+                validate_password(attrs["password"], user=self.instance.user if self.instance else None)
+            except DjangoValidationError as error:
+                raise serializers.ValidationError({"password": error.messages})
         for field in self.url_fields:
             if field in attrs:
                 attrs[field] = self._normalize_url(attrs[field])
@@ -393,6 +416,13 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
         password = validated_data.pop("password", "")
+        current_password = validated_data.pop("current_password", "")
+        # The profile instance may have cached pre-reset authentication fields.
+        user = BharathUser.objects.select_for_update().get(pk=instance.user_id)
+        instance.user = user
+        user_fields = set(user_data)
+        if password and not user.check_password(current_password):
+            raise serializers.ValidationError({"current_password": "Current password is incorrect."})
         established = validated_data.get("business_established_date")
         if established:
             from django.utils import timezone
@@ -400,12 +430,12 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             validated_data["years_in_business"] = today.year - established.year - ((today.month, today.day) < (established.month, established.day))
         supplied = set(validated_data)
         workforce_supplied = "number_of_painters" in validated_data
-        user = instance.user
         if "owner_name" in validated_data:
             parts = validated_data["owner_name"].strip().split(maxsplit=1)
             if parts:
                 user.first_name = parts[0]
                 user.last_name = parts[1] if len(parts) > 1 else ""
+                user_fields.update(("first_name", "last_name"))
         if "mobile" in user_data:
             user.mobile = user_data["mobile"]
         if "email" in user_data:
@@ -416,7 +446,9 @@ class ContractorProfileSerializer(serializers.ModelSerializer):
             user.profile_photo_position = user_data["profile_photo_position"]
         if password:
             user.set_password(password)
-        user.save()
+            user_fields.add("password")
+        if user_fields:
+            user.save(update_fields=user_fields)
         instance = super().update(instance, validated_data)
         mirror_contractor_to_provider(instance, supplied)
         # Keep the legacy company API writable. This is declared workforce,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, KeyRound, MapPin } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import useAuth from "../context/useAuth";
 import "./admin-portal.css";
@@ -33,7 +34,7 @@ export default function AdminIntegrations() {
   }
 
   async function remove() {
-    if (!window.confirm("Remove the saved Maps API key? Address lookup will use the server environment key if one exists.")) return;
+    if (!await confirmAction({ question: "Are you sure you want to remove this Maps API key?" })) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const { data } = await api.delete(endpoint);

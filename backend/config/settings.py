@@ -16,9 +16,16 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Local startup only. Render/explicit production settings use the real process
+# environment. Never override OS values or search parent directories for secrets.
+if (os.environ.get("RENDER", "").strip().lower() != "true"
+        and os.environ.get("DJANGO_DEBUG", "true").strip().lower() == "true"):
+    load_dotenv(BASE_DIR / ".env", override=False, encoding="utf-8-sig")
 
 WEB_PUSH_VAPID_PUBLIC_KEY = os.environ.get("WEB_PUSH_VAPID_PUBLIC_KEY", "")
 WEB_PUSH_VAPID_PRIVATE_KEY = os.environ.get("WEB_PUSH_VAPID_PRIVATE_KEY", "")
@@ -42,6 +49,8 @@ def _env_bool(name, default):
 
 
 DEBUG = _env_bool("DJANGO_DEBUG", True)
+if _env_bool("RENDER", False) and DEBUG:
+    raise ImproperlyConfigured("Set DJANGO_DEBUG=false on Render before starting the public application.")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
@@ -88,6 +97,7 @@ INSTALLED_APPS = [
     'billing',
     'outsourcing',
     'call_inbox',
+    'application_analytics',
 
     'rest_framework',
 
@@ -111,9 +121,10 @@ if RENDER_EXTERNAL_HOSTNAME:
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
     "https://bharath-painters-chi.vercel.app",
 ]
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.append("http://localhost:5173")
 
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(
@@ -126,17 +137,25 @@ CSRF_TRUSTED_ORIGINS.extend(
     if value.strip()
 )
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "https://bharath-painters-chi.vercel.app",
-]
+CORS_ALLOWED_ORIGINS = ["https://bharath-painters-chi.vercel.app"]
+CORS_EXPOSE_HEADERS = ["Content-Disposition", "X-Analytics-Truncated", "X-Analytics-Row-Limit"]
+if DEBUG:
+    CORS_ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+    ])
+if "CORS_ALLOWED_ORIGINS" in os.environ:
+    CORS_ALLOWED_ORIGINS = [
+        value.strip() for value in os.environ["CORS_ALLOWED_ORIGINS"].split(",") if value.strip()
+    ]
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://bharath-painters-chi.vercel.app").rstrip("/")
+FRONTEND_URL = os.environ.get(
+    "FRONTEND_URL", "http://localhost:5173" if DEBUG else "https://bharath-painters-chi.vercel.app"
+).rstrip("/")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -144,6 +163,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_THROTTLE_RATES": {
         "login": "10/minute",
+        "registration": "5/hour",
         "recovery_lookup": "20/hour",
         "recovery_request": "5/hour",
         "recovery_verify": "15/hour",
@@ -154,6 +174,10 @@ REST_FRAMEWORK = {
         "maps_lookup": "10/hour",
     },
 }
+
+# Only these explicitly trusted reverse proxies may supply auth client IPs.
+# Empty by default: ignore caller-supplied X-Forwarded-For entirely.
+AUTH_TRUSTED_PROXY_CIDRS = [value.strip() for value in os.environ.get("AUTH_TRUSTED_PROXY_CIDRS", "").split(",") if value.strip()]
 
 def _env_int(name, default):
     """Parse an integer environment variable, failing with a clear message."""
@@ -260,6 +284,8 @@ LANGUAGE_CODE = 'en-us'
 # USE_TZ remains enabled; only application-local date boundaries use IST.
 TIME_ZONE = 'Asia/Kolkata'
 
+APPLICATION_ANALYTICS_RETENTION_DAYS = max(1, min(365, int(os.environ.get('APPLICATION_ANALYTICS_RETENTION_DAYS', '90'))))
+
 USE_I18N = True
 
 USE_TZ = True
@@ -287,6 +313,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
+PRIVATE_CATALOGUE_ROOT = Path(os.environ.get("PRIVATE_CATALOGUE_ROOT", BASE_DIR / "private_catalogues"))
 
 # Public address encoded into Bharath profile QR codes. Configure this with the
 # deployed HTTPS API origin before launch.
@@ -299,11 +326,32 @@ BHARATH_PUBLIC_BACKEND_URL = os.environ.get(
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
 
-# Development prints mail to the backend console. Production can switch to
-# SMTP entirely through environment variables without a code change.
+# DEBUG defaults to Django's private local files even if a legacy admin API
+# provider is active. Production AUTO retains that provider; explicit server
+# settings always win. Use AUTO explicitly to opt into admin providers locally.
+EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "DJANGO" if DEBUG else "AUTO").strip().upper()
 EMAIL_BACKEND = os.environ.get(
-    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.filebased.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
 )
+EMAIL_FILE_PATH = BASE_DIR / ".email-output"
+# Production starts with email-dependent registration/recovery explicitly off.
+AUTH_EMAIL_ENABLED = _env_bool("AUTH_EMAIL_ENABLED", DEBUG)
+PASSWORD_RECOVERY_DELIVERY_MODE = os.environ.get(
+    "PASSWORD_RECOVERY_DELIVERY_MODE", "sync" if DEBUG else "queued"
+).strip().lower()
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
+BREVO_SANDBOX = _env_bool("BREVO_SANDBOX", False)
+# Real API sends require deliberate opt-in and an active-sender API preflight.
+BREVO_LIVE_ENABLED = _env_bool("BREVO_LIVE_ENABLED", False)
+# Controlled delivery never enables public email. Keep these off until an
+# operator approves the exact sender/recipient and the separate test steps.
+BREVO_CONTROLLED_TEST_ENABLED = _env_bool("BREVO_CONTROLLED_TEST_ENABLED", False)
+BREVO_TEST_RECIPIENT = os.environ.get("BREVO_TEST_RECIPIENT", "").strip().lower()
+BREVO_TEST_OTP_ENABLED = _env_bool("BREVO_TEST_OTP_ENABLED", False)
+if BREVO_CONTROLLED_TEST_ENABLED:
+    # No unrelated SMTP/third-party Django mail may bypass the transport gate.
+    EMAIL_BACKEND = "accounts.controlled_email_backend.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_SETUP_ENCRYPTION_KEY = os.environ.get("EMAIL_SETUP_ENCRYPTION_KEY", "")
 EMAIL_PORT = _env_int("EMAIL_PORT", 587)
@@ -336,11 +384,15 @@ CACHES = {
         "TIMEOUT": _env_int("DJANGO_CACHE_TIMEOUT", 300),
     }
 }
+if CACHE_BACKEND == "django.core.cache.backends.redis.RedisCache":
+    CACHES["default"]["OPTIONS"] = {"socket_connect_timeout": 2, "socket_timeout": 2}
+    if CACHE_LOCATION.startswith("rediss://"):
+        CACHES["default"]["OPTIONS"].update(ssl_cert_reqs="required", ssl_check_hostname=True)
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_HSTS_SECONDS = _env_int("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0")
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_HSTS_PRELOAD = not DEBUG
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
+SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", False)

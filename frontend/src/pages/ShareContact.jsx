@@ -92,7 +92,7 @@ export default function ShareContact() {
     } finally { busy.current = false; setSaving(false); }
   }
   const change = event => setForm(current => ({ ...current, [event.target.name]: event.target.value }));
-  return <main className="share-contact-page"><section className="share-contact-panel">
+  return <main className="bp-public-auth bp-auth-contact share-contact-page"><section className="share-contact-panel">
     <p className="share-contact-eyebrow">Bharath Apps · Shared contact</p>
     <h1>Review contact</h1><p>Choose where to save this contact. Shared details are unverified.</p>
     {form.importError && <p className="share-contact-error" role="alert">{form.importError}</p>}

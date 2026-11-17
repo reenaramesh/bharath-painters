@@ -1,5 +1,7 @@
 """Resolve an allowlisted Google Maps link to structured place address fields."""
 
+import ipaddress
+import os
 import re
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
@@ -14,6 +16,76 @@ COORDINATE_PAIR = r"(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)"
 
 class MapLookupError(Exception):
     pass
+
+
+class _GoogleShortLinkAdapter(requests.adapters.HTTPAdapter):
+    """Connect to a resolved IP while verifying the original Google hostname."""
+
+    def __init__(self, hostname):
+        self.hostname = hostname
+        super().__init__(max_retries=0)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs.update(server_hostname=self.hostname, assert_hostname=self.hostname)
+        return super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
+
+
+def _short_link_via_public_dns(value):
+    """Recover from broken local DNS, only for the two fixed share-link hosts."""
+    parsed = _parsed_map_url(value)
+    if parsed.hostname not in SHORT_HOSTS or requests.utils.get_environ_proxies(value):
+        # Respect explicitly configured network proxies; never route around them.
+        raise MapLookupError("Could not open this short Maps link. Paste the full Google Maps link from your browser, or enter the address manually.")
+    with requests.get(
+        "https://dns.google/resolve",
+        params={"name": parsed.hostname, "type": "A"},
+        allow_redirects=False,
+        timeout=(3, 5),
+    ) as response:
+        if response.status_code != 200:
+            raise MapLookupError("Google Maps short-link lookup is unavailable. Paste the full Maps link or enter the address manually.")
+        payload = response.json()
+    if not isinstance(payload, dict) or payload.get("Status") != 0:
+        raise MapLookupError("Google Maps could not resolve this short link. Paste the full Maps link or enter the address manually.")
+    address = None
+    for answer in payload.get("Answer") or []:
+        if not isinstance(answer, dict) or answer.get("type") != 1:
+            continue
+        try:
+            candidate = ipaddress.ip_address(answer.get("data", ""))
+        except ValueError:
+            continue
+        if candidate.version == 4 and candidate.is_global and not candidate.is_multicast:
+            address = str(candidate)
+            break
+    if not address:
+        raise MapLookupError("Google Maps could not resolve this short link. Paste the full Maps link or enter the address manually.")
+    # Keep this adapter local to the request. No global resolver changes, private
+    # destinations, certificate bypasses, or automatic redirects are permitted.
+    with requests.Session() as session:
+        session.trust_env = False
+        session.mount("https://", _GoogleShortLinkAdapter(parsed.hostname))
+        with session.get(
+            parsed._replace(netloc=address, fragment="").geturl(),
+            headers={"Host": parsed.hostname},
+            verify=(os.environ.get("REQUESTS_CA_BUNDLE")
+                    or os.environ.get("CURL_CA_BUNDLE") or True),
+            allow_redirects=False,
+            stream=True,
+            timeout=(3, 5),
+        ) as response:
+            return response.status_code, response.headers.get("Location", "")
+
+
+def _open_short_link(value):
+    try:
+        with requests.get(value, allow_redirects=False, stream=True, timeout=(3, 5)) as response:
+            return response.status_code, response.headers.get("Location", "")
+    except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+        # DNS fallback must not hide a certificate failure or bypass a proxy.
+        raise
+    except requests.ConnectionError:
+        return _short_link_via_public_dns(value)
 
 
 def _google_error(response):
@@ -39,7 +111,8 @@ def _parsed_map_url(value):
         port = parsed.port
     except ValueError as exc:
         raise MapLookupError("Paste a valid HTTPS Google Maps link.") from exc
-    if parsed.scheme != "https" or parsed.hostname not in MAP_HOSTS or port is not None:
+    if (parsed.scheme != "https" or parsed.hostname not in MAP_HOSTS or port is not None
+            or parsed.username is not None or parsed.password is not None):
         raise MapLookupError("Paste an HTTPS Google Maps link.")
     return parsed
 
@@ -104,19 +177,23 @@ def lookup_google_map_link(value):
     if len(value) > 2048:
         raise MapLookupError("The Maps link is too long.")
     parsed = _parsed_map_url(value)
-    if parsed.hostname in SHORT_HOSTS:
+    for _ in range(3):
+        if parsed.hostname not in SHORT_HOSTS:
+            break
         try:
-            response = requests.get(value, allow_redirects=False, stream=True, timeout=5)
-            location = response.headers.get("Location", "")
-            status_code = response.status_code
-            response.close()
-        except requests.RequestException as exc:
-            raise MapLookupError("The server could not reach the Google Maps link. Check internet access from the backend server and try again.") from exc
+            status_code, location = _open_short_link(parsed.geturl())
+        except (requests.RequestException, ValueError) as exc:
+            raise MapLookupError("Could not open this short Maps link. Try again, paste the full Google Maps link from your browser, or enter the address manually.") from exc
         if status_code >= 400:
             raise MapLookupError(f"Google Maps could not open this share link (HTTP {status_code}). Copy a fresh place link from Google Maps.")
-        if not location:
+        if status_code not in (301, 302, 303, 307, 308) or not location:
             raise MapLookupError("Google Maps did not redirect this short link to a place. Copy a fresh place link from Google Maps.")
-        parsed = _parsed_map_url(urljoin(value, location))
+        next_url = urljoin(parsed.geturl(), location)
+        if len(next_url) > 8192:
+            raise MapLookupError("The Maps redirect link is too long. Copy a fresh place link from Google Maps.")
+        parsed = _parsed_map_url(next_url)
+    if parsed.hostname in SHORT_HOSTS:
+        raise MapLookupError("This Maps link redirects too many times. Paste the full Google Maps link from your browser.")
 
     params = parse_qs(parsed.query)
     place_id = (params.get("query_place_id") or [""])[0]

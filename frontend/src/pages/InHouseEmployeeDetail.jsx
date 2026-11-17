@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import "./painter-workspace-ui.css";
 import { Attendance, Summary } from "./InHouseApplicators";
@@ -134,7 +135,7 @@ export default function InHouseEmployeeDetail({ employeeId: embeddedId, embedded
     } finally { setSaving(false); }
   }
   async function removeEmployee() {
-    if (saving || !window.confirm(`Remove ${data.name} from the active employee list? Attendance, wages and the employee account will be kept. You can restore the employee from Edit profile.`)) return;
+    if (saving || !await confirmAction({ question: "Are you sure you want to remove this employee?", detail: data.name })) return;
     setSaving(true); setError("");
     try { await api.patch(`/jobs/in-house-applicators/${id}/`, { is_active: false }); navigate("/in-house-applicators"); }
     catch (error) { setError(error.response?.data?.detail || "Employee could not be removed."); }

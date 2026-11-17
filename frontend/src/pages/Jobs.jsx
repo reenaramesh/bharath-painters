@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { trackFeature } from '../analytics/features.js';
 import { Dialog } from "../components/ui/Dialog";
 import useAuth from "../context/useAuth";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -464,7 +465,7 @@ export default function Jobs() {
                         <Eye className="h-4 w-4" /> Manage applicants
                     </button>
                   ) : (
-                      <button onClick={() => setDetailJob(job)} className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bp-ui-action">
+                      <button onClick={() => { trackFeature('job_details_opened'); setDetailJob(job); }} className="job-primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bp-ui-action">
                       <Eye className="h-4 w-4" /> View details
                     </button>
                   )}

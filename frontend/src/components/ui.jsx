@@ -3,6 +3,7 @@ import { useId } from "react";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ScriptKnownText } from '../i18n/ScriptText';
 import { Button } from './ui/Button.jsx';
+import { AnimatedValue } from './dashboard/PilotMotion';
 
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
@@ -120,7 +121,7 @@ export function StatCard({ icon: Icon, label, value, hint, tone = "brand", class
         <span className={`bp-stat-icon bp-stat-${tone}`} aria-hidden="true">{Icon && <Icon />}</span>
         <span className="bp-stat-card-content">
           <span className="bp-stat-card-label">{label}</span>
-          <strong>{value ?? 0}</strong>
+          <strong>{Number.isSafeInteger(value) ? <AnimatedValue value={value} /> : value ?? 0}</strong>
           {hint && <small className="bp-stat-hint">{hint}</small>}
         </span>
       </button>
@@ -131,7 +132,7 @@ export function StatCard({ icon: Icon, label, value, hint, tone = "brand", class
       <span className={`bp-stat-icon bp-stat-${tone}`} aria-hidden={Icon ? "true" : undefined}>{Icon && <Icon />}</span>
       <div>
         <p>{label}</p>
-        <strong>{value ?? 0}</strong>
+        <strong>{Number.isSafeInteger(value) ? <AnimatedValue value={value} /> : value ?? 0}</strong>
         {hint && <small className="bp-stat-hint">{hint}</small>}
       </div>
     </article>
@@ -142,6 +143,7 @@ export function LoadingState({ label, className = "" }) {
     <div className={`bp-state ${className}`.trim()} role="status" aria-live="polite">
       <LoaderCircle className="bp-state-loader animate-spin" aria-hidden="true" />
       <p>{label || "Loading data..."}</p>
+      <div className="premium-loading-lines" aria-hidden="true"><span className="premium-skeleton" /><span className="premium-skeleton" /></div>
     </div>
   );
 }

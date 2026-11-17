@@ -1,10 +1,13 @@
 from datetime import timedelta
 import hashlib
 import secrets
+import re
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.urls import reverse
+from django.core import mail
+from django.core.cache import cache
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -17,6 +20,7 @@ from .legal import POLICY_VERSION
 class AuthenticationApiTests(APITestCase):
 
     def setUp(self):
+        cache.clear()
         self.password = "Strong-test-password-2026"
         self.user = BharathUser.objects.create_user(
             mobile="9000000001",
@@ -93,7 +97,7 @@ class AuthenticationApiTests(APITestCase):
     def test_google_login_links_one_existing_email_and_returns_jwt(self, verify_token):
         verify_token.return_value = {
             "sub": "google-user-123",
-            "email": "contractor@example.com",
+            "email": "recovery@example.com",
             "email_verified": True,
         }
         response = self.client.post(reverse("google-login"), {"credential": "signed-google-token"}, format="json")
@@ -141,10 +145,11 @@ class AuthenticationApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(requested.status_code, status.HTTP_200_OK)
-        self.assertIn("test_otp", requested.data)
+        self.assertNotIn("test_otp", requested.data)
+        code = re.search(r"code is (\d{6,10})", mail.outbox[-1].body).group(1)
         verified = self.client.post(
             reverse("forgot-password-verify"),
-            {"challenge_id": requested.data["challenge_id"], "otp": requested.data["test_otp"]},
+            {"challenge_id": requested.data["challenge_id"], "otp": code},
             format="json",
         )
         self.assertEqual(verified.status_code, status.HTTP_200_OK)
@@ -185,13 +190,15 @@ class AuthenticationApiTests(APITestCase):
             {"mobile": self.user.mobile, "role": "CONTRACTOR"},
             format="json",
         )
-        self.assertFalse(lookup.data["can_reset"])
+        self.assertTrue(lookup.data["can_reset"])  # Generic continuation, not account eligibility.
+        self.assertEqual(lookup.data["masked_email"], "")
         requested = self.client.post(
             reverse("forgot-password-request"),
             {"mobile": self.user.mobile, "role": "CONTRACTOR"},
             format="json",
         )
-        self.assertEqual(requested.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(requested.status_code, status.HTTP_200_OK)
+        self.assertFalse(PasswordResetOTP.objects.exists())
 
     def test_customer_lookup_does_not_match_a_contractor(self):
         response = self.client.post(
@@ -199,11 +206,9 @@ class AuthenticationApiTests(APITestCase):
             {"mobile": self.user.mobile, "role": "CUSTOMER"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(
-            response.data["detail"],
-            "Account not found. Please check your registered mobile number.",
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["masked_email"], "")
+        self.assertEqual(response.data["bharath_id"], "")
 
     @override_settings(DEBUG=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_authenticated_user_can_verify_and_change_recovery_email(self):
@@ -257,7 +262,10 @@ class AuthenticationApiTests(APITestCase):
             {"mobile": self.user.mobile, "role": "CONTRACTOR"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        # Account-specific limits remain private; no additional code is issued.
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(PasswordResetOTP.objects.count(), 5)
+        self.assertFalse(mail.outbox)
 
     @override_settings(DEBUG=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
     def test_recovery_otp_is_invalidated_after_five_wrong_attempts(self):
@@ -273,7 +281,7 @@ class AuthenticationApiTests(APITestCase):
                 {"challenge_id": challenge_id, "otp": "000000"},
                 format="json",
             )
-        challenge = PasswordResetOTP.objects.get(pk=challenge_id)
+        challenge = PasswordResetOTP.objects.get(user=self.user)
         self.assertTrue(challenge.is_used)
         self.assertEqual(challenge.attempts, 5)
 
@@ -503,7 +511,7 @@ class CustomerSelfRegistrationTests(APITestCase):
         self.addCleanup(override.disable)
         self.payload = {
             "name": "Independent customer", "mobile": "9888877777",
-            "email": "customer@example.com", "password": "customer-pass",
+            "email": "customer@example.com", "password": "River-bank-password-2026!",
             "policy_version": POLICY_VERSION, "document_scrolled": True,
             "terms_accepted": True, "privacy_notice_acknowledged": True,
         }
@@ -534,7 +542,7 @@ class CustomerSelfRegistrationTests(APITestCase):
         self.payload.update(mobile="+919888877777", password="replacement-pass")
         self.assertEqual(self.register().status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(BharathUser.objects.count(), 1)
-        self.assertTrue(BharathUser.objects.get().check_password("customer-pass"))
+        self.assertTrue(BharathUser.objects.get().check_password("River-bank-password-2026!"))
 
     def test_existing_other_role_is_rejected_without_creating_customer(self):
         from quotations.models import Customer

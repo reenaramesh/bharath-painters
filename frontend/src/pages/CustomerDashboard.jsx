@@ -177,7 +177,7 @@ export default function CustomerDashboard() {
           <div className="customer-dashboard-header-actions">{menuRouteEnabled(user?.role, menuVisibility, '/customer-quotations') && <Link to="/customer-quotations" className="bp-button bp-button-primary"><FileText size={17} aria-hidden="true" />View quotations</Link>}<Link to="/customer/profile" aria-label="Profile settings" className="bp-button bp-button-secondary customer-profile-action">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             <span className="customer-profile-action-label">Profile settings</span>
-          </Link><button type="button" onClick={load} aria-label="Refresh customer dashboard" className="bp-button bp-button-secondary customer-dashboard-refresh md:hidden bp-ui-icon-action"><RefreshCw size={17} /></button></div>
+          </Link><button type="button" onClick={load} disabled={loading} aria-busy={loading || undefined} aria-label="Refresh customer dashboard" className="bp-button bp-button-secondary customer-dashboard-refresh bp-ui-icon-action"><RefreshCw size={17} aria-hidden="true" /></button></div>
         }
       />
 

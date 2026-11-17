@@ -1,5 +1,9 @@
 from .views import QuotationDraftSaveView
+from .customer_contact_lookup import CustomerContactLookupView
+from .followup_finder import CustomerFollowUpCandidatesView
+from .lead_workflow_views import LeadSummaryView, LeadFollowUpView, LeadAssigneesView
 from .version_views import QuotationVersionSaveView
+from .catalogue_views import CatalogueListCreateView, CatalogueDetailView, CatalogueVersionCreateView, CatalogueVersionFileView
 from django.urls import path
 from .push_views import WebPushSubscriptionView
 from .workflow_dashboard import ContractorWorkflowAttentionView
@@ -130,6 +134,10 @@ from .views import ClientSearchView, SiteVisitListCreateView, SiteVisitDetailVie
 
 
 urlpatterns = [
+    path("catalogues/", CatalogueListCreateView.as_view(), name="catalogue-list"),
+    path("catalogues/<int:pk>/", CatalogueDetailView.as_view(), name="catalogue-detail"),
+    path("catalogues/<int:pk>/versions/", CatalogueVersionCreateView.as_view(), name="catalogue-version-create"),
+    path("catalogues/<int:pk>/versions/<int:version_id>/file/", CatalogueVersionFileView.as_view(), name="catalogue-version-file"),
     path("<int:pk>/versions/", QuotationVersionSaveView.as_view(), name="quotation-version-save"),
     path("<int:pk>/draft/", QuotationDraftSaveView.as_view(), name="quotation-draft-save"),
     path("push-subscription/", WebPushSubscriptionView.as_view(), name="push-subscription"),
@@ -143,6 +151,8 @@ urlpatterns = [
     path("work-changes/<int:pk>/cancel/", WorkChangeCancelView.as_view(), name="work-change-cancel"),
     path("customer-portal/work-changes/<int:pk>/<str:action>/", CustomerWorkChangeActionView.as_view(), name="customer-work-change-action"),
     path("<int:quotation_id>/current-scope/", WorkChangeScopeView.as_view(), name="work-change-current-scope"),
+    path("customers/lookup-contact/", CustomerContactLookupView.as_view(), name="customer-contact-lookup"),
+    path("customers/follow-up-candidates/", CustomerFollowUpCandidatesView.as_view(), name="customer-follow-up-candidates"),
     path("customers/check-mobile/", CustomerMobileCheckView.as_view(), name="customer-check-mobile"),
     path("customers/<int:pk>/share-link/", CustomerShareLinkCreateView.as_view(), name="customer-share-link-create"),
     path("customer-link/<str:token>/", CustomerShareLinkView.as_view(), name="customer-share-link"),
@@ -225,6 +235,9 @@ path("master-data/<str:section>/reorder/", MasterDataReorderView.as_view(), name
     path("service-requests/options/", ServiceRequestOptionsView.as_view(), name="service-request-options"),
     path("service-requests/<int:pk>/", ServiceRequestDetailView.as_view(), name="service-request-detail"),
     path("leads/", LeadListCreateView.as_view(), name="lead-list"),
+    path("leads/summary/", LeadSummaryView.as_view(), name="lead-summary"),
+    path("leads/assignees/", LeadAssigneesView.as_view(), name="lead-assignees"),
+    path("leads/<int:pk>/follow-ups/", LeadFollowUpView.as_view(), name="lead-follow-ups"),
     path("leads/<int:pk>/", LeadDetailView.as_view(), name="lead-detail"),
     path("clients/search/", ClientSearchView.as_view(), name="client-search"),
     path("site-visits/", SiteVisitListCreateView.as_view(), name="site-visit-list"),

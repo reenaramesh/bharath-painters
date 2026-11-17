@@ -20,6 +20,13 @@ def verified_employee_contractor(user):
                 and user.is_verified and user.verification_status == BharathUser.VerificationStatus.VERIFIED)
 
 
+def owns_pending_employee_setup(member):
+    # Account setup belongs to the original employment relationship. Older
+    # secondary links must not become a password-setup authority retroactively.
+    first = ContractorApplicatorTeam.objects.filter(painter_id=member.painter_id).order_by("added_at", "pk").values_list("pk", flat=True).first()
+    return first == member.pk
+
+
 def employee_account_data(member, actor):
     employee = member.painter
     registered = employee.has_usable_password()
@@ -31,6 +38,7 @@ def employee_account_data(member, actor):
             and employee.verification_status == BharathUser.VerificationStatus.VERIFIED
             and member.is_active and member.employment_type == ContractorApplicatorTeam.EmploymentType.IN_HOUSE
             and member.contractor_id == actor.pk and verified_employee_contractor(actor)
+            and owns_pending_employee_setup(member)
         ),
     }
 

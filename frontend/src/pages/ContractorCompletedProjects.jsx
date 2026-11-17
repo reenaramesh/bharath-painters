@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { PageHeader } from "../components/ui";
 import "./crm-pages.css";
 
@@ -71,6 +72,8 @@ export default function ContractorCompletedProjects() {
   }
 
   async function deleteProject(projectId) {
+    const project = projects.find(item => item.id === projectId);
+    if (!await confirmAction({ question: "Are you sure you want to delete this completed project?", detail: project?.title })) return;
     setError("");
     try {
       await api.delete(`/accounts/profile-card/projects/${projectId}/`);

@@ -1,5 +1,6 @@
 import GroupedMasterChoice from "./GroupedMasterChoice.jsx";
 import PaintingItemDialog from "./PaintingItemDialog.jsx";
+import { confirmAction } from "../utils/confirmAction.js";
 import AssignmentLineItems from './AssignmentLineItems.jsx';
 import QuotationAssignmentActions from './QuotationAssignmentActions.jsx';
 import useMobileView from '../hooks/useMobileView.js';
@@ -80,9 +81,9 @@ function AssignmentDialog({ editor, state, onSave, onClose, recovery, onRecovery
     ? { id: recovery?.draft?.id || nextId("special"), name: "Texture Wall", room_id: editor.initialRoomId ?? measurement.rooms[0]?.id ?? "", surface_ids: [], spec: { ...defaultSpec, service_category: masters.categories.find((entry) => /texture/i.test(entry.name))?.id || defaultSpec.service_category, paint_type: "" } }
     : { id: recovery?.draft?.id || nextId("group"), name: "", surface: initialSurface, surfaces: initialSurface ? [initialSurface] : [], room_ids: initialRoomIds.filter((id) => !assignedGroup(state.groups, id, initialSurface) && roomContribution(measurement, state.specials, id, initialSurface).quantity > 0), spec: { ...defaultSpec } });
   const [draft, setDraft] = useState(() => recovery?.draft ?? initialDraft);
-  const requestClose = () => {
+  const requestClose = async () => {
     const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || rate !== initialRate;
-    if (dirty && !window.confirm("Discard unsaved changes in this form? Choose Cancel to keep editing.")) return;
+    if (dirty && !await confirmAction({ question: "Are you sure you want to discard these changes?" })) return;
     onClose();
   };
   useEffect(() => { onRecovery?.({ editor, draft, rate, stage }); }, [onRecovery, editor, draft, rate, stage]);
@@ -177,9 +178,9 @@ function GeneralServiceDialog({ editor, state, onClose, onSave, recovery, onReco
   const quantityMissing = draft.quantity === "" || !Number.isFinite(Number(draft.quantity)) || Number(draft.quantity) <= 0;
   const rateMissing = rate === "" || !Number.isFinite(Number(rate)) || Number(rate) < 0;
   useEffect(() => setError(""), [draft, rate]);
-  const requestClose = () => {
+  const requestClose = async () => {
     const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || rate !== initialRate;
-    if (dirty && !window.confirm("Discard unsaved changes in this form? Choose Cancel to keep editing.")) return;
+    if (dirty && !await confirmAction({ question: "Are you sure you want to discard these changes?" })) return;
     onClose();
   };
   useEffect(() => { onRecovery?.({ editor, draft, rate }); }, [onRecovery, editor, draft, rate]);
@@ -264,8 +265,8 @@ export default function GroupedQuotationWorkspace({ measurement, masters, state,
   const squareFeetUnit = masters.units.find((entry) => /^(sq\.?\s*(?:ft|feet)|sqft|square feet|square foot|sft|sq ft)$/i.test(entry.name.trim()))?.id || masters.units[0]?.id;
   const defaultSpec = { service_category: painting?.id || masters.categories[0]?.id || "", paint_brand: "", paint_type: "", primer_coats: 1, coats: 2, description: "" };
   const edit = (line) => setEditor({ kind: line.kind, value: (state[line.kind === "special" ? "specials" : line.kind === "service" ? "services" : "groups"] || []).find((entry) => entry.id === line.id) });
-  const removeAssignment = line => {
-    if (!window.confirm(`Delete ${line.name}? Its selections will become available again.`)) return;
+  const removeAssignment = async line => {
+    if (!await confirmAction({ question: "Are you sure you want to delete this assignment?", detail: line.name })) return;
     onChange(deleteAssignment(state, line.id, line.kind));
     setNotice("Assignment deleted. Remaining areas recalculated.");
   };

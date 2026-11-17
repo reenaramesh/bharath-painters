@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Camera, Download, Image, Plus, Search, Trash2, X } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import useAuth from "../context/useAuth";
 import { EmptyState, ErrorState, LoadingState, PageHeader, SectionCard, StatusBadge } from "../components/ui";
 
@@ -36,26 +37,40 @@ export default function WorkPhotos() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const loadVersion = useRef(0);
   const canUpload = ["CONTRACTOR", "PAINTER"].includes(user?.role);
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    const version = ++loadVersion.current;
+    if (!background) setLoading(true);
     try {
       const { data: response } = await api.get("/jobs/work-photos/", {
         params: { ...(schedule ? { schedule } : {}), ...(propertyId ? { property_id: propertyId } : {}) },
       });
-      setData(response);
-      setError("");
+      if (version === loadVersion.current) {
+        setData(response);
+        setError("");
+      }
     } catch (requestError) {
-      setError(
+      if (version === loadVersion.current) setError(
         requestError.response?.data?.detail ||
           "Work photos could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [schedule, propertyId]);
   useEffect(() => {
     load();
+    // Image links expire after 15 minutes. Refresh while the gallery is open
+    // and on return to the tab, without hiding already loaded photos.
+    const refresh = () => { if (!document.hidden) load(true); };
+    const timer = window.setInterval(refresh, 10 * 60 * 1000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      loadVersion.current += 1;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
   }, [load]);
   const photos = useMemo(
     () =>
@@ -113,7 +128,7 @@ export default function WorkPhotos() {
     }
   }
   async function remove(item) {
-    if (!window.confirm("Delete this work photo?")) return;
+    if (!await confirmAction({ question: "Are you sure you want to delete this work photo?", detail: item.caption || item.quotation_number })) return;
     try {
       await api.delete(`/jobs/work-photos/${item.id}/`);
       await load();

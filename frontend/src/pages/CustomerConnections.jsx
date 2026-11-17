@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { Dialog } from "../components/ui/Dialog";
 import "../styles/contractor-people-ui.css";
 import ContractorConnectSearch from "../components/ContractorConnectSearch";
@@ -92,7 +93,11 @@ export default function CustomerConnections() {
   }, []);
 
   async function act(item, action, payload = {}) {
-    if (!window.confirm(confirmText(item, action))) return;
+    if (["disconnect", "remove", "reject"].includes(action)) {
+      const question = action === "reject" ? "Are you sure you want to reject this connection request?"
+        : "Are you sure you want to remove this contractor connection?";
+      if (!await confirmAction({ question, detail: item.contractor?.business_name })) return;
+    } else if (!window.confirm(confirmText(item, action))) return;
     setBusy(true);
     setError("");
     try {

@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Palette, LifeBuoy } from "lucide-react";
 import useAuth from "../context/useAuth";
 import api from "../api/client";
+import { useAuthLifecycle } from "../utils/authFlow.js";
 import "../styles/auth-reference.css";
 import { Dialog } from "../components/ui/Dialog";
 import ServiceIllustration from "../components/ServiceIllustration";
@@ -10,6 +11,8 @@ import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Login() {
+  const active = useAuthLifecycle();
+  const signInPending = useRef(false);
   const { t } = useLanguage();
   const { user, login, googleLogin } = useAuth();
   const navigate = useNavigate();
@@ -35,15 +38,20 @@ export default function Login() {
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: async ({ credential }) => {
+          if (!active || signInPending.current) return;
+          signInPending.current = true;
           setError("");
           setLoading(true);
           try {
             const signedInUser = await googleLogin(credential);
+            if (!active) return;
             navigate(location.state?.from?.pathname || (signedInUser.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard"), { replace: true });
           } catch (requestError) {
+            if (!active) return;
             setError(requestError.response?.data?.error || "Google Sign-In could not be completed.");
           } finally {
-            setLoading(false);
+            signInPending.current = false;
+            if (active) setLoading(false);
           }
         },
       });
@@ -76,16 +84,21 @@ export default function Login() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (loading || signInPending.current) return;
+    signInPending.current = true;
     setError("");
     setLoading(true);
     try {
       const signedInUser = await login(identifier.trim(), password);
+      if (!active.current) return;
       navigate(location.state?.from?.pathname || (signedInUser.role === "CUSTOMER" ? "/customer-dashboard" : "/dashboard"), { replace: true });
     } catch (requestError) {
+      if (!active.current) return;
       const status = requestError.response?.status;
       setError(requestError.response?.data?.error || requestError.response?.data?.detail || (!requestError.response || status === 502 || status === 503 ? "The server is offline. Start the Django backend and try again." : "Unable to sign in. Please try again."));
     } finally {
-      setLoading(false);
+      signInPending.current = false;
+      if (active.current) setLoading(false);
     }
   }
 
@@ -106,7 +119,7 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-reference-page min-h-screen bg-slate-950 grid lg:grid-cols-2">
+    <main className="bp-public-auth bp-auth-login auth-reference-page min-h-screen bg-slate-950 grid lg:grid-cols-2">
       <section className="auth-brand-panel hidden lg:flex p-14 flex-col justify-between text-white bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-400 text-slate-950"><Palette /></span>
@@ -131,6 +144,7 @@ export default function Login() {
           <p className="text-slate-500 mt-2">{t("auth:signInHint")}</p>
           {location.state?.registered && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Registration successful. Your verified profile, Bharath ID and QR badge are ready. Sign in to continue.</p>}
           {location.state?.customerRegistered && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Customer account created. Sign in to open your messages.</p>}
+          {location.state?.emailVerified && <p role="status" className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Email verified. Sign in to continue.</p>}
           {location.state?.passwordReset && <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Password reset successful. Sign in with your new password.</p>}
 
           {googleClientId && <div className="mt-8">
@@ -138,27 +152,28 @@ export default function Login() {
             <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>or use mobile / email</span><span className="h-px flex-1 bg-slate-200" /></div>
           </div>}
 
-          <form onSubmit={handleSubmit} className={`${googleClientId ? "" : "mt-8"} space-y-5`}>
+          <form aria-busy={loading} onSubmit={handleSubmit} className={`${googleClientId ? "" : "mt-8"} space-y-5`}>
             <label className="block text-sm font-semibold text-slate-700">
               {t("auth:identifier")}
-              <input required type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={t("auth:identifierPlaceholder")} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200 bp-ui-control" />
+              <input aria-describedby="login-error" aria-invalid={Boolean(error)} disabled={loading} required type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={t("auth:identifierPlaceholder")} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200 bp-ui-control" />
             </label>
             <label className="block text-sm font-semibold text-slate-700">
               {t("password")}
               <span className="relative mt-2 block">
-                <input required type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-4 pr-12 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
+                <input aria-describedby="login-error" aria-invalid={Boolean(error)} disabled={loading} required type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-4 pr-12 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
                 <button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 grid w-11 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 bp-ui-action">
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </span>
             </label>
             <div className="text-right"><Link to="/forgot-password" className="text-sm font-semibold text-slate-700 hover:text-slate-950">Forgot password?</Link></div>
-            {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+            <p id="login-error" role="alert" className={error ? "rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" : "sr-only"}>{error}</p>
             <button disabled={loading} className="w-full rounded-xl bg-slate-950 px-5 py-3.5 font-semibold text-white flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-60 bp-ui-action">
                {loading ? t("auth:signingIn") : t("signIn")}<ArrowRight className="w-4 h-4" />
             </button>
           </form>
           <p className="mt-6 text-center text-sm text-slate-500">New to Bharath Apps? <Link to="/register" className="font-semibold text-slate-950">Create an account</Link></p>
+          <p className="mt-3 text-center text-sm text-slate-500">Need to finish email verification? <Link to="/verify-email" className="font-semibold text-slate-950">Verify your email</Link></p>
           <p className="mt-3 text-center text-sm text-slate-500">Are you a customer? <Link to="/customer-register" className="font-semibold text-slate-950">Create customer login</Link></p>
           <div className="signin-language mt-6 flex justify-center border-t border-slate-200 pt-4"><LanguageSelector /></div>
           <button type="button" onClick={() => { setSupportOpen(true); setSupportMessage(""); }} className="mx-auto mt-6 flex items-center gap-2 text-sm font-semibold text-[#176b9b] bp-ui-action"><LifeBuoy className="h-4 w-4" />Support Desk</button>

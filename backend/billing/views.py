@@ -1,3 +1,5 @@
+from quotations.customer_contacts import contractor_customer_details
+from quotations.document_identity import quotation_party_details
 from django.db import models, transaction
 from django.db.models import Q, Sum
 from django.db.models.functions import TruncMonth
@@ -468,7 +470,7 @@ class ContractorRevenueView(APIView):
         for item in filtered_advances.order_by("-payment_confirmed_at"):
             receipts.append({
                 "id": f"advance-{item.id}", "kind": "ADVANCE", "date": item.payment_confirmed_at,
-                "receipt_number": item.advance_receipt_number, "customer": item.quotation.customer.name,
+                "receipt_number": item.advance_receipt_number, "customer": quotation_party_details(item.quotation)[0]["name"],
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode or "OTHER",
                 "reference": item.payment_reference, "amount": item.advance_amount,
@@ -478,7 +480,7 @@ class ContractorRevenueView(APIView):
         for item in filtered_manual.order_by("-received_date", "-id"):
             receipts.append({
                 "id": f"quotation-{item.id}", "kind": "QUOTATION RECEIPT", "date": item.received_date,
-                "receipt_number": item.receipt_number, "customer": item.quotation.customer.name,
+                "receipt_number": item.receipt_number, "customer": quotation_party_details(item.quotation)[0]["name"],
                 "project": item.quotation.property.name or item.quotation.property.property_type,
                 "document": item.quotation.quotation_number, "mode": item.payment_mode,
                 "reference": item.payment_reference, "amount": item.amount,
@@ -505,7 +507,7 @@ class ContractorRevenueView(APIView):
                 continue
             key = customer.id
             row = due_map.setdefault(key, {
-                "customer_id": customer.id, "customer": customer.name, "mobile": customer.mobile,
+                "customer_id": customer.id, "customer": contractor_customer_details(customer, request.user)["name"], "mobile": contractor_customer_details(customer, request.user)["mobile"],
                 "bharath_id": customer.bharath_id, "invoice_count": 0, "billed": Decimal("0"),
                 "received": Decimal("0"), "due": Decimal("0"), "invoices": [], "projects": [],
             })
@@ -549,7 +551,7 @@ def contractor_receipt_quotations(contractor):
         if Quotation.objects.filter(Q(pk=root_id) | Q(revision_of_id=root_id), version_number__gt=quotation.version_number).exists():
             continue
         rows.append({
-            "id": quotation.id, "number": quotation.quotation_number, "customer": quotation.customer.name, "status": quotation.status,
+            "id": quotation.id, "number": quotation.quotation_number, "customer": quotation_party_details(quotation)[0]["name"], "status": quotation.status,
             "project": quotation.property.name or quotation.property.property_type,
             "total": quotation.grand_total, "received": received,
             "balance": max(quotation.grand_total - received, Decimal("0")),
@@ -936,7 +938,7 @@ class ContractorCustomerProjectFinanceView(APIView):
             })
         projects, totals = build_project_ledger(quotations, receipts, invoices, True, True)
         return Response({
-            "customer": {"id": customer.id, "name": customer.name, "bharath_id": customer.bharath_id},
+            "customer": {"id": customer.id, "name": contractor_customer_details(customer, request.user)["name"], "bharath_id": customer.bharath_id},
             "projects": projects,
             **totals,
             "receipts": sorted(receipts, key=lambda row: str(row["date"] or ""), reverse=True),

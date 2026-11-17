@@ -1,6 +1,8 @@
 from django.urls import path
 from .overtime import InHouseOvertimeSettingsView
 from .employee_accounts import EmployeeActivationLinkView, RegisteredEmployeeSearchView
+from .photo_delivery import WorkPhotoImageView
+from .schedule_work_items import ScheduleWorkItemsView
 
 from .views import (
     JobCreateView, JobActivityView,
@@ -26,6 +28,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("work-photos/<int:pk>/image/", WorkPhotoImageView.as_view(), name="work-photo-image"),
     path("my-team/employee-activation/<str:token>/", InHouseEmployeeActivationView.as_view(), name="in-house-employee-activation"),
     path("activity/", JobActivityView.as_view(), name="job-activity"),
     path("seeking/", PainterSeekingListCreateView.as_view(), name="painter-seeking-list"),
@@ -62,6 +65,8 @@ path("my-in-house-earnings/", MyInHouseEarningsView.as_view(), name="my-in-house
     path("applicator-bookings/search/", ApplicatorBookingSearchView.as_view(), name="applicator-booking-search"),
     path("applicator-bookings/<int:pk>/action/", ApplicatorBookingActionView.as_view(), name="applicator-booking-action"),
     path("work-schedules/", WorkScheduleListCreateView.as_view(), name="work-schedule-list"),
+    path("work-schedules/<int:pk>/work-items/", ScheduleWorkItemsView.as_view(), name="schedule-work-items"),
+    path("work-schedules/<int:pk>/work-items/<int:item_id>/", ScheduleWorkItemsView.as_view(), name="schedule-work-item-update"),
     path("work-schedules/<int:pk>/accept/", WorkScheduleAcceptView.as_view(), name="work-schedule-accept"),
     path("work-schedules/<int:pk>/painters/", WorkSchedulePainterView.as_view(), name="work-schedule-painters"),
     path("hiring-outcomes/<str:source_type>/<int:source_id>/assign/", HiringOutcomeScheduleAssignmentView.as_view(), name="hiring-outcome-schedule-assignment"),

@@ -41,16 +41,17 @@ test('employee form calls its trade field Service category in the interface', ()
   assert.match(create, /trade:\s*form\.trade\s*===\s*"Other"/);
 });
 
-test('customer follow-up cards use reduced square dimensions on narrow screens', () => {
+test('follow-up records use responsive columns and stack on narrow phones', () => {
   const styles = source('../pages/tasks.css');
   assert.match(styles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.doesNotMatch(styles, /@media\s*\(max-width:\s*380px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  assert.match(styles, /min-height:\s*180px/);
+  assert.match(styles, /@media\s*\(max-width:\s*389px\)[\s\S]*?\.task-result-row\s*\{\s*grid-template-columns:\s*minmax\(0,1fr\)/);
+  assert.match(styles, /\.task-action\s*\{[^}]*min-height:\s*44px/);
 });
 
 test('opportunities workspace presents the existing CRM records as Leads', () => {
   const opportunities = source('../pages/Opportunities.jsx');
-  assert.match(opportunities, /title="Leads"/);
+  assert.match(opportunities, /title=\{contractor\s*\?\s*"Leads & follow-ups"\s*:\s*"My leads"\}/);
   assert.match(opportunities, /New lead/);
   assert.doesNotMatch(opportunities, /Sales Opportunities|Opportunity records|No opportunities found/);
 });

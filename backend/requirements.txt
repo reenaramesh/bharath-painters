@@ -11,11 +11,13 @@ et_xmlfile==2.0.0
 gunicorn==26.2.0
 google-auth>=2.0,<3
 requests>=2.31,<3
+redis==6.4.0
 openpyxl==3.1.5
 pillow==12.3.0
 phonenumbers==9.0.40
 psycopg2-binary==2.9.13
 PyJWT==2.15.0
+python-dotenv==1.2.4
 pywebpush==2.5.0
 pymupdf==1.28.2
 pypdf==6.19.0

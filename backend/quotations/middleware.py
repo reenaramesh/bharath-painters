@@ -46,6 +46,7 @@ class ActivityLogMiddleware:
             and (is_login or (user and user.is_authenticated))
             and request.path.startswith("/api/")
             and "activity-logs" not in request.path
+            and not request.path.startswith('/api/application-analytics/')
             and "/token/" not in request.path
         )
 
@@ -76,6 +77,10 @@ class ActivityLogMiddleware:
         )
 
     def _safe_payload(self, request):
+        # Work-item notes are contractor-private. Audit the operation and its
+        # response status, never copy note/scope content into general logs.
+        if re.fullmatch(r"/api/jobs/work-schedules/\d+/work-items/\d+/", request.path):
+            return {"work_item_update": True}
         if request.method not in {"POST", "PUT", "PATCH"} or not request.body:
             return {}
         try:

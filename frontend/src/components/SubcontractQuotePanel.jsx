@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileSignature, Send, ThumbsDown, ThumbsUp } from "lucide-react";
 import api from "../api/client";
+import { confirmAction } from "../utils/confirmAction.js";
 import { StatusBadge } from "./ui";
 import { apiErrorMessage, prettyDate, rupees } from "../utils/subcontract";
 
@@ -14,6 +15,11 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [quoteDirty, setQuoteDirty] = useState(false);
+  const closeEditor = async () => {
+    if (busy || (quoteDirty && !await confirmAction({ question: "Are you sure you want to discard these quote changes?" }))) return;
+    setEditing(false); setQuoteDirty(false);
+  };
 
   const run = async (action) => {
     setError("");
@@ -42,7 +48,8 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
         </div>
         {!isMain && QUOTABLE.includes(workOrder.status) && (
           <button
-            onClick={() => setEditing((open) => !open)}
+            disabled={busy}
+            onClick={() => editing ? closeEditor() : setEditing(true)}
             className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white bp-ui-action"
           >
             {editing ? "Close" : current?.status === "DRAFT" ? "Edit price" : "New price"}
@@ -57,7 +64,8 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
           workOrder={workOrder}
           quote={current?.status === "DRAFT" ? current : null}
           busy={busy}
-          onCancel={() => setEditing(false)}
+          onCancel={closeEditor}
+          onDirtyChange={setQuoteDirty}
           onSubmit={async (payload) => {
             await run(async () => {
               await api.post(`/outsourcing/work-orders/${workOrder.id}/quotes/`, {
@@ -65,6 +73,7 @@ export default function SubcontractQuotePanel({ workOrder, isMain, onChanged }) 
                 ...payload,
               });
               setEditing(false);
+              setQuoteDirty(false);
             });
           }}
         />
@@ -240,7 +249,7 @@ function RejectQuote({ workOrder, quote, busy, onRun }) {
   );
 }
 
-function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
+function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel, onDirtyChange }) {
   // Reuse the shared scopes when they exist so the price cannot drift away from
   // the work description, otherwise start from one blank line.
   const [lines, setLines] = useState(() =>
@@ -265,11 +274,19 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
   const [taxAmount, setTaxAmount] = useState(String(quote?.tax_amount ?? "0"));
   const [terms, setTerms] = useState(quote?.terms || "");
   const [notes, setNotes] = useState(quote?.notes || "");
+  const snapshot = JSON.stringify({ lines, taxAmount, terms, notes });
+  const initialSnapshot = useRef(snapshot);
+  useEffect(() => { onDirtyChange(snapshot !== initialSnapshot.current); }, [snapshot, onDirtyChange]);
 
   const update = (index, patch) =>
     setLines((current) =>
       current.map((line, position) => (position === index ? { ...line, ...patch } : line)),
     );
+  const removeLine = async (line) => {
+    const entered = line.description_snapshot?.trim() || line.specification?.trim() || line.unit_name_snapshot || line.unit_rate !== "" || (line.quantity !== "" && line.quantity !== "1") || line.is_optional;
+    if (entered && !await confirmAction({ question: "Are you sure you want to remove this quote line?", detail: line.description_snapshot })) return;
+    setLines(current => current.filter(row => row !== line));
+  };
 
   const estimated = lines.reduce(
     (sum, line) => sum + Number(line.quantity || 0) * Number(line.unit_rate || 0),
@@ -278,6 +295,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
 
   return (
     <form
+      data-popup-protection="handled"
       className="mt-5 space-y-4 rounded-xl bg-slate-50 p-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -363,7 +381,7 @@ function QuoteForm({ workOrder, quote, busy, onSubmit, onCancel }) {
               {lines.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
+                  onClick={() => removeLine(line)}
                   className="text-sm font-semibold text-red-600 bp-ui-action"
                 >
                   Remove
